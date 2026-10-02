@@ -1,0 +1,104 @@
+{
+  "slug": "_scaffold",
+  "source": "docs/architecture-map.md (mode: greenfield-bootstrap)",
+  "smoke_test": "pnpm install && pnpm lint && pnpm typecheck && pnpm test && pnpm build all succeed; `vite preview` serves /imgly/ and the app mounts EditorView (e2e smoke); the IndexedDB migration runner opens the DB at the latest version under fake-indexeddb",
+  "tasks": [
+    {
+      "id": "S1",
+      "title": "Create the Vite + Vue 3 + TS project, folder structure and entry point",
+      "layer": "scaffold",
+      "deps": [],
+      "acs": [],
+      "dod": "`pnpm build` (vue-tsc -b && vite build) succeeds; `src/main.ts` mounts `App.vue`, which renders `EditorView`; folders src/{app,core,render,infra/db,infra/platform,shared/ui,shared/styles,features/editor} exist with an index.ts each; Vite `base` is `/imgly/`; strict tsconfig with the `@/` alias",
+      "files_hint": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "vite.config.ts",
+        "tsconfig.json",
+        "tsconfig.app.json",
+        "tsconfig.node.json",
+        "index.html",
+        "src/main.ts",
+        "src/app/App.vue",
+        "src/core/index.ts",
+        "src/core/result.ts",
+        "src/core/document.ts",
+        "src/render/index.ts",
+        "src/infra/platform/index.ts",
+        "src/shared/ids.ts",
+        "src/shared/ui/BaseButton.vue",
+        "src/shared/styles/tokens.css",
+        "src/features/editor/index.ts",
+        "src/features/editor/EditorView.vue",
+        "src/features/editor/store.ts"
+      ]
+    },
+    {
+      "id": "S2",
+      "title": "Wire the test harness (Vitest + happy-dom + Playwright) and the smoke tests",
+      "layer": "scaffold",
+      "deps": ["S1"],
+      "acs": [],
+      "dod": "`pnpm test` (vitest run) is green, with `src/app/smoke.test.ts` mounting App and finding EditorView and `src/core/result.test.ts` covering ok/err; `pnpm test:e2e` (playwright, chromium, against `vite preview`) passes `e2e/smoke.spec.ts`: the page at /imgly/ loads and shows the editor",
+      "files_hint": [
+        "vitest.config.ts",
+        "playwright.config.ts",
+        "src/app/smoke.test.ts",
+        "src/core/result.test.ts",
+        "e2e/smoke.spec.ts"
+      ]
+    },
+    {
+      "id": "S3",
+      "title": "Set up the IndexedDB migration runner (idb) with the 0001-init step",
+      "layer": "scaffold",
+      "deps": ["S1", "S2"],
+      "acs": [],
+      "dod": "`openDb()` applies the ordered steps in `src/infra/db/migrations/` and creates the `works` store (keyPath `id`, index `updatedAt`); `src/infra/db/migrations.test.ts` (fake-indexeddb/auto) proves a fresh DB reaches the latest version and a re-open is a no-op; `newId()` returns UUIDv7 and has a test",
+      "files_hint": [
+        "src/infra/db/index.ts",
+        "src/infra/db/open-db.ts",
+        "src/infra/db/migrations/index.ts",
+        "src/infra/db/migrations/0001-init.ts",
+        "src/infra/db/migrations.test.ts",
+        "src/shared/ids.test.ts"
+      ]
+    },
+    {
+      "id": "S4",
+      "title": "Add lint/format/typecheck tooling and the core import boundary",
+      "layer": "scaffold",
+      "deps": ["S1"],
+      "acs": [],
+      "dod": "`pnpm lint` (eslint flat config: typescript-eslint + eslint-plugin-vue + prettier compat) and `pnpm typecheck` (vue-tsc --noEmit) pass; `no-restricted-imports` forbids `vue`, `pinia` and `@/features|@/infra|@/render` inside `src/core/**`",
+      "files_hint": ["eslint.config.js", ".prettierrc", ".prettierignore", ".editorconfig"]
+    },
+    {
+      "id": "S5",
+      "title": "Add the PWA layer (vite-plugin-pwa manifest + service worker)",
+      "layer": "scaffold",
+      "deps": ["S1", "S2"],
+      "acs": [],
+      "dod": "the build emits `manifest.webmanifest` (scope and start_url `/imgly/`, display standalone, icons 192/512/maskable) and a Workbox SW that precaches the app shell; `src/app/pwa.ts` registers it; the e2e smoke extends to: after first load, going offline and reloading still renders the editor",
+      "files_hint": ["vite.config.ts", "src/app/pwa.ts", "public/icons/", "e2e/smoke.spec.ts"]
+    },
+    {
+      "id": "S6",
+      "title": "Add the CI workflow (lint, typecheck, unit, build, e2e) and the GitHub Pages deploy",
+      "layer": "scaffold",
+      "deps": ["S2", "S4", "S5"],
+      "acs": [],
+      "dod": "`.github/workflows/ci.yml` is valid YAML, uses pnpm + Node 24 and runs the same commands as package.json scripts (`pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm test:e2e`); a deploy job on `main` uploads `dist/` with actions/upload-pages-artifact + actions/deploy-pages",
+      "files_hint": [".github/workflows/ci.yml"]
+    },
+    {
+      "id": "S7",
+      "title": "Write CLAUDE.md and README from the foundation conventions",
+      "layer": "scaffold",
+      "deps": ["S1", "S3", "S4"],
+      "acs": [],
+      "dod": "CLAUDE.md lists the commands, module boundaries, the Result/error, ID, migration, test and styling conventions exactly as in docs/architecture-map.md and links the ADRs; README has run, test and deploy instructions",
+      "files_hint": ["CLAUDE.md", "README.md"]
+    }
+  ]
+}
