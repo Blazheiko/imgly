@@ -64,37 +64,42 @@ target_surfaces: []  # filled in §4 — subset of: backend-service | web-fronte
 
 ## 3. Context and scope
 
-<!-- 🎯 Why: draws the SYSTEM BOUNDARY — who talks to it from outside, where the trust zone ends.
-     Without §3, §5 and §8 (authorization) blur — unclear what's «inside» vs «outside».
-     📋 Write: 2–3 sentences of business context + an external-systems table + a C4Context block.
-     📌 «External: none (deliberate, no third-party in v1)» is itself a decision worth stating.
-     Trust boundary — the line past which you don't trust data without checking it.
-     Never N/A — greenfield still draws the planned actors + external systems. -->
+imgly-editor is an offline, client-only image editor that runs entirely in the browser tab. open-and-view is its intake: the only place where untrusted files from the Editor's computer enter the app, and the first thing a Portfolio reviewer tries. Nothing in this feature talks to a server: GitHub Pages serves the static app shell once, and every image stays on the device.
 
-<Business context in 2–3 sentences. What the system does for whom.>
+<!-- brownfield: N/A — greenfield repo. No source exists yet; the target foundation is docs/architecture-map.md (mode: greenfield-bootstrap) + repo ADRs 0001–0004, materialized by /sdd:scaffold. -->
 
-<!-- brownfield: <one-line scan summary> (or «N/A — greenfield repo» if no source existed) -->
+**Trust boundary.** Every byte that arrives from the operating system (a chosen or dropped file) is untrusted until the app has judged it by content and checked its declared size (spec §6.1). The browser's own decoders and GPU are trusted to be memory-safe, but their format support and their availability (WebGL2, context loss) vary per browser and are treated as capabilities to detect, not assumptions.
 
 **External systems (in / out):**
 
 | Actor or system | Type | Interaction |
 |---|---|---|
-| <author role> | Person | <what they do> |
-| <external service> | System (internal/external) | <interaction> |
-| <identity provider> | System (external) | <provides auth tokens> |
+| Editor | Person | Opens an image with "Open image" or by dropping it; fits, zooms and pans the Preview; confirms or cancels a replace |
+| Portfolio reviewer | Person | Opens the deployed app for the first time and tries the same open, usually on a desktop browser |
+| Operating system | System (external) | Shows the file dialog, supplies dropped files, and allows or refuses reading them (permissions, cloud placeholders, AC-10) |
+| Browser platform | System (external) | Decodes the Supported image formats with its built-in decoders and provides WebGL2 on the GPU, which it may interrupt (AC-18, AC-19) |
+| GitHub Pages | System (external) | Serves the static app shell over HTTPS on first load and updates; never sees an image |
 
-**C4 Context (L1):** <!-- syntax → references/c4-mermaid-syntax.md. Real names, no <placeholder> stubs. -->
+**External: no third-party service** — deliberate. No upload, no telemetry, no remote decoder (§2 Regulatory).
+
+**C4 Context (L1):**
 
 ```mermaid
 C4Context
-    title <feature> — System Context
+    title open-and-view — System Context
 
-    Person(actor, "<Actor role>", "<intent>")
-    System(app, "<Our system>", "<one-sentence description>")
-    System_Ext(ext, "<External system>", "<one-sentence description>")
+    Person(editor, "Editor", "Opens an image and inspects it before editing")
+    Person(reviewer, "Portfolio reviewer", "Judges the app on a first open")
+    System(app, "imgly-editor", "Client-only image editor PWA running in the browser tab")
+    System_Ext(os, "Operating system", "File dialog, drag source and file read permissions")
+    System_Ext(browser, "Browser platform", "Built-in image decoders, WebGL2 and the GPU")
+    System_Ext(pages, "GitHub Pages", "Serves the static app shell over HTTPS")
 
-    Rel(actor, app, "<interaction>", "<protocol>")
-    Rel(app, ext, "<interaction>", "<protocol>")
+    Rel(editor, app, "Opens, drops, zooms and pans images", "mouse, trackpad, keyboard")
+    Rel(reviewer, app, "Tries a first open", "desktop browser")
+    Rel(app, os, "Asks for a file and reads its bytes", "file input, drag and drop")
+    Rel(app, browser, "Decodes images and renders the Preview", "image decoding, WebGL2")
+    Rel(app, pages, "Loads the app shell once, then runs offline", "HTTPS")
 ```
 
 ## 4. Solution strategy
