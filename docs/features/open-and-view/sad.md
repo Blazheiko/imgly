@@ -36,30 +36,31 @@ target_surfaces: []  # filled in §4 — subset of: backend-service | web-fronte
 
 ## 2. Constraints
 
-<!-- 🎯 Why: §4 strategy only works when §2 has fixed WHAT IS ALREADY FIXED — stack, versions,
-     deadline, regulatory. This is an input, not an output.
-     📋 Write: four blocks — Technical / Organisational / Conventions / Regulatory.
-     📌 Pin versions («<datastore> 18», not «<datastore>»); «Q3 deadline — hard», not «ideally».
-     Never N/A — every feature inherits at least Conventions + Technical. -->
-
 **Technical.**
-- <Language + version>
-- <Framework(s) + version>
-- <Datastore(s) + version>
-- <Architecture convention — e.g. the layering style from the project convention file>
+- TypeScript 5 (`strict`), Node 24 toolchain, pnpm — repo ADR [0001](../../adr/0001-build-a-client-only-vue-pwa.md)
+- Vue 3 (Composition API, `<script setup>`) + Pinia + Vite + vite-plugin-pwa; a client-only static app with no server, accounts or sync — repo ADR 0001
+- Static hosting on GitHub Pages under `/imgly/` with no custom response headers, so no COOP/COEP and no `SharedArrayBuffer`: data crosses threads only by structured clone or transfer — repo ADR 0001 (Consequences)
+- WebGL2 is required for the Preview, with no CPU fallback; Canvas 2D is reserved for the drawing layer — repo ADR [0004](../../adr/0004-render-adjustments-on-webgl2-and-drawing-on-canvas2d.md)
+- Functional core with feature folders: `src/core/` is pure TypeScript with no Vue, Pinia or DOM; imports flow `features → core | render | infra | shared`; features never import each other and coordinate through the `editor` store — repo ADR [0002](../../adr/0002-organize-code-as-functional-core-with-feature-folders.md)
+- Images are decoded only by the browser's own decoders; no bundled codecs or WASM decoders. HEIC/HEIF opens only where the current browser decodes it itself (CONTEXT "Supported image", spec AC-07)
+- No persistence in this feature: IndexedDB is not touched and the Work lives only in the current session (spec §3)
+- Targets: the latest desktop Chromium, Firefox and Safari; on mobile the app only has to not break (`docs/architecture-map.md` §Constraints, `docs/design-system.md` §Platform posture)
 
 **Organisational.**
-- <Effort budget — e.g. 3 person-weeks>
-- <Deadline — e.g. 2026-Q3 hard>
-- <Team composition>
+- Solo, spare-time project; owner Blazheiko. No per-feature effort budget: the only limit is the 4–6 week MVP budget for the whole roadmap (spec §1). No hard deadline
+- TDD is on (`.claude/sdd.local.md`): unit tests with Vitest, e2e with Playwright
+- The spec §6 targets bind to the reference machine: Apple M1 MacBook Air with the latest Chrome (spec §8 open question, due before `sdd:plan-tests`)
 
 **Conventions.**
-- <Link to the project's convention file>
-- <Naming, ID strategy, error-handling pattern>
+- `docs/architecture-map.md` §Conventions: `core` and `infra` return `Result<T, AppError>` with a typed `code` and throw only for programmer errors; UUIDv7 IDs from `newId()`; unit tests co-located as `*.test.ts`; e2e in `e2e/*.spec.ts`; features expose `index.ts` and are mounted from `src/app/App.vue`; plain CSS with tokens from `src/shared/styles/tokens.css`
+- `docs/design-system.md` §Interaction & writing conventions: one toast boundary, where informational notices dismiss themselves and failure reasons stay until dismissed; a blocking condition (no WebGL2) gets a full-canvas message instead of a toast; an indeterminate spinner overlay on the canvas while decoding; every action reachable by keyboard; short, plain microcopy
+- New UI primitives are added to `src/shared/ui/` and registered in the `docs/design-system.md` inventory (screens may only use inventory names or a justified `NEW:`)
 
 **Regulatory / external.**
-- <e.g. data-retention / deletion behaviour per ADR-NNNN>
-- <e.g. applicable compliance controls, or N/A with a reason>
+- Data classification: confidential (spec §6.1). Image pixels and embedded metadata never leave the device: the feature makes no network request carrying image data and ships no telemetry or analytics
+- No accounts, so no AuthN/AuthZ; the only access check is the OS or browser permission to read the chosen file (AC-10)
+- Security review: required (spec §6.1). This feature is the app's only intake of untrusted files
+- No other compliance regime applies: no personal data is processed off the device or stored
 
 ## 3. Context and scope
 
