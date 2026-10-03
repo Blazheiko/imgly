@@ -1,6 +1,6 @@
 ---
 status: living
-updated_at: "2026-10-02"
+updated_at: "2026-10-03"
 ---
 
 # Roadmap — imgly-editor
@@ -21,7 +21,7 @@ draw on and export an image, then reopen any recent work later and re-edit it wi
 | # | Step | Source | Size | Status |
 |---|---|---|:---:|---|
 | 1 | Project skeleton: the app builds, boots, tests run, it deploys to GitHub Pages and works offline as a PWA shell ([`_scaffold`](features/_scaffold/)) | architecture-map.md §Module inventory | S | spec'd |
-| 2 | Open and view an image: pick a file, downscale it to the limit, see it in the WebGL2 preview, get a clear message if WebGL2 is unavailable | idea-brief.md §5 Out of scope (downscale) + §7 Recommendation | M | idea |
+| 2 | Open and view an image: pick or drop a file, downscale it to the limit, zoom and pan the preview, get a plain reason when it can't open ([`open-and-view`](features/open-and-view/)) | idea-brief.md §5 Out of scope (downscale) + §7 Recommendation | M | spec'd |
 | 3 | Export the current image as PNG, JPEG or WebP with a quality setting | idea-brief.md §7 Recommendation | S | idea |
 | 4 | Crop and rotate the image in 90° steps | idea-brief.md §7 Recommendation | M | idea |
 | 5 | Adjust brightness, contrast, saturation, temperature/tint, grayscale and sepia with a live preview | idea-brief.md §7 Recommendation | M | idea |
@@ -29,7 +29,7 @@ draw on and export an image, then reopen any recent work later and re-edit it wi
 | 7 | Undo and redo every crop, adjust and draw action while the image is open | idea-brief.md §7 Recommendation | S | idea |
 | 8 | Gallery of recent works: autosave, reopen and re-edit without loss, about 20 works with the oldest evicted, an honest notice that browser storage can be evicted | idea-brief.md §7 Recommendation + §6 Risks | M | idea |
 | 9 | Install and update experience: an install prompt and a "new version available" toast | idea-brief.md §1 Raw idea (PWA) | S | idea |
-| 10 | OS integration: drag-and-drop, paste and copy to the clipboard, and "Open with…" as the system image handler | idea-brief.md §7 Recommendation | M | idea |
+| 10 | OS integration: paste and copy to the clipboard, and "Open with…" as the system image handler (drag-and-drop moved to step 2) | idea-brief.md §7 Recommendation | M | idea |
 
 ## Not yet specified
 
@@ -49,7 +49,6 @@ _Nothing. Every step can be stated precisely today. What is still undecided is a
 
 | # | Question | Type | Owner | Blocks |
 |---|---|:---:|:---:|:---:|
-| D1 | Is the downscale limit on open 4096 px on the long side, or lower, given the memory budget of WebGL textures plus the drawing layer? | prototype | human | 2 |
 | D2 | Is the gallery capped by work count (~20) or by a storage-byte budget, and does the app call `navigator.storage.persist()`? | grilling | human | 8 |
 | D3 | When a crop is re-edited, is the drawing layer anchored to the original image coordinates or to the cropped frame? | grilling | human | 6 |
 | D4 | Desktop Safari cannot encode WebP. Its canvas returns a PNG blob ([caniuse](https://caniuse.com/mdn-api_htmlcanvaselement_toblob_type_parameter_webp)). Should the app hide the WebP option there, or keep it and warn that it falls back to PNG? | grilling | human | 3 |
@@ -61,6 +60,8 @@ _Nothing. Every step can be stated precisely today. What is still undecided is a
 - Functional core + feature folders + infra shell → [`docs/adr/0002-organize-code-as-functional-core-with-feature-folders.md`](adr/0002-organize-code-as-functional-core-with-feature-folders.md)
 - A work is stored in IndexedDB as original + params + drawing layer, with UUIDv7 IDs → [`docs/adr/0003-persist-works-in-indexeddb-as-original-plus-params-plus-layer.md`](adr/0003-persist-works-in-indexeddb-as-original-plus-params-plus-layer.md)
 - Adjustments render on WebGL2 and drawing on Canvas 2D → [`docs/adr/0004-render-adjustments-on-webgl2-and-drawing-on-canvas2d.md`](adr/0004-render-adjustments-on-webgl2-and-drawing-on-canvas2d.md)
+- Downscale limit on open is 4096 px on the long side (closes former D1) → [`docs/features/open-and-view/spec.md`](features/open-and-view/spec.md) §1
+- Drag-and-drop belongs to step 2, not step 10 → [`docs/features/open-and-view/spec.md`](features/open-and-view/spec.md) §1
 - Fixed MVP feature set; OS integration is last and the first thing cut → [`docs/idea-brief.md`](idea-brief.md) §7
 
 ## Dependency graph
@@ -80,7 +81,7 @@ flowchart LR
   s5 -->|persists adjust params| s8
   s6 -->|persists the drawing layer| s8
   s3 -->|copy to clipboard reuses the export encoder| s10["10 · OS integration"]
-  s2 -->|open from OS, drop and paste feed the open pipeline| s10
+  s2 -->|open from OS and paste feed the open pipeline| s10
 ```
 
 ## Execution path
