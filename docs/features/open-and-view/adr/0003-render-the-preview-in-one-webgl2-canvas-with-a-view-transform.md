@@ -30,7 +30,7 @@ The Preview must show an Original of up to 4096 px at Fit, at 100% (one image pi
 
 1. **One WebGL2 canvas with a View transform** — the canvas covers the canvas area at physical-pixel resolution; the Original is a mipmapped texture; zoom and pan are one matrix uniform; a frame is drawn only when something changed.
 2. **Full-size canvas moved by CSS transform** — the Work is rendered once at the Original's size and the browser compositor scales and translates the element.
-3. **Canvas 2D now, WebGL2 later** — `drawImage` with `setTransform` per frame in this step, replaced by WebGL2 when adjustments arrive.
+3. **Canvas 2D now, WebGL2 later** — `drawImage` with `setTransform` per frame in this step, replaced by WebGL2 when adjustments arrive. *Excluded by an existing constraint* (repo ADR 0004, sad.md §2: WebGL2 is required for the Preview); recorded because it is the obvious shortcut for a step that has no adjustments yet.
 
 ## Decision outcome
 

@@ -9,10 +9,6 @@ target_surfaces: [web-frontend]  # filled in §4 — subset of: backend-service 
 
 # Software Architecture Document — open-and-view
 
-<!-- 12 Arc42 sections. Empty section → <!-- N/A: <one-line reason> -->. -->
-<!-- C4 Context (L1) lives inline in §3. C4 Container (L2) lives inline in §5. -->
-<!-- Numbers in §10 come VERBATIM from spec.md §6 NFR — no inventing, no rounding. -->
-
 ## 1. Introduction and goals
 
 **Intent.** open-and-view lets the Editor bring one photo from disk into the app, through the "Open image" action or by dropping it anywhere on the window, and see it as an upright, ready-to-edit Preview within seconds, with no dialogs on the happy path. The new file is read completely before it can replace the open Work. Anything larger than the Downscale limit (4096 px) becomes an Original at that limit, announced in one line, and every refusal comes with a plain-language reason. The feature also fixes the View (Fit, 100%, zoom, pan) and the replace rule that every later editing feature inherits, and it gives the Portfolio reviewer an honest first impression even when their browser cannot render (spec §1, §2).
@@ -32,7 +28,8 @@ target_surfaces: [web-frontend]  # filled in §4 — subset of: backend-service 
 | Tech Lead | SAD approval; the View and the replace rule are inherited by every later tool | Yes |
 | Security Lead | Mandatory security review (spec §6.1): this is the app's only intake of untrusted files | Yes |
 
-<!-- Decision overrides (¶4) — populated by the critic resolution loop, empty otherwise. -->
+- Decision override: the decode worker in `src/infra/image-decode/` calls pure `core` functions (`sniffImageHeader`, `checkOpenPolicy`, the target-size maths), not only `core` types. This widens the repo rule "`infra → core` (types only)" (repo ADR 0002, `docs/architecture-map.md` §Module inventory) to "types and pure, side-effect-free functions" — rationale: the worker must run exactly the checks the unit tests cover, so the security review reads one parser in one place (ADR-0001, ADR-0002). Follow-up in §11.
+- Decision override: this feature's functional e2e suite runs in CI on Chromium, Firefox and WebKit, and the `@perf` suite runs by hand on the reference machine before release (§7) — widening the repo convention of Chromium-only e2e and a CI of install → lint → typecheck → unit → build (`docs/architecture-map.md` §Conventions). Rationale: orientation, capability probes and drop differ per engine, and the spec §6 targets bind to the reference machine, not to CI runners. Follow-up in §11.
 
 ## 2. Constraints
 
@@ -115,7 +112,6 @@ C4Context
 3. **One WebGL2 Preview with the View as a transform** — [ADR-0003](adr/0003-render-the-preview-in-one-webgl2-canvas-with-a-view-transform.md). The Original becomes a mipmapped texture in one canvas at physical-pixel resolution; zoom and pan are a shader uniform computed by pure View maths in `src/core/view/`. Serves quality goal 3 and is the surface later tools (adjust, crop, draw) extend unchanged.
 4. **One colour space: sRGB** — [ADR-0004](adr/0004-convert-every-original-to-srgb-on-open.md). Every Original is converted to sRGB while decoding, so Preview, adjustments and export agree in every browser. Resolves the spec §8 wide-gamut question.
 
-Each tactical decision in later sections should trace to one of these seeds. Tactical decisions that *contradict* a strategic choice are red flags — surface them in §11.
 
 ## 5. Building block view
 
@@ -149,7 +145,7 @@ src/
     └── index.ts                  public surface: EditorView + useEditorStore
 ```
 
-Dependency direction stays as repo ADR 0002 sets it: `features/editor → core | infra | render | shared`, `infra → core (types and pure functions) | shared`, and `core` imports nothing. The decode worker runs the same `core/image-header` and `core/open` code the unit tests cover, so the security review reads one parser in one place.
+Dependency direction follows repo ADR 0002 — `features/editor → core | infra | render | shared`, and `core` imports nothing — with one widening recorded as a §1 Decision override: `infra → core` allows pure, side-effect-free functions as well as types. The decode worker runs the same `core/image-header` and `core/open` code the unit tests cover, so the security review reads one parser in one place.
 
 **C4 Container (L2):**
 
@@ -214,20 +210,24 @@ sequenceDiagram
     SPA->>Core: asks whether the current Work has Unsaved edits
     alt no Work open, or no Unsaved edits
         Core-->>SPA: no
+        SPA->>SPA: swaps in the new Work and sets the View to Fit
+        SPA->>GPU: uploads the new Original and releases the old one
+        GPU-->>Editor: fitted Preview
+        SPA-->>Editor: notices for this open, such as downscale or first frame only
     else Unsaved edits
         Core-->>SPA: yes
         SPA->>Editor: asks to confirm that the current edits will be lost
-        alt Editor cancels
-            Editor-->>SPA: cancel
-            SPA->>SPA: closes the new bitmap, Work and View stay as they were
-        else Editor confirms
+        alt Editor confirms
             Editor-->>SPA: replace
+            SPA->>SPA: swaps in the new Work and sets the View to Fit
+            SPA->>GPU: uploads the new Original and releases the old one
+            GPU-->>Editor: fitted Preview
+            SPA-->>Editor: notices for this open, such as downscale or first frame only
+        else Editor cancels
+            Editor-->>SPA: cancel
+            SPA->>SPA: closes the new bitmap, Work and View stay as they were, no notices
         end
     end
-    SPA->>SPA: swaps in the new Work and sets the View to Fit
-    SPA->>GPU: uploads the new Original and releases the old one
-    GPU-->>Editor: fitted Preview
-    SPA-->>Editor: notices for this open, such as downscale or first frame only
 ```
 
 The Work changes in one step, inside the `editor` store, and only after the worker has returned a finished bitmap. On cancel nothing after the confirmation runs, and the new bitmap is closed at once so its memory is freed. The old Original's bitmap and texture are released after the new texture is uploaded, so the Preview never shows an empty frame.
@@ -278,7 +278,7 @@ open-and-view reuses the existing deployment unit: one static bundle built by `.
 - In the tab: failures surface only as notices to the Editor; in development builds the decode worker also logs its stage timings to the console
 
 **Scaling thresholds** (per tab, on the reference machine):
-- Peak memory of one open is the decoded size inside the worker: at most the size ceiling × 4 bytes (§8), plus the reduced Original
+- Peak memory of one open is inside the worker, during the first reduction step: the decoded bitmap (at most the size ceiling × 4 bytes, §8) plus the first intermediate canvas (about a quarter of that), so about 1.25 × the ceiling × 4 bytes, roughly 500 MB at 100 MP
 - While a Work is open the tab holds the Original twice, as a bitmap for context restore and as a mipmapped texture (ADR-0003): about 150 MB at 4096 × 4096, and about twice that for a moment during a replace, until the old Original is released (§6, flow 1)
 - An open whose declared size is above the size ceiling never reaches the decoder (AC-09)
 
@@ -286,7 +286,7 @@ open-and-view reuses the existing deployment unit: one static bundle built by `.
 
 | Concept | Convention | Where defined |
 |---|---|---|
-| Error handling | `core` and `infra` return `Result<T, AppError>`; hostile input never throws. New codes: `FILE_NOT_PERMITTED` (AC-10), `NOT_AN_IMAGE` and `DECODE_FAILED` (AC-08, one message), `UNSUPPORTED_FORMAT` with the format name (AC-07), `TOO_LARGE` with both sizes in megapixels (AC-09), `UNSUPPORTED_BROWSER` (AC-18), `DISPLAY_LOST` (AC-19b). The worker posts errors as plain `{ code, details }` objects. A superseded open is not an error: `decodeImage` resolves it as `Superseded` and the store ignores it | `docs/architecture-map.md` §Conventions; codes in `src/core/result.ts` |
+| Error handling | `core` and `infra` return `Result<T, AppError>`; hostile input never throws. New codes: `FILE_NOT_PERMITTED` (AC-10), `NOT_AN_IMAGE`, `UNREADABLE` (declared size not found in the header window) and `DECODE_FAILED` (AC-08, one message), `UNSUPPORTED_FORMAT` with the format name (AC-07), `TOO_LARGE` with both sizes in megapixels (AC-09), `UNSUPPORTED_BROWSER` (AC-18), `DISPLAY_LOST` (AC-19b). The worker posts errors as plain `{ code, details }` objects. A superseded open is not an error: `decodeImage` resolves it as `Superseded` and the store ignores it | `docs/architecture-map.md` §Conventions; codes in `src/core/result.ts` |
 | User messages | Every `AppError` code maps to exactly one plain-language message in one catalog, `src/features/editor/messages.ts`; no raw browser error text ever reaches the Editor. Notices go through one queue in `src/shared/notices/`: informational ones (downscale, first frame only, files ignored) dismiss themselves, failure reasons stay until dismissed, and all notices of one open are shown together without hiding each other (AC-11b). Blocking conditions (SCR-04, SCR-05) replace the canvas area instead of using a notice | `docs/design-system.md` §Interaction & writing conventions; here |
 | Size ceiling | 100 MP, measured as the declared width × height and checked before any decode (AC-09). No separate limit on file size in bytes or on the length of one side: intermediate canvases in the worker never exceed 16 384 px per side, so a very elongated image within the ceiling is reduced in a first, larger step instead of being refused, and a file the browser itself cannot decode ends as AC-08. Resolves spec §8 (size ceiling) | here; `src/core/open/` |
 | Resource lifetime | Every `ImageBitmap` is `close()`d as soon as it is no longer needed: intermediates in the worker, the new bitmap on a cancelled replace, the old Original after a replace. The old texture is deleted after the new one is uploaded (§6, flow 1). Each open's worker is terminated when its result arrives or when a newer open starts. Exactly one Original (bitmap + texture) is retained while a Work is open | here; ADR-0001, ADR-0003 |
@@ -346,12 +346,13 @@ Each top-3 goal from §1 expanded into testable scenarios. Numbers are quoted fr
 |---|---|---|---|
 | A Portfolio reviewer on Firefox or Safari sees a photo rotated twice or not at all, because engines differ on applying EXIF orientation; the first impression is lost | Medium | The worker probes orientation once per session instead of assuming it (ADR-0001); the 8 orientation images run in e2e on Chromium, Firefox and WebKit (§7, §10 QG-2) | Blazheiko (owner) |
 | The hand-written header parser is the only code reading untrusted bytes; a bug could hang the worker or misjudge a file | Medium | Bounds-checked reads, iteration caps and no allocation proportional to a declared size; property and fuzz tests over truncated and mutated samples (ADR-0002, §10 QG-2); mandatory security review before ship; decoding itself stays in the browser's own decoders | Security Lead |
-| On the mobile "must not break" tier, a large open (the worker's peak is up to 100 MP × 4 bytes, about 400 MB, §8) can get the tab killed for memory, breaking the "0 tab crashes" KPI there | Medium | The size ceiling is one constant in `src/core/open/`; open a 48 MP photo on a recent iPhone and an Android phone before release; lower the ceiling for small-memory devices if they crash | Blazheiko (owner) |
+| On the mobile "must not break" tier, a large open (the worker's peak is about 500 MB at the 100 MP ceiling, §7) can get the tab killed for memory, breaking the "0 tab crashes" KPI there | Medium | The size ceiling is one constant in `src/core/open/`; open a 48 MP photo on a recent iPhone and an Android phone before release; lower the ceiling for small-memory devices if they crash | Blazheiko (owner) |
 | The `@perf` suite runs only by hand on the reference machine (§7), so a speed or memory regression can ship unnoticed between releases | Medium | A "run `@perf` on the reference machine" item in the `ship` checklist; between releases, the development build logs the worker's stage timings (§8), so a large slowdown shows up while working on the app | Blazheiko (owner) |
 | A later editing feature forgets to raise the Work's revision, so its edits are lost on replace without a confirmation | Medium | Edits go through the `editor` store's edit entry point, which raises the revision (ADR-0005); roadmap step 4 re-verifies AC-15 with a real edit (spec §1 Decision override) | Blazheiko (owner) |
 | A valid JPEG with more than 1 MiB of metadata before its frame header is refused as unreadable (ADR-0002) | Low | Keep such a sample in the reference set; raise `HEADER_WINDOW_BYTES` if real photos hit it | Blazheiko (owner) |
 | HEIC decoding can be checked only in real Safari, because WebKit on Linux does not decode it (§7) | Low | Manual open of the HEIC samples in Safari in the pre-release pass; CI covers the HEIC refusal path (AC-07) | Blazheiko (owner) |
 | The WebGL context-restore deadline (ADR-0003) is not fixed yet; too short shows SCR-05 needlessly, too long leaves a black canvas | Low | Fix the value in `tasks` and cover it with a `WEBGL_lose_context` e2e for both AC-19 and AC-19b | Blazheiko (owner) |
+| The widened `infra → core` rule and the three-engine CI (§1 Decision overrides) are not yet reflected in `docs/architecture-map.md` or an import lint rule, so a later feature could read the old rule | Low | During `implement`, update `docs/architecture-map.md` §Module inventory and §Conventions, and encode "infra may import only types and pure functions from core" in the ESLint import rules | Blazheiko (owner) |
 | The spec §6 targets bind to a reference machine that is not confirmed yet (spec §8 open question) | Low | Default Apple M1 MacBook Air with the latest Chrome; confirm before `sdd:plan-tests` | Blazheiko (owner) |
 
 **Accepted debt (acceptable in v1, plan to fix later):**
