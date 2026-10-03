@@ -186,31 +186,86 @@ C4Container
 
 ## 6. Runtime view
 
-<!-- 🎯 Why: the RUNTIME FLOW of 1–2 critical scenarios — who talks to whom, when, in what order.
-     Without §6, §5 is just boxes with no life.
-     📋 Write: a Mermaid sequenceDiagram. Participants are names from §5 (don't invent new ones).
-     Messages are semantic («saves a draft»), NO HTTP verbs / paths / status codes — endpoint-level
-     sequences arrive at the `api` stage.
-     📌 e.g. «author → web: composes draft → web → content API: save». Seed the primary flow(s) here;
-     the `sequences` stage then covers every §5 AC (no cap). Never N/A for M+; XS/S keeps ≥1 happy-path flow. -->
+Two flows are seeded here: the open itself, including the replace confirmation, and the failure and supersede paths that protect the Work. The `sequences` stage expands them to cover every spec §5 AC. Participants are the §5 containers; the Browser platform from §3 appears where the worker decodes.
 
-**Critical flow 1: <flow name>**
+**Critical flow 1: open an image and replace the Work** (AC-01, AC-02, AC-05, AC-06, AC-11, AC-14, AC-15)
 
 ```mermaid
 sequenceDiagram
-    actor Actor
-    participant Web
-    participant Service
-    participant Store
-    Actor->>Web: <action>
-    Web->>Service: <call>
-    Service->>Store: <write>
-    Store-->>Service: ok
-    Service-->>Web: result
-    Web-->>Actor: confirmation
+    actor Editor
+    participant SPA as Editor SPA
+    participant Core as Editing core
+    participant Worker as Decode worker
+    participant Browser as Browser platform
+    participant GPU as Render pipeline
+
+    Editor->>SPA: chooses a file in the dialog or drops it on the window
+    SPA->>SPA: shows the spinner, the current Work stays visible and pannable
+    SPA->>Worker: starts a new worker for this open and posts the file
+    Worker->>Core: judges the header window and the size ceiling
+    Core-->>Worker: Supported image, declared size within the ceiling
+    Worker->>Browser: decodes upright to sRGB
+    Browser-->>Worker: decoded bitmap
+    Worker->>Core: asks for the target size under the Downscale limit
+    Core-->>Worker: target width and height
+    Worker->>Worker: reduces stepwise and closes every intermediate bitmap
+    Worker-->>SPA: transfers the Original bitmap with its facts
+    SPA->>Worker: terminates the worker
+    SPA->>Core: asks whether the current Work has Unsaved edits
+    alt no Work open, or no Unsaved edits
+        Core-->>SPA: no
+    else Unsaved edits
+        Core-->>SPA: yes
+        SPA->>Editor: asks to confirm that the current edits will be lost
+        alt Editor cancels
+            Editor-->>SPA: cancel
+            SPA->>SPA: closes the new bitmap, Work and View stay as they were
+        else Editor confirms
+            Editor-->>SPA: replace
+        end
+    end
+    SPA->>SPA: swaps in the new Work and sets the View to Fit
+    SPA->>GPU: uploads the new Original and releases the old one
+    GPU-->>Editor: fitted Preview
+    SPA-->>Editor: notices for this open, such as downscale or first frame only
 ```
 
-**Critical flow 2: <e.g. async event propagation>** — <if applicable, otherwise N/A>.
+The Work changes in one step, inside the `editor` store, and only after the worker has returned a finished bitmap. On cancel nothing after the confirmation runs, and the new bitmap is closed at once so its memory is freed. The old Original's bitmap and texture are released after the new texture is uploaded, so the Preview never shows an empty frame.
+
+**Critical flow 2: a superseded open and a refused file leave the Work untouched** (AC-08, AC-09, AC-10, AC-16, AC-16b)
+
+```mermaid
+sequenceDiagram
+    actor Editor
+    participant SPA as Editor SPA
+    participant WorkerA as Decode worker A
+    participant WorkerB as Decode worker B
+    participant Core as Editing core
+
+    Editor->>SPA: chooses file A
+    SPA->>WorkerA: starts worker A and posts file A
+    Editor->>SPA: drops file B before A has finished
+    SPA->>WorkerA: terminates worker A, its memory is freed at once
+    SPA->>SPA: marks open A as superseded, it can never replace the Work
+    SPA->>WorkerB: starts worker B and posts file B
+    WorkerB->>WorkerB: reads the header window
+    alt the file cannot be read
+        WorkerB-->>SPA: not permitted to read the file
+    else the header is judged
+        WorkerB->>Core: judges the header window and the size ceiling
+        alt not an image, damaged or disguised
+            Core-->>WorkerB: unreadable
+        else declared size above the ceiling
+            Core-->>WorkerB: too large, with both sizes in megapixels
+        end
+        WorkerB-->>SPA: the refusal reason
+    end
+    SPA->>WorkerB: terminates worker B
+    SPA->>SPA: keeps the Work and View exactly as they were, no confirmation
+    SPA-->>Editor: the reason, which stays until dismissed
+```
+
+Every refusal ends the same way: the worker reports a typed reason, the `editor` store changes nothing, and the reason goes to the notice queue as a failure that stays until dismissed. A late answer from a terminated worker can never arrive, and the store also ignores any result whose open is no longer the latest.
 
 ## 7. Deployment view
 
