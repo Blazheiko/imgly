@@ -316,29 +316,27 @@ Decided inline, below the ADR gate: extending `features/editor` rather than a ne
 
 ## 10. Quality requirements
 
-<!-- 🎯 Why: the QUALITY TREE — take a goal from §1 and break it into concrete leaves: tests,
-     metrics, configs, drills. ⭐ Without §10, §1 is a manifesto. With §10 each declaration maps
-     to something PROVABLE.
-     📋 Write: per §1 goal — When / Then / How-verify. Numbers from spec §6 NFR VERBATIM (don't
-     round ≤250ms to ≤300ms — that's a critic F6 hit).
-     📌 e.g. «p95 ≤ 500 ms on a block update, verified by a 100 req/s load test». -->
+Each top-3 goal from §1 expanded into testable scenarios. Numbers are quoted from spec §6 and §7; every timed and memory scenario runs on the reference machine (Apple M1 MacBook Air or equivalent, latest Chrome, spec §6) in the `@perf` suite before release (§7).
 
-Each top-3 goal from §1 expanded into a full scenario:
+**QG-1. Open responsiveness**
+- **When:** the Editor opens the 12 MP JPEG (4032×3024, within the limit) or the 48 MP JPEG (8064×6048, downscale path) by the file dialog or by a drop, with no replace confirmation
+- **Then:** Time to first Preview p95 ≤ 1.5 s for the 12 MP JPEG and ≤ 3 s for the 48 MP JPEG, measured from the moment the file is chosen or released to the first paint of the fitted Preview; the longest interface freeze while opening any accepted image is ≤ 200 ms (loading indicator keeps animating)
+- **How verify:** Playwright `@perf` test opens each file 20 times on the reference machine; the start is the file-input change or the dispatched drop, the end is a `performance.mark` the renderer sets on the first frame after a new Original, and p95 is computed over the runs. A `PerformanceObserver` for `longtask` records the longest main-thread task during every open of the reference set and fails above 200 ms
 
-**QG-1. <quality attribute>**
-- **When:** <trigger condition>
-- **Then:** <expected behaviour with numbers from spec §6 NFR>
-- **How verify:** <test / chaos drill / load test / metric>
+**QG-1b. Opening offline**
+- **When:** the app has been loaded once, the network is switched off, and the Editor opens an image
+- **Then:** 100% of runs succeed (spec §6, opening with no network connection); the decode worker script comes from the precache (§7)
+- **How verify:** functional e2e in CI on all three engines: load, wait for the service worker, set the context offline, reload, open the 12 MP JPEG, and assert the fitted Preview and the dimensions readout
 
-**QG-2. <quality attribute>**
-- **When:** <trigger>
-- **Then:** <expected>
-- **How verify:** <how>
+**QG-2. Work integrity under untrusted input**
+- **When:** each file of the reference test set (JPEG, PNG, WebP, AVIF, animated GIF, HEIC, damaged, truncated, oversize, mis-named files, spec §7) and the 8 EXIF orientation images is opened, once with no Work and once over a Work with Unsaved edits; plus a decompression bomb (a small file declaring dimensions above the size ceiling, default 100 MP, fixed in §8) and fuzzed headers
+- **Then:** 100% of files end in either a correct Preview or a plain-language reason, with 0 blank canvases or tab crashes (spec §7); 8 of 8 orientation images display upright (spec §7); on every refusal the open Work stays exactly as it was and no confirmation is asked (AC-16); the bomb is refused before any pixel is decoded (AC-09)
+- **How verify:** Vitest units with the fixture set for `sniffImageHeader` and `checkOpenPolicy`, plus a property test over truncated and mutated samples asserting that it always returns a `Result`, never throws and never allocates in proportion to a declared size (ADR-0002). Playwright e2e on Chromium, Firefox and WebKit runs the whole set and asserts the outcome, the message text from the catalog, and that the Work's `id` and `revision` are unchanged after each refusal; for the bomb it asserts that the worker reported `TOO_LARGE` without reaching its decode stage. The HEIC files are opened by hand in real Safari before release (§7)
 
-**QG-3. <quality attribute>**
-- **When:** <trigger>
-- **Then:** <expected>
-- **How verify:** <how>
+**QG-3. Smooth, stable View**
+- **When:** a scripted zoom and pan runs over a 4096 px Original; then the 48 MP JPEG is opened 10 times in a row
+- **Then:** zoom and pan smoothness ≥ 50 fps; memory after 10 consecutive opens of the 48 MP image ≤ 110% of memory after the first open, where memory is the tab's total memory, GPU memory included (spec §6)
+- **How verify:** the `@perf` suite records a Chrome performance trace during scripted pinch, Ctrl/Cmd+wheel and pan gestures and computes the frame rate from presented frames. For memory, the harness forces garbage collection after the first and the tenth open and sums the memory footprint of the tab's renderer process and the GPU process as reported by the operating system. Because happy-dom has no `ImageBitmap`, the leak guard lives in e2e: a development-build counter of bitmaps created and closed by the decode and replace paths must return to the one retained Original after the ten opens (§8, resource lifetime)
 
 ## 11. Risks and technical debt
 
