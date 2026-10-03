@@ -119,49 +119,69 @@ Each tactical decision in later sections should trace to one of these seeds. Tac
 
 ## 5. Building block view
 
-<!-- 🎯 Why: INTERNAL DECOMPOSITION — modules, containers, datastores. The static topology: who
-     may talk to whom. Without §5, §6 (the flows) has no vocabulary of participants.
-     📋 Write: 1 ¶ on the style (layered / hexagonal / clean / event-driven) + a folder tree + a
-     C4Container block.
-     📌 Draw ONE Container per declared `target_surface` (frontmatter): a fullstack
-     [backend-service, web-frontend] = a backend-API container + a web/SPA container; a
-     [backend-service, mobile-app] = the API + the mobile app. The Container(web, …) line below is
-     just one surface's container — swap/add per what was declared in §4. → _shared/surfaces.md
-     📌 e.g. «web app, content API, media worker, datastore, object store, CDN». -->
+The feature follows the repo's functional core with feature folders (repo ADR 0002), which works like a small hexagonal layout: `src/core/` holds every rule as pure TypeScript (header judging, the open policy, View maths, the Work and its Unsaved-edits rule) and is unit-tested without a browser; `src/infra/` and `src/render/` are the adapters to the browser (file intake, the decode worker, WebGL2); `src/features/editor/` is the only UI and the `editor` store is the one place that decides whether a decoded image replaces the Work. open-and-view extends the existing `editor` feature instead of adding a new feature folder, because the open, the replace rule and the View are the editor's own baseline, and every later intake (paste, "Open with…", gallery re-open) calls the same store action. No datastore is touched (§2).
 
-<One paragraph: layered / hexagonal / clean / event-driven, and why.>
+The Work knows it has Unsaved edits through a revision counter ([ADR-0005](adr/0005-track-unsaved-edits-with-a-revision-counter-on-the-work.md)): every edit, undo and redo raises `revision`, and `hasUnsavedEdits(work)` compares it with the revision at open (later, at save). The View lives next to the Work in the `editor` store, never inside it, so zoom and pan can never count as edits (AC-14).
 
 **Internal decomposition:**
 
 ```
-<e.g. modules/<feature>/>
-├── domain/       <entities + sentinel errors>
-├── app/          <use cases / services>
-├── infra/        <repository + integration impl>
-├── ports/        <handlers, DTOs, error mapping>
-└── wiring        <self-wiring entry point>
+src/
+├── core/                         pure TypeScript: no Vue, Pinia, DOM or browser APIs
+│   ├── result.ts                 Result<T, AppError>; new open error codes (§8)
+│   ├── document.ts               Work = Original + revision counters; hasUnsavedEdits(work) (ADR-0005)
+│   ├── image-header/             sniffImageHeader(bytes) → format, size, animated, orientation (ADR-0002)
+│   ├── open/                     checkOpenPolicy (size ceiling), targetSize (Downscale limit), pickFromDrop order
+│   └── view/                     View maths: fit, zoom steps, clamp, zoom-at-point, pan clamp, auto-fit flag
+├── infra/
+│   ├── image-decode/             decodeImage(blob) on the main thread + decode.worker.ts (ADR-0001, ADR-0004)
+│   └── platform/                 file picker, window-level drop guard, files from a DataTransfer
+├── render/
+│   ├── capabilities.ts           start-up capability gate (WebGL2, texture size, worker canvas)
+│   └── preview-renderer.ts       one WebGL2 canvas, mipmapped Original texture, View uniform, context loss (ADR-0003)
+├── shared/
+│   ├── ui/                       BaseButton + the new primitives this feature registers (Toast, Spinner, Dialog…)
+│   └── notices/                  notice queue: informational notices self-dismiss, failure reasons stay (AC-11b)
+└── features/editor/
+    ├── store.ts                  `editor` store: Work, View, open state; openImage(blob) and replace confirmation
+    ├── EditorView.vue            canvas area: SCR-01 empty, SCR-02 Work, SCR-04 unsupported, SCR-05 display lost
+    ├── components/               open action, drop overlay, zoom controls, dimensions readout, replace dialog (SCR-03)
+    └── index.ts                  public surface: EditorView + useEditorStore
 ```
 
-**C4 Container (L2):** <!-- syntax → references/c4-mermaid-syntax.md. Real names, no <placeholder> stubs. ONE Container per declared target_surface (frontmatter); the web container below is one example surface. -->
+Dependency direction stays as repo ADR 0002 sets it: `features/editor → core | infra | render | shared`, `infra → core (types and pure functions) | shared`, and `core` imports nothing. The decode worker runs the same `core/image-header` and `core/open` code the unit tests cover, so the security review reads one parser in one place.
+
+**C4 Container (L2):**
 
 ```mermaid
 C4Container
-    title <feature> — Containers
+    title open-and-view — Containers
 
-    Person(actor, "<Actor>")
+    Person(editor, "Editor", "Opens an image and inspects it")
+    Person(reviewer, "Portfolio reviewer", "Judges the app on a first open")
 
-    Container_Boundary(app, "<Our system>") {
-        Container(web, "<Web/UI>", "<technology>", "<purpose>")
-        Container(api, "<API/handler>", "<technology>", "<purpose>")
-        ContainerDb(db, "<Datastore>", "<technology>", "<purpose>")
+    System_Ext(os, "Operating system", "File dialog, drag source, read permissions")
+    System_Ext(browser, "Browser platform", "Built-in image decoders, WebGL2 and the GPU")
+    System_Ext(pages, "GitHub Pages", "Serves the static app shell over HTTPS")
+
+    Container_Boundary(app, "imgly-editor (browser tab)") {
+        Container(spa, "Editor SPA", "Vue 3, Pinia, TypeScript", "Editor view, open action, drop guard, View controls, notices; the editor store decides every replace")
+        Container(core, "Editing core", "Pure TypeScript", "Header judging, open policy, View maths, Work and Unsaved-edits rule")
+        Container(worker, "Decode worker", "Web Worker, OffscreenCanvas", "Reads, checks, decodes, orients and downscales one file into an sRGB bitmap")
+        Container(gpu, "Render pipeline", "WebGL2", "Draws the Preview at the current View and survives context loss")
+        Container(sw, "Service worker", "Workbox via vite-plugin-pwa", "Precaches the app shell and the worker script for offline opens")
     }
 
-    System_Ext(ext, "<External>", "<purpose>")
-
-    Rel(actor, web, "<interaction>", "<protocol>")
-    Rel(web, api, "<calls>")
-    Rel(api, db, "<reads/writes>", "<driver>")
-    Rel(api, ext, "<emits>", "<protocol>")
+    Rel(editor, spa, "Opens, drops, zooms and pans", "mouse, trackpad, keyboard")
+    Rel(reviewer, spa, "Tries a first open", "desktop browser")
+    Rel(spa, os, "Asks for a file, receives dropped files", "file input, drag and drop")
+    Rel(spa, worker, "Sends the chosen file, receives a bitmap and its facts", "postMessage with transfer")
+    Rel(spa, core, "Applies the replace rule and View maths", "function calls")
+    Rel(worker, core, "Judges the header and computes the target size", "function calls")
+    Rel(worker, browser, "Decodes to sRGB", "createImageBitmap")
+    Rel(spa, gpu, "Uploads the Original, sets the View", "function calls")
+    Rel(gpu, browser, "Draws on the GPU", "WebGL2")
+    Rel(sw, pages, "Fetches the app shell on install and update", "HTTPS")
 ```
 
 ## 6. Runtime view
