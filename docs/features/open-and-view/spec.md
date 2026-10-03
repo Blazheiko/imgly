@@ -37,6 +37,7 @@ Traceability: downscale limit 4096 px resolves roadmap decision D1 (`docs/roadma
 - Keeping the Work between sessions. Persistence is the gallery step (roadmap step 8), so an open Work lives only in the current session.
 - Opening several images at once, batch processing or comparing images. The editor holds exactly one Work.
 - Touch-optimised gestures. The app is desktop-first and only has to not break on mobile (`docs/design-system.md` §Platform posture).
+- Opening anything that is not a Supported image, even when the browser itself could decode it: SVG and other vector files, BMP, ICO, TIFF, camera RAW/DNG and PSD. These are refused with a named reason (AC-07). This keeps behaviour the same in every browser and keeps vector files with active content out.
 
 ## 4. User stories
 
@@ -93,20 +94,20 @@ Traceability: downscale limit 4096 px resolves roadmap decision D1 (`docs/roadma
 ### AC-01 (US-01) — happy path
 
 **Given** the Editor has no image open
-**When** the Editor chooses a supported image file through the "Open image" action
-**Then** the image is shown fitted to the window, upright the same way the operating system's photo viewer shows it, and the editor is ready for editing
+**When** the Editor chooses a Supported image through the "Open image" action
+**Then** the image is shown at Fit, upright the same way the operating system's photo viewer shows it, and the editor is ready for editing. Fit is the largest zoom at which the whole image fits inside the canvas area (the space left after toolbars and panels), never above 100%, so an image smaller than the canvas area is shown centred at 100% and is never enlarged
 
 ### AC-02 (US-02) — happy path
 
 **Given** the app is open, with or without an image
-**When** the Editor drops a supported image file anywhere on the app window
+**When** the Editor drops a Supported image anywhere on the app window
 **Then** the image opens exactly as in AC-01 (subject to AC-15 and AC-16 when a Work is open), and the app never navigates away or shows the file in place of itself
 
 ### AC-03 (US-02) — error
 
 **Given** the app is open
 **When** the Editor drops several files at once
-**Then** the first file that is an image opens, and a short notice says the editor works with one image at a time and the other files were ignored
+**Then** the files are tried in the order the browser lists them, each judged by its content, and the first one that is read successfully opens (subject to AC-15 and AC-16 when a Work is open). A short notice says the editor works with one image at a time and the other files were ignored. If none of the files can be opened, nothing is replaced and the reason shown is the one for the first image file (or the AC-04 notice when the drop held no image files at all)
 
 ### AC-04 (US-02) — error
 
@@ -118,19 +119,19 @@ Traceability: downscale limit 4096 px resolves roadmap decision D1 (`docs/roadma
 
 **Given** an image whose long side, once upright, is larger than the Downscale limit
 **When** the Editor opens it
-**Then** the Original's long side equals the Downscale limit with proportions kept, and a one-line notice states the original and the new dimensions
+**Then** the Original's long side equals the Downscale limit with proportions kept, the short side rounded to the nearest whole pixel and never below 1 px, and a one-line notice states the original and the new dimensions (for example 6000×4000 → 4096×2731). The Original's dimensions stay visible in the interface for as long as the Work is open
 
 ### AC-06 (US-03) — happy path
 
 **Given** an image whose long side is at or below the Downscale limit
 **When** the Editor opens it
-**Then** the Original keeps the image's own dimensions and no downscale notice is shown
+**Then** the Original keeps the image's own dimensions, no downscale notice is shown, and the Original's dimensions stay visible in the interface for as long as the Work is open
 
 ### AC-07 (US-04) — error
 
-**Given** an image in a format this browser cannot read (for example an iPhone HEIC photo in a browser without support for it)
+**Given** a file recognised by its content as an image that is not a Supported image here: HEIC/HEIF in a browser that cannot decode it, or SVG, BMP, ICO, TIFF, camera RAW/DNG or PSD in any browser
 **When** the Editor tries to open it
-**Then** nothing is replaced, and a notice names the format, says this browser cannot open it and suggests converting it or using a browser that can
+**Then** nothing is replaced, and a notice names the format, says the editor cannot open it here, and suggests converting it to JPEG or PNG (and, for HEIC/HEIF, using a browser that can open it)
 
 ### AC-08 (US-04) — error
 
@@ -142,7 +143,7 @@ Traceability: downscale limit 4096 px resolves roadmap decision D1 (`docs/roadma
 
 **Given** an image whose pixel count exceeds the size ceiling the editor can safely handle
 **When** the Editor tries to open it
-**Then** the editor refuses it before reading it fully, nothing is replaced, and a notice states the image's size and the largest size the editor accepts
+**Then** the editor refuses it based on the width × height the file declares, before decoding its pixels. Nothing is replaced, and a notice states the image's width × height in pixels with its megapixels, and the largest size the editor accepts in megapixels. A file whose declared dimensions can't be read is treated as unreadable (AC-08)
 
 ### AC-10 (US-04) — authorization
 
@@ -156,17 +157,29 @@ Traceability: downscale limit 4096 px resolves roadmap decision D1 (`docs/roadma
 **When** the Editor opens it
 **Then** its first frame opens as the Original, and a notice says only the first frame is kept
 
+### AC-11b (US-04) — cross-context
+
+**Given** one open produces several notices (for example an animated image that is also downscaled, dropped together with other files)
+**When** the open finishes
+**Then** every notice is shown and none hides another. Informational notices (downscale, first frame only, files ignored) go away by themselves, and reasons an open failed stay until the Editor dismisses them
+
 ### AC-12 (US-05) — happy path
 
 **Given** an image is open
 **When** the Editor pinches on the trackpad, scrolls with Ctrl/Cmd held, or uses the zoom-in and zoom-out controls, "Fit" or "100%"
 **Then** the Preview zooms toward the pointer (or the centre for the controls), the current zoom level is visible, "100%" shows one image pixel per physical screen pixel, and the rest of the app interface never changes size
 
+### AC-12b (US-05) — edge
+
+**Given** an image is open
+**When** the Editor zooms past either end of the range, uses the zoom controls, or resizes the window
+**Then** zoom stays between the smaller of Fit and 10% at the low end and 800% at the high end. The zoom-in and zoom-out controls step through fixed zoom levels. While the Editor has not zoomed or panned since the image opened or "Fit" was last chosen, resizing the window keeps the image at Fit. After a manual zoom or pan, resizing keeps the zoom level
+
 ### AC-13 (US-05) — happy path
 
-**Given** an image is open and zoomed in beyond the window
-**When** the Editor scrolls with two fingers, drags while holding Space, or drags while no editing tool is active
-**Then** the Preview pans in that direction and the Work does not change
+**Given** an image is open and zoomed in beyond the canvas area
+**When** the Editor scrolls with two fingers or with a plain mouse wheel (vertical), scrolls with Shift held (horizontal), drags while holding Space, or drags while no editing tool is active
+**Then** the Preview pans in that direction and the Work does not change. Panning stops at the image's edge, so the image can never be pushed out of the canvas area. An image that fits inside the canvas area stays centred and does not pan
 
 ### AC-14 (US-05) — domain invariant
 
@@ -178,7 +191,7 @@ Traceability: downscale limit 4096 px resolves roadmap decision D1 (`docs/roadma
 
 **Given** the open Work has Unsaved edits made with an editing tool
 **When** the Editor opens another image that has been read successfully
-**Then** the app asks for confirmation and says the current edits will be lost; choosing to cancel keeps the current Work exactly as it was
+**Then** the app asks for confirmation and says the current edits will be lost. Choosing to cancel keeps the current Work and View exactly as they were and discards the image that was read. Notices about the new image (downscale, first frame only) appear only after it has actually replaced the Work
 
 *Verification note:* until an editing tool exists, this is verified with a Work prepared to have Unsaved edits; the first editing feature (roadmap step 4) re-verifies it with real edits.
 
@@ -187,6 +200,12 @@ Traceability: downscale limit 4096 px resolves roadmap decision D1 (`docs/roadma
 **Given** an image is open
 **When** the Editor opens another file that turns out to be unreadable, unsupported, refused or not permitted
 **Then** no confirmation is asked, the open Work stays exactly as it was, and the matching reason is shown — the open Work is only ever replaced by an image that has been read successfully
+
+### AC-16b (US-06) — cross-context
+
+**Given** an image is still being read after the Editor chose or dropped it
+**When** the Editor chooses or drops another file before that read finishes
+**Then** the earlier open is abandoned and never replaces the Work. Only the most recently chosen file can open. While a read is in progress, the current Work stays on screen and can still be zoomed and panned
 
 ### AC-17 (US-07) — happy path
 
@@ -198,7 +217,7 @@ Traceability: downscale limit 4096 px resolves roadmap decision D1 (`docs/roadma
 
 **Given** the browser lacks the graphics capability the editor requires
 **When** the Portfolio reviewer opens the app
-**Then** the canvas area shows a full message explaining that this browser can't display the editor and naming browsers that can, and the "Open image" action is unavailable
+**Then** the canvas area shows a full message explaining that this browser can't display the editor and naming browsers that can. The "Open image" action is unavailable, and a file dropped onto the app opens nothing and never makes the browser navigate away or show the file in place of the app; the same message stays in place
 
 ### AC-19 (US-08) — cross-context
 
@@ -206,9 +225,17 @@ Traceability: downscale limit 4096 px resolves roadmap decision D1 (`docs/roadma
 **When** the device's graphics are interrupted temporarily, for example by sleep and wake or a graphics switch
 **Then** the Preview comes back by itself without reopening the file, and the Work and View are unchanged
 
+### AC-19b (US-08) — error
+
+**Given** an image is open
+**When** the device's graphics are interrupted and the browser does not let the editor restore them
+**Then** the canvas area shows a full message in plain language instead of a blank or black canvas. The message says the display could not recover, suggests reloading the page, and says plainly that the open Work will be lost on reload
+
 ## 6. Non-functional requirements
 
 Reference machine: Apple M1 MacBook Air (or equivalent) with the latest Chrome (see §8).
+
+"Time to first Preview" runs from the moment a file is chosen in the file dialog or released over the app to the first paint of the fitted Preview, on the path without a replace confirmation. "Memory" means the tab's total memory, graphics (GPU) memory included, not only the JavaScript heap.
 
 | Aspect | Target | Measurement |
 |---|---|---|
@@ -240,7 +267,7 @@ Reference machine: Apple M1 MacBook Air (or equivalent) with the latest Chrome (
 
 ## 8. Open questions
 
-- [ ] What is the size ceiling (largest accepted pixel count) that stays safe on the reference machine and on the mobile "must not break" tier? Default now: 100 MP. — owner: Blazheiko (owner), due: before `sdd:design` closes
+- [ ] What is the size ceiling (largest accepted pixel count) that stays safe on the reference machine and on the mobile "must not break" tier? Default now: 100 MP. Also: is there a separate limit on file size in bytes or on the length of one side (for example 200000×400)? Default now: none beyond the pixel-count ceiling. — owner: Blazheiko (owner), due: before `sdd:design` closes
 - [ ] Which exact reference machine and browser do the §6 targets bind to? Default now: Apple M1 MacBook Air, latest Chrome. — owner: Blazheiko (owner), due: before `sdd:plan-tests`
 - [ ] Are wide-gamut (Display P3) and colour-profiled images shown in their own colour space or converted to standard sRGB? Default now: converted to sRGB. — owner: Blazheiko (owner), due: before `sdd:design` closes
 - [ ] Should any embedded metadata (capture date, location) be kept with the Work for later export? Default now: none is kept. — owner: Blazheiko (owner), due: before the export feature's `sdd:specify`
