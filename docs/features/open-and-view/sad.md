@@ -340,22 +340,28 @@ Each top-3 goal from §1 expanded into testable scenarios. Numbers are quoted fr
 
 ## 11. Risks and technical debt
 
-<!-- 🎯 Why: ⭐ collects EVERYTHING that can break — not only the technical. Without §11 risks get
-     discussed at standups and lost; debt lives only in the head of whoever accepted it.
-     📋 Write: a risk/debt table — severity — mitigation — owner. Accepted debt in its own block.
-     📌 The first risk is often a product risk, not a technical one. That's normal. -->
-
-<!-- Severity literals: Low / Medium / High for regular risks; "Open question" for rows created by
-     a Save-as-OQ resolution during the Socratic walk (see references/socratic.md). -->
+<!-- brownfield gotchas: N/A — greenfield repo, no existing code to drift from. -->
 
 | Risk / debt | Severity | Mitigation | Owner |
 |---|---|---|---|
-| <e.g. Worker lag may reach hours during a downstream outage> | Medium | <alert >10 min, on-call playbook, retry backoff> | <DevOps> |
-| <e.g. No event-schema versioning in v1> | Medium | <ADR-NNNN planned for v2, tolerate unknown fields> | <Backend> |
-| Open architectural decision: <decision-headline> | Open question | Resolve before <stage trigger or YYYY-MM-DD>; <inline rationale from the Save-as-OQ> | <owner> |
+| A Portfolio reviewer on Firefox or Safari sees a photo rotated twice or not at all, because engines differ on applying EXIF orientation; the first impression is lost | Medium | The worker probes orientation once per session instead of assuming it (ADR-0001); the 8 orientation images run in e2e on Chromium, Firefox and WebKit (§7, §10 QG-2) | Blazheiko (owner) |
+| The hand-written header parser is the only code reading untrusted bytes; a bug could hang the worker or misjudge a file | Medium | Bounds-checked reads, iteration caps and no allocation proportional to a declared size; property and fuzz tests over truncated and mutated samples (ADR-0002, §10 QG-2); mandatory security review before ship; decoding itself stays in the browser's own decoders | Security Lead |
+| On the mobile "must not break" tier, a large open (the worker's peak is up to 100 MP × 4 bytes, about 400 MB, §8) can get the tab killed for memory, breaking the "0 tab crashes" KPI there | Medium | The size ceiling is one constant in `src/core/open/`; open a 48 MP photo on a recent iPhone and an Android phone before release; lower the ceiling for small-memory devices if they crash | Blazheiko (owner) |
+| The `@perf` suite runs only by hand on the reference machine (§7), so a speed or memory regression can ship unnoticed between releases | Medium | A "run `@perf` on the reference machine" item in the `ship` checklist; between releases, the development build logs the worker's stage timings (§8), so a large slowdown shows up while working on the app | Blazheiko (owner) |
+| A later editing feature forgets to raise the Work's revision, so its edits are lost on replace without a confirmation | Medium | Edits go through the `editor` store's edit entry point, which raises the revision (ADR-0005); roadmap step 4 re-verifies AC-15 with a real edit (spec §1 Decision override) | Blazheiko (owner) |
+| A valid JPEG with more than 1 MiB of metadata before its frame header is refused as unreadable (ADR-0002) | Low | Keep such a sample in the reference set; raise `HEADER_WINDOW_BYTES` if real photos hit it | Blazheiko (owner) |
+| HEIC decoding can be checked only in real Safari, because WebKit on Linux does not decode it (§7) | Low | Manual open of the HEIC samples in Safari in the pre-release pass; CI covers the HEIC refusal path (AC-07) | Blazheiko (owner) |
+| The WebGL context-restore deadline (ADR-0003) is not fixed yet; too short shows SCR-05 needlessly, too long leaves a black canvas | Low | Fix the value in `tasks` and cover it with a `WEBGL_lose_context` e2e for both AC-19 and AC-19b | Blazheiko (owner) |
+| The spec §6 targets bind to a reference machine that is not confirmed yet (spec §8 open question) | Low | Default Apple M1 MacBook Air with the latest Chrome; confirm before `sdd:plan-tests` | Blazheiko (owner) |
 
 **Accepted debt (acceptable in v1, plan to fix later):**
-- <e.g. the entity is immutable / unversioned — OK for v1, may need audit versioning in v2>
+- Colours outside sRGB in Display P3 photos are clipped without a notice (ADR-0004); wide-gamut support would need a colour space on the Original and a re-open of the source file
+- After the Editor undoes every edit, replacing the Work still asks for confirmation (ADR-0005)
+- TIFF and TIFF-based camera RAW are named together in the AC-07 notice (ADR-0002)
+- Full-resolution 108 MP and 200 MP phone photos are refused by the 100 MP size ceiling (§8)
+- The Original is held twice while a Work is open, as a bitmap for context restore and as a texture (ADR-0003)
+- No CPU fallback for browsers without WebGL2 (repo ADR 0004); they get SCR-04
+- Embedded metadata (capture date, location) is not kept; whether export needs any of it stays a spec §8 open question, due before the export feature's `sdd:specify`
 
 ## 12. Glossary
 
