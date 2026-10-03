@@ -365,13 +365,29 @@ Each top-3 goal from §1 expanded into testable scenarios. Numbers are quoted fr
 
 ## 12. Glossary
 
-<!-- 🎯 Why: ⭐ the DOMAIN GLOSSARY that ends arguments a year later («checkpoint — weekly or
-     biweekly? quarter — calendar or fiscal?»).
-     📋 Write: a term / meaning table. Business + technical terms mixed.
-     📌 e.g. «Lesson | a unit inside a course made of blocks (text, video)». -->
+Domain terms from `CONTEXT.md` (canonical; repeated here only as used in this SAD):
 
 | Term | Meaning |
 |---|---|
-| <e.g. domain object A> | <its meaning in this domain> |
-| <e.g. domain object B> | <its meaning> |
-| <e.g. domain invariant name> | <the rule, in plain language> |
+| Downscale limit | The maximum length of an opened image's long side, 4096 px; larger images are reduced to it proportionally on open |
+| Editor | The person editing an image in the app; not the Portfolio reviewer |
+| Original | The opened image after orientation is applied and it is reduced to the Downscale limit; not the source file on disk |
+| Portfolio reviewer | A recruiter or engineer judging the deployed app, usually on a first open and on a desktop browser |
+| Preview | What the canvas shows: the Work rendered at the current View; not the exported image |
+| Supported image | A file whose content is JPEG, PNG, WebP, AVIF or GIF, or HEIC/HEIF where the browser decodes it itself |
+| Unsaved edits | Changes to the open Work that exist nowhere else; View changes never count. Tracked by the Work's revision (ADR-0005) |
+| View | The zoom level and pan position of the Preview; not part of the Work, never saved or exported |
+| Work | One image being edited: its Original plus everything applied on top of it |
+
+Terms introduced or sharpened by this feature (not in `CONTEXT.md` yet; candidates for `/sdd:glossary`):
+
+| Term | Meaning |
+|---|---|
+| Canvas area | The space left for the Preview after toolbars and panels; Fit and pan limits are measured against it (spec AC-01) |
+| Fit | The largest zoom at which the whole image fits inside the canvas area, never above 100% (spec AC-01) |
+| Size ceiling | The largest declared pixel count the editor accepts, 100 MP; checked before decoding (AC-09, §8) |
+| Notice | A non-blocking message in the notice queue: informational notices dismiss themselves, failure reasons stay until dismissed (AC-11b, §8) |
+| Superseded open | An open that a newer open replaced before it finished; its worker is terminated and its result can never replace the Work (AC-16b, §8) |
+| Revision | The Work's edit counter; every edit, undo and redo raises it, and Unsaved edits exist when it differs from the revision at open or save (ADR-0005) |
+| Header window | The first 1 MiB of a file, the only bytes the header parser reads (ADR-0002) |
+| Capability gate | The start-up check for WebGL2 and the worker features the editor needs; failing it shows the unsupported-browser message (AC-18, ADR-0003) |
