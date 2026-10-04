@@ -39,3 +39,20 @@ export function err<E = AppError>(error: E): Result<never, E> {
 export function appError(code: AppErrorCode, details?: Record<string, unknown>): AppError {
   return details === undefined ? { code } : { code, details }
 }
+
+const APP_ERROR_CODES: Record<AppErrorCode, true> = {
+  STORAGE_QUOTA: true,
+  FILE_NOT_PERMITTED: true,
+  NOT_AN_IMAGE: true,
+  UNREADABLE: true,
+  DECODE_FAILED: true,
+  UNSUPPORTED_FORMAT: true,
+  TOO_LARGE: true,
+  UNSUPPORTED_BROWSER: true,
+  DISPLAY_LOST: true,
+}
+
+/** Runtime check for codes that crossed a boundary untyped (e.g. a worker message). */
+export function isAppErrorCode(value: unknown): value is AppErrorCode {
+  return typeof value === 'string' && Object.hasOwn(APP_ERROR_CODES, value)
+}

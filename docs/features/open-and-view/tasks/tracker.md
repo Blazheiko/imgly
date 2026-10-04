@@ -9,7 +9,7 @@
 | T2 | [Extend the header parser to WebP, AVIF and HEIC/HEIF and add the property/fuzz test](./t02-header-parser-webp-avif-heic.md) | domain | Blazheiko | M | T1 | done |
 | T3 | [Implement the open policy: size ceiling, Downscale-limit target size, reduction steps and drop-candidate order](./t03-open-policy.md) | domain | Blazheiko | S | T1 | done |
 | T4 | [Implement the pure View model (Fit, zoom steps, clamp, zoom-at-point, pan clamp, auto-fit) and the Work revision rule](./t04-view-model-and-work-revision.md) | domain | Blazheiko | M | — | done |
-| T5 | [Build the decode worker pipeline and the main-thread decodeImage client with supersede and error mapping](./t05-decode-worker-pipeline.md) | infra | Blazheiko | L | T2, T3 | todo |
+| T5 | [Build the decode worker pipeline and the main-thread decodeImage client with supersede and error mapping](./t05-decode-worker-pipeline.md) | infra | Blazheiko | L | T2, T3 | done |
 | T6 | [Add the worker's orientation and HEIC capability probes and the EXIF-orientation fallback](./t06-decode-capability-probes.md) | infra | Blazheiko | M | T5 | todo |
 | T7 | [Add the platform intake: window drop guard, files from a DataTransfer, and the single-file picker](./t07-platform-intake.md) | infra | Blazheiko | S | — | done |
 | T8 | [Build the WebGL2 preview renderer: mipmapped Original texture, View transform uniform, DPR sizing, draw-on-change](./t08-preview-renderer.md) | infra | Blazheiko | M | T4 | done |

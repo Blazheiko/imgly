@@ -1,0 +1,70 @@
+import { appError, err, isAppErrorCode, type AppError, type Result } from '@/core'
+import { SUPERSEDED, type DecodedImage, type DecodeOutcome, type DecodeRequest } from './types'
+
+const FORMATS = new Set(['jpeg', 'png', 'gif', 'webp', 'avif', 'heic'])
+
+/** Validates a worker message; anything malformed is a failed decode. */
+export function parseWorkerResponse(data: unknown): Result<DecodedImage, AppError> {
+  const failed = err(appError('DECODE_FAILED'))
+  if (typeof data !== 'object' || data === null) return failed
+  const message = data as Record<string, unknown>
+
+  if (message.ok === false) {
+    const error = message.error as Record<string, unknown> | undefined
+    if (typeof error !== 'object' || error === null || !isAppErrorCode(error.code)) return failed
+    const details = error.details
+    return err(
+      typeof details === 'object' && details !== null
+        ? appError(error.code, details as Record<string, unknown>)
+        : appError(error.code),
+    )
+  }
+
+  const value = message.value as Record<string, unknown> | undefined
+  if (message.ok !== true || typeof value !== 'object' || value === null) return failed
+  const numbers = ['sourceWidth', 'sourceHeight', 'width', 'height'] as const
+  if (
+    !value.bitmap ||
+    !numbers.every((key) => typeof value[key] === 'number') ||
+    !FORMATS.has(value.format as string) ||
+    typeof value.animated !== 'boolean' ||
+    typeof value.downscaled !== 'boolean'
+  ) {
+    return failed
+  }
+  return { ok: true, value: value as unknown as DecodedImage }
+}
+
+/**
+ * One worker per open. A new call terminates the previous worker at once and resolves its
+ * promise as `Superseded` (AC-16b); a worker is also terminated when its result arrives.
+ */
+export function createDecoder(createWorker: () => Worker) {
+  let current: { worker: Worker; settle: (outcome: DecodeOutcome) => void } | undefined
+
+  return function decodeImage(file: Blob): Promise<DecodeOutcome> {
+    current?.worker.terminate()
+    current?.settle(SUPERSEDED)
+
+    return new Promise((resolve) => {
+      const worker = createWorker()
+      const job = {
+        worker,
+        settle: (outcome: DecodeOutcome) => {
+          worker.onmessage = worker.onerror = worker.onmessageerror = null
+          if (current === job) current = undefined
+          resolve(outcome)
+        },
+      }
+      current = job
+      const finish = (outcome: DecodeOutcome) => {
+        worker.terminate()
+        job.settle(outcome)
+      }
+      worker.onmessage = (event) => finish(parseWorkerResponse(event.data))
+      worker.onerror = () => finish(err(appError('DECODE_FAILED')))
+      worker.onmessageerror = () => finish(err(appError('DECODE_FAILED')))
+      worker.postMessage({ file } satisfies DecodeRequest)
+    })
+  }
+}
