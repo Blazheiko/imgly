@@ -18,20 +18,40 @@ export function parseGif(b: Uint8Array): Result<ImageHeader, AppError> {
     return err(appError('UNREADABLE'))
   }
   const globalTable = packed & 0x80 ? 3 * (1 << ((packed & 0x07) + 1)) : 0
-  const animated = countImageDescriptors(b, 13 + globalTable) >= 2
-  return ok({ format: 'gif', width, height, animated, exifOrientation: 1 })
+  const { frames, firstRight, firstBottom } = scanImageDescriptors(b, 13 + globalTable)
+  // A frame may extend past the logical screen, and decoders size the bitmap to cover it (AC-09).
+  return ok({
+    format: 'gif',
+    width: Math.max(width, firstRight),
+    height: Math.max(height, firstBottom),
+    animated: frames >= 2,
+    exifOrientation: 1,
+  })
 }
 
-/** Walks blocks by their length fields only — never decodes — and stops at 2 or at the end. */
-function countImageDescriptors(b: Uint8Array, start: number): number {
+interface DescriptorScan {
+  frames: number
+  firstRight: number
+  firstBottom: number
+}
+
+/**
+ * Walks blocks by their length fields only — never decodes — and stops at 2 frames or at the end.
+ * Records where the first frame ends, from its left/top offset plus its width/height.
+ */
+function scanImageDescriptors(b: Uint8Array, start: number): DescriptorScan {
   let o = start
-  let found = 0
-  for (let i = 0; i < MAX_BLOCKS && found < 2; i++) {
+  const found: DescriptorScan = { frames: 0, firstRight: 0, firstBottom: 0 }
+  for (let i = 0; i < MAX_BLOCKS && found.frames < 2; i++) {
     const introducer = u8(b, o)
     if (introducer === IMAGE_DESCRIPTOR) {
       const packed = u8(b, o + 9)
       if (packed === undefined) return found
-      found++
+      if (found.frames === 0) {
+        found.firstRight = (u16(b, o + 1, true) ?? 0) + (u16(b, o + 5, true) ?? 0)
+        found.firstBottom = (u16(b, o + 3, true) ?? 0) + (u16(b, o + 7, true) ?? 0)
+      }
+      found.frames++
       const localTable = packed & 0x80 ? 3 * (1 << ((packed & 0x07) + 1)) : 0
       o = skipSubBlocks(b, o + 10 + localTable + 1) // +1 for the LZW minimum code size
     } else if (introducer === EXTENSION) {

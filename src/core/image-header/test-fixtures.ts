@@ -92,18 +92,28 @@ export function png(opts: { width: number; height: number; animated?: boolean })
 
 // ---- GIF ----------------------------------------------------------------------------------------
 
-function gifFrame(width: number, height: number): Uint8Array {
+type GifFrame = { left?: number; top?: number; width: number; height: number }
+
+function gifFrame({ left = 0, top = 0, width, height }: GifFrame): Uint8Array {
   const gce = bytes([0x21, 0xf9, 4, 0, 10, 0, 0, 0])
-  const descriptor = bytes([0x2c], le16(0), le16(0), le16(width), le16(height), [0])
+  const descriptor = bytes([0x2c], le16(left), le16(top), le16(width), le16(height), [0])
   const data = bytes([2], [3, 0x4c, 0x01, 0x00], [0])
   return bytes(gce, descriptor, data)
 }
 
-export function gif(opts: { width: number; height: number; frames?: number }): Uint8Array {
+/** A GIF with `frames` frames; each covers the screen unless `frame` gives its bounds. */
+export function gif(opts: {
+  width: number
+  height: number
+  frames?: number
+  frame?: GifFrame
+}): Uint8Array {
   const screen = bytes('GIF89a', le16(opts.width), le16(opts.height), [0x80, 0, 0])
   const palette = new Uint8Array(6) // 2-entry global colour table
   const netscape = bytes([0x21, 0xff, 11], 'NETSCAPE2.0', [3, 1, 0, 0, 0])
-  const frames = Array.from({ length: opts.frames ?? 1 }, () => gifFrame(opts.width, opts.height))
+  const frames = Array.from({ length: opts.frames ?? 1 }, () =>
+    gifFrame(opts.frame ?? { width: opts.width, height: opts.height }),
+  )
   return bytes(screen, palette, netscape, ...frames, [0x3b])
 }
 

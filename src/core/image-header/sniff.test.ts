@@ -149,6 +149,15 @@ describe('sniffImageHeader — GIF', () => {
     })
   })
 
+  it('declares the first frame bounds when they extend past the logical screen (AC-09)', () => {
+    const bomb = gif({
+      width: 1,
+      height: 1,
+      frame: { left: 10, top: 20, width: 30000, height: 9000 },
+    })
+    expect(header(bomb)).toMatchObject({ width: 30010, height: 9020 })
+  })
+
   it('marks a GIF with two image descriptors as animated', () => {
     expect(header(gif({ width: 300, height: 200, frames: 3 })).animated).toBe(true)
   })

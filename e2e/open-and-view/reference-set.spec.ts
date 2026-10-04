@@ -32,6 +32,34 @@ function bomb(): FilePayload {
   return { name: 'bomb.png', mimeType: 'image/png', buffer }
 }
 
+/** A 1×1-screen GIF whose one frame is 30000×9000: the bomb hides in the frame descriptor. */
+function frameBombGif(): FilePayload {
+  const le16 = (n: number) => [n & 255, (n >> 8) & 255]
+  const buffer = Buffer.from([
+    ...Buffer.from('GIF89a', 'latin1'),
+    ...le16(1),
+    ...le16(1),
+    0x80,
+    0,
+    0,
+    ...Array<number>(6).fill(0), // 2-entry global colour table
+    0x2c,
+    ...le16(0),
+    ...le16(0),
+    ...le16(30000),
+    ...le16(9000),
+    0,
+    2,
+    3,
+    0x4c,
+    0x01,
+    0x00,
+    0,
+    0x3b,
+  ])
+  return { name: 'frame-bomb.gif', mimeType: 'image/gif', buffer }
+}
+
 /** A valid JPEG with more than 1 MiB of APP2 metadata before its frame header (accepted risk). */
 function bigMetadataJpeg(): FilePayload {
   const jpg = fixture('photo.jpg')
@@ -90,6 +118,14 @@ const REFERENCE_SET: [string, () => FilePayload, Outcome][] = [
     {
       refused:
         'This image is too large: 20000×20000 px (400 MP). The largest the editor opens is 100 MP.',
+    },
+  ],
+  [
+    'GIF frame larger than its screen',
+    frameBombGif,
+    {
+      refused:
+        'This image is too large: 30000×9000 px (270 MP). The largest the editor opens is 100 MP.',
     },
   ],
 ]

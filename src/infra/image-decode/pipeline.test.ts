@@ -124,6 +124,18 @@ describe('runDecode (worker pipeline)', () => {
     expect(env.createImageBitmap).not.toHaveBeenCalled()
   })
 
+  it('refuses TOO_LARGE and closes the bitmap when the decode is larger than declared (AC-09)', async () => {
+    const { env, bitmaps } = fakeEnv({ width: 20000, height: 6000 })
+    const result = await runDecode(new Blob([pngBytes(100, 100)]), env, BROWSER_ORIENTS)
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: 'TOO_LARGE', details: { width: 20000, height: 6000 } },
+    })
+    expect(bitmaps).toHaveLength(1)
+    expect(bitmaps[0]!.close).toHaveBeenCalled()
+  })
+
   it('refuses NOT_AN_IMAGE by content before decoding (AC-08)', async () => {
     const { env } = fakeEnv({ width: 1, height: 1 })
     const result = await runDecode(new Blob(['just text']), env, BROWSER_ORIENTS)

@@ -35,7 +35,8 @@ export const DECODE_OPTIONS: ImageBitmapOptions = {
 /**
  * header window → sniff → open policy → decode → orient (if the browser didn't) → stepwise
  * reduction (feature ADR 0001). The ceiling is checked from the declared size before any pixel
- * is decoded (AC-09), and HEIC is refused without decoding where the probe found no support.
+ * is decoded (AC-09), and again on the decoded bitmap in case the header understated it. HEIC is
+ * refused without decoding where the probe found no support.
  */
 export async function runDecode(
   file: Blob,
@@ -63,6 +64,15 @@ export async function runDecode(
     decoded = await env.createImageBitmap(file, DECODE_OPTIONS)
   } catch (error) {
     return err(appError(mapReadError(errorName(error))))
+  }
+  const decodedAllowed = checkOpenPolicy({
+    ...header,
+    width: decoded.width,
+    height: decoded.height,
+  })
+  if (!decodedAllowed.ok) {
+    decoded.close()
+    return decodedAllowed
   }
 
   const orientation = capabilities.appliesOrientation ? 1 : header.exifOrientation
