@@ -141,6 +141,39 @@ describe('setActualSize', () => {
     expect(toCanvas(after, 2000, 2000)).toEqual({ x: 500, y: 500 })
     expect(after.autoFit).toBe(false)
   })
+
+  it('turns auto-fit off even when Fit is already 100%, so a resize keeps 100% (AC-12b)', () => {
+    const c = ctx(500, 400, 1000, 1000)
+    const after = setActualSize(fitView(c), c)
+    expect(after).toMatchObject({ zoom: 1, autoFit: false })
+    expect(resizeView(after, ctx(500, 400, 2000, 2000)).zoom).toBe(1)
+  })
+
+  it('lands on exactly 1, not a float neighbour, from an awkward Fit', () => {
+    const c = ctx(4096, 4096, 322, 322)
+    expect(setActualSize(fitView(c), c).zoom).toBe(1)
+  })
+})
+
+describe('stepZoom exactness', () => {
+  it('lands on each fixed level exactly when stepping in or out from any awkward Fit', () => {
+    for (let side = 300; side < 1200; side += 7) {
+      const c = ctx(4096, 4096, side, side)
+      let view = fitView(c)
+      for (let i = 0; i < ZOOM_STEPS.length; i++) {
+        view = stepZoom(view, 1, c)
+        expect(ZOOM_STEPS).toContain(view.zoom)
+      }
+      view = { ...view, zoom: 7 } // between steps: stepping out must land exactly on 6
+      expect(stepZoom(view, -1, c).zoom).toBe(6)
+    }
+  })
+
+  it('turns auto-fit off even when the step is clamped to no change', () => {
+    const c = ctx(100, 100, 1000, 1000) // Fit = 100%, min = 10%
+    const atMin = { ...fitView(c), zoom: 0.1, autoFit: true }
+    expect(stepZoom(atMin, -1, c).autoFit).toBe(false)
+  })
 })
 
 describe('pan (AC-13)', () => {

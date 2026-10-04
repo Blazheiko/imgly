@@ -10,10 +10,39 @@ const EPSILON = 1e-9
  * (canvas device pixels) fixed. Returns the same View when the clamped result changes nothing.
  */
 export function zoomAt(view: View, factor: number, point: Point, ctx: ViewContext): View {
-  const { min, max } = zoomRange(fitZoom(ctx.image, ctx.canvas))
-  const zoom = Math.min(max, Math.max(min, view.zoom * factor))
+  const zoom = clampZoom(view.zoom * factor, ctx)
   if (zoom === view.zoom) return view
+  return zoomAround(view, zoom, point, ctx)
+}
 
+/**
+ * Sets the zoom to exactly `target` (clamped to the range) around `point`, and always leaves
+ * auto-fit, even when the zoom is unchanged: a control press is a manual zoom (AC-12b).
+ */
+export function zoomTo(view: View, target: number, point: Point, ctx: ViewContext): View {
+  return zoomAround(view, clampZoom(target, ctx), point, ctx)
+}
+
+/** Steps to the next fixed level strictly beyond the current zoom, around the canvas centre. */
+export function stepZoom(view: View, direction: 1 | -1, ctx: ViewContext): View {
+  const target =
+    direction > 0
+      ? (ZOOM_STEPS.find((z) => z > view.zoom + EPSILON) ?? Infinity)
+      : ([...ZOOM_STEPS].reverse().find((z) => z < view.zoom - EPSILON) ?? 0)
+  return zoomTo(view, target, centre(ctx), ctx)
+}
+
+/** "100%": one image pixel per device pixel, around the canvas centre. */
+export function setActualSize(view: View, ctx: ViewContext): View {
+  return zoomTo(view, 1, centre(ctx), ctx)
+}
+
+function clampZoom(zoom: number, ctx: ViewContext): number {
+  const { min, max } = zoomRange(fitZoom(ctx.image, ctx.canvas))
+  return Math.min(max, Math.max(min, zoom))
+}
+
+function zoomAround(view: View, zoom: number, point: Point, ctx: ViewContext): View {
   const ratio = zoom / view.zoom
   return clampPan(
     {
@@ -24,22 +53,6 @@ export function zoomAt(view: View, factor: number, point: Point, ctx: ViewContex
     },
     ctx,
   )
-}
-
-/** Steps to the next fixed level strictly beyond the current zoom, around the canvas centre. */
-export function stepZoom(view: View, direction: 1 | -1, ctx: ViewContext): View {
-  const { min, max } = zoomRange(fitZoom(ctx.image, ctx.canvas))
-  const target =
-    direction > 0
-      ? (ZOOM_STEPS.find((z) => z > view.zoom + EPSILON) ?? max)
-      : ([...ZOOM_STEPS].reverse().find((z) => z < view.zoom - EPSILON) ?? min)
-  const clamped = Math.min(max, Math.max(min, target))
-  return zoomAt(view, clamped / view.zoom, centre(ctx), ctx)
-}
-
-/** "100%": one image pixel per device pixel, around the canvas centre. */
-export function setActualSize(view: View, ctx: ViewContext): View {
-  return zoomAt(view, 1 / view.zoom, centre(ctx), ctx)
 }
 
 function centre(ctx: ViewContext): Point {
