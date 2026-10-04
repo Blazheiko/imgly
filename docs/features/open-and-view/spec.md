@@ -268,6 +268,6 @@ Reference machine: Apple M1 MacBook Air (or equivalent) with the latest Chrome (
 ## 8. Open questions
 
 - [ ] What is the size ceiling (largest accepted pixel count) that stays safe on the reference machine and on the mobile "must not break" tier? Default now: 100 MP. Also: is there a separate limit on file size in bytes or on the length of one side (for example 200000×400)? Default now: none beyond the pixel-count ceiling. — owner: Blazheiko (owner), due: before `sdd:design` closes
-- [ ] Which exact reference machine and browser do the §6 targets bind to? Default now: Apple M1 MacBook Air, latest Chrome. — owner: Blazheiko (owner), due: before `sdd:plan-tests`
+- [x] Which exact reference machine and browser do the §6 targets bind to? Resolved 2026-10-04 in `sdd:plan-tests`: Apple M1 MacBook Air with the latest stable Chrome; the `test-plan.md` load scenarios bind to it. — owner: Blazheiko (owner)
 - [ ] Are wide-gamut (Display P3) and colour-profiled images shown in their own colour space or converted to standard sRGB? Default now: converted to sRGB. — owner: Blazheiko (owner), due: before `sdd:design` closes
 - [ ] Should any embedded metadata (capture date, location) be kept with the Work for later export? Default now: none is kept. — owner: Blazheiko (owner), due: before the export feature's `sdd:specify`
