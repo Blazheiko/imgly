@@ -95,3 +95,61 @@ export function gif(opts: { width: number; height: number; frames?: number }): U
   const frames = Array.from({ length: opts.frames ?? 1 }, () => gifFrame(opts.width, opts.height))
   return bytes(screen, palette, netscape, ...frames, [0x3b])
 }
+
+// ---- WebP ---------------------------------------------------------------------------------------
+
+function riffWebp(...chunks: Uint8Array[]): Uint8Array {
+  const body = bytes('WEBP', ...chunks)
+  return bytes('RIFF', le32(body.length), body)
+}
+
+function riffChunk(type: string, data: Uint8Array): Uint8Array {
+  const pad = data.length % 2 ? [0] : []
+  return bytes(type, le32(data.length), data, pad)
+}
+
+const le24 = (n: number) => [n & 0xff, (n >> 8) & 0xff, (n >> 16) & 0xff]
+
+export function webpLossy(width: number, height: number): Uint8Array {
+  const frame = bytes([0x30, 0x01, 0x00], [0x9d, 0x01, 0x2a], le16(width), le16(height), [0, 0])
+  return riffWebp(riffChunk('VP8 ', frame))
+}
+
+export function webpLossless(width: number, height: number): Uint8Array {
+  const packed = ((width - 1) & 0x3fff) | (((height - 1) & 0x3fff) << 14)
+  return riffWebp(riffChunk('VP8L', bytes([0x2f], le32(packed), [0, 0, 0])))
+}
+
+export function webpExtended(width: number, height: number, animated: boolean): Uint8Array {
+  const flags = animated ? 0x02 : 0
+  const vp8x = riffChunk('VP8X', bytes([flags, 0, 0, 0], le24(width - 1), le24(height - 1)))
+  const rest = animated
+    ? [riffChunk('ANIM', new Uint8Array(6)), riffChunk('ANMF', new Uint8Array(16))]
+    : [riffChunk('VP8L', bytes([0x2f], le32(0), [0, 0, 0]))]
+  return riffWebp(vp8x, ...rest)
+}
+
+// ---- ISOBMFF (AVIF, HEIC) -----------------------------------------------------------------------
+
+export function box(type: string, ...payload: (number[] | Uint8Array | string)[]): Uint8Array {
+  const body = bytes(...payload)
+  return bytes(be32(body.length + 8), type, body)
+}
+
+export const fullBox = (type: string, ...payload: (number[] | Uint8Array | string)[]) =>
+  box(type, [0, 0, 0, 0], ...payload)
+
+export const ispe = (width: number, height: number) => fullBox('ispe', be32(width), be32(height))
+
+export function heif(opts: {
+  major: string
+  compatible?: string[]
+  sizes?: [number, number][]
+}): Uint8Array {
+  const ftyp = box('ftyp', opts.major, be32(0), ...(opts.compatible ?? []))
+  const hdlr = fullBox('hdlr', be32(0), 'pict', new Uint8Array(13))
+  const pitm = fullBox('pitm', be16(1))
+  const ipco = box('ipco', ...(opts.sizes ?? []).map(([w, h]) => ispe(w, h)))
+  const meta = fullBox('meta', hdlr, pitm, box('iprp', ipco))
+  return bytes(ftyp, meta, box('mdat', new Uint8Array(16)))
+}

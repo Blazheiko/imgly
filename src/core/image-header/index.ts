@@ -1,8 +1,10 @@
 import { appError, err, type AppError, type Result } from '../result'
 import { isGif, parseGif } from './gif'
+import { isobmffBrand, parseIsobmff } from './isobmff'
 import { isJpeg, parseJpeg } from './jpeg'
 import { isPng, parsePng } from './png'
 import { detectRefusedFormat } from './refused'
+import { isWebp, parseWebp } from './webp'
 import { HEADER_WINDOW_BYTES, type ImageHeader } from './types'
 
 export * from './types'
@@ -28,5 +30,8 @@ function parseSupported(b: Uint8Array): Result<ImageHeader, AppError> | undefine
   if (isJpeg(b)) return parseJpeg(b)
   if (isPng(b)) return parsePng(b)
   if (isGif(b)) return parseGif(b)
+  if (isWebp(b)) return parseWebp(b)
+  const brand = isobmffBrand(b)
+  if (brand) return parseIsobmff(b, brand)
   return undefined
 }
