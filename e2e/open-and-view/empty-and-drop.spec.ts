@@ -36,6 +36,14 @@ test.describe('SCR-01 — empty editor', () => {
     await expect(page.getByRole('button', { name: 'Open image' })).toBeVisible()
   })
 
+  test('a dropped file named as an image but holding text gets the unreadable reason (AC-08)', async ({
+    page,
+  }) => {
+    await gotoReady(page)
+    await dropFiles(page, [{ name: 'text-named.png', type: 'image/png', text: 'not an image' }])
+    await expect(page.getByRole('alert')).toHaveText(/This file couldn't be read as an image\./)
+  })
+
   test('the drop overlay appears on drag-enter and goes on drag-leave', async ({ page }) => {
     await gotoReady(page)
 

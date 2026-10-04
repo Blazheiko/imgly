@@ -104,7 +104,7 @@ describe('editor store — notices and drop sequencing', () => {
     it('shows the AC-04 notice when the drop held no files', async () => {
       const decode = decoderByName({})
       editor.setDecoder(decode)
-      await editor.openDrop({ files: [], nonFileCount: 2 })
+      await editor.openDrop({ files: [] })
 
       expect(texts()).toEqual(['failure: Only image files can be opened.'])
       expect(decode).not.toHaveBeenCalled()
@@ -120,7 +120,6 @@ describe('editor store — notices and drop sequencing', () => {
       editor.setDecoder(decode)
       await editor.openDrop({
         files: [f('notes.txt'), f('broken.jpg'), f('good.png'), f('later.png')],
-        nonFileCount: 1,
       })
 
       expect(decode.mock.calls.map(([file]) => (file as File).name)).toEqual([
@@ -144,7 +143,6 @@ describe('editor store — notices and drop sequencing', () => {
       )
       await editor.openDrop({
         files: [f('notes.txt'), f('big.jpg'), f('bad.png')],
-        nonFileCount: 0,
       })
 
       expect(editor.work).toBeNull()
@@ -152,9 +150,16 @@ describe('editor store — notices and drop sequencing', () => {
       expect(notices.items[0]!.text).toMatch(/^This image is too large/)
     })
 
+    it('gives a file named or typed as an image the unreadable reason, not AC-04 (AC-08)', async () => {
+      editor.setDecoder(decoderByName({ 'text-named.png': 'NOT_AN_IMAGE' }))
+      await editor.openDrop({ files: [f('text-named.png')] })
+
+      expect(texts()).toEqual(["failure: This file couldn't be read as an image."])
+    })
+
     it('shows the AC-04 notice when no dropped file was an image', async () => {
       editor.setDecoder(decoderByName({ 'a.txt': 'NOT_AN_IMAGE', 'b.txt': 'NOT_AN_IMAGE' }))
-      await editor.openDrop({ files: [f('a.txt'), f('b.txt')], nonFileCount: 0 })
+      await editor.openDrop({ files: [f('a.txt'), f('b.txt')] })
 
       expect(texts()).toEqual(['failure: Only image files can be opened.'])
     })
@@ -173,7 +178,7 @@ describe('editor store — notices and drop sequencing', () => {
           'other.png': image(),
         }),
       )
-      await editor.openDrop({ files: [f('anim.webp'), f('other.png')], nonFileCount: 0 })
+      await editor.openDrop({ files: [f('anim.webp'), f('other.png')] })
 
       expect(texts()).toEqual([
         'info: Reduced to the 4096 px limit: 8000×4000 → 4096×2048.',
@@ -191,7 +196,7 @@ describe('editor store — notices and drop sequencing', () => {
       )
       editor.setDecoder(decode)
 
-      const drop = editor.openDrop({ files: [f('slow.jpg'), f('next.png')], nonFileCount: 0 })
+      const drop = editor.openDrop({ files: [f('slow.jpg'), f('next.png')] })
       await editor.openFile(f('picked.png'))
       release(err(appError('UNREADABLE')))
       await drop

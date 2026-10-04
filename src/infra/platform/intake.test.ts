@@ -42,14 +42,14 @@ describe('filesFromDataTransfer', () => {
           { kind: 'file', file: c },
         ]),
       ),
-    ).toEqual({ files: [a, b, c], nonFileCount: 0 })
+    ).toEqual({ files: [a, b, c] })
   })
 
-  it('excludes a folder and counts it as a non-file', () => {
+  it('excludes a folder', () => {
     const folder = file('holiday', '')
     expect(
       filesFromDataTransfer(fakeDataTransfer([{ kind: 'file', file: folder, directory: true }])),
-    ).toEqual({ files: [], nonFileCount: 1 })
+    ).toEqual({ files: [] })
   })
 
   it('returns no files for a link dragged from another tab', () => {
@@ -57,7 +57,7 @@ describe('filesFromDataTransfer', () => {
     const result = filesFromDataTransfer(
       fakeDataTransfer([{ kind: 'string' }, { kind: 'string' }, { kind: 'string' }]),
     )
-    expect(result).toEqual({ files: [], nonFileCount: 1 })
+    expect(result).toEqual({ files: [] })
   })
 
   it('keeps only the image when an image and a folder are dropped together', () => {
@@ -70,17 +70,17 @@ describe('filesFromDataTransfer', () => {
           { kind: 'file', file: image },
         ]),
       ),
-    ).toEqual({ files: [image], nonFileCount: 1 })
+    ).toEqual({ files: [image] })
   })
 
   it('falls back to dt.files when items are unavailable', () => {
     const a = file('a.png')
     const dt = { items: undefined, files: [a] } as unknown as DataTransfer
-    expect(filesFromDataTransfer(dt)).toEqual({ files: [a], nonFileCount: 0 })
+    expect(filesFromDataTransfer(dt)).toEqual({ files: [a] })
   })
 
   it('handles a null DataTransfer', () => {
-    expect(filesFromDataTransfer(null)).toEqual({ files: [], nonFileCount: 0 })
+    expect(filesFromDataTransfer(null)).toEqual({ files: [] })
   })
 })
 

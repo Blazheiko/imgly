@@ -1,10 +1,37 @@
-export type DropItem<TFile> = { kind: 'file'; file: TFile } | { kind: 'other' }
+/** Extensions of formats the editor opens or names when it refuses them (AC-07). */
+const IMAGE_EXTENSIONS = new Set([
+  'jpg',
+  'jpeg',
+  'jfif',
+  'png',
+  'apng',
+  'gif',
+  'webp',
+  'avif',
+  'heic',
+  'heif',
+  'svg',
+  'bmp',
+  'ico',
+  'tif',
+  'tiff',
+  'psd',
+  'dng',
+  'cr2',
+  'cr3',
+  'nef',
+  'arw',
+  'orf',
+  'rw2',
+  'raf',
+])
 
-/** Keeps the dropped files in browser order and counts everything else (AC-03, AC-04). */
-export function orderDropCandidates<TFile>(items: DropItem<TFile>[]): {
-  files: TFile[]
-  nonFileCount: number
-} {
-  const files = items.flatMap((item) => (item.kind === 'file' ? [item.file] : []))
-  return { files, nonFileCount: items.length - files.length }
+/**
+ * Whether a dropped file presents itself as an image, by MIME type or extension (AC-03, AC-08).
+ * Such a file that turns out not to be one gets the unreadable reason, not "Only image files".
+ */
+export function looksLikeImageFile(file: { name: string; type: string }): boolean {
+  if (file.type.startsWith('image/')) return true
+  const dot = file.name.lastIndexOf('.')
+  return dot > 0 && IMAGE_EXTENSIONS.has(file.name.slice(dot + 1).toLowerCase())
 }

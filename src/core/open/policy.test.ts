@@ -5,7 +5,7 @@ import {
   checkOpenPolicy,
   DOWNSCALE_LIMIT,
   MAX_INTERMEDIATE_SIDE,
-  orderDropCandidates,
+  looksLikeImageFile,
   reductionSteps,
   SIZE_CEILING_BYTES,
   SIZE_CEILING_PIXELS,
@@ -106,22 +106,18 @@ describe('reductionSteps', () => {
   })
 })
 
-describe('orderDropCandidates (AC-03)', () => {
-  it('keeps files in browser order and counts the rest', () => {
-    expect(
-      orderDropCandidates([
-        { kind: 'file', file: 'b.txt' },
-        { kind: 'other' },
-        { kind: 'file', file: 'a.png' },
-      ]),
-    ).toEqual({ files: ['b.txt', 'a.png'], nonFileCount: 1 })
+describe('looksLikeImageFile (AC-03, AC-08)', () => {
+  it('counts a file as an image by its MIME type or its image extension', () => {
+    expect(looksLikeImageFile({ name: 'text-named.png', type: '' })).toBe(true)
+    expect(looksLikeImageFile({ name: 'scan', type: 'image/tiff' })).toBe(true)
+    expect(looksLikeImageFile({ name: 'IMG_0001.HEIC', type: '' })).toBe(true)
+    expect(looksLikeImageFile({ name: 'photo.jpeg', type: 'application/octet-stream' })).toBe(true)
   })
 
-  it('returns no candidates for a drop of links only', () => {
-    expect(orderDropCandidates([{ kind: 'other' }, { kind: 'other' }])).toEqual({
-      files: [],
-      nonFileCount: 2,
-    })
+  it('does not count other files', () => {
+    expect(looksLikeImageFile({ name: 'notes.txt', type: 'text/plain' })).toBe(false)
+    expect(looksLikeImageFile({ name: 'png', type: '' })).toBe(false)
+    expect(looksLikeImageFile({ name: 'archive.png.zip', type: 'application/zip' })).toBe(false)
   })
 })
 
