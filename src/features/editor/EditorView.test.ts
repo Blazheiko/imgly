@@ -181,6 +181,44 @@ describe('EditorView — zoom shortcuts (SCR-02)', () => {
     expect(editor.view.zoom).toBe(0.25)
   })
 
+  it('Space held over a focused button enters pan mode and never presses the button (AC-13)', async () => {
+    const zoomIn = wrapper.get('[aria-label="Zoom in"]').element as HTMLButtonElement
+    editor.actualSize() // the image now overflows the canvas, so a drag can pan
+    zoomIn.focus()
+    const down = new KeyboardEvent('keydown', {
+      key: ' ',
+      code: 'Space',
+      bubbles: true,
+      cancelable: true,
+    })
+    zoomIn.dispatchEvent(down)
+    await nextTick()
+    expect(down.defaultPrevented).toBe(true)
+    const canvas = wrapper.get('[data-testid="preview-canvas"]')
+    expect(canvas.classes()).toContain('preview-canvas--space-pan')
+
+    const startPan = editor.view.panX
+    canvas.element.dispatchEvent(
+      new PointerEvent('pointerdown', { button: 0, clientX: 10, clientY: 10, pointerId: 1 }),
+    )
+    canvas.element.dispatchEvent(
+      new PointerEvent('pointermove', { clientX: 60, clientY: 10, pointerId: 1 }),
+    )
+    expect(editor.view.panX).toBe(startPan + 50 * devicePixelRatio)
+
+    const up = new KeyboardEvent('keyup', {
+      key: ' ',
+      code: 'Space',
+      bubbles: true,
+      cancelable: true,
+    })
+    zoomIn.dispatchEvent(up)
+    await nextTick()
+    expect(up.defaultPrevented).toBe(true)
+    expect(canvas.classes()).not.toContain('preview-canvas--space-pan')
+    expect(editor.view.zoom).toBe(1) // released Space did not press Zoom in
+  })
+
   it('ignores shortcuts typed into a text field', () => {
     const input = document.createElement('input')
     document.body.appendChild(input)

@@ -4,6 +4,8 @@ import { createPreviewRenderer, type PreviewRenderer } from '@/render'
 import { useEditorStore } from '../store'
 import { pinchGesture, wheelGesture, type PinchInput } from './gestures'
 
+const props = defineProps<{ spacePan?: boolean }>()
+
 const editor = useEditorStore()
 const canvas = ref<HTMLCanvasElement>()
 const dragging = ref(false)
@@ -119,7 +121,11 @@ onBeforeUnmount(() => {
   <canvas
     ref="canvas"
     class="preview-canvas"
-    :class="{ 'preview-canvas--pannable': pannable, 'preview-canvas--dragging': dragging }"
+    :class="{
+      'preview-canvas--pannable': pannable,
+      'preview-canvas--space-pan': props.spacePan,
+      'preview-canvas--dragging': dragging,
+    }"
     data-testid="preview-canvas"
     @pointerdown="onPointerDown"
     @pointermove="onPointerMove"
@@ -137,11 +143,13 @@ onBeforeUnmount(() => {
   touch-action: none;
 }
 
-.preview-canvas--pannable {
+.preview-canvas--pannable,
+.preview-canvas--space-pan {
   cursor: grab;
 }
 
-.preview-canvas--pannable.preview-canvas--dragging {
+.preview-canvas--pannable.preview-canvas--dragging,
+.preview-canvas--space-pan.preview-canvas--dragging {
   cursor: grabbing;
 }
 </style>

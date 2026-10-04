@@ -13,6 +13,8 @@ import { useEditorStore } from './store'
 
 const editor = useEditorStore()
 const dragging = ref(false)
+/** Space is held: the canvas shows the grab cursor, and the focused button is never pressed. */
+const spacePan = ref(false)
 
 /** The Preview's screens (SCR-01/02) are up: not checking, not SCR-04 or SCR-05. */
 const live = computed(() => editor.display === 'ok' || editor.display === 'restoring')
@@ -62,6 +64,11 @@ function onKeydown(event: KeyboardEvent) {
   }
   if (mod || event.altKey || isTextField(event.target)) return
   if (!editor.work || !acceptsOpens()) return
+  if (event.code === 'Space') {
+    event.preventDefault() // a focused button would otherwise fire on release (AC-13)
+    spacePan.value = true
+    return
+  }
   const shortcut = zoomShortcuts.find((s) => s.matches(event))
   if (!shortcut) return
   event.preventDefault()
@@ -81,6 +88,16 @@ function blockPageZoomGesture(event: Event) {
 }
 const GESTURE_EVENTS = ['gesturestart', 'gesturechange', 'gestureend']
 
+function onKeyup(event: KeyboardEvent) {
+  if (event.code !== 'Space' || !spacePan.value) return
+  event.preventDefault()
+  spacePan.value = false
+}
+
+function endSpacePan() {
+  spacePan.value = false
+}
+
 // The drop guard goes on the whole window first, so no drop ever navigates away (AC-02).
 const uninstallDropGuard = installDropGuard(window, {
   onDragEnter: () => (dragging.value = acceptsOpens()),
@@ -92,11 +109,15 @@ const uninstallDropGuard = installDropGuard(window, {
 
 onMounted(() => {
   window.addEventListener('keydown', onKeydown)
+  window.addEventListener('keyup', onKeyup)
+  window.addEventListener('blur', endSpacePan)
   window.addEventListener('wheel', blockPageZoomWheel, { passive: false })
   for (const type of GESTURE_EVENTS) window.addEventListener(type, blockPageZoomGesture)
 })
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeydown)
+  window.removeEventListener('keyup', onKeyup)
+  window.removeEventListener('blur', endSpacePan)
   window.removeEventListener('wheel', blockPageZoomWheel)
   for (const type of GESTURE_EVENTS) window.removeEventListener(type, blockPageZoomGesture)
   uninstallDropGuard()
@@ -129,7 +150,7 @@ onBeforeUnmount(() => {
       </CanvasMessage>
       <template v-else-if="live">
         <EmptyCanvas v-if="!editor.work" @open="openPicked" />
-        <PreviewCanvas v-else />
+        <PreviewCanvas v-else :space-pan="spacePan" />
         <div
           v-if="editor.display === 'restoring'"
           class="editor-view__restoring"
