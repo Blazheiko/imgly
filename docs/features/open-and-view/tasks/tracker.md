@@ -40,7 +40,7 @@
 | T33 | Add the missing UI-level AC tests and mark the visual baselines deferred (review S8) | tests | Blazheiko | S | T28 | done |
 | T34 | Refuse a GIF whose first image descriptor is not inside the header window as unreadable (review N1) | domain | Blazheiko | S | — | done |
 | T35 | Count a byte-ceiling or not-permitted refusal as an image reason only for a file that looks like an image (review F1) | app | Blazheiko | S | — | done |
-| T36 | Bring the spec in line with the resolved ceiling and Display P3 decisions and the byte ceiling message (review F2) | wiring | Blazheiko | S | — | todo |
+| T36 | Bring the spec in line with the resolved ceiling and Display P3 decisions and the byte ceiling message (review F2) | wiring | Blazheiko | S | — | done |
 | T37 | Recognise an SVG that starts with a comment or a DOCTYPE and has no XML prolog (review F3) | domain | Blazheiko | S | — | todo |
 | T38 | Add the Reload, low-clamp and fitted-no-pan e2e tests and mark the engine-limited test-plan rows (review F4) | tests | Blazheiko | S | — | todo |
 | T39 | Show the grab cursor in Space pan mode only when the image is pannable (review F5) | ui | Blazheiko | S | — | todo |

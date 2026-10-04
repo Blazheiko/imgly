@@ -145,6 +145,9 @@ Traceability: downscale limit 4096 px resolves roadmap decision D1 (`docs/roadma
 **When** the Editor tries to open it
 **Then** the editor refuses it based on the width × height the file declares, before decoding its pixels. Nothing is replaced, and a notice states the image's width × height in pixels with its megapixels, and the largest size the editor accepts in megapixels. A file whose declared dimensions can't be read is treated as unreadable (AC-08)
 
+<!-- added-by-fix: review-2026-10-04-2 F2 -->
+**And** a file larger than the byte ceiling (500 MB) is refused from its size before any of it is read, with nothing replaced and the notice "This file is too large: {N} MB. The largest file the editor opens is 500 MB.", where {N} is the file's size in MB rounded up
+
 ### AC-10 (US-04) — authorization
 
 **Given** the operating system or the browser does not allow the app to read the chosen file (for example missing file permissions, or a cloud-drive file that has not been downloaded)
@@ -245,7 +248,7 @@ Reference machine: Apple M1 MacBook Air (or equivalent) with the latest Chrome (
 | Zoom and pan smoothness on a 4096 px Original | ≥ 50 fps | performance trace during a scripted zoom and pan |
 | Memory after 10 consecutive opens of the 48 MP image | ≤ 110% of memory after the first open | memory snapshot in e2e |
 | Opening with no network connection | 100% of runs succeed | e2e run in offline mode after first load |
-| Size ceiling (largest accepted pixel count) | TBD, default 100 MP | see §8 |
+| Size ceiling (largest accepted pixel count) | 100 MP, plus a 500 MB byte ceiling | `sad.md` §8 |
 
 ## 6.1 Security / privacy
 
@@ -267,7 +270,7 @@ Reference machine: Apple M1 MacBook Air (or equivalent) with the latest Chrome (
 
 ## 8. Open questions
 
-- [ ] What is the size ceiling (largest accepted pixel count) that stays safe on the reference machine and on the mobile "must not break" tier? Default now: 100 MP. Also: is there a separate limit on file size in bytes or on the length of one side (for example 200000×400)? Default now: none beyond the pixel-count ceiling. — owner: Blazheiko (owner), due: before `sdd:design` closes
+- [x] What is the size ceiling (largest accepted pixel count) that stays safe on the reference machine and on the mobile "must not break" tier? Default now: 100 MP. Also: is there a separate limit on file size in bytes or on the length of one side (for example 200000×400)? Default now: none beyond the pixel-count ceiling. Resolved in `sdd:design` (`sad.md` §8): 100 MP, a separate 500 MB byte ceiling, and no side limit. — owner: Blazheiko (owner)
 - [x] Which exact reference machine and browser do the §6 targets bind to? Resolved 2026-10-04 in `sdd:plan-tests`: Apple M1 MacBook Air with the latest stable Chrome; the `test-plan.md` load scenarios bind to it. — owner: Blazheiko (owner)
-- [ ] Are wide-gamut (Display P3) and colour-profiled images shown in their own colour space or converted to standard sRGB? Default now: converted to sRGB. — owner: Blazheiko (owner), due: before `sdd:design` closes
+- [x] Are wide-gamut (Display P3) and colour-profiled images shown in their own colour space or converted to standard sRGB? Default now: converted to sRGB. Resolved in `sdd:design` (ADR-0004): every Original is converted to sRGB on open. — owner: Blazheiko (owner)
 - [ ] Should any embedded metadata (capture date, location) be kept with the Work for later export? Default now: none is kept. — owner: Blazheiko (owner), due: before the export feature's `sdd:specify`
