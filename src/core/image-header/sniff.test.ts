@@ -113,6 +113,25 @@ describe('sniffImageHeader — PNG and APNG', () => {
     )
   })
 
+  it('is UNREADABLE when a chunk inside the window fails its CRC (damaged file)', () => {
+    const damaged = png({ width: 320, height: 240 })
+    // Flip a byte inside the IDAT data; its stored CRC no longer matches.
+    const idat = damaged.length - 12 - 4 - 4
+    damaged[idat] = damaged[idat]! ^ 0xff
+    expect(errorOf(damaged).code).toBe('UNREADABLE')
+  })
+
+  it('is UNREADABLE when the IHDR CRC is wrong', () => {
+    const damaged = png({ width: 320, height: 240 })
+    damaged[29] = damaged[29]! ^ 0x01 // last byte of the IHDR CRC
+    expect(errorOf(damaged).code).toBe('UNREADABLE')
+  })
+
+  it('does not check a chunk that runs past the window', () => {
+    const whole = png({ width: 320, height: 240 })
+    expect(header(whole.subarray(0, whole.length - 14)).width).toBe(320) // IDAT cut short
+  })
+
   it('judges by content: PNG bytes are a PNG whatever the name says', () => {
     // The parser never sees a name — it receives bytes only.
     expect(header(png({ width: 2, height: 3 })).format).toBe('png')

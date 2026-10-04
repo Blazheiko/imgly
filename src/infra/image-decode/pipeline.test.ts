@@ -4,9 +4,22 @@ import type { Capabilities } from './types'
 
 const BROWSER_ORIENTS: Capabilities = { appliesOrientation: true, decodesHeic: false }
 
-// A minimal valid PNG header: signature + IHDR declaring the given size.
-function pngBytes(width: number, height: number): Uint8Array<ArrayBuffer> {
+// A minimal PNG: signature + IHDR declaring the given size (+ acTL when animated) + IDAT, with
+// real chunk CRCs (the parser verifies every chunk inside its window).
+function pngBytes(width: number, height: number, animated = false): Uint8Array<ArrayBuffer> {
   const be32 = (n: number) => [(n >>> 24) & 255, (n >> 16) & 255, (n >> 8) & 255, n & 255]
+  const crc = (data: number[]) => {
+    let c = 0xffffffff
+    for (const byte of data) {
+      c ^= byte
+      for (let k = 0; k < 8; k++) c = c & 1 ? (c >>> 1) ^ 0xedb88320 : c >>> 1
+    }
+    return (c ^ 0xffffffff) >>> 0
+  }
+  const chunk = (type: string, data: number[]) => {
+    const body = [...Array.from(type, (ch) => ch.charCodeAt(0)), ...data]
+    return [...be32(data.length), ...body, ...be32(crc(body))]
+  }
   return Uint8Array.from([
     0x89,
     0x50,
@@ -16,31 +29,9 @@ function pngBytes(width: number, height: number): Uint8Array<ArrayBuffer> {
     0x0a,
     0x1a,
     0x0a,
-    ...be32(13),
-    0x49,
-    0x48,
-    0x44,
-    0x52,
-    ...be32(width),
-    ...be32(height),
-    8,
-    6,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    ...be32(0),
-    0x49,
-    0x44,
-    0x41,
-    0x54,
-    0,
-    0,
-    0,
-    0,
+    ...chunk('IHDR', [...be32(width), ...be32(height), 8, 6, 0, 0, 0]),
+    ...(animated ? chunk('acTL', [...be32(2), ...be32(0)]) : []),
+    ...chunk('IDAT', [0, 0, 0, 0]),
   ])
 }
 
@@ -163,9 +154,7 @@ describe('runDecode (worker pipeline)', () => {
 
   it('passes the animation flag through (AC-11)', async () => {
     const { env } = fakeEnv({ width: 4, height: 4 })
-    const apng = pngBytes(4, 4)
-    // Rename the IDAT chunk to acTL: an animation control before image data.
-    apng.set([0x61, 0x63, 0x54, 0x4c], 37)
+    const apng = pngBytes(4, 4, true)
     expect(await runDecode(new Blob([apng]), env, BROWSER_ORIENTS)).toMatchObject({
       ok: true,
       value: { animated: true, format: 'png' },

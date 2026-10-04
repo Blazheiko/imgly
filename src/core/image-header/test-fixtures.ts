@@ -69,8 +69,19 @@ export function jpeg(opts: {
 
 export const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
 
+/** CRC-32 (ISO 3309) computed bit by bit — deliberately independent of the parser's table. */
+export function crc32Bitwise(data: Uint8Array): number {
+  let crc = 0xffffffff
+  for (const byte of data) {
+    crc ^= byte
+    for (let k = 0; k < 8; k++) crc = crc & 1 ? (crc >>> 1) ^ 0xedb88320 : crc >>> 1
+  }
+  return (crc ^ 0xffffffff) >>> 0
+}
+
 export function pngChunk(type: string, data: Uint8Array = new Uint8Array(0)): Uint8Array {
-  return bytes(be32(data.length), type, data, [0, 0, 0, 0]) // CRC is never checked by the parser
+  const typeAndData = bytes(type, data)
+  return bytes(be32(data.length), typeAndData, be32(crc32Bitwise(typeAndData)))
 }
 
 export function png(opts: { width: number; height: number; animated?: boolean }): Uint8Array {
