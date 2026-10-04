@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { createPreviewRenderer, type PreviewRenderer } from '@/render'
+import type { PreviewRenderer } from '@/render'
 import { useEditorStore } from '../store'
 import { pinchGesture, wheelGesture, type PinchInput } from './gestures'
 
@@ -78,10 +78,12 @@ function onResize([entry]: ResizeObserverEntry[]) {
 
 onMounted(() => {
   const el = canvas.value!
-  const result = createPreviewRenderer(el)
+  const result = editor.createRenderer(el)
   if (result.ok) {
     renderer = result.value
     renderer.onStatus((status) => editor.setRendererStatus(status))
+  } else {
+    editor.setRendererStatus('lost') // the gate passed, yet this canvas can't show the Preview
   }
   el.addEventListener('wheel', onWheel, { passive: false })
   el.addEventListener('gesturestart', onGestureStart)

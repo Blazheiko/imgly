@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { ok } from '@/core'
+import { appError, err, ok } from '@/core'
+import { createFakeRenderer } from '../fake-renderer'
 import PreviewCanvas from './PreviewCanvas.vue'
 import { useEditorStore } from '../store'
 
@@ -18,6 +19,7 @@ describe('PreviewCanvas', () => {
   beforeEach(async () => {
     setActivePinia(createPinia())
     editor = useEditorStore()
+    editor.setRendererFactory(createFakeRenderer().factory)
     editor.setDecoder(async () =>
       ok({
         bitmap: { width: 4000, height: 4000, close() {} } as unknown as ImageBitmap,
@@ -32,6 +34,13 @@ describe('PreviewCanvas', () => {
     )
     editor.setCanvasSize(1000, 1000)
     await editor.openImage(new Blob())
+  })
+
+  it('shows SCR-05 when the renderer cannot be created at mount (AC-19b)', async () => {
+    await editor.runCapabilityGate(async () => ok(undefined))
+    editor.setRendererFactory(() => err(appError('DISPLAY_LOST')))
+    mount(PreviewCanvas)
+    expect(editor.display).toBe('lost')
   })
 
   it('renders one canvas element', () => {

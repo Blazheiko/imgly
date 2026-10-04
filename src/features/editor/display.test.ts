@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { appError, err, ok } from '@/core'
 import { useEditorStore } from './store'
@@ -39,5 +39,31 @@ describe('editor store — display state', () => {
     expect(editor.display).toBe('lost')
     editor.setRendererStatus('ready')
     expect(editor.display).toBe('lost')
+  })
+
+  it('cancels a waiting replace when the display is lost, closing the held image', async () => {
+    await editor.runCapabilityGate(async () => ok(undefined))
+    const close = vi.fn()
+    editor.setDecoder(async () =>
+      ok({
+        bitmap: { width: 10, height: 10, close } as unknown as ImageBitmap,
+        sourceWidth: 10,
+        sourceHeight: 10,
+        width: 10,
+        height: 10,
+        format: 'png',
+        animated: false,
+        downscaled: false,
+      }),
+    )
+    await editor.openImage(new Blob())
+    editor.applyEdit()
+    await editor.openImage(new Blob())
+    expect(editor.phase).toBe('confirming')
+
+    editor.setRendererStatus('lost')
+    expect(editor.phase).toBe('idle')
+    expect(editor.pending).toBeNull()
+    expect(close).toHaveBeenCalledTimes(1)
   })
 })

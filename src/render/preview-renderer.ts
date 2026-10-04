@@ -69,7 +69,12 @@ export function createPreviewRenderer(
   const gl = canvas.getContext('webgl2', { alpha: true, antialias: false })
   if (!gl) return err(appError('UNSUPPORTED_BROWSER'))
 
-  let gpu = buildProgram(gl)
+  let gpu: GpuState
+  try {
+    gpu = buildProgram(gl)
+  } catch {
+    return err(appError('DISPLAY_LOST')) // a context that can't build the program can't show it
+  }
   let status: RendererStatus = 'ready'
   let deadline: ReturnType<typeof setTimeout> | undefined
   const listeners = new Set<(status: RendererStatus) => void>()

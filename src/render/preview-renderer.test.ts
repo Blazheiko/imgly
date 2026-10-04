@@ -36,6 +36,16 @@ describe('createPreviewRenderer', () => {
     })
   })
 
+  it('reports DISPLAY_LOST instead of throwing when the program cannot be built (AC-19b)', () => {
+    const broken = createFakeGl()
+    broken.returns.getProgramParameter = () => false
+    const canvas = createFakeCanvas(broken.gl) as unknown as HTMLCanvasElement
+    expect(createPreviewRenderer(canvas, frames)).toEqual({
+      ok: false,
+      error: { code: 'DISPLAY_LOST' },
+    })
+  })
+
   it('schedules exactly one frame for several changes before it runs', () => {
     renderer.setView(view(0.5))
     renderer.setView(view(0.6))

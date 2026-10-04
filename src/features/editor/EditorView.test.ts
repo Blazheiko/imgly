@@ -5,6 +5,7 @@ import { nextTick } from 'vue'
 import { appError, err, ok } from '@/core'
 import type { DecodeOutcome } from '@/infra/image-decode'
 import EditorView from './EditorView.vue'
+import { createFakeRenderer } from './fake-renderer'
 import { useEditorStore } from './store'
 
 function dropEvent(type: string, files: File[] = []) {
@@ -123,6 +124,7 @@ describe('EditorView — zoom shortcuts (SCR-02)', () => {
   beforeEach(async () => {
     setActivePinia(createPinia())
     editor = useEditorStore()
+    editor.setRendererFactory(createFakeRenderer().factory)
     editor.setDecoder(async () => ({
       ok: true,
       value: {
@@ -235,6 +237,7 @@ describe('EditorView — SCR-03 replace dialog', () => {
   beforeEach(async () => {
     setActivePinia(createPinia())
     editor = useEditorStore()
+    editor.setRendererFactory(createFakeRenderer().factory)
     editor.setDecoder(async () => ({
       ok: true,
       value: {
@@ -274,6 +277,13 @@ describe('EditorView — SCR-03 replace dialog', () => {
     expect(drop).not.toHaveBeenCalled()
   })
 
+  it('never shows the dialog over SCR-05 when the display is lost mid-confirm', async () => {
+    editor.setRendererStatus('lost')
+    await nextTick()
+    expect(wrapper.find('[role="alertdialog"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain("The display couldn't recover.")
+  })
+
   it('ignores zoom shortcuts while the dialog is open', () => {
     const zoom = editor.view.zoom
     window.dispatchEvent(new KeyboardEvent('keydown', { key: '+', cancelable: true }))
@@ -288,6 +298,7 @@ describe('EditorView — blocking screens', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     editor = useEditorStore()
+    editor.setRendererFactory(createFakeRenderer().factory)
     editor.setDecoder(async () => err(appError('NOT_AN_IMAGE')))
   })
   afterEach(() => wrapper.unmount())

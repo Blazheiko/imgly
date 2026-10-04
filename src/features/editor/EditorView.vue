@@ -166,7 +166,7 @@ onBeforeUnmount(() => {
     <EditorStatusBar v-if="live" />
     <ToastStack />
     <DropOverlay v-if="dragging" />
-    <ReplaceDialog v-if="editor.phase === 'confirming'" />
+    <ReplaceDialog v-if="live && editor.phase === 'confirming'" />
   </main>
 </template>
 

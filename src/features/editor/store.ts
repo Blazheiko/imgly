@@ -12,6 +12,7 @@ import {
   zoomAt as zoomView,
   type AppError,
   type Point,
+  type Result,
   type Size,
   type View,
   type ViewContext,
@@ -23,7 +24,12 @@ import {
   type DecodedImage,
   type DecodeOutcome,
 } from '@/infra/image-decode'
-import { probeCapabilities, type RendererStatus } from '@/render'
+import {
+  createPreviewRenderer,
+  probeCapabilities,
+  type PreviewRenderer,
+  type RendererStatus,
+} from '@/render'
 import { closeBitmap, newId, useNotices, type NoticeInput } from '@/shared'
 import {
   failureMessage,
@@ -34,6 +40,9 @@ import {
 } from './messages'
 
 export type Decoder = (file: Blob) => Promise<DecodeOutcome>
+
+/** Creates the Preview's renderer on its canvas; injectable because happy-dom has no WebGL2. */
+export type RendererFactory = (canvas: HTMLCanvasElement) => Result<PreviewRenderer, AppError>
 
 /** The facts about an opened image that notices and the readout need — never the pixels. */
 export type OpenedImage = Omit<DecodedImage, 'bitmap'>
@@ -89,6 +98,7 @@ export const useEditorStore = defineStore('editor', () => {
   const display = ref<DisplayState>('checking')
   let latestOpenId = 0
   let decode: Decoder = decodeImage
+  let rendererFactory: RendererFactory = createPreviewRenderer
   const notices = useNotices()
   // Notices that belong to the image awaiting confirmation; raised only if it replaces (AC-15).
   let heldNotices: NoticeInput[] = []
@@ -99,15 +109,25 @@ export const useEditorStore = defineStore('editor', () => {
     decode = next
   }
 
+  function setRendererFactory(next: RendererFactory) {
+    rendererFactory = next
+  }
+
+  function createRenderer(canvas: HTMLCanvasElement) {
+    return rendererFactory(canvas)
+  }
+
   /** Runs the start-up capability gate once; the drop guard must already be installed. */
   async function runCapabilityGate(probe = probeCapabilities) {
     const result = await probe()
     display.value = result.ok ? 'ok' : 'unsupported'
   }
 
+  /** A lost display also drops a waiting replace: SCR-05 must never sit under the dialog. */
   function setRendererStatus(status: RendererStatus) {
     if (display.value === 'lost' || display.value === 'unsupported') return
     display.value = status === 'ready' ? 'ok' : status
+    if (status === 'lost') cancelReplace()
   }
 
   function context(): ViewContext | undefined {
@@ -239,6 +259,8 @@ export const useEditorStore = defineStore('editor', () => {
     display,
     hasUnsavedEdits,
     setDecoder,
+    setRendererFactory,
+    createRenderer,
     runCapabilityGate,
     setRendererStatus,
     openImage,
