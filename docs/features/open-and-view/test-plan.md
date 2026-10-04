@@ -64,7 +64,7 @@ open-and-view must open one image from disk or a drop into an upright, fitted Pr
 | AC-10 | not-permitted error is part of the agreed code set and the catalog | contract | The code is in the shared code set and has exactly one catalog message. |
 | AC-10 | file the app may not read is refused with a make-it-available hint | e2e-through-UI | Nothing is replaced. The notice says the app was not allowed to read the file and suggests making it available on this computer first. |
 | AC-11 | header judging flags animated GIF, APNG and WebP but not static ones | unit | Animated files are flagged as animated. Static GIF, PNG and WebP are not. |
-| AC-11 | worker keeps the first frame of an animated image | integration | On every engine, the Original's pixels match the first frame's colour, not any later frame. |
+| AC-11 | worker keeps the first frame of an animated image | integration | On every engine, the Original's pixels match the first frame's colour, not any later frame. **Engine-limited** (review 2026-10-04-2 F4): the pixel check (`e2e/open-and-view/open-flows.spec.ts`) runs on Chromium only, because WebGL pixel checks are pinned to Chromium (sad §7). On Firefox and WebKit the reference set checks the first-frame notice and the dimensions. |
 | AC-11 | animated image opens with the first-frame-only notice | e2e-through-UI | The Preview is static, and an informational notice says only the first frame is kept. |
 | AC-11b | notice queue keeps every notice of one open and applies the dismissal rules | unit | All notices of one open are queued together. Informational ones expire by themselves and failure reasons persist until dismissed. |
 | AC-11b | toast stack shows several notices without hiding any | component | Three notices are all visible. A failure toast has a keyboard-reachable dismiss button, and informational toasts leave by themselves. |
@@ -99,10 +99,10 @@ open-and-view must open one image from disk or a drop into an upright, fitted Pr
 | AC-18 | browser without WebGL2 shows the unsupported message and ignores drops | e2e-through-UI | With WebGL turned off, SCR-04 is shown. A dropped file opens nothing, the page address is unchanged, and the same message stays. |
 | AC-18 | unsupported-browser screen matches its approved baseline | visual-regression | SCR-04 matches its baseline in light and dark themes. **Deferred** (review 2026-10-04 S8): no baseline yet. Owner Blazheiko, due before roadmap step 4 `sdd:implement`. |
 | AC-19 | renderer restores the Preview from the kept bitmap after context loss | integration | After a simulated context loss and restore, the texture is rebuilt from the kept Original without rereading the file, and the redraw matches the image from before the loss. |
-| AC-19 | temporary graphics interruption brings the Preview back unchanged | e2e-through-UI | After a simulated context loss restored before the deadline, the Preview reappears at the same zoom and pan, the Work's id and revision are unchanged, and no black frame shows (the restoring state shows surround + spinner). |
+| AC-19 | temporary graphics interruption brings the Preview back unchanged | e2e-through-UI | After a simulated context loss restored before the deadline, the Preview reappears at the same zoom and pan, the Work's id and revision are unchanged, and no black frame shows (the restoring state shows surround + spinner). **Engine-limited** (review 2026-10-04-2 F4): runs on Chromium only, because the test drives WebGL through `WEBGL_lose_context` and stays with the other WebGL checks on Chromium (sad §7, T17). The component and integration rows cover the restore logic on every engine. |
 | AC-19b | display-lost screen explains the loss and offers a reload | component | The full-canvas message has the alert role, says the display could not recover, says the open Work will be lost on reload, and moves focus to "Reload page". |
 | AC-19b | renderer reports display lost when no restore arrives before the deadline | integration | When the context is lost without a restore, the renderer reports the display-lost code once the deadline passes. |
-| AC-19b | unrecoverable graphics interruption shows the display-lost message, never a black canvas | e2e-through-UI | After a simulated loss with no restore, SCR-05 replaces the canvas area, and "Reload page" lands on the empty editor. |
+| AC-19b | unrecoverable graphics interruption shows the display-lost message, never a black canvas | e2e-through-UI | After a simulated loss with no restore, SCR-05 replaces the canvas area, and "Reload page" lands on the empty editor. **Engine-limited** (review 2026-10-04-2 F4): runs on Chromium only, for the same reason as the AC-19 e2e row. |
 | AC-19b | display-lost screen matches its approved baseline | visual-regression | SCR-05 matches its baseline in light and dark themes. **Deferred** (review 2026-10-04 S8): no baseline yet. Owner Blazheiko, due before roadmap step 4 `sdd:implement`. |
 
 ## Edge cases / error paths
@@ -153,14 +153,14 @@ All scenarios run on the reference machine, Apple M1 MacBook Air with the latest
 - **Longest interface freeze while opening any accepted image** → scenario: open every accepted file of the reference set once while long main-thread tasks are recorded, and keep the loading indicator animating throughout. Assert the longest main-thread task is ≤ 200 ms.
 - **Zoom and pan smoothness on a 4096 px Original** → scenario: a 10 s scripted sequence of pinch, Ctrl/Cmd+wheel and pan gestures over a 4096×4096 Original, recorded with a performance trace. Assert the frame rate from presented frames is ≥ 50 fps.
 - **Memory after 10 consecutive opens of the 48 MP image** → scenario: open the 48 MP JPEG 10 times in a row. Force garbage collection after the 1st and the 10th open, then sum the OS-reported memory of the tab's renderer process and the GPU process. Assert the 10th-open total is ≤ 110% of the 1st-open total, and that the development-build bitmap counter is back at the one retained Original.
-- **Opening with no network connection, 100% of runs** → a functional e2e-through-UI test rather than a load test. It runs in CI on all three engines: load, wait for the service worker, go offline, reload, open the 12 MP JPEG. Assert the fitted Preview and the dimensions readout every run.
+- **Opening with no network connection, 100% of runs** → a functional e2e-through-UI test rather than a load test. It runs in CI on Chromium and Firefox: load, wait for the service worker, go offline, reload, open the 12 MP JPEG. Assert the fitted Preview and the dimensions readout every run. **Engine-limited** (review 2026-10-04-2 F4): skipped on WebKit, because Playwright's WebKit cannot reload a page while offline. The precache manifest is the same build output on every engine; an offline open in real Safari is part of the manual pre-release checks below.
 - **Size ceiling (100 MP)** → a limit, not a throughput target. It is covered by the AC-09 unit, integration and e2e-through-UI rows.
 
 Spec §7 KPIs are covered by the e2e-through-UI reference-set run:
 - honest outcome rate: 100% of files end in a correct Preview or a plain reason, with 0 blank canvases and 0 tab crashes (AC-16 row);
 - orientation: 8 of 8 upright (AC-01 rows).
 
-Manual pre-release checks (sad §7, §11): open the HEIC samples in real Safari (WebKit on Linux CI cannot decode HEIC), and open a 48 MP photo on a recent iPhone and an Android phone (the mobile "must not break" tier).
+Manual pre-release checks (sad §7, §11): open the HEIC samples in real Safari (WebKit on Linux CI cannot decode HEIC), open an image in real Safari after going offline and reloading (the offline e2e skips WebKit), and open a 48 MP photo on a recent iPhone and an Android phone (the mobile "must not break" tier).
 
 ## CI placement
 
@@ -169,7 +169,7 @@ Manual pre-release checks (sad §7, §11): open the HEIC samples in real Safari 
   - component;
   - contract;
   - integration on Chromium, Firefox and WebKit;
-  - e2e-through-UI on Chromium, Firefox and WebKit, including the reference set, the 8 orientations, offline open, the capability gate and the context-loss flows;
+  - e2e-through-UI on Chromium, Firefox and WebKit, including the reference set, the 8 orientations, offline open (not on WebKit), the capability gate and the context-loss flows (Chromium only);
   - visual-regression on Chromium only (the DOM screens, the toast stack and the Preview pixel checks).
 
   This matches the three-engine widening recorded in sad §7.

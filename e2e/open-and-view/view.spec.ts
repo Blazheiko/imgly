@@ -83,6 +83,36 @@ test.describe('SCR-02 — View', () => {
     expect(v.panY).toBe(0)
   })
 
+  test('a fitted image does not move when dragged (AC-13)', async ({ page }) => {
+    await dropGeneratedImage(page, { width: 4000, height: 3000 })
+    await waitForWork(page, 4000, 3000)
+    const area = await canvasArea(page)
+    const before = await view(page)
+    expect(before.autoFit).toBe(true)
+
+    await page.mouse.move(area.left + 50, area.top + 50)
+    await page.mouse.down()
+    await page.mouse.move(area.left + 250, area.top + 180, { steps: 5 })
+    await page.mouse.up()
+
+    expect(await view(page)).toEqual(before)
+  })
+
+  test('zoom stops at 10% going out and at 800% going in (AC-12b)', async ({ page }) => {
+    await dropGeneratedImage(page, { width: 4000, height: 3000 })
+    await waitForWork(page, 4000, 3000)
+    const level = page.getByTestId('zoom-level')
+    expect(fitOf(4000, 3000, await canvasArea(page))).toBeGreaterThan(0.1)
+
+    for (let i = 0; i < 15; i++) await page.keyboard.press('Minus')
+    await expect(level).toHaveText('10%')
+    expect((await view(page)).zoom).toBe(0.1)
+
+    for (let i = 0; i < 20; i++) await page.keyboard.press('Equal')
+    await expect(level).toHaveText('800%')
+    expect((await view(page)).zoom).toBe(8)
+  })
+
   test('resize re-fits until a manual zoom, then keeps the zoom (AC-12b)', async ({ page }) => {
     await dropGeneratedImage(page, { width: 4000, height: 3000 })
     await waitForWork(page, 4000, 3000)

@@ -102,5 +102,12 @@ test.describe('graphics interruptions (AC-19, AC-19b)', () => {
     ).toBeVisible()
     await expect(page.getByRole('button', { name: 'Reload page' })).toBeFocused()
     await expect(page.getByTestId('editor-status-bar')).toHaveCount(0)
+
+    await page.getByRole('button', { name: 'Reload page' }).click()
+    await expect(page.getByRole('button', { name: 'Open image' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: "The display couldn't recover." })).toHaveCount(
+      0,
+    )
+    expect(await page.evaluate(() => window.__imglyTest?.work() ?? null)).toBeNull()
   })
 })
