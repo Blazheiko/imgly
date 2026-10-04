@@ -4,7 +4,7 @@ import {
   createWork,
   fitView,
   hasUnsavedEdits as workHasUnsavedEdits,
-  looksLikeImageFile,
+  isImageRefusal,
   panBy as panView,
   resizeView,
   setActualSize,
@@ -202,7 +202,8 @@ export const useEditorStore = defineStore('editor', () => {
   /**
    * Tries dropped files in browser order until one is read (AC-03); a newer open stops the loop.
    * None read → the first image file's reason, or the AC-04 notice when none was an image. A file
-   * named or typed as an image counts as one even when its content isn't (AC-08).
+   * named or typed as an image counts as one even when its content isn't (AC-08), and a refusal
+   * made before the content was read counts only for such a file.
    */
   async function openDrop({ files }: { files: File[] }): Promise<OpenOutcome> {
     if (files.length === 0) {
@@ -216,9 +217,7 @@ export const useEditorStore = defineStore('editor', () => {
     for (const file of files) {
       const outcome = await openImage(file)
       if (outcome.kind === 'refused') {
-        if (outcome.error.code !== 'NOT_AN_IMAGE' || looksLikeImageFile(file)) {
-          firstImageRefusal ??= outcome.error
-        }
+        if (isImageRefusal(outcome.error, file)) firstImageRefusal ??= outcome.error
         continue
       }
       if (outcome.kind === 'confirming') heldNotices = ignored

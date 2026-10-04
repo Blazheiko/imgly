@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
-import { appError, err, ok, type AppErrorCode } from '@/core'
+import { appError, err, ok, type AppError, type AppErrorCode } from '@/core'
 import type { DecodedImage, DecodeOutcome } from '@/infra/image-decode'
 import { useNotices } from '@/shared'
 import { useEditorStore } from './store'
@@ -155,6 +155,45 @@ describe('editor store — notices and drop sequencing', () => {
       await editor.openDrop({ files: [f('text-named.png')] })
 
       expect(texts()).toEqual(["failure: This file couldn't be read as an image."])
+    })
+
+    describe('refusals judged before the content is read (F1)', () => {
+      const overBytes = appError('TOO_LARGE', { megabytes: 600, ceilingMegabytes: 500 })
+      const locked = appError('FILE_NOT_PERMITTED')
+      const decodeWith = (answers: Record<string, AppError>) =>
+        vi.fn(async (file: Blob): Promise<DecodeOutcome> => err(answers[(file as File).name]!))
+
+      it('shows the AC-04 notice for a large non-image above the byte ceiling', async () => {
+        editor.setDecoder(decodeWith({ 'clip.mov': overBytes }))
+        await editor.openDrop({ files: [f('clip.mov')] })
+        expect(texts()).toEqual(['failure: Only image files can be opened.'])
+      })
+
+      it('shows the AC-04 notice for a locked non-image', async () => {
+        editor.setDecoder(decodeWith({ 'report.docx': locked }))
+        await editor.openDrop({ files: [f('report.docx')] })
+        expect(texts()).toEqual(['failure: Only image files can be opened.'])
+      })
+
+      it('lets the first real image’s reason win over a non-image refused early (AC-03)', async () => {
+        editor.setDecoder(
+          decodeWith({
+            'clip.mov': overBytes,
+            'report.docx': locked,
+            'bad.png': appError('UNREADABLE'),
+          }),
+        )
+        await editor.openDrop({ files: [f('clip.mov'), f('report.docx'), f('bad.png')] })
+        expect(texts()).toEqual(["failure: This file couldn't be read as an image."])
+      })
+
+      it('still gives an image file refused early its own reason', async () => {
+        editor.setDecoder(decodeWith({ 'huge.jpg': overBytes, 'locked.png': locked }))
+        await editor.openDrop({ files: [f('huge.jpg'), f('locked.png')] })
+        expect(texts()).toEqual([
+          'failure: This file is too large: 600 MB. The largest file the editor opens is 500 MB.',
+        ])
+      })
     })
 
     it('shows the AC-04 notice when no dropped file was an image', async () => {
