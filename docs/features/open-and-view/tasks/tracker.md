@@ -25,5 +25,18 @@
 | T18 | [Precache the decode worker for offline opens, run e2e on three engines in CI, and record the widened rules](./t18-offline-precache-and-ci.md) | wiring | Blazheiko | S | T5, T14 | done |
 | T19 | [Add the cross-engine reference-set e2e: honest outcome per file, 8 of 8 orientations, Work integrity on every refusal](./t19-e2e-reference-set.md) | tests | Blazheiko | M | T6, T14, T15, T16, T17, T18 | done |
 | T20 | [Add the @perf suite: time to first Preview, long tasks, zoom/pan frame rate and memory after 10 opens](./t20-perf-suite.md) | tests | Blazheiko | M | T15, T18, T19 | done |
+| T21 | Parse a simple-format WebP whose first chunk is larger than the header window (review S1) | domain | Blazheiko | S | — | todo |
+| T22 | Declare a GIF's size from its screen and first frame, and refuse an over-ceiling bitmap after decoding (review S2) | infra | Blazheiko | S | — | todo |
+| T23 | Refuse files above a byte-size cap as TOO_LARGE before decoding (review Q5) | infra | Blazheiko | S | T22 | todo |
+| T24 | Land 100% and stepped zoom on the exact target and always leave auto-fit (review S6, Q2) | domain | Blazheiko | S | — | todo |
+| T25 | Block page zoom everywhere in the editor and turn Safari pinch gestures into View zoom (review S3) | ui | Blazheiko | S | T24 | todo |
+| T26 | Add Space+drag pan mode that never presses the focused button (review S4) | ui | Blazheiko | S | — | todo |
+| T27 | Report a renderer that fails at mount as display lost, and never show the replace dialog over SCR-05 (review S5, Q3) | ui | Blazheiko | S | — | todo |
+| T28 | Give a dropped image-typed file that is not an image the unreadable reason (review S7, Q6) | app | Blazheiko | S | — | todo |
+| T29 | Settle every decode as DECODE_FAILED when the worker rejects or cannot start (review Q1) | infra | Blazheiko | S | — | todo |
+| T30 | Round refused sizes up and capitalise Camera RAW in the messages (review Q4) | domain | Blazheiko | S | — | todo |
+| T31 | Tokenise the hard-coded primitive widths and document image-decode and the widened infra rule (review Q7, Q10) | wiring | Blazheiko | S | — | todo |
+| T32 | Make the never-navigates checks falsifiable, strengthen the fuzz invariants, and cover the PreviewCanvas renderer seam (review Q8, Q9) | tests | Blazheiko | S | T27 | todo |
+| T33 | Add the missing UI-level AC tests and mark the visual baselines deferred (review S8) | tests | Blazheiko | S | T28 | todo |
 
-**Total:** 20 tasks, ~17 person-days (S = ½ day, M/L = 1 day).
+**Total:** 33 tasks (T21–T33 are the review-2026-10-04 follow-ups), ~23 person-days (S = ½ day, M/L = 1 day).

@@ -412,6 +412,264 @@
         "src/features/editor/store.ts"
       ],
       "file": "docs/features/open-and-view/tasks/t20-perf-suite.md"
+    },
+    {
+      "id": "T21",
+      "title": "Parse a simple-format WebP whose first chunk is larger than the header window",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-01",
+        "AC-08"
+      ],
+      "dod": "A VP8/VP8L WebP over 1 MiB parses from its frame header alone; a unit test plus a >1 MiB WebP e2e fixture open it",
+      "files_hint": [
+        "src/core/image-header/webp.ts",
+        "src/core/image-header/sniff-heif-webp.test.ts",
+        "e2e/fixtures/"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04.md",
+      "review_findings": [
+        "S1"
+      ]
+    },
+    {
+      "id": "T22",
+      "title": "Declare a GIF's size from its screen and first frame, and refuse an over-ceiling bitmap after decoding",
+      "layer": "infra",
+      "deps": [],
+      "acs": [
+        "AC-09"
+      ],
+      "dod": "A GIF with a frame larger than its screen declares the larger size; a decoded bitmap above the ceiling is closed and refused as TOO_LARGE",
+      "files_hint": [
+        "src/core/image-header/gif.ts",
+        "src/infra/image-decode/pipeline.ts"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04.md",
+      "review_findings": [
+        "S2"
+      ]
+    },
+    {
+      "id": "T23",
+      "title": "Refuse files above a byte-size cap as TOO_LARGE before decoding",
+      "layer": "infra",
+      "deps": [
+        "T22"
+      ],
+      "acs": [
+        "AC-09"
+      ],
+      "dod": "A file above the byte cap is refused with TOO_LARGE without being decoded; unit tests on policy and pipeline",
+      "files_hint": [
+        "src/core/open/",
+        "src/infra/image-decode/pipeline.ts"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04.md",
+      "review_findings": [
+        "Q5"
+      ]
+    },
+    {
+      "id": "T24",
+      "title": "Land 100% and stepped zoom on the exact target and always leave auto-fit",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-12",
+        "AC-12b"
+      ],
+      "dod": "setActualSize/stepZoom set autoFit false even when the zoom is unchanged, and land on exact targets (644/4096 case)",
+      "files_hint": [
+        "src/core/view/"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04.md",
+      "review_findings": [
+        "S6",
+        "Q2"
+      ]
+    },
+    {
+      "id": "T25",
+      "title": "Block page zoom everywhere in the editor and turn Safari pinch gestures into View zoom",
+      "layer": "ui",
+      "deps": [
+        "T24"
+      ],
+      "acs": [
+        "AC-12"
+      ],
+      "dod": "Ctrl+wheel anywhere is prevented; gesturestart/gesturechange zoom the View; component tests",
+      "files_hint": [
+        "src/features/editor/"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04.md",
+      "review_findings": [
+        "S3"
+      ]
+    },
+    {
+      "id": "T26",
+      "title": "Add Space+drag pan mode that never presses the focused button",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-13"
+      ],
+      "dod": "While a Work is open Space down/up is prevented and sets pan mode; component test",
+      "files_hint": [
+        "src/features/editor/EditorView.vue"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04.md",
+      "review_findings": [
+        "S4"
+      ]
+    },
+    {
+      "id": "T27",
+      "title": "Report a renderer that fails at mount as display lost, and never show the replace dialog over SCR-05",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-18",
+        "AC-19b",
+        "AC-15"
+      ],
+      "dod": "createPreviewRenderer never throws and returns err(DISPLAY_LOST); PreviewCanvas sets lost on failure; the replace is cancelled on loss; tests",
+      "files_hint": [
+        "src/render/preview-renderer.ts",
+        "src/features/editor/"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04.md",
+      "review_findings": [
+        "S5",
+        "Q3"
+      ]
+    },
+    {
+      "id": "T28",
+      "title": "Give a dropped image-typed file that is not an image the unreadable reason",
+      "layer": "app",
+      "deps": [],
+      "acs": [
+        "AC-08",
+        "AC-03"
+      ],
+      "dod": "A dropped file with image MIME or extension gets AC-08's message; unit + drop e2e for text-named.png",
+      "files_hint": [
+        "src/features/editor/store.ts",
+        "src/core/open/drop.ts",
+        "e2e/open-and-view/"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04.md",
+      "review_findings": [
+        "S7",
+        "Q6"
+      ]
+    },
+    {
+      "id": "T29",
+      "title": "Settle every decode as DECODE_FAILED when the worker rejects or cannot start",
+      "layer": "infra",
+      "deps": [],
+      "acs": [
+        "AC-16"
+      ],
+      "dod": "An unhandled worker rejection or a createWorker throw resolves the client with DECODE_FAILED; tests",
+      "files_hint": [
+        "src/infra/image-decode/"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04.md",
+      "review_findings": [
+        "Q1"
+      ]
+    },
+    {
+      "id": "T30",
+      "title": "Round refused sizes up and capitalise Camera RAW in the messages",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-07",
+        "AC-09"
+      ],
+      "dod": "100.01 MP reads 100.1 MP; the RAW message starts \"Camera RAW\"; tests",
+      "files_hint": [
+        "src/core/open/policy.ts",
+        "src/core/image-header/refused.ts"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04.md",
+      "review_findings": [
+        "Q4"
+      ]
+    },
+    {
+      "id": "T31",
+      "title": "Tokenise the hard-coded primitive widths and document image-decode and the widened infra rule",
+      "layer": "wiring",
+      "deps": [],
+      "acs": [],
+      "dod": "Dialog/Toast/CanvasMessage widths come from tokens; CLAUDE.md and architecture-map list src/infra/image-decode and the e2e path",
+      "files_hint": [
+        "src/shared/",
+        "CLAUDE.md",
+        "docs/architecture-map.md"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04.md",
+      "review_findings": [
+        "Q7",
+        "Q10"
+      ]
+    },
+    {
+      "id": "T32",
+      "title": "Make the never-navigates checks falsifiable, strengthen the fuzz invariants, and cover the PreviewCanvas renderer seam",
+      "layer": "tests",
+      "deps": [
+        "T27"
+      ],
+      "acs": [
+        "AC-02",
+        "AC-08",
+        "AC-18"
+      ],
+      "dod": "e2e asserts defaultPrevented; fuzz checks invariants with a 1 MiB budget; PreviewCanvas tests through an injected renderer",
+      "files_hint": [
+        "e2e/open-and-view/",
+        "src/core/image-header/fuzz.test.ts",
+        "src/features/editor/components/"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04.md",
+      "review_findings": [
+        "Q8",
+        "Q9"
+      ]
+    },
+    {
+      "id": "T33",
+      "title": "Add the missing UI-level AC tests and mark the visual baselines deferred",
+      "layer": "tests",
+      "deps": [
+        "T28"
+      ],
+      "acs": [
+        "AC-03",
+        "AC-10",
+        "AC-11",
+        "AC-11b",
+        "AC-15",
+        "AC-16b"
+      ],
+      "dod": "UI-level tests for AC-03/10/11/11b/16b and exact View equality on AC-15 cancel; test-plan marks the baselines deferred (owner Blazheiko, before roadmap step 4)",
+      "files_hint": [
+        "e2e/open-and-view/",
+        "docs/features/open-and-view/test-plan.md"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04.md",
+      "review_findings": [
+        "S8"
+      ]
     }
   ]
 }
