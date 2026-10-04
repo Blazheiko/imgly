@@ -15,7 +15,7 @@
 | T8 | [Build the WebGL2 preview renderer: mipmapped Original texture, View transform uniform, DPR sizing, draw-on-change](./t08-preview-renderer.md) | infra | Blazheiko | M | T4 | done |
 | T9 | [Handle WebGL context loss: restore from the kept bitmap within the deadline, else report DISPLAY_LOST](./t09-context-loss-restore.md) | infra | Blazheiko | S | T1, T8 | done |
 | T10 | [Add the notice queue and the shared UI primitives Spinner, Toast, ToastStack, Dialog and CanvasMessage](./t10-notices-and-ui-primitives.md) | ui | Blazheiko | M | — | done |
-| T11 | [Implement the editor store's open and replace rule: latest-open-wins, confirm on Unsaved edits, cancel, and View actions](./t11-editor-store-open-replace.md) | app | Blazheiko | M | T4, T5 | todo |
+| T11 | [Implement the editor store's open and replace rule: latest-open-wins, confirm on Unsaved edits, cancel, and View actions](./t11-editor-store-open-replace.md) | app | Blazheiko | M | T4, T5 | done |
 | T12 | [Add drop sequencing, the messages catalog and the notices raised by each open](./t12-drop-sequencing-and-messages.md) | app | Blazheiko | M | T3, T10, T11 | todo |
 | T13 | [Build the editor shell and SCR-01: top bar, empty canvas with Open image, drop overlay, loading spinner and toast boundary](./t13-editor-shell-empty-canvas.md) | ui | Blazheiko | M | T7, T10, T12 | todo |
 | T14 | [Build SCR-02's PreviewCanvas with the renderer, Fit on open, and the zoom and pan gestures](./t14-preview-canvas-gestures.md) | ui | Blazheiko | M | T8, T11, T13 | todo |
