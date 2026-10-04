@@ -267,6 +267,226 @@ sequenceDiagram
 
 Every refusal ends the same way: the worker reports a typed reason, the `editor` store changes nothing, and the reason goes to the notice queue as a failure that stays until dismissed. A late answer from a terminated worker can never arrive, and the store also ignores any result whose open is no longer the latest.
 
+### Flow 3: drop several files or something that is not an image (US-02: AC-02, AC-03, AC-04)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as user
+    participant UI as ui
+    participant ED as service: editor
+    participant DEC as service: decode
+    participant OS as external-system: operating system
+
+    Note over U,UI: Precondition: the app is open, with or without a Work, and graphics are available
+    U->>OS: drags items over the app window
+    OS->>UI: drag enters the window
+    UI-->>U: the whole window shows that it accepts a drop
+    U->>OS: releases the items
+    OS->>UI: drop with the list of items
+    UI->>UI: blocks the browser default, so it never navigates away or shows the file
+    UI->>ED: hands over the dropped items in browser order
+    ED->>ED: keeps only files, skipping folders and links
+    alt no files at all
+        ED-->>UI: nothing to open, Work unchanged
+        UI-->>U: notice that only image files can be opened
+    else exactly one file
+        ED->>DEC: opens the file as in flow 1
+        DEC-->>ED: an Original or a refusal reason
+        ED-->>UI: the outcome of flow 1 or flow 2
+    else several files
+        loop each file in browser order, until one is read successfully
+            ED->>DEC: opens the next file, judged by its content
+            DEC-->>ED: an Original or a refusal reason
+        end
+        alt one file was read successfully
+            ED->>ED: applies the flow 1 replace rule to it
+            ED-->>UI: the new Work and its notices
+            UI-->>U: plus a notice that the editor works with one image at a time and the other files were ignored
+        else none was read
+            ED-->>UI: Work unchanged
+            UI-->>U: the reason for the first image file, or the only-image-files notice when none was an image
+        end
+    end
+    Note over U,UI: Postcondition: at most one file replaced the Work, and the app never left its page
+```
+
+The drop guard is installed on the whole window before anything else, so even a drop that the app ignores never opens the file in the tab. Files are tried one at a time; a newer drop supersedes this sequence exactly as in flow 2.
+
+### Flow 4: what decoding finds out (US-03, US-04: AC-05, AC-07, AC-08, AC-11, AC-11b)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as user
+    participant UI as ui
+    participant ED as service: editor
+    participant DEC as service: decode
+    participant BR as external-system: browser decoders
+
+    Note over ED,DEC: Precondition: the file can be read and its declared size is within the size ceiling (flow 2 covers the other cases)
+    ED->>DEC: posts the file
+    DEC->>DEC: judges the header: format, declared size, animated or not
+    alt recognised format that is not a Supported image here
+        DEC-->>ED: unsupported format, with its name
+        ED-->>UI: Work unchanged
+        UI-->>U: reason naming the format, suggesting JPEG or PNG, and another browser for HEIC
+    else Supported image
+        DEC->>BR: decodes upright to sRGB, first frame only
+        alt the decode fails, for a truncated or corrupt file
+            BR-->>DEC: decode error
+            DEC-->>ED: could not be read
+            ED-->>UI: Work unchanged
+            UI-->>U: reason that the file could not be read as an image
+        else decoded
+            BR-->>DEC: decoded bitmap
+            opt long side above the Downscale limit
+                DEC->>DEC: reduces the long side to 4096 px, short side rounded and at least 1 px
+            end
+            DEC-->>ED: the Original with its facts, source size, new size, animated, downscaled
+            ED->>ED: replaces the Work as in flow 1, after confirmation when needed
+            ED->>UI: all notices of this open at once
+            UI-->>U: downscale notice with both sizes and first-frame-only notice, side by side
+        end
+    end
+    Note over U,UI: Postcondition: the Original's dimensions stay visible while the Work is open. Informational notices dismiss themselves, failure reasons stay until dismissed
+```
+
+HEIC counts as a Supported image only where the worker's probe found that this browser decodes it; elsewhere it takes the first branch. Notices for a new image are raised only after the replace, so a cancelled confirmation shows none.
+
+### Flow 5: inspect the image with zoom, pan, Fit and 100% (US-05: AC-12, AC-12b, AC-13, AC-14)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as user
+    participant UI as ui
+    participant ED as service: editor
+    participant R as service: render
+    participant GPU as external-system: GPU
+
+    Note over U,UI: Precondition: a Work is open
+    alt pinch, or wheel with Ctrl or Cmd held
+        U->>UI: zoom gesture at a pointer position
+        UI->>ED: zoom by a factor around the pointer, in device pixels
+        ED->>ED: clamps between the smaller of Fit and 10 percent, and 800 percent, keeping the pointer point fixed
+    else zoom-in or zoom-out control
+        U->>UI: presses the control
+        UI->>ED: steps to the next fixed zoom level around the centre
+    else Fit or 100 percent
+        U->>UI: presses Fit or 100 percent
+        UI->>ED: sets Fit and turns auto-fit back on, or sets one image pixel per device pixel
+    else two-finger scroll, plain wheel, Shift plus wheel, Space drag, or drag with no tool
+        U->>UI: pan gesture
+        UI->>ED: pans by the gesture delta
+        ED->>ED: stops at the image edge, and keeps an image that fits centred
+    else window resized
+        UI->>ED: new canvas area size
+        alt not zoomed or panned since the open or the last Fit
+            ED->>ED: re-fits to the new canvas area
+        else
+            ED->>ED: keeps the zoom level and re-clamps the pan
+        end
+    end
+    Note over ED: any manual zoom or pan turns auto-fit off
+    ED->>R: new View
+    R->>GPU: draws one frame with the new View transform
+    GPU-->>U: Preview redrawn
+    UI-->>U: zoom level readout updated, the rest of the interface keeps its size
+    Note over U,ED: Postcondition: the Work and its revision are unchanged, so a later open asks no confirmation
+```
+
+All View maths runs in the pure View model; the store keeps the View next to the Work, never inside it. A frame is drawn only when the View or the canvas size changed.
+
+### Flow 6: first visit and the capability gate (US-07, US-08: AC-17, AC-18)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as user
+    participant UI as ui
+    participant ED as service: editor
+    participant BR as external-system: browser
+
+    Note over U,UI: Precondition: a Portfolio reviewer opens the app for the first time
+    UI->>UI: installs the window drop guard before anything else
+    UI->>BR: checks WebGL2, the largest texture size and canvas drawing in a worker
+    alt a required capability is missing
+        BR-->>UI: capability missing
+        UI-->>U: full-canvas message that this browser cannot display the editor, naming browsers that can
+        Note over UI: Open image is unavailable
+        U->>UI: drops a file anyway
+        UI->>UI: the drop guard blocks the default and opens nothing
+        UI-->>U: the same message stays, and the browser does not navigate away
+    else all capabilities present
+        BR-->>UI: capabilities available
+        UI-->>U: empty editor with one primary Open image action and a one-line drop hint
+        U->>UI: chooses Open image or drops a file
+        UI->>ED: continues with flow 1 or flow 3
+    end
+```
+
+The gate runs once per page load; nothing in it depends on the user agent string.
+
+### Flow 7: graphics interrupted, then restored or lost (US-08: AC-19, AC-19b)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as user
+    participant UI as ui
+    participant ED as service: editor
+    participant R as service: render
+    participant GPU as external-system: GPU
+
+    Note over U,GPU: Precondition: a Work is open, and its Original bitmap is kept for this case
+    GPU->>R: graphics context lost, for example after sleep and wake or a graphics switch
+    R->>R: blocks the default so a restore is allowed, Work and View untouched
+    alt the context comes back before the restore deadline
+        GPU->>R: graphics context restored
+        R->>GPU: rebuilds the program and re-uploads the Original from the kept bitmap
+        R->>GPU: draws at the unchanged View
+        GPU-->>U: Preview back, nothing reopened
+    else not restored in time, or rebuilding fails
+        R->>ED: display lost
+        ED-->>UI: switch the canvas area to the display-lost state
+        UI-->>U: full message that the display could not recover, suggesting a reload and saying the open Work will be lost
+    end
+    Note over U,ED: Postcondition: either the same Work and View on screen, or an honest message, never a blank or black canvas
+```
+
+The restore deadline is a tactical value fixed in `tasks` (§11).
+
+**Coverage (`sequences`):** every spec §4 user story and §5 AC is shown at runtime; none is marked non-runtime.
+
+| AC | Shown by | AC | Shown by |
+|---|---|---|---|
+| AC-01 | Flow 1, no-edits branch | AC-12 | Flow 5, zoom branches |
+| AC-02 | Flow 1 (single file); Flow 3, one-file branch and drop guard | AC-12b | Flow 5, clamp, fixed steps and resize branch |
+| AC-03 | Flow 3, several-files branch | AC-13 | Flow 5, pan branch |
+| AC-04 | Flow 3, no-files branch | AC-14 | Flow 1, no-edits branch; Flow 5 postcondition |
+| AC-05 | Flow 4, downscale step and notice | AC-15 | Flow 1, confirm and cancel branches |
+| AC-06 | Flow 4, downscale step skipped and no downscale notice | AC-16 | Flow 2 |
+| AC-07 | Flow 4, unsupported-format branch | AC-16b | Flow 2 |
+| AC-08 | Flow 2, unreadable branch; Flow 4, decode-fails branch | AC-17 | Flow 6, capabilities-present branch |
+| AC-09 | Flow 2, too-large branch | AC-18 | Flow 6, capability-missing branch |
+| AC-10 | Flow 2, not-permitted branch | AC-19 | Flow 7, restored branch |
+| AC-11 | Flow 4, first-frame decode and notice | AC-19b | Flow 7, lost branch |
+| AC-11b | Flow 4, all notices at once | | |
+
+| User story | Flows |
+|---|---|
+| US-01 Open from disk | 1 |
+| US-02 Drop | 1, 3 |
+| US-03 Know when reduced | 1, 4 |
+| US-04 Understand why not | 2, 4 |
+| US-05 Inspect | 5 |
+| US-06 Keep my work | 1, 2 |
+| US-07 First visit | 6 |
+| US-08 Honest browser message | 6, 7 |
+
+**Flags for design:** none. Flows 3–7 use the generic runtime vocabulary; `service: editor`, `service: decode` and `service: render` are the §5 Editor SPA store, Decode worker and Render pipeline. No flow writes to a data store, so there are no persist notes for `data-model`.
+
 ## 7. Deployment view
 
 open-and-view reuses the existing deployment unit: one static bundle built by `.github/workflows/ci.yml` and served by GitHub Pages under `/imgly/` (repo ADR 0001). There are no servers or replicas; every visitor's browser tab is its own runtime, with one decode worker alive per open at most. The only deployment change is a new build asset: Vite emits the decode worker as a separate hashed module script (`new Worker(new URL('./decode.worker.ts', import.meta.url), { type: 'module' })`), and the Workbox precache must list it, so an open works with no network after the first load (spec §6, offline row). The capability probes' sample images are embedded in the worker script, so the probes never fetch anything.
