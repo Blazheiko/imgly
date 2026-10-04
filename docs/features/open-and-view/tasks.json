@@ -670,6 +670,119 @@
       "review_findings": [
         "S8"
       ]
+    },
+    {
+      "id": "T34",
+      "title": "Refuse a GIF whose first image descriptor is not inside the header window as unreadable",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-09"
+      ],
+      "dod": "A GIF with no complete image descriptor inside the 1 MiB window is UNREADABLE before decoding; unit case, a padded-GIF reference-set entry, and a sad.md §11 risk row",
+      "files_hint": [
+        "src/core/image-header/gif.ts",
+        "e2e/fixtures/",
+        "e2e/open-and-view/",
+        "docs/features/open-and-view/sad.md"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04-2.md",
+      "review_findings": [
+        "N1"
+      ]
+    },
+    {
+      "id": "T35",
+      "title": "Count a byte-ceiling or not-permitted refusal as an image reason only for a file that looks like an image",
+      "layer": "app",
+      "deps": [],
+      "acs": [
+        "AC-04",
+        "AC-03"
+      ],
+      "dod": "A dropped 600 MB non-image or a locked non-image gets the only-images message and never beats a real image reason; drop.test cases for both",
+      "files_hint": [
+        "src/features/editor/store.ts",
+        "src/core/open/drop.ts"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04-2.md",
+      "review_findings": [
+        "F1"
+      ]
+    },
+    {
+      "id": "T36",
+      "title": "Bring the spec in line with the resolved ceiling and Display P3 decisions and the byte ceiling message",
+      "layer": "wiring",
+      "deps": [],
+      "acs": [
+        "AC-09"
+      ],
+      "dod": "spec.md §8 questions ticked with pointers to sad.md §8 and ADR-0004, §6 row says 100 MP, AC-09 names the byte ceiling and its exact message (added-by-fix)",
+      "files_hint": [
+        "docs/features/open-and-view/spec.md"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04-2.md",
+      "review_findings": [
+        "F2"
+      ]
+    },
+    {
+      "id": "T37",
+      "title": "Recognise an SVG that starts with a comment or a DOCTYPE and has no XML prolog",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-07"
+      ],
+      "dod": "Leading comments and an svg DOCTYPE are skipped (or <svg is found in the first 4 KiB of text starting with <); sniff.test cases for both forms",
+      "files_hint": [
+        "src/core/image-header/refused.ts"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04-2.md",
+      "review_findings": [
+        "F3"
+      ]
+    },
+    {
+      "id": "T38",
+      "title": "Add the Reload, low-clamp and fitted-no-pan e2e tests and mark the engine-limited test-plan rows",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-11",
+        "AC-12b",
+        "AC-13",
+        "AC-19",
+        "AC-19b"
+      ],
+      "dod": "e2e for the SCR-05 Reload click, the low zoom clamp and a fitted image not moving; test-plan marks WebKit offline and the Chromium-only context-loss and pixel checks as engine-limited with the reason; T18 DoD corrected",
+      "files_hint": [
+        "e2e/open-and-view/",
+        "docs/features/open-and-view/test-plan.md",
+        "docs/features/open-and-view/tasks/t18-offline-precache-and-ci.md"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04-2.md",
+      "review_findings": [
+        "F4"
+      ]
+    },
+    {
+      "id": "T39",
+      "title": "Show the grab cursor in Space pan mode only when the image is pannable",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-13"
+      ],
+      "dod": "Holding Space over a fitted image keeps the default cursor; component case",
+      "files_hint": [
+        "src/features/editor/components/PreviewCanvas.vue"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04-2.md",
+      "review_findings": [
+        "F5"
+      ]
     }
   ]
 }
