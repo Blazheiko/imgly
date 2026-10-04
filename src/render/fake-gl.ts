@@ -6,6 +6,8 @@ export interface FakeGl {
   gl: WebGL2RenderingContext
   calls: [string, ...unknown[]][]
   names(): string[]
+  /** Return values by method name; tests may override one, e.g. to fail a program link. */
+  returns: Record<string, (...args: unknown[]) => unknown>
 }
 
 export function createFakeGl(): FakeGl {
@@ -34,7 +36,7 @@ export function createFakeGl(): FakeGl {
       }
     },
   }) as unknown as WebGL2RenderingContext
-  return { gl, calls, names: () => calls.map(([name]) => name) }
+  return { gl, calls, returns, names: () => calls.map(([name]) => name) }
 }
 
 export function createFakeCanvas(gl: WebGL2RenderingContext | null) {

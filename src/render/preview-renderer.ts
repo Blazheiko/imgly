@@ -23,12 +23,21 @@ void main() {
 /** Marked on the first frame drawn after a new Original; the @perf suite times opens to it. */
 export const FIRST_FRAME_MARK = 'imgly:first-frame'
 
+/** How long a lost context may take to come back before the display counts as lost (AC-19b). */
+export const RESTORE_DEADLINE_MS = 5000
+
+/** `restoring` while a lost context may still come back; `lost` once it can't (SCR-05). */
+export type RendererStatus = 'ready' | 'restoring' | 'lost'
+
 export interface PreviewRenderer {
   /** Uploads a new Original. The caller keeps ownership of the bitmap and closes it. */
   setOriginal(bitmap: ImageBitmap): void
   setView(view: View): void
   /** Sets the backing store size in device pixels. */
   resize(width: number, height: number): void
+  readonly status: RendererStatus
+  /** Subscribes to status changes; returns the unsubscribe function. */
+  onStatus(listener: (status: RendererStatus) => void): () => void
   dispose(): void
 }
 
@@ -60,7 +69,10 @@ export function createPreviewRenderer(
   const gl = canvas.getContext('webgl2', { alpha: true, antialias: false })
   if (!gl) return err(appError('UNSUPPORTED_BROWSER'))
 
-  const gpu = buildProgram(gl)
+  let gpu = buildProgram(gl)
+  let status: RendererStatus = 'ready'
+  let deadline: ReturnType<typeof setTimeout> | undefined
+  const listeners = new Set<(status: RendererStatus) => void>()
   let bitmap: ImageBitmap | undefined
   let texture: WebGLTexture | null = null
   let view: View | undefined
@@ -71,8 +83,42 @@ export function createPreviewRenderer(
     if (frame === undefined) frame = requestFrame(draw)
   }
 
+  function setStatus(next: RendererStatus) {
+    if (status === next) return
+    status = next
+    for (const listener of listeners) listener(next)
+  }
+
+  /** The browser may restore a lost context only if the loss event's default is prevented. */
+  function onContextLost(event: Event) {
+    event.preventDefault()
+    if (status === 'lost') return
+    clearTimeout(deadline)
+    deadline = setTimeout(() => setStatus('lost'), RESTORE_DEADLINE_MS)
+    setStatus('restoring')
+  }
+
+  /** Rebuilds the program and re-uploads the kept bitmap; Work and View are untouched (AC-19). */
+  function onContextRestored() {
+    if (status !== 'restoring') return
+    clearTimeout(deadline)
+    try {
+      gpu = buildProgram(gl!)
+      texture = bitmap ? uploadTexture(gl!, bitmap) : null
+    } catch {
+      setStatus('lost')
+      return
+    }
+    setStatus('ready')
+    invalidate()
+  }
+
+  canvas.addEventListener('webglcontextlost', onContextLost)
+  canvas.addEventListener('webglcontextrestored', onContextRestored)
+
   function draw() {
     frame = undefined
+    if (status !== 'ready') return
     if (!bitmap || !texture || !view || canvas.width === 0 || canvas.height === 0) return
     const image = { width: bitmap.width, height: bitmap.height }
     const size = { width: canvas.width, height: canvas.height }
@@ -100,10 +146,12 @@ export function createPreviewRenderer(
 
   return ok({
     setOriginal(next) {
-      const old = texture
-      texture = uploadTexture(gl, next)
-      if (old) gl.deleteTexture(old)
       bitmap = next
+      if (status === 'ready') {
+        const old = texture
+        texture = uploadTexture(gl, next)
+        if (old) gl.deleteTexture(old)
+      }
       firstFramePending = true
       invalidate()
     },
@@ -121,7 +169,18 @@ export function createPreviewRenderer(
       canvas.height = height
       invalidate()
     },
+    get status() {
+      return status
+    },
+    onStatus(listener) {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    },
     dispose() {
+      clearTimeout(deadline)
+      listeners.clear()
+      canvas.removeEventListener('webglcontextlost', onContextLost)
+      canvas.removeEventListener('webglcontextrestored', onContextRestored)
       if (frame !== undefined) cancelFrame(frame)
       frame = undefined
       if (texture) gl.deleteTexture(texture)
