@@ -13,6 +13,7 @@ async function openOverUnsavedEdits(page: Page) {
   await page.getByRole('button', { name: 'Open image' }).focus()
   const before = {
     work: await work(page),
+    view: await page.evaluate(() => window.__imglyTest!.view()),
     level: await page.getByTestId('zoom-level').textContent(),
   }
 
@@ -41,6 +42,7 @@ test.describe('SCR-03 — replace confirmation (AC-15)', () => {
     await expect(page.getByRole('alertdialog')).toHaveCount(0)
     expect(await work(page)).toEqual(before.work)
     expect(before.work!.revision).toBe(1)
+    expect(await page.evaluate(() => window.__imglyTest!.view())).toEqual(before.view)
     await expect(page.getByTestId('zoom-level')).toHaveText(before.level!)
     await expect(page.getByTestId('toast-stack')).toBeEmpty()
     await expect(page.getByRole('button', { name: 'Open image' })).toBeFocused()

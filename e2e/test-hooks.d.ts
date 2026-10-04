@@ -9,6 +9,8 @@ declare global {
       view(): { zoom: number; panX: number; panY: number; autoFit: boolean }
       applyEdit(): void
       bitmaps(): { received: number; closed: number; retained: number }
+      holdNextOpen(): void
+      releaseHeldOpen(): void
     }
   }
 }

@@ -20,6 +20,8 @@ rm noise.png
 avifenc -q 60 photo.png photo.avif >/dev/null
 heif-enc -q 50 photo.png -o photo.heic >/dev/null
 magick -delay 50 -size 64x48 xc:'#ff0000' -size 64x48 xc:'#0000ff' -loop 0 animated.gif
+# Animated and over the Downscale limit, so one open raises both info notices (AC-11b).
+magick -delay 50 -size 6000x4000 xc:'#ff0000' xc:'#0000ff' -loop 0 big-animated.gif
 
 # The refused formats only need a valid signature; keep them small.
 magick -size 64x48 gradient:'#203060-#e0a040' small.png

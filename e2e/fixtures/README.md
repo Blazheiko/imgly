@@ -11,6 +11,7 @@ version.
 | `photo.jpg` / `.png` / `.webp` / `.avif`               | 320×240 gradient in each Supported format                                                    | Preview, `320 × 240 px`                                      |
 | `large-lossless.webp`                                  | 720×540 noise, lossless simple-format WebP, about 1.1 MiB (one chunk past the header window) | Preview, `720 × 540 px`                                      |
 | `animated.gif`                                         | 2-frame 64×48 GIF (red, then blue)                                                           | Preview + "only the first frame was kept"                    |
+| `big-animated.gif`                                     | 2-frame 6000×4000 GIF (red, then blue)                                                       | Preview at 4096 × 2731 + downscale and first-frame notices   |
 | `photo.heic`                                           | 320×240 HEIC (heif-enc)                                                                      | AC-07 HEIC message on Chromium/Firefox; WebKit may decode it |
 | `png-named.jpg`                                        | the PNG with a `.jpg` name                                                                   | Preview — judged by content (AC-08)                          |
 | `text-named.png`                                       | plain text with a `.png` name                                                                | "This file couldn't be read as an image."                    |

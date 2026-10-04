@@ -10,6 +10,12 @@ export interface ImglyTestHooks {
   applyEdit(): void
   /** Bitmaps received from the decode worker and closed by the app; retained should be 1. */
   bitmaps(): { received: number; closed: number; retained: number }
+  /**
+   * Holds the next open's result until `releaseHeldOpen()`, so a test can act during the read
+   * (AC-16b) without racing a fast decoder. The decode itself still runs in the worker.
+   */
+  holdNextOpen(): void
+  releaseHeldOpen(): void
 }
 
 declare global {
@@ -20,6 +26,7 @@ declare global {
 
 export function installTestHooks(pinia: Pinia): void {
   const editor = useEditorStore(pinia)
+  let release: (() => void) | undefined
   window.__imglyTest = {
     work: () => {
       const work = editor.work
@@ -34,5 +41,15 @@ export function installTestHooks(pinia: Pinia): void {
       closed: bitmapLedger.closed,
       retained: bitmapLedger.received - bitmapLedger.closed,
     }),
+    holdNextOpen: () => {
+      const gate = new Promise<void>((resolve) => (release = resolve))
+      const inner = editor.setDecoder(async (file) => {
+        editor.setDecoder(inner) // only this one open is held
+        const outcome = await inner(file)
+        await gate
+        return outcome
+      })
+    },
+    releaseHeldOpen: () => release?.(),
   }
 }

@@ -106,8 +106,11 @@ export const useEditorStore = defineStore('editor', () => {
 
   const hasUnsavedEdits = computed(() => (work.value ? workHasUnsavedEdits(work.value) : false))
 
-  function setDecoder(next: Decoder) {
+  /** Swaps the decoder and returns the previous one, so a wrapper can delegate to it. */
+  function setDecoder(next: Decoder): Decoder {
+    const previous = decode
     decode = next
+    return previous
   }
 
   function setRendererFactory(next: RendererFactory) {
