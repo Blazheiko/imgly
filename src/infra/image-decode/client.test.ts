@@ -137,7 +137,8 @@ describe('decodeImage client', () => {
 })
 
 describe('mapReadError (AC-10)', () => {
-  it.each(['NotReadableError', 'NotFoundError', 'SecurityError'])(
+  // Firefox rejects a refused file read with AbortError; Chromium and WebKit with NotReadableError.
+  it.each(['NotReadableError', 'NotFoundError', 'SecurityError', 'AbortError'])(
     '%s → FILE_NOT_PERMITTED',
     (n) => {
       expect(mapReadError(n)).toBe('FILE_NOT_PERMITTED')
