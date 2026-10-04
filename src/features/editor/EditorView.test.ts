@@ -94,3 +94,76 @@ describe('EditorView — SCR-01 (empty editor)', () => {
     expect(wrapper.get('.base-button--primary').attributes('disabled')).toBeUndefined()
   })
 })
+
+describe('EditorView — zoom shortcuts (SCR-02)', () => {
+  let wrapper: VueWrapper
+  let editor: ReturnType<typeof useEditorStore>
+
+  beforeEach(async () => {
+    setActivePinia(createPinia())
+    editor = useEditorStore()
+    editor.setDecoder(async () => ({
+      ok: true,
+      value: {
+        bitmap: { width: 4000, height: 4000, close() {} } as unknown as ImageBitmap,
+        sourceWidth: 4000,
+        sourceHeight: 4000,
+        width: 4000,
+        height: 4000,
+        format: 'png',
+        animated: false,
+        downscaled: false,
+      },
+    }))
+    editor.setCanvasSize(1000, 1000)
+    await editor.openImage(new Blob())
+    wrapper = mount(EditorView, { attachTo: document.body })
+  })
+  afterEach(() => wrapper.unmount())
+
+  const press = (init: KeyboardEventInit) => {
+    const event = new KeyboardEvent('keydown', { cancelable: true, ...init })
+    window.dispatchEvent(event)
+    return event
+  }
+
+  it('shows the status bar on SCR-02', () => {
+    expect(wrapper.find('[data-testid="dimensions-readout"]').text()).toBe('4000 × 4000 px')
+  })
+
+  it('Shift+0 is 100% and Shift+1 is Fit', () => {
+    press({ key: ')', code: 'Digit0', shiftKey: true })
+    expect(editor.view.zoom).toBe(1)
+    press({ key: '!', code: 'Digit1', shiftKey: true })
+    expect(editor.view).toMatchObject({ zoom: 0.25, autoFit: true })
+  })
+
+  it('+ / = zoom in and - zooms out through the fixed levels', () => {
+    press({ key: '+', code: 'Equal', shiftKey: true })
+    expect(editor.view.zoom).toBeCloseTo(1 / 3)
+    press({ key: '=', code: 'Equal' })
+    expect(editor.view.zoom).toBe(0.5)
+    press({ key: '-', code: 'Minus' })
+    expect(editor.view.zoom).toBeCloseTo(1 / 3)
+  })
+
+  it('never intercepts the browser’s Ctrl/Cmd + / - / 0', () => {
+    for (const init of [
+      { key: '=', code: 'Equal', ctrlKey: true },
+      { key: '-', code: 'Minus', metaKey: true },
+      { key: '0', code: 'Digit0', ctrlKey: true },
+    ]) {
+      const event = press(init)
+      expect(event.defaultPrevented).toBe(false)
+    }
+    expect(editor.view.zoom).toBe(0.25)
+  })
+
+  it('ignores shortcuts typed into a text field', () => {
+    const input = document.createElement('input')
+    document.body.appendChild(input)
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: '+', bubbles: true }))
+    expect(editor.view.zoom).toBe(0.25)
+    input.remove()
+  })
+})

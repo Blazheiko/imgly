@@ -19,7 +19,7 @@
 | T12 | [Add drop sequencing, the messages catalog and the notices raised by each open](./t12-drop-sequencing-and-messages.md) | app | Blazheiko | M | T3, T10, T11 | done |
 | T13 | [Build the editor shell and SCR-01: top bar, empty canvas with Open image, drop overlay, loading spinner and toast boundary](./t13-editor-shell-empty-canvas.md) | ui | Blazheiko | M | T7, T10, T12 | done |
 | T14 | [Build SCR-02's PreviewCanvas with the renderer, Fit on open, and the zoom and pan gestures](./t14-preview-canvas-gestures.md) | ui | Blazheiko | M | T8, T11, T13 | done |
-| T15 | [Build the status bar: Original dimensions readout, zoom controls with the live zoom level, and the zoom shortcuts](./t15-status-bar-zoom-controls.md) | ui | Blazheiko | S | T11, T13 | todo |
+| T15 | [Build the status bar: Original dimensions readout, zoom controls with the live zoom level, and the zoom shortcuts](./t15-status-bar-zoom-controls.md) | ui | Blazheiko | S | T11, T13 | done |
 | T16 | [Build SCR-03, the replace confirmation dialog, on the store's confirming phase](./t16-replace-dialog.md) | ui | Blazheiko | S | T10, T11, T13 | todo |
 | T17 | [Add the start-up capability gate and the blocking screens SCR-04, SCR-05 plus SCR-02's restoring state](./t17-capability-gate-blocking-screens.md) | ui | Blazheiko | M | T7, T9, T10, T13 | todo |
 | T18 | [Precache the decode worker for offline opens, run e2e on three engines in CI, and record the widened rules](./t18-offline-precache-and-ci.md) | wiring | Blazheiko | S | T5, T14 | todo |

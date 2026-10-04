@@ -21,7 +21,8 @@ const notices = useNotices()
 .toast-stack {
   position: fixed;
   right: var(--space-4);
-  bottom: var(--space-4);
+  /* A screen with a bottom bar sets --toast-stack-bottom to stay above it. */
+  bottom: var(--toast-stack-bottom, var(--space-4));
   z-index: var(--z-toast);
   display: flex;
   flex-direction: column;

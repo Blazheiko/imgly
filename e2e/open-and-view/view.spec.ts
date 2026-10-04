@@ -149,3 +149,84 @@ test.describe('SCR-02 — View', () => {
     expect(mismatches).toBe(0)
   })
 })
+
+test.describe('SCR-02 — status bar and zoom controls', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('./')
+  })
+
+  test('shows the downscaled Original’s dimensions and the notice (AC-05)', async ({ page }) => {
+    await dropGeneratedImage(page, { width: 6000, height: 4000 })
+    await waitForWork(page, 4096, 2731)
+
+    await expect(page.getByTestId('dimensions-readout')).toHaveText('4096 × 2731 px')
+    await expect(
+      page.getByText('Reduced to the 4096 px limit: 6000×4000 → 4096×2731.'),
+    ).toBeVisible()
+  })
+
+  test('keeps a within-limit image’s own dimensions with no notice (AC-06)', async ({ page }) => {
+    await dropGeneratedImage(page, { width: 3000, height: 2000 })
+    await waitForWork(page, 3000, 2000)
+
+    await expect(page.getByTestId('dimensions-readout')).toHaveText('3000 × 2000 px')
+    await expect(page.getByText(/Reduced to the 4096 px limit/)).toHaveCount(0)
+  })
+
+  test('the zoom buttons step through fixed levels and show the live level (AC-12, AC-12b)', async ({
+    page,
+  }) => {
+    await dropGeneratedImage(page, { width: 4000, height: 3000 })
+    await waitForWork(page, 4000, 3000)
+    const level = page.getByTestId('zoom-level')
+
+    await page.getByRole('button', { name: '100%' }).click()
+    await expect(level).toHaveText('100%')
+    await page.getByRole('button', { name: 'Zoom in' }).click()
+    await expect(level).toHaveText('150%')
+    await page.getByRole('button', { name: 'Zoom out' }).click()
+    await page.getByRole('button', { name: 'Zoom out' }).click()
+    await expect(level).toHaveText('67%')
+    for (let i = 0; i < 12; i++) await page.getByRole('button', { name: 'Zoom in' }).click()
+    await expect(level).toHaveText('800%')
+
+    await page.getByRole('button', { name: 'Fit' }).click()
+    expect((await view(page)).autoFit).toBe(true)
+  })
+
+  test('Shift+0, Shift+1, + and - drive the zoom; Ctrl/Cmd zoom keys are left alone', async ({
+    page,
+  }) => {
+    await dropGeneratedImage(page, { width: 4000, height: 3000 })
+    await waitForWork(page, 4000, 3000)
+    const level = page.getByTestId('zoom-level')
+    const fitLevel = await level.textContent()
+
+    await page.keyboard.press('Shift+Digit0')
+    await expect(level).toHaveText('100%')
+    await page.keyboard.press('Equal')
+    await expect(level).toHaveText('150%')
+    await page.keyboard.press('Minus')
+    await expect(level).toHaveText('100%')
+    await page.keyboard.press('Shift+Digit1')
+    await expect(level).toHaveText(fitLevel!)
+
+    const prevented = await page.evaluate(() => {
+      const results: boolean[] = []
+      window.addEventListener('keydown', (e) => {
+        if (e.key === '=' || e.key === '-') setTimeout(() => results.push(e.defaultPrevented))
+      })
+      ;(window as unknown as { __prevented: boolean[] }).__prevented = results
+      return true
+    })
+    expect(prevented).toBe(true)
+    await page.keyboard.press('Control+Equal')
+    await page.keyboard.press('Control+Minus')
+    await expect
+      .poll(() =>
+        page.evaluate(() => (window as unknown as { __prevented: boolean[] }).__prevented),
+      )
+      .toEqual([false, false])
+    await expect(level).toHaveText(fitLevel!)
+  })
+})
