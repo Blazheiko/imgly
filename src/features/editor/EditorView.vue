@@ -7,6 +7,7 @@ import EditorStatusBar from './components/EditorStatusBar.vue'
 import EditorTopBar from './components/EditorTopBar.vue'
 import EmptyCanvas from './components/EmptyCanvas.vue'
 import PreviewCanvas from './components/PreviewCanvas.vue'
+import ReplaceDialog from './components/ReplaceDialog.vue'
 import { useEditorStore } from './store'
 
 const editor = useEditorStore()
@@ -82,6 +83,7 @@ onBeforeUnmount(() => {
     <EditorStatusBar />
     <ToastStack />
     <DropOverlay v-if="dragging" />
+    <ReplaceDialog v-if="editor.phase === 'confirming'" />
   </main>
 </template>
 

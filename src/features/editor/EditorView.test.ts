@@ -167,3 +167,55 @@ describe('EditorView — zoom shortcuts (SCR-02)', () => {
     input.remove()
   })
 })
+
+describe('EditorView — SCR-03 replace dialog', () => {
+  let wrapper: VueWrapper
+  let editor: ReturnType<typeof useEditorStore>
+
+  beforeEach(async () => {
+    setActivePinia(createPinia())
+    editor = useEditorStore()
+    editor.setDecoder(async () => ({
+      ok: true,
+      value: {
+        bitmap: { width: 400, height: 400, close() {} } as unknown as ImageBitmap,
+        sourceWidth: 400,
+        sourceHeight: 400,
+        width: 400,
+        height: 400,
+        format: 'png',
+        animated: false,
+        downscaled: false,
+      },
+    }))
+    editor.setCanvasSize(1000, 1000)
+    await editor.openImage(new Blob())
+    editor.applyEdit()
+    await editor.openImage(new Blob())
+    wrapper = mount(EditorView, { attachTo: document.body })
+    await nextTick()
+  })
+  afterEach(() => wrapper.unmount())
+
+  it('shows the dialog while confirming', () => {
+    expect(wrapper.find('[role="alertdialog"]').exists()).toBe(true)
+  })
+
+  it('ignores drops and shows no drop overlay while the dialog is open', async () => {
+    const drop = vi.spyOn(editor, 'openDrop')
+    window.dispatchEvent(dropEvent('dragenter'))
+    await nextTick()
+    expect(wrapper.text()).not.toContain('Drop an image to open it')
+
+    const event = dropEvent('drop', [new File(['x'], 'a.png')])
+    window.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(true)
+    expect(drop).not.toHaveBeenCalled()
+  })
+
+  it('ignores zoom shortcuts while the dialog is open', () => {
+    const zoom = editor.view.zoom
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: '+', cancelable: true }))
+    expect(editor.view.zoom).toBe(zoom)
+  })
+})
