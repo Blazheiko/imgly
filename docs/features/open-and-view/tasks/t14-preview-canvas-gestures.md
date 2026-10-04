@@ -9,7 +9,7 @@ files_hint: ["src/features/editor/components/PreviewCanvas.vue", "src/features/e
 owner: "Blazheiko"
 estimate: "M"
 context_budget: "M"   # measured: 73 inlined lines
-status: "todo"
+status: "done"
 ---
 <!-- Self-contained task. Every inlined chunk carries a provenance signature; the source always wins.
 To the executing agent: work from what is inlined here. If a slice is insufficient, ambiguous, or

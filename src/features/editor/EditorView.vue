@@ -5,6 +5,7 @@ import { Spinner, ToastStack } from '@/shared'
 import DropOverlay from './components/DropOverlay.vue'
 import EditorTopBar from './components/EditorTopBar.vue'
 import EmptyCanvas from './components/EmptyCanvas.vue'
+import PreviewCanvas from './components/PreviewCanvas.vue'
 import { useEditorStore } from './store'
 
 const editor = useEditorStore()
@@ -48,6 +49,7 @@ onBeforeUnmount(() => {
     <EditorTopBar :show-open="editor.work !== null" @open="openPicked" />
     <section class="editor-view__canvas" aria-label="Canvas">
       <EmptyCanvas v-if="!editor.work" @open="openPicked" />
+      <PreviewCanvas v-else />
       <div v-if="editor.phase === 'reading'" class="editor-view__loading">
         <Spinner label="Opening image" />
       </div>
