@@ -264,3 +264,44 @@ describe('editor store — View actions', () => {
     expect(editor.hasUnsavedEdits).toBe(true)
   })
 })
+
+describe('editor store — bitmap ledger (sad.md §8 resource lifetime)', () => {
+  it('retains exactly one Original after opens, replaces, cancels and stale results', async () => {
+    setActivePinia(createPinia())
+    const { bitmapLedger, resetBitmapLedger } = await import('@/shared')
+    resetBitmapLedger()
+    const editor = useEditorStore()
+    const answers: ((o: DecodeOutcome) => void)[] = []
+    editor.setDecoder(
+      () =>
+        new Promise<DecodeOutcome>((resolve) => {
+          answers.push(resolve)
+        }),
+    )
+    editor.setCanvasSize(1000, 1000)
+    // The real client notes every bitmap it receives; the fake decoder does it by hand here.
+    const answer = (i: number) => {
+      bitmapLedger.noteReceived()
+      answers[i]!(ok(decoded(100 + i, 100)))
+    }
+
+    for (let i = 0; i < 10; i++) {
+      const open = editor.openImage(file())
+      answer(i)
+      await open
+    }
+    const stale = editor.openImage(file())
+    const latest = editor.openImage(file())
+    answer(10)
+    answer(11)
+    await Promise.all([stale, latest])
+    editor.applyEdit()
+    const confirm = editor.openImage(file())
+    answer(12)
+    await confirm
+    editor.cancelReplace()
+    await nextTick()
+
+    expect(bitmapLedger.received - bitmapLedger.closed).toBe(1)
+  })
+})

@@ -24,7 +24,7 @@ import {
   type DecodeOutcome,
 } from '@/infra/image-decode'
 import { probeCapabilities, type RendererStatus } from '@/render'
-import { newId, useNotices, type NoticeInput } from '@/shared'
+import { closeBitmap, newId, useNotices, type NoticeInput } from '@/shared'
 import {
   failureMessage,
   failureNoImageFiles,
@@ -124,7 +124,7 @@ export const useEditorStore = defineStore('editor', () => {
 
     const outcome = await decode(file)
     if (isSuperseded(outcome) || id !== latestOpenId) {
-      if (!isSuperseded(outcome) && outcome.ok) outcome.value.bitmap.close()
+      if (!isSuperseded(outcome) && outcome.ok) closeBitmap(outcome.value.bitmap)
       return { kind: 'superseded' }
     }
     phase.value = 'idle'
@@ -152,7 +152,7 @@ export const useEditorStore = defineStore('editor', () => {
 
   function cancelReplace(): OpenOutcome {
     if (phase.value !== 'confirming') return { kind: 'ignored' }
-    pending.value?.bitmap.close()
+    if (pending.value) closeBitmap(pending.value.bitmap)
     pending.value = null
     phase.value = 'idle'
     heldNotices = []
@@ -216,7 +216,7 @@ export const useEditorStore = defineStore('editor', () => {
     work.value = createWork({ width: image.width, height: image.height, pixels: bitmap }, newId())
     const ctx = context()
     view.value = ctx ? fitView(ctx) : UNSIZED_VIEW
-    if (old) void nextTick(() => old.close())
+    if (old) void nextTick(() => closeBitmap(old))
     return { kind: 'replaced', image: facts }
   }
 

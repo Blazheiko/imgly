@@ -1,4 +1,5 @@
 import { appError, err, isAppErrorCode, type AppError, type Result } from '@/core'
+import { bitmapLedger } from '@/shared'
 import {
   SUPERSEDED,
   type Capabilities,
@@ -84,7 +85,9 @@ export function createDecoder(createWorker: () => Worker) {
       }
       worker.onmessage = (event) => {
         capabilities ??= parseCapabilities(event.data)
-        finish(parseWorkerResponse(event.data))
+        const response = parseWorkerResponse(event.data)
+        if (response.ok) bitmapLedger.noteReceived()
+        finish(response)
       }
       worker.onerror = () => finish(err(appError('DECODE_FAILED')))
       worker.onmessageerror = () => finish(err(appError('DECODE_FAILED')))

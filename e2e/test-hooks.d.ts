@@ -8,6 +8,7 @@ declare global {
       work(): { id: string; revision: number; width: number; height: number } | null
       view(): { zoom: number; panX: number; panY: number; autoFit: boolean }
       applyEdit(): void
+      bitmaps(): { received: number; closed: number; retained: number }
     }
   }
 }

@@ -24,6 +24,6 @@
 | T17 | [Add the start-up capability gate and the blocking screens SCR-04, SCR-05 plus SCR-02's restoring state](./t17-capability-gate-blocking-screens.md) | ui | Blazheiko | M | T7, T9, T10, T13 | done |
 | T18 | [Precache the decode worker for offline opens, run e2e on three engines in CI, and record the widened rules](./t18-offline-precache-and-ci.md) | wiring | Blazheiko | S | T5, T14 | done |
 | T19 | [Add the cross-engine reference-set e2e: honest outcome per file, 8 of 8 orientations, Work integrity on every refusal](./t19-e2e-reference-set.md) | tests | Blazheiko | M | T6, T14, T15, T16, T17, T18 | done |
-| T20 | [Add the @perf suite: time to first Preview, long tasks, zoom/pan frame rate and memory after 10 opens](./t20-perf-suite.md) | tests | Blazheiko | M | T15, T18, T19 | todo |
+| T20 | [Add the @perf suite: time to first Preview, long tasks, zoom/pan frame rate and memory after 10 opens](./t20-perf-suite.md) | tests | Blazheiko | M | T15, T18, T19 | done |
 
 **Total:** 20 tasks, ~17 person-days (S = ½ day, M/L = 1 day).
