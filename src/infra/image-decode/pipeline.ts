@@ -1,5 +1,6 @@
 import {
   appError,
+  checkFileBytes,
   checkOpenPolicy,
   err,
   HEADER_WINDOW_BYTES,
@@ -33,7 +34,7 @@ export const DECODE_OPTIONS: ImageBitmapOptions = {
 }
 
 /**
- * header window → sniff → open policy → decode → orient (if the browser didn't) → stepwise
+ * byte ceiling → header window → sniff → open policy → decode → orient (if the browser didn't) → stepwise
  * reduction (feature ADR 0001). The ceiling is checked from the declared size before any pixel
  * is decoded (AC-09), and again on the decoded bitmap in case the header understated it. HEIC is
  * refused without decoding where the probe found no support.
@@ -43,6 +44,9 @@ export async function runDecode(
   env: DecodeEnv,
   capabilities: Capabilities,
 ): Promise<Result<DecodedImage, AppError>> {
+  const withinBytes = checkFileBytes(file.size)
+  if (!withinBytes.ok) return withinBytes
+
   let window: Uint8Array
   try {
     window = new Uint8Array(await file.slice(0, HEADER_WINDOW_BYTES).arrayBuffer())

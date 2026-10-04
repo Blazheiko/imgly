@@ -14,7 +14,10 @@ export type AppErrorCode =
   | 'DECODE_FAILED'
   /** A recognised image format this browser/app can't open; `details.format` names it. AC-07 */
   | 'UNSUPPORTED_FORMAT'
-  /** Above the size ceiling; `details.{width,height,megapixels,ceilingMegapixels}`. AC-09 */
+  /**
+   * Above the size ceiling: `details.{width,height,megapixels,ceilingMegapixels}`, or above the
+   * byte ceiling: `details.{megabytes,ceilingMegabytes}`. AC-09
+   */
   | 'TOO_LARGE'
   /** The browser lacks a capability the editor needs (WebGL2, workers). AC-18 */
   | 'UNSUPPORTED_BROWSER'

@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { ImageHeader } from '../image-header'
 import {
+  checkFileBytes,
   checkOpenPolicy,
   DOWNSCALE_LIMIT,
   MAX_INTERMEDIATE_SIDE,
   orderDropCandidates,
   reductionSteps,
+  SIZE_CEILING_BYTES,
   SIZE_CEILING_PIXELS,
   targetSize,
 } from './index'
@@ -119,6 +121,19 @@ describe('orderDropCandidates (AC-03)', () => {
     expect(orderDropCandidates([{ kind: 'other' }, { kind: 'other' }])).toEqual({
       files: [],
       nonFileCount: 2,
+    })
+  })
+})
+
+describe('checkFileBytes (byte ceiling)', () => {
+  it('allows a file at the byte ceiling', () => {
+    expect(checkFileBytes(SIZE_CEILING_BYTES)).toEqual({ ok: true, value: SIZE_CEILING_BYTES })
+  })
+
+  it('refuses a larger file as TOO_LARGE with its size in MB (AC-09)', () => {
+    expect(checkFileBytes(SIZE_CEILING_BYTES + 1)).toEqual({
+      ok: false,
+      error: { code: 'TOO_LARGE', details: { megabytes: 501, ceilingMegabytes: 500 } },
     })
   })
 })

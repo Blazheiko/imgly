@@ -136,6 +136,19 @@ describe('runDecode (worker pipeline)', () => {
     expect(bitmaps[0]!.close).toHaveBeenCalled()
   })
 
+  it('refuses a file above the byte ceiling as TOO_LARGE without reading or decoding it', async () => {
+    const { env } = fakeEnv({ width: 100, height: 100 })
+    const huge = new Blob([pngBytes(100, 100)])
+    Object.defineProperty(huge, 'size', { value: 600_000_000 })
+    const slice = vi.spyOn(huge, 'slice')
+
+    const result = await runDecode(huge, env, BROWSER_ORIENTS)
+
+    expect(result).toMatchObject({ ok: false, error: { code: 'TOO_LARGE' } })
+    expect(slice).not.toHaveBeenCalled()
+    expect(env.createImageBitmap).not.toHaveBeenCalled()
+  })
+
   it('refuses NOT_AN_IMAGE by content before decoding (AC-08)', async () => {
     const { env } = fakeEnv({ width: 1, height: 1 })
     const result = await runDecode(new Blob(['just text']), env, BROWSER_ORIENTS)
@@ -154,6 +167,7 @@ describe('runDecode (worker pipeline)', () => {
   it('reports FILE_NOT_PERMITTED when reading the file is refused (AC-10)', async () => {
     const { env } = fakeEnv({ width: 1, height: 1 })
     const refused = {
+      size: 1024,
       slice: () => ({
         arrayBuffer: () => Promise.reject(new DOMException('no', 'NotReadableError')),
       }),

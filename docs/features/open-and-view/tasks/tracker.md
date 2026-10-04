@@ -27,7 +27,7 @@
 | T20 | [Add the @perf suite: time to first Preview, long tasks, zoom/pan frame rate and memory after 10 opens](./t20-perf-suite.md) | tests | Blazheiko | M | T15, T18, T19 | done |
 | T21 | Parse a simple-format WebP whose first chunk is larger than the header window (review S1) | domain | Blazheiko | S | — | done |
 | T22 | Declare a GIF's size from its screen and first frame, and refuse an over-ceiling bitmap after decoding (review S2) | infra | Blazheiko | S | — | done |
-| T23 | Refuse files above a byte-size cap as TOO_LARGE before decoding (review Q5) | infra | Blazheiko | S | T22 | todo |
+| T23 | Refuse files above a byte-size cap as TOO_LARGE before decoding (review Q5) | infra | Blazheiko | S | T22 | done |
 | T24 | Land 100% and stepped zoom on the exact target and always leave auto-fit (review S6, Q2) | domain | Blazheiko | S | — | todo |
 | T25 | Block page zoom everywhere in the editor and turn Safari pinch gestures into View zoom (review S3) | ui | Blazheiko | S | T24 | todo |
 | T26 | Add Space+drag pan mode that never presses the focused button (review S4) | ui | Blazheiko | S | — | todo |

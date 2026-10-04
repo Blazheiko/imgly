@@ -48,7 +48,10 @@ const FAILURES: Record<AppErrorCode, (details: Record<string, unknown>) => strin
     format === 'HEIC'
       ? "HEIC files can't be opened in this browser. Convert it to JPEG or PNG, or use a browser that opens HEIC."
       : `${typeof format === 'string' ? format : 'These'} files can't be opened here. Convert it to JPEG or PNG.`,
-  TOO_LARGE: ({ width, height, megapixels, ceilingMegapixels }) => {
+  TOO_LARGE: ({ width, height, megapixels, ceilingMegapixels, megabytes, ceilingMegabytes }) => {
+    if (megabytes !== undefined) {
+      return `This file is too large: ${megabytes} MB. The largest file the editor opens is ${ceilingMegabytes} MB.`
+    }
     const ceiling = `The largest the editor opens is ${ceilingMegapixels ?? SIZE_CEILING_PIXELS / 1e6} MP.`
     if (width === undefined || height === undefined || megapixels === undefined) {
       return `This image is too large. ${ceiling}`

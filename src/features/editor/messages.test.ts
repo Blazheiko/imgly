@@ -72,6 +72,12 @@ describe('message catalog (screens.md §Message catalog)', () => {
     )
   })
 
+  it('failure: TOO_LARGE by file size (AC-09)', () => {
+    expect(failureMessage(appError('TOO_LARGE', { megabytes: 612, ceilingMegabytes: 500 }))).toBe(
+      'This file is too large: 612 MB. The largest file the editor opens is 500 MB.',
+    )
+  })
+
   it('failure: FILE_NOT_PERMITTED (AC-10)', () => {
     expect(failureMessage(appError('FILE_NOT_PERMITTED'))).toBe(
       "The app wasn't allowed to read this file. Make it available on this computer first, for example by downloading it from your cloud drive.",
