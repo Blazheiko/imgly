@@ -66,6 +66,26 @@ describe('EditorView — SCR-01 (empty editor)', () => {
     expect(click).toHaveBeenCalledTimes(2)
   })
 
+  it('blocks page zoom from Ctrl+wheel and Safari pinch anywhere in the editor (AC-12)', () => {
+    const bar = wrapper.get('[data-testid="editor-top-bar"]').element
+    const wheel = new WheelEvent('wheel', { deltaY: -100, cancelable: true, bubbles: true })
+    Object.defineProperty(wheel, 'ctrlKey', { value: true })
+    bar.dispatchEvent(wheel)
+    expect(wheel.defaultPrevented).toBe(true)
+
+    for (const type of ['gesturestart', 'gesturechange', 'gestureend']) {
+      const gesture = new Event(type, { cancelable: true, bubbles: true })
+      bar.dispatchEvent(gesture)
+      expect(gesture.defaultPrevented).toBe(true)
+    }
+  })
+
+  it('leaves a plain wheel outside the canvas alone', () => {
+    const wheel = new WheelEvent('wheel', { deltaY: 40, cancelable: true, bubbles: true })
+    wrapper.get('[data-testid="editor-top-bar"]').element.dispatchEvent(wheel)
+    expect(wheel.defaultPrevented).toBe(false)
+  })
+
   it('shows the drop overlay while a drag is over the window', async () => {
     window.dispatchEvent(dropEvent('dragenter'))
     await nextTick()

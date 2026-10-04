@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { wheelGesture, type WheelInput } from './gestures'
+import { pinchGesture, wheelGesture, type WheelInput } from './gestures'
 
 const rect = { left: 100, top: 50 }
 // Plain inputs: happy-dom's WheelEvent drops modifier keys and client coordinates.
@@ -62,5 +62,17 @@ describe('wheelGesture', () => {
       dx: -0,
       dy: -48,
     })
+  })
+})
+
+describe('pinchGesture (Safari gesture events)', () => {
+  it('zooms by the change in scale since the last event, around the pinch centre', () => {
+    const g = pinchGesture({ scale: 3, clientX: 300, clientY: 250 }, 1.5, rect, 2)
+    expect(g.factor).toBeCloseTo(2)
+    expect(g.point).toEqual({ x: 400, y: 400 })
+  })
+
+  it('ignores a degenerate previous scale', () => {
+    expect(pinchGesture({ scale: 2, clientX: 0, clientY: 0 }, 0, rect, 1).factor).toBe(1)
   })
 })

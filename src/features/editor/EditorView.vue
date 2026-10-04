@@ -68,6 +68,19 @@ function onKeydown(event: KeyboardEvent) {
   shortcut.run()
 }
 
+/**
+ * The page itself never zooms (AC-12): a pinch over the bars, a toast or the dialog would
+ * otherwise zoom the whole page. Over the canvas, PreviewCanvas turns the same events into a
+ * View zoom before they reach the window.
+ */
+function blockPageZoomWheel(event: WheelEvent) {
+  if (event.ctrlKey || event.metaKey) event.preventDefault()
+}
+function blockPageZoomGesture(event: Event) {
+  event.preventDefault()
+}
+const GESTURE_EVENTS = ['gesturestart', 'gesturechange', 'gestureend']
+
 // The drop guard goes on the whole window first, so no drop ever navigates away (AC-02).
 const uninstallDropGuard = installDropGuard(window, {
   onDragEnter: () => (dragging.value = acceptsOpens()),
@@ -77,9 +90,15 @@ const uninstallDropGuard = installDropGuard(window, {
   },
 })
 
-onMounted(() => window.addEventListener('keydown', onKeydown))
+onMounted(() => {
+  window.addEventListener('keydown', onKeydown)
+  window.addEventListener('wheel', blockPageZoomWheel, { passive: false })
+  for (const type of GESTURE_EVENTS) window.addEventListener(type, blockPageZoomGesture)
+})
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeydown)
+  window.removeEventListener('wheel', blockPageZoomWheel)
+  for (const type of GESTURE_EVENTS) window.removeEventListener(type, blockPageZoomGesture)
   uninstallDropGuard()
 })
 </script>

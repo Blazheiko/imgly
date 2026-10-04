@@ -37,3 +37,26 @@ export function wheelGesture(
   if (event.shiftKey) return { kind: 'pan', dx: -(deltaX || deltaY) * dpr, dy: 0 }
   return { kind: 'pan', dx: -deltaX * dpr, dy: -deltaY * dpr }
 }
+
+/** What a Safari `GestureEvent` carries: the pinch scale since `gesturestart`, and its centre. */
+export interface PinchInput {
+  scale: number
+  clientX: number
+  clientY: number
+}
+
+/**
+ * Turns a Safari pinch step into a zoom factor around the pinch centre in device pixels. The
+ * event's scale is cumulative since `gesturestart`, so the factor is its change since the last one.
+ */
+export function pinchGesture(
+  event: PinchInput,
+  previousScale: number,
+  rect: { left: number; top: number },
+  dpr: number,
+): { factor: number; point: Point } {
+  return {
+    factor: previousScale > 0 ? event.scale / previousScale : 1,
+    point: { x: (event.clientX - rect.left) * dpr, y: (event.clientY - rect.top) * dpr },
+  }
+}

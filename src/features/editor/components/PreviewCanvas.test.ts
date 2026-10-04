@@ -49,6 +49,23 @@ describe('PreviewCanvas', () => {
     expect(zoomAt).toHaveBeenCalledWith(expect.any(Number), expect.any(Object))
   })
 
+  it('turns a Safari pinch into a View zoom by the scale change (AC-12)', () => {
+    const wrapper = mount(PreviewCanvas)
+    const zoomAt = vi.spyOn(editor, 'zoomAt')
+    const el = wrapper.get('canvas').element
+    for (const [type, scale] of [
+      ['gesturestart', 1],
+      ['gesturechange', 2],
+    ] as const) {
+      const event = new Event(type, { cancelable: true })
+      Object.assign(event, { scale, clientX: 10, clientY: 10 })
+      el.dispatchEvent(event)
+      expect(event.defaultPrevented).toBe(true)
+    }
+    expect(zoomAt).toHaveBeenCalledTimes(1)
+    expect(zoomAt.mock.calls[0]![0]).toBeCloseTo(2)
+  })
+
   it('turns a plain wheel into a pan', () => {
     const wrapper = mount(PreviewCanvas)
     const panBy = vi.spyOn(editor, 'panBy')

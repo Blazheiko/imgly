@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { createPreviewRenderer, type PreviewRenderer } from '@/render'
 import { useEditorStore } from '../store'
-import { wheelGesture } from './gestures'
+import { pinchGesture, wheelGesture, type PinchInput } from './gestures'
 
 const editor = useEditorStore()
 const canvas = ref<HTMLCanvasElement>()
@@ -10,6 +10,7 @@ const dragging = ref(false)
 let renderer: PreviewRenderer | undefined
 let observer: ResizeObserver | undefined
 let lastPointer: { id: number; x: number; y: number } | undefined
+let pinchScale = 1
 
 /** The image overflows the canvas area on some axis, so it can be panned (AC-13). */
 const pannable = computed(() => {
@@ -26,6 +27,21 @@ function onWheel(event: WheelEvent) {
   const gesture = wheelGesture(event, canvas.value!.getBoundingClientRect(), devicePixelRatio)
   if (gesture.kind === 'zoom') editor.zoomAt(gesture.factor, gesture.point)
   else editor.panBy(gesture.dx, gesture.dy)
+}
+
+/** Safari's pinch arrives as non-standard gesture events, not as Ctrl+wheel (AC-12). */
+function onGestureStart(event: Event) {
+  event.preventDefault()
+  pinchScale = (event as unknown as PinchInput).scale || 1
+}
+
+function onGestureChange(event: Event) {
+  event.preventDefault()
+  const input = event as unknown as PinchInput
+  const rect = canvas.value!.getBoundingClientRect()
+  const gesture = pinchGesture(input, pinchScale, rect, devicePixelRatio)
+  pinchScale = input.scale
+  editor.zoomAt(gesture.factor, gesture.point)
 }
 
 function onPointerDown(event: PointerEvent) {
@@ -66,6 +82,8 @@ onMounted(() => {
     renderer.onStatus((status) => editor.setRendererStatus(status))
   }
   el.addEventListener('wheel', onWheel, { passive: false })
+  el.addEventListener('gesturestart', onGestureStart)
+  el.addEventListener('gesturechange', onGestureChange)
 
   if (typeof ResizeObserver !== 'undefined') {
     observer = new ResizeObserver(onResize)
@@ -91,6 +109,8 @@ onMounted(() => {
 onBeforeUnmount(() => {
   observer?.disconnect()
   canvas.value?.removeEventListener('wheel', onWheel)
+  canvas.value?.removeEventListener('gesturestart', onGestureStart)
+  canvas.value?.removeEventListener('gesturechange', onGestureChange)
   renderer?.dispose()
 })
 </script>

@@ -29,7 +29,7 @@
 | T22 | Declare a GIF's size from its screen and first frame, and refuse an over-ceiling bitmap after decoding (review S2) | infra | Blazheiko | S | — | done |
 | T23 | Refuse files above a byte-size cap as TOO_LARGE before decoding (review Q5) | infra | Blazheiko | S | T22 | done |
 | T24 | Land 100% and stepped zoom on the exact target and always leave auto-fit (review S6, Q2) | domain | Blazheiko | S | — | done |
-| T25 | Block page zoom everywhere in the editor and turn Safari pinch gestures into View zoom (review S3) | ui | Blazheiko | S | T24 | todo |
+| T25 | Block page zoom everywhere in the editor and turn Safari pinch gestures into View zoom (review S3) | ui | Blazheiko | S | T24 | done |
 | T26 | Add Space+drag pan mode that never presses the focused button (review S4) | ui | Blazheiko | S | — | todo |
 | T27 | Report a renderer that fails at mount as display lost, and never show the replace dialog over SCR-05 (review S5, Q3) | ui | Blazheiko | S | — | todo |
 | T28 | Give a dropped image-typed file that is not an image the unreadable reason (review S7, Q6) | app | Blazheiko | S | — | todo |
