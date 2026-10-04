@@ -16,6 +16,8 @@ const RUNS = 20
 const results: Record<string, string> = {}
 
 test.skip(({ browserName }) => browserName !== 'chromium', 'The @perf suite measures Chrome')
+// One worker, in order: parallel perf tests compete for the CPU and GPU and skew each other.
+test.describe.configure({ mode: 'default' })
 
 /** Builds a JPEG once in the page and keeps it for repeated drops. */
 async function prepareJpeg(page: Page, width: number, height: number) {
@@ -145,7 +147,28 @@ test('@perf zoom and pan stay at ≥ 50 fps on a 4096 px Original', async ({ pag
   expect(fps).toBeGreaterThanOrEqual(50)
 })
 
-/** Resident memory (KiB) of Chrome's renderer and GPU processes, as the OS reports it. */
+const UNIT_KIB = { KB: 1, MB: 1024, GB: 1024 * 1024 } as const
+
+/**
+ * Memory (KiB) of one process, graphics included. On macOS, RSS leaves out GPU textures (they live
+ * in IOSurface/IOAccelerator memory), so it reads the physical footprint, which counts them.
+ * Elsewhere it falls back to RSS.
+ */
+function processKiB(pid: number): number {
+  if (process.platform === 'darwin') {
+    const out = execFileSync('footprint', ['-p', String(pid)]).toString()
+    const match = /Footprint: ([\d.]+) (KB|MB|GB)/.exec(out)
+    if (!match) throw new Error(`no footprint for pid ${pid}`)
+    return Number(match[1]) * UNIT_KIB[match[2] as keyof typeof UNIT_KIB]
+  }
+  return Number(
+    execFileSync('ps', ['-o', 'rss=', '-p', String(pid)])
+      .toString()
+      .trim(),
+  )
+}
+
+/** Memory (KiB) of Chrome's renderer and GPU processes, graphics included. */
 async function rendererAndGpuKiB(page: Page): Promise<number> {
   const session = await page.context().browser()!.newBrowserCDPSession()
   const { processInfo } = (await session.send('SystemInfo.getProcessInfo')) as {
@@ -155,14 +178,7 @@ async function rendererAndGpuKiB(page: Page): Promise<number> {
   const pids = processInfo.filter((p) => p.type === 'renderer' || p.type === 'GPU').map((p) => p.id)
   return pids.reduce((sum, pid) => {
     try {
-      return (
-        sum +
-        Number(
-          execFileSync('ps', ['-o', 'rss=', '-p', String(pid)])
-            .toString()
-            .trim(),
-        )
-      )
+      return sum + processKiB(pid)
     } catch {
       return sum
     }
@@ -176,6 +192,27 @@ async function collectGarbage(page: Page) {
   await page.waitForTimeout(500)
 }
 
+/**
+ * Renderer + GPU memory once it stops moving. Chrome's GPU process releases freed texture memory
+ * lazily, a second or two after the last upload, so an immediate sample measures that release
+ * timing rather than what the app retains. Waits past that release, then samples every second
+ * until three in a row agree within 2%.
+ */
+async function settledKiB(page: Page): Promise<number> {
+  await collectGarbage(page)
+  await page.waitForTimeout(3000)
+  const samples = [await rendererAndGpuKiB(page)]
+  for (let i = 0; i < 20; i++) {
+    await page.waitForTimeout(1000)
+    samples.push(await rendererAndGpuKiB(page))
+    const last = samples.slice(-3)
+    if (last.length === 3 && Math.max(...last) - Math.min(...last) <= Math.min(...last) * 0.02) {
+      return last.at(-1)!
+    }
+  }
+  return samples.at(-1)!
+}
+
 test('@perf memory after 10 opens of the 48 MP JPEG is ≤ 110% of the first, one Original retained', async ({
   page,
 }) => {
@@ -184,12 +221,9 @@ test('@perf memory after 10 opens of the 48 MP JPEG is ≤ 110% of the first, on
   await prepareJpeg(page, 8064, 6048)
 
   await timedOpen(page)
-  await collectGarbage(page)
-  const first = await rendererAndGpuKiB(page)
+  const first = await settledKiB(page)
   for (let i = 1; i < 10; i++) await timedOpen(page)
-  await page.waitForTimeout(200)
-  await collectGarbage(page)
-  const tenth = await rendererAndGpuKiB(page)
+  const tenth = await settledKiB(page)
   const bitmaps = await page.evaluate(() => window.__imglyTest!.bitmaps())
 
   results['memory after 10 opens'] =
