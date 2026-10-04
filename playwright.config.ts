@@ -5,6 +5,8 @@ const PORT = 4173
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
+  // The @perf suite runs by hand on the reference machine before release (sad.md §1, §10).
+  grepInvert: process.env.PERF ? undefined : /@perf/,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? 'github' : 'list',

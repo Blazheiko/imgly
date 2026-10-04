@@ -10,7 +10,8 @@ in `docs/features/<slug>/`.
 - `pnpm dev` runs the Vite dev server.
 - `pnpm build` runs `vue-tsc -b && vite build` and writes to `dist/`.
 - `pnpm test` runs `vitest run` (unit tests with happy-dom and fake-indexeddb).
-- `pnpm test:e2e` runs `playwright test` (Chromium) against `vite preview`. It builds first locally.
+- `pnpm test:e2e` runs `playwright test` (Chromium, Firefox, WebKit) against `vite preview` of its own
+  hooks-enabled build in `dist-e2e/`. `@perf` tests run only with `PERF=1`.
 - `pnpm lint` runs `eslint .`, and `pnpm format` runs Prettier.
 - `pnpm typecheck` runs `vue-tsc -b --noEmit`, the "vet" gate.
 

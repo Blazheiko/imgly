@@ -6,7 +6,15 @@ import globals from 'globals'
 
 export default tseslint.config(
   {
-    ignores: ['dist/', 'dist-e2e/', 'dev-dist/', 'coverage/', 'playwright-report/', 'test-results/', 'docs/'],
+    ignores: [
+      'dist/',
+      'dist-e2e/',
+      'dev-dist/',
+      'coverage/',
+      'playwright-report/',
+      'test-results/',
+      'docs/',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -50,6 +58,28 @@ export default tseslint.config(
                 '@/render/*',
               ],
               message: 'src/core must not import features, infra or render (ADR 0002).',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // sad.md §1 Decision override 1: infra may use core's types and pure functions, but never
+    // Vue, Pinia or a feature.
+    files: ['src/infra/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            { name: 'vue', message: 'src/infra must not depend on Vue.' },
+            { name: 'pinia', message: 'src/infra must not depend on Pinia.' },
+          ],
+          patterns: [
+            {
+              group: ['@/features', '@/features/*', '@/app', '@/app/*'],
+              message: 'src/infra must not import features or the app shell.',
             },
           ],
         },
