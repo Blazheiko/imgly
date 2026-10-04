@@ -14,6 +14,10 @@ export default tseslint.config(
   {
     files: ['**/*.vue'],
     languageOptions: { parserOptions: { parser: tseslint.parser } },
+    rules: {
+      // Shared primitives named by the screens manifests (docs/design-system.md inventory).
+      'vue/multi-word-component-names': ['error', { ignores: ['Dialog', 'Spinner', 'Toast'] }],
+    },
   },
   {
     languageOptions: {

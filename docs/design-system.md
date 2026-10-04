@@ -3,7 +3,7 @@ status: Living
 tool: code               # figma | pencil | code — the single committed source of the design-tool choice (never sdd.local.md: that file is per-developer + gitignored)
 figma_file: ""           # tool: figma → the Figma file URL/key the canon lives in; else ""
 pen_file: ""             # tool: pencil → the .pen library path (e.g. docs/design/library.pen); else ""
-updated_at: "2026-10-02"
+updated_at: "2026-10-04"
 ---
 
 # Design system — imgly-editor
@@ -44,13 +44,18 @@ in the same file.
 
 ## Component inventory
 
-Only `BaseButton` is committed so far, because scaffold S1 seeds it. Every other primitive is added
-here by `implement` when a feature first needs it. `screens.md` may only use names from this table,
+`BaseButton` is seeded by scaffold S1; every other primitive is added here by `implement` when a
+feature first needs it. `screens.md` may only use names from this table,
 or declare `NEW: <name>` with a reason why no existing primitive fits.
 
 | Component | Source (`file:line` / node / URL) | States it supports | Notes |
 |---|---|---|---|
 | BaseButton | `src/shared/ui/BaseButton.vue:1` | default / hover / focus-visible / active / disabled | Variants `primary` / `secondary` / `ghost`. It is the base for icon and toolbar buttons |
+| Spinner | `src/shared/ui/Spinner.vue:1` | indeterminate (reduced-motion slows it) | `role="status"` with a visually hidden `label`. The canvas loading overlay (open-and-view) |
+| Toast | `src/shared/ui/Toast.vue:1` | `info` / `failure`; dismiss button hover / focus-visible | `info` is `role="status"` (polite), `failure` is `role="alert"`. Emits `dismiss` |
+| ToastStack | `src/shared/ui/ToastStack.vue:1` | empty / one / many stacked | The single bottom-right notice boundary, bound to `useNotices` in `src/shared/notices/`. Info dismisses itself after 6000 ms, failures stay (AC-11b) |
+| Dialog | `src/shared/ui/Dialog.vue:1` | open (backdrop, focus trapped) | `role="alertdialog"`, `title`, `initialFocus` selector, default + `actions` slots. `Esc` and backdrop click emit `cancel`; focus returns to the opener |
+| CanvasMessage | `src/shared/ui/CanvasMessage.vue:1` | `status` / `alert`; with or without action | Full-canvas message for blocking conditions (SCR-04, SCR-05): `title`, default slot body, optional `action` slot |
 
 ## Interaction & writing conventions
 
