@@ -42,11 +42,10 @@ test.describe('SCR-04 — unsupported browser (AC-18)', () => {
   })
 
   test('a dropped file opens nothing and never navigates', async ({ page }) => {
-    const url = page.url()
-    await dropGeneratedImage(page, { width: 100, height: 100 })
+    const prevented = await dropGeneratedImage(page, { width: 100, height: 100 })
 
     await page.waitForTimeout(500)
-    expect(page.url()).toBe(url)
+    expect(prevented).toEqual({ dragover: true, drop: true })
     expect(await page.evaluate(() => window.__imglyTest?.work() ?? null)).toBeNull()
     await expect(page.getByRole('alert')).toHaveCount(0)
     await expect(page.getByText('Drop an image to open it')).toHaveCount(0)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sniffImageHeader } from './index'
+import { HEADER_WINDOW_BYTES, sniffImageHeader } from './index'
 import {
   exifApp1,
   gif,
@@ -44,15 +44,95 @@ const SAMPLES: [string, Uint8Array][] = [
 
 const MUTATIONS_PER_SAMPLE = 3000
 const TIME_BUDGET_MS = 2000
+/** One full 1 MiB window of the worst content for a format must still parse this fast. */
+const WORST_CASE_BUDGET_MS = 250
 
-function expectResult(input: Uint8Array) {
-  const result = sniffImageHeader(input)
-  expect(typeof result.ok).toBe('boolean')
+const FORMATS = new Set(['jpeg', 'png', 'gif', 'webp', 'avif', 'heic'])
+const REFUSED = new Set(['SVG', 'BMP', 'ICO', 'TIFF or camera RAW', 'Camera RAW', 'PSD', 'HEIC'])
+const MAX_DECLARED_SIDE = 2 ** 32 - 1
+
+/**
+ * The parser's contract on any input: it never writes to the bytes, never throws, and returns
+ * either a well-formed header or one of the three refusals that judge content.
+ */
+function expectResult(input: Uint8Array, result = sniffImageHeader(input), before?: Uint8Array) {
+  if (before) expect(sameBytes(input, before)).toBe(true)
+  if (result.ok) {
+    const h = result.value
+    expect(FORMATS.has(h.format)).toBe(true)
+    for (const side of [h.width, h.height]) {
+      expect(Number.isInteger(side) && side > 0 && side <= MAX_DECLARED_SIDE).toBe(true)
+    }
+    expect(typeof h.animated).toBe('boolean')
+    expect([1, 2, 3, 4, 5, 6, 7, 8]).toContain(h.exifOrientation)
+    return
+  }
+  const { code, details } = result.error
+  expect(['NOT_AN_IMAGE', 'UNREADABLE', 'UNSUPPORTED_FORMAT']).toContain(code)
+  if (code === 'UNSUPPORTED_FORMAT') expect(REFUSED.has(details?.format as string)).toBe(true)
 }
+
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  return a.length === b.length && a.every((byte, i) => byte === b[i])
+}
+
+/** Repeats `unit` after `head` until the header window is full. */
+function fillWindow(head: Uint8Array, unit: Uint8Array): Uint8Array {
+  const out = new Uint8Array(HEADER_WINDOW_BYTES)
+  out.set(head)
+  for (let o = head.length; o < out.length; o += unit.length) {
+    out.set(unit.subarray(0, Math.min(unit.length, out.length - o)), o)
+  }
+  return out
+}
+
+const u8 = (...bytes: number[]) => Uint8Array.from(bytes)
+const latin1 = (s: string) => Uint8Array.from(s, (c) => c.charCodeAt(0))
+
+const WORST_CASES: [string, Uint8Array][] = [
+  // Every JPEG marker is a tiny APP segment, so the walk hits its marker cap.
+  ['jpeg: 1 MiB of empty APP segments', fillWindow(u8(0xff, 0xd8), u8(0xff, 0xe1, 0x00, 0x02))],
+  // Every PNG chunk is empty, so the walk hits its chunk cap (and CRC-checks each).
+  [
+    'png: 1 MiB of empty chunks',
+    fillWindow(
+      u8(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a),
+      u8(0, 0, 0, 0, ...latin1('tEXt'), 0, 0, 0, 0),
+    ),
+  ],
+  // A GIF of one-byte extension sub-blocks that never terminate.
+  [
+    'gif: 1 MiB of one-byte sub-blocks',
+    fillWindow(latin1('GIF89a\x01\x00\x01\x00\x00\x00\x00!\xf9'), u8(1, 0)),
+  ],
+  // An SVG sniff with no '<svg' anywhere.
+  ['text: 1 MiB of almost-SVG', fillWindow(latin1('<?xml version="1.0"?>'), latin1('<sv '))],
+  // ISOBMFF: ftyp then a wall of tiny boxes.
+  [
+    'heif: 1 MiB of empty boxes',
+    fillWindow(
+      u8(0, 0, 0, 16, ...latin1('ftypheic'), 0, 0, 0, 0),
+      u8(0, 0, 0, 8, ...latin1('free')),
+    ),
+  ],
+]
 
 describe('sniffImageHeader — property/fuzz (ADR 0002 hardening)', () => {
   it.each(SAMPLES)('%s: every truncation returns a Result', (_name, sample) => {
-    for (let n = 0; n <= sample.length; n++) expectResult(sample.subarray(0, n))
+    for (let n = 0; n <= sample.length; n++) {
+      const input = sample.subarray(0, n)
+      const before = input.slice()
+      expectResult(input, sniffImageHeader(input), before)
+    }
+  })
+
+  it.each(SAMPLES)('%s: zeroing any 4-byte run returns a well-formed Result', (_name, sample) => {
+    // Hits every size field with 0, which random flips rarely do: a zero side is UNREADABLE.
+    for (let o = 0; o < sample.length; o++) {
+      const zeroed = sample.slice()
+      zeroed.fill(0, o, o + 4)
+      expectResult(zeroed)
+    }
   })
 
   it.each(SAMPLES)(
@@ -71,4 +151,14 @@ describe('sniffImageHeader — property/fuzz (ADR 0002 hardening)', () => {
       expect(performance.now() - started).toBeLessThan(TIME_BUDGET_MS)
     },
   )
+
+  it.each(WORST_CASES)('%s: parses within the worst-case budget', (_name, input) => {
+    const before = input.slice()
+    sniffImageHeader(input) // warm up the JIT so the budget measures the walk, not compilation
+    const started = performance.now()
+    const result = sniffImageHeader(input)
+    const elapsed = performance.now() - started
+    expectResult(input, result, before)
+    expect(elapsed).toBeLessThan(WORST_CASE_BUDGET_MS)
+  })
 })

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { nextTick } from 'vue'
 import { appError, err, ok } from '@/core'
 import { createFakeRenderer } from '../fake-renderer'
 import PreviewCanvas from './PreviewCanvas.vue'
@@ -15,11 +16,13 @@ function wheelEvent(init: { deltaY: number; ctrlKey?: boolean }) {
 
 describe('PreviewCanvas', () => {
   let editor: ReturnType<typeof useEditorStore>
+  let fake: ReturnType<typeof createFakeRenderer>
 
   beforeEach(async () => {
     setActivePinia(createPinia())
     editor = useEditorStore()
-    editor.setRendererFactory(createFakeRenderer().factory)
+    fake = createFakeRenderer()
+    editor.setRendererFactory(fake.factory)
     editor.setDecoder(async () =>
       ok({
         bitmap: { width: 4000, height: 4000, close() {} } as unknown as ImageBitmap,
@@ -41,6 +44,46 @@ describe('PreviewCanvas', () => {
     editor.setRendererFactory(() => err(appError('DISPLAY_LOST')))
     mount(PreviewCanvas)
     expect(editor.display).toBe('lost')
+  })
+
+  it('creates its renderer on its own canvas and uploads the open Original (ADR 0003)', () => {
+    const wrapper = mount(PreviewCanvas)
+    expect(fake.factory).toHaveBeenCalledWith(wrapper.get('canvas').element)
+    expect(fake.renderer.setOriginal).toHaveBeenCalledWith(editor.work!.original.pixels)
+    expect(fake.renderer.setView).toHaveBeenLastCalledWith(editor.view)
+  })
+
+  it('hands each View change to the renderer without re-uploading the Original (AC-14)', async () => {
+    mount(PreviewCanvas)
+    fake.renderer.setOriginal.mockClear()
+    editor.actualSize()
+    await nextTick()
+    expect(fake.renderer.setView).toHaveBeenLastCalledWith(
+      expect.objectContaining({ zoom: 1, autoFit: false }),
+    )
+    expect(fake.renderer.setOriginal).not.toHaveBeenCalled()
+  })
+
+  it('uploads a newly opened Original', async () => {
+    mount(PreviewCanvas)
+    fake.renderer.setOriginal.mockClear()
+    await editor.openImage(new Blob())
+    await nextTick()
+    expect(fake.renderer.setOriginal).toHaveBeenCalledWith(editor.work!.original.pixels)
+  })
+
+  it('reports the renderer status to the store (AC-19)', async () => {
+    await editor.runCapabilityGate(async () => ok(undefined))
+    mount(PreviewCanvas)
+    fake.emit('restoring')
+    expect(editor.display).toBe('restoring')
+    fake.emit('ready')
+    expect(editor.display).toBe('ok')
+  })
+
+  it('disposes its renderer on unmount', () => {
+    mount(PreviewCanvas).unmount()
+    expect(fake.renderer.dispose).toHaveBeenCalledTimes(1)
   })
 
   it('renders one canvas element', () => {

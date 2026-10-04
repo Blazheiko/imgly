@@ -36,7 +36,7 @@
 | T29 | Settle every decode as DECODE_FAILED when the worker rejects or cannot start (review Q1) | infra | Blazheiko | S | — | done |
 | T30 | Round refused sizes up and capitalise Camera RAW in the messages (review Q4) | domain | Blazheiko | S | — | done |
 | T31 | Tokenise the hard-coded primitive widths and document image-decode and the widened infra rule (review Q7, Q10) | wiring | Blazheiko | S | — | done |
-| T32 | Make the never-navigates checks falsifiable, strengthen the fuzz invariants, and cover the PreviewCanvas renderer seam (review Q8, Q9) | tests | Blazheiko | S | T27 | todo |
+| T32 | Make the never-navigates checks falsifiable, strengthen the fuzz invariants, and cover the PreviewCanvas renderer seam (review Q8, Q9) | tests | Blazheiko | S | T27 | done |
 | T33 | Add the missing UI-level AC tests and mark the visual baselines deferred (review S8) | tests | Blazheiko | S | T28 | todo |
 
 **Total:** 33 tasks (T21–T33 are the review-2026-10-04 follow-ups), ~23 person-days (S = ½ day, M/L = 1 day).

@@ -1,16 +1,21 @@
 import { expect, test, type Page } from '@playwright/test'
-import { gotoReady } from './helpers'
+import { gotoReady, type DropPrevented } from './helpers'
 
 /** Dispatches a real drag-and-drop of in-memory files onto the page body. */
-async function dropFiles(page: Page, files: { name: string; type: string; text: string }[]) {
-  await page.evaluate((specs) => {
+async function dropFiles(
+  page: Page,
+  files: { name: string; type: string; text: string }[],
+): Promise<DropPrevented> {
+  return page.evaluate((specs) => {
     const dt = new DataTransfer()
     for (const s of specs) dt.items.add(new File([s.text], s.name, { type: s.type }))
+    const prevented: Record<string, boolean> = {}
     for (const type of ['dragenter', 'dragover', 'drop']) {
-      document.body.dispatchEvent(
-        new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt }),
-      )
+      const event = new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt })
+      document.body.dispatchEvent(event)
+      prevented[type] = event.defaultPrevented
     }
+    return { dragover: prevented.dragover!, drop: prevented.drop! }
   }, files)
 }
 
@@ -27,12 +32,13 @@ test.describe('SCR-01 — empty editor', () => {
     page,
   }) => {
     await gotoReady(page)
-    const url = page.url()
 
-    await dropFiles(page, [{ name: 'notes.txt', type: 'text/plain', text: 'hello' }])
+    const prevented = await dropFiles(page, [
+      { name: 'notes.txt', type: 'text/plain', text: 'hello' },
+    ])
 
     await expect(page.getByRole('alert')).toHaveText(/Only image files can be opened\./)
-    expect(page.url()).toBe(url)
+    expect(prevented).toEqual({ dragover: true, drop: true })
     await expect(page.getByRole('button', { name: 'Open image' })).toBeVisible()
   })
 

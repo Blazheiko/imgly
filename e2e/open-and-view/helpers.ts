@@ -1,11 +1,17 @@
 import { expect, type Page } from '@playwright/test'
 
+/**
+ * Whether the app cancelled each drag event's default. A synthetic drop never navigates, so this —
+ * not the URL — is what proves the page would stay put on a real drop (AC-02).
+ */
+export type DropPrevented = { dragover: boolean; drop: boolean }
+
 /** Builds an image in the page (no binary fixtures) and drops it onto the window. */
 export async function dropGeneratedImage(
   page: Page,
   spec: { width: number; height: number; pattern?: 'gradient' | 'checker'; type?: string },
-) {
-  await page.evaluate(async ({ width, height, pattern = 'gradient', type = 'image/png' }) => {
+): Promise<DropPrevented> {
+  return page.evaluate(async ({ width, height, pattern = 'gradient', type = 'image/png' }) => {
     const canvas = new OffscreenCanvas(width, height)
     const ctx = canvas.getContext('2d')!
     if (pattern === 'checker') {
@@ -27,11 +33,13 @@ export async function dropGeneratedImage(
     const blob = await canvas.convertToBlob({ type })
     const dt = new DataTransfer()
     dt.items.add(new File([blob], `generated.${type.split('/')[1]}`, { type }))
-    for (const event of ['dragenter', 'dragover', 'drop']) {
-      document.body.dispatchEvent(
-        new DragEvent(event, { bubbles: true, cancelable: true, dataTransfer: dt }),
-      )
+    const prevented: Record<string, boolean> = {}
+    for (const type of ['dragenter', 'dragover', 'drop']) {
+      const event = new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt })
+      document.body.dispatchEvent(event)
+      prevented[type] = event.defaultPrevented
     }
+    return { dragover: prevented.dragover!, drop: prevented.drop! }
   }, spec)
 }
 
