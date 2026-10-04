@@ -1,20 +1,38 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { filesFromDataTransfer, installDropGuard, pickImageFile } from '@/infra/platform'
-import { Spinner, ToastStack } from '@/shared'
+import { BaseButton, CanvasMessage, Spinner, ToastStack } from '@/shared'
 import DropOverlay from './components/DropOverlay.vue'
 import EditorStatusBar from './components/EditorStatusBar.vue'
 import EditorTopBar from './components/EditorTopBar.vue'
 import EmptyCanvas from './components/EmptyCanvas.vue'
 import PreviewCanvas from './components/PreviewCanvas.vue'
 import ReplaceDialog from './components/ReplaceDialog.vue'
+import { BLOCKING } from './messages'
 import { useEditorStore } from './store'
 
 const editor = useEditorStore()
 const dragging = ref(false)
 
-/** Drops and the picker are blocked only while the replace dialog waits for an answer. */
-const acceptsOpens = () => editor.phase !== 'confirming'
+/** The Preview's screens (SCR-01/02) are up: not checking, not SCR-04 or SCR-05. */
+const live = computed(() => editor.display === 'ok' || editor.display === 'restoring')
+
+/** Opens are refused on the blocking screens and while the replace dialog waits for an answer. */
+const acceptsOpens = () => live.value && editor.phase !== 'confirming'
+
+const reloadButton = ref<InstanceType<typeof BaseButton>>()
+watch(
+  () => editor.display,
+  async (display) => {
+    if (display !== 'lost') return
+    await nextTick()
+    ;(reloadButton.value?.$el as HTMLElement | undefined)?.focus()
+  },
+)
+
+function reload() {
+  location.reload()
+}
 
 async function openPicked() {
   if (!acceptsOpens()) return
@@ -43,7 +61,7 @@ function onKeydown(event: KeyboardEvent) {
     return
   }
   if (mod || event.altKey || isTextField(event.target)) return
-  if (!editor.work || editor.phase === 'confirming') return
+  if (!editor.work || !acceptsOpens()) return
   const shortcut = zoomShortcuts.find((s) => s.matches(event))
   if (!shortcut) return
   event.preventDefault()
@@ -69,18 +87,43 @@ onBeforeUnmount(() => {
 <template>
   <main
     class="editor-view"
-    :class="{ 'editor-view--with-status-bar': editor.work }"
+    :class="{ 'editor-view--with-status-bar': live && editor.work }"
     data-testid="editor-view"
   >
-    <EditorTopBar :show-open="editor.work !== null" @open="openPicked" />
+    <EditorTopBar :show-open="live && editor.work !== null" @open="openPicked" />
     <section class="editor-view__canvas" aria-label="Canvas">
-      <EmptyCanvas v-if="!editor.work" @open="openPicked" />
-      <PreviewCanvas v-else />
-      <div v-if="editor.phase === 'reading'" class="editor-view__loading">
-        <Spinner label="Opening image" />
-      </div>
+      <CanvasMessage
+        v-if="editor.display === 'unsupported'"
+        :title="BLOCKING.UNSUPPORTED_BROWSER.title"
+      >
+        {{ BLOCKING.UNSUPPORTED_BROWSER.body }}
+      </CanvasMessage>
+      <CanvasMessage
+        v-else-if="editor.display === 'lost'"
+        :title="BLOCKING.DISPLAY_LOST.title"
+        role="alert"
+      >
+        {{ BLOCKING.DISPLAY_LOST.body }}
+        <template #action>
+          <BaseButton ref="reloadButton" variant="primary" @click="reload">Reload page</BaseButton>
+        </template>
+      </CanvasMessage>
+      <template v-else-if="live">
+        <EmptyCanvas v-if="!editor.work" @open="openPicked" />
+        <PreviewCanvas v-else />
+        <div
+          v-if="editor.display === 'restoring'"
+          class="editor-view__restoring"
+          data-testid="restoring"
+        >
+          <Spinner label="Restoring the display" />
+        </div>
+        <div v-else-if="editor.phase === 'reading'" class="editor-view__loading">
+          <Spinner label="Opening image" />
+        </div>
+      </template>
     </section>
-    <EditorStatusBar />
+    <EditorStatusBar v-if="live" />
     <ToastStack />
     <DropOverlay v-if="dragging" />
     <ReplaceDialog v-if="editor.phase === 'confirming'" />
@@ -102,6 +145,15 @@ onBeforeUnmount(() => {
   position: relative;
   flex: 1;
   min-height: 0;
+  background: var(--color-canvas-surround);
+}
+
+.editor-view__restoring {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-overlay);
+  display: grid;
+  place-items: center;
   background: var(--color-canvas-surround);
 }
 

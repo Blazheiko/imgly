@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { nextTick } from 'vue'
-import { appError, err } from '@/core'
+import { appError, err, ok } from '@/core'
 import type { DecodeOutcome } from '@/infra/image-decode'
 import EditorView from './EditorView.vue'
 import { useEditorStore } from './store'
@@ -22,10 +22,11 @@ describe('EditorView — SCR-01 (empty editor)', () => {
   let wrapper: VueWrapper
   let decode: ReturnType<typeof vi.fn<(file: Blob) => Promise<DecodeOutcome>>>
 
-  beforeEach(() => {
+  beforeEach(async () => {
     setActivePinia(createPinia())
     decode = vi.fn(async () => err(appError('NOT_AN_IMAGE')))
     useEditorStore().setDecoder(decode)
+    await useEditorStore().runCapabilityGate(async () => ok(undefined))
     wrapper = mount(EditorView, { attachTo: document.body })
   })
   afterEach(() => wrapper.unmount())
@@ -117,6 +118,7 @@ describe('EditorView — zoom shortcuts (SCR-02)', () => {
     }))
     editor.setCanvasSize(1000, 1000)
     await editor.openImage(new Blob())
+    await editor.runCapabilityGate(async () => ok(undefined))
     wrapper = mount(EditorView, { attachTo: document.body })
   })
   afterEach(() => wrapper.unmount())
@@ -192,6 +194,7 @@ describe('EditorView — SCR-03 replace dialog', () => {
     await editor.openImage(new Blob())
     editor.applyEdit()
     await editor.openImage(new Blob())
+    await editor.runCapabilityGate(async () => ok(undefined))
     wrapper = mount(EditorView, { attachTo: document.body })
     await nextTick()
   })
@@ -217,5 +220,94 @@ describe('EditorView — SCR-03 replace dialog', () => {
     const zoom = editor.view.zoom
     window.dispatchEvent(new KeyboardEvent('keydown', { key: '+', cancelable: true }))
     expect(editor.view.zoom).toBe(zoom)
+  })
+})
+
+describe('EditorView — blocking screens', () => {
+  let wrapper: VueWrapper
+  let editor: ReturnType<typeof useEditorStore>
+
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    editor = useEditorStore()
+    editor.setDecoder(async () => err(appError('NOT_AN_IMAGE')))
+  })
+  afterEach(() => wrapper.unmount())
+
+  it('SCR-04: names the problem, offers no Open image, ignores drops and Ctrl/Cmd+O (AC-18)', async () => {
+    await editor.runCapabilityGate(async () => err(appError('UNSUPPORTED_BROWSER')))
+    wrapper = mount(EditorView, { attachTo: document.body })
+    const click = vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => {})
+
+    expect(wrapper.get('[role="status"] h2').text()).toBe("This browser can't display the editor.")
+    expect(wrapper.text()).toContain('Try a current version of Chrome, Edge, Firefox or Safari.')
+    expect(wrapper.findAll('button').filter((b) => b.text() === 'Open image')).toHaveLength(0)
+
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'o', ctrlKey: true, cancelable: true }),
+    )
+    expect(click).not.toHaveBeenCalled()
+
+    window.dispatchEvent(dropEvent('dragenter'))
+    const drop = dropEvent('drop', [new File(['x'], 'a.png')])
+    window.dispatchEvent(drop)
+    await flushPromises()
+    expect(drop.defaultPrevented).toBe(true)
+    expect(wrapper.text()).not.toContain('Drop an image to open it')
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain("This browser can't display the editor.")
+  })
+
+  it('shows nothing in the canvas area while the gate is still checking', () => {
+    wrapper = mount(EditorView, { attachTo: document.body })
+    expect(wrapper.text()).not.toContain('Open image')
+  })
+
+  it('SCR-05: replaces the canvas, hides the status bar and focuses Reload page (AC-19b)', async () => {
+    editor.setDecoder(async () =>
+      ok({
+        bitmap: { width: 10, height: 10, close() {} } as unknown as ImageBitmap,
+        sourceWidth: 10,
+        sourceHeight: 10,
+        width: 10,
+        height: 10,
+        format: 'png',
+        animated: false,
+        downscaled: false,
+      }),
+    )
+    await editor.runCapabilityGate(async () => ok(undefined))
+    await editor.openImage(new Blob())
+    wrapper = mount(EditorView, { attachTo: document.body })
+    editor.setRendererStatus('lost')
+    await flushPromises()
+
+    expect(wrapper.get('[role="alert"] h2').text()).toBe("The display couldn't recover.")
+    expect(wrapper.text()).toContain('The open image and any edits will be lost.')
+    expect(wrapper.find('[data-testid="editor-status-bar"]').exists()).toBe(false)
+    expect(document.activeElement?.textContent?.trim()).toBe('Reload page')
+  })
+
+  it('restoring: keeps the zoom controls and shows a spinner over the surround', async () => {
+    editor.setDecoder(async () =>
+      ok({
+        bitmap: { width: 10, height: 10, close() {} } as unknown as ImageBitmap,
+        sourceWidth: 10,
+        sourceHeight: 10,
+        width: 10,
+        height: 10,
+        format: 'png',
+        animated: false,
+        downscaled: false,
+      }),
+    )
+    await editor.runCapabilityGate(async () => ok(undefined))
+    await editor.openImage(new Blob())
+    wrapper = mount(EditorView, { attachTo: document.body })
+    editor.setRendererStatus('restoring')
+    await nextTick()
+
+    expect(wrapper.find('[data-testid="restoring"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="editor-status-bar"]').exists()).toBe(true)
   })
 })

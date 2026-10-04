@@ -1,11 +1,11 @@
 import { expect, test, type Page } from '@playwright/test'
-import { dropGeneratedImage, waitForWork } from './helpers'
+import { dropGeneratedImage, gotoReady, waitForWork } from './helpers'
 
 const work = (page: Page) => page.evaluate(() => window.__imglyTest!.work())
 
 /** Opens A, prepares Unsaved edits on it, focuses Open image, then drops B (6000×4000). */
 async function openOverUnsavedEdits(page: Page) {
-  await page.goto('./')
+  await gotoReady(page)
   await dropGeneratedImage(page, { width: 4000, height: 3000 })
   await waitForWork(page, 4000, 3000)
   await page.evaluate(() => window.__imglyTest!.applyEdit())
@@ -71,7 +71,7 @@ test.describe('SCR-03 — replace confirmation (AC-15)', () => {
   })
 
   test('opens without asking when only the View changed (AC-14)', async ({ page }) => {
-    await page.goto('./')
+    await gotoReady(page)
     await dropGeneratedImage(page, { width: 4000, height: 3000 })
     await waitForWork(page, 4000, 3000)
     await page.getByRole('button', { name: 'Zoom in' }).click()

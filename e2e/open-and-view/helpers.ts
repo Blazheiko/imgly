@@ -57,3 +57,9 @@ export async function canvasArea(page: Page) {
     }
   })
 }
+
+/** Loads the app and waits until the start-up gate has shown SCR-01. */
+export async function gotoReady(page: Page) {
+  await page.goto('./')
+  await expect(page.getByRole('button', { name: 'Open image' })).toBeVisible()
+}

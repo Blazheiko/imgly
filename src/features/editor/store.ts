@@ -23,6 +23,7 @@ import {
   type DecodedImage,
   type DecodeOutcome,
 } from '@/infra/image-decode'
+import { probeCapabilities, type RendererStatus } from '@/render'
 import { newId, useNotices, type NoticeInput } from '@/shared'
 import {
   failureMessage,
@@ -46,6 +47,13 @@ export type OpenOutcome =
   | { kind: 'ignored' }
 
 export type EditorPhase = 'idle' | 'reading' | 'confirming'
+
+/**
+ * Whether the canvas area can show the Preview: `checking` until the start-up gate answers,
+ * `unsupported` → SCR-04 (AC-18), `restoring` while a lost context may return (AC-19),
+ * `lost` → SCR-05 (AC-19b, DISPLAY_LOST) for the rest of the page's life.
+ */
+export type DisplayState = 'checking' | 'ok' | 'unsupported' | 'restoring' | 'lost'
 
 /** The info notices one opened image raises, in catalog order (AC-05, AC-11). */
 function imageNotices(image: OpenedImage): NoticeInput[] {
@@ -78,6 +86,7 @@ export const useEditorStore = defineStore('editor', () => {
   const view = ref<View>(UNSIZED_VIEW)
   const canvasSize = ref<Size>({ width: 0, height: 0 })
   const phase = ref<EditorPhase>('idle')
+  const display = ref<DisplayState>('checking')
   let latestOpenId = 0
   let decode: Decoder = decodeImage
   const notices = useNotices()
@@ -88,6 +97,17 @@ export const useEditorStore = defineStore('editor', () => {
 
   function setDecoder(next: Decoder) {
     decode = next
+  }
+
+  /** Runs the start-up capability gate once; the drop guard must already be installed. */
+  async function runCapabilityGate(probe = probeCapabilities) {
+    const result = await probe()
+    display.value = result.ok ? 'ok' : 'unsupported'
+  }
+
+  function setRendererStatus(status: RendererStatus) {
+    if (display.value === 'lost' || display.value === 'unsupported') return
+    display.value = status === 'ready' ? 'ok' : status
   }
 
   function context(): ViewContext | undefined {
@@ -216,8 +236,11 @@ export const useEditorStore = defineStore('editor', () => {
     view,
     canvasSize,
     phase,
+    display,
     hasUnsavedEdits,
     setDecoder,
+    runCapabilityGate,
+    setRendererStatus,
     openImage,
     openFile,
     openDrop,

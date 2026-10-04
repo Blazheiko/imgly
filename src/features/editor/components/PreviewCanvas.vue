@@ -61,7 +61,10 @@ function onResize([entry]: ResizeObserverEntry[]) {
 onMounted(() => {
   const el = canvas.value!
   const result = createPreviewRenderer(el)
-  if (result.ok) renderer = result.value
+  if (result.ok) {
+    renderer = result.value
+    renderer.onStatus((status) => editor.setRendererStatus(status))
+  }
   el.addEventListener('wheel', onWheel, { passive: false })
 
   if (typeof ResizeObserver !== 'undefined') {

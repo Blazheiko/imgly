@@ -1,12 +1,12 @@
 import { expect, test } from '@playwright/test'
-import { canvasArea, dropGeneratedImage, view, waitForWork } from './helpers'
+import { canvasArea, dropGeneratedImage, gotoReady, view, waitForWork } from './helpers'
 
 const fitOf = (iw: number, ih: number, a: { width: number; height: number }) =>
   Math.min(a.width / iw, a.height / ih, 1)
 
 test.describe('SCR-02 — View', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('./')
+    await gotoReady(page)
   })
 
   test('opens a 12 MP image at Fit, never above 100% (AC-01)', async ({ page }) => {
@@ -152,7 +152,7 @@ test.describe('SCR-02 — View', () => {
 
 test.describe('SCR-02 — status bar and zoom controls', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('./')
+    await gotoReady(page)
   })
 
   test('shows the downscaled Original’s dimensions and the notice (AC-05)', async ({ page }) => {
