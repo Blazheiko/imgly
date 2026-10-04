@@ -19,6 +19,8 @@ export function parseGif(b: Uint8Array): Result<ImageHeader, AppError> {
   }
   const globalTable = packed & 0x80 ? 3 * (1 << ((packed & 0x07) + 1)) : 0
   const { frames, firstRight, firstBottom } = scanImageDescriptors(b, 13 + globalTable)
+  // Without the first frame's bounds the decoded size is unknown, so refuse before decoding (AC-09).
+  if (frames === 0) return err(appError('UNREADABLE'))
   // A frame may extend past the logical screen, and decoders size the bitmap to cover it (AC-09).
   return ok({
     format: 'gif',

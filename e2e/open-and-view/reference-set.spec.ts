@@ -60,6 +60,16 @@ function frameBombGif(): FilePayload {
   return { name: 'frame-bomb.gif', mimeType: 'image/gif', buffer }
 }
 
+/** The frame bomb with a comment extension that pushes its frame past the 1 MiB header window. */
+function paddedFrameBombGif(): FilePayload {
+  const bomb = frameBombGif().buffer
+  const block = Buffer.concat([Buffer.from([255]), Buffer.alloc(255, 0x20)])
+  const blocks = Array.from({ length: 4200 }, () => block) // 4200 × 256 B > 1 MiB
+  const comment = Buffer.concat([Buffer.from([0x21, 0xfe]), ...blocks, Buffer.from([0])])
+  const buffer = Buffer.concat([bomb.subarray(0, 19), comment, bomb.subarray(19)])
+  return { name: 'padded-frame-bomb.gif', mimeType: 'image/gif', buffer }
+}
+
 /** A valid JPEG with more than 1 MiB of APP2 metadata before its frame header (accepted risk). */
 function bigMetadataJpeg(): FilePayload {
   const jpg = fixture('photo.jpg')
@@ -128,6 +138,7 @@ const REFERENCE_SET: [string, () => FilePayload, Outcome][] = [
         'This image is too large: 30000×9000 px (270 MP). The largest the editor opens is 100 MP.',
     },
   ],
+  ['GIF frame past the header window', paddedFrameBombGif, { refused: NOT_READ }],
 ]
 
 const work = (page: Page) => page.evaluate(() => window.__imglyTest!.work())

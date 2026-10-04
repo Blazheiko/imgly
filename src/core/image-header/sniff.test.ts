@@ -169,6 +169,25 @@ describe('sniffImageHeader — GIF', () => {
     expect(header(cut).animated).toBe(false)
   })
 
+  it('is UNREADABLE when no image descriptor lies fully inside the header window (AC-09)', () => {
+    // A 1×1 screen, a comment extension that fills the window, then a 30000×9000 frame.
+    const comment: number[] = [0x21, 0xfe]
+    for (let n = 0; n < Math.ceil(HEADER_WINDOW_BYTES / 256); n++)
+      comment.push(255, ...new Array(255).fill(0x20))
+    comment.push(0)
+    const padded = gif({ width: 1, height: 1, frame: { width: 30000, height: 9000 } })
+    const screenAndPalette = padded.subarray(0, 19)
+    const rest = padded.subarray(19)
+    const bomb = bytes(screenAndPalette, comment, rest)
+    expect(errorOf(bomb).code).toBe('UNREADABLE')
+  })
+
+  it('is UNREADABLE when the file ends before its first image descriptor', () => {
+    const one = gif({ width: 8, height: 8 })
+    // Screen (13) + palette (6) + NETSCAPE extension (19), then the trailer and nothing else.
+    expect(errorOf(bytes(one.subarray(0, 38), [0x3b])).code).toBe('UNREADABLE')
+  })
+
   it('is UNREADABLE when the logical screen descriptor is truncated', () => {
     expect(errorOf(bytes('GIF89a', le16(10))).code).toBe('UNREADABLE')
   })

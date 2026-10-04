@@ -38,7 +38,7 @@
 | T31 | Tokenise the hard-coded primitive widths and document image-decode and the widened infra rule (review Q7, Q10) | wiring | Blazheiko | S | — | done |
 | T32 | Make the never-navigates checks falsifiable, strengthen the fuzz invariants, and cover the PreviewCanvas renderer seam (review Q8, Q9) | tests | Blazheiko | S | T27 | done |
 | T33 | Add the missing UI-level AC tests and mark the visual baselines deferred (review S8) | tests | Blazheiko | S | T28 | done |
-| T34 | Refuse a GIF whose first image descriptor is not inside the header window as unreadable (review N1) | domain | Blazheiko | S | — | todo |
+| T34 | Refuse a GIF whose first image descriptor is not inside the header window as unreadable (review N1) | domain | Blazheiko | S | — | done |
 | T35 | Count a byte-ceiling or not-permitted refusal as an image reason only for a file that looks like an image (review F1) | app | Blazheiko | S | — | todo |
 | T36 | Bring the spec in line with the resolved ceiling and Display P3 decisions and the byte ceiling message (review F2) | wiring | Blazheiko | S | — | todo |
 | T37 | Recognise an SVG that starts with a comment or a DOCTYPE and has no XML prolog (review F3) | domain | Blazheiko | S | — | todo |
