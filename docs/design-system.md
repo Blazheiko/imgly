@@ -38,7 +38,7 @@ spacing value or font inline. It references `var(--…)`. The dark theme is the 
 reads better on a neutral dark surround). A light theme comes from `@media (prefers-color-scheme: light)`
 in the same file.
 
-- **Colors:** `--color-*` (surface, surface-raised, canvas-surround, text, text-muted, accent, danger, focus-ring) — `src/shared/styles/tokens.css` (created by scaffold S1, `docs/features/_scaffold/tasks.json`)
+- **Colors:** `--color-*` (surface, surface-raised, canvas-surround, border, text, text-muted, accent + hover/active, on-accent, danger, focus-ring) — `src/shared/styles/tokens.css`
 - **Spacing / sizing:** a 4px-based scale `--space-1…--space-8`, plus `--radius-*`, `--panel-width` and `--toolbar-size` — `src/shared/styles/tokens.css`
 - **Typography:** the system UI font stack. `--font-size-xs…lg`, `--font-weight-*` and `--font-mono` for numeric readouts such as slider values and pixel sizes — `src/shared/styles/tokens.css`
 
@@ -50,7 +50,7 @@ or declare `NEW: <name>` with a reason why no existing primitive fits.
 
 | Component | Source (`file:line` / node / URL) | States it supports | Notes |
 |---|---|---|---|
-| BaseButton | `src/shared/ui/BaseButton.vue` (planned — scaffold S1, `docs/features/_scaffold/tasks.json`) | default / hover / focus-visible / active / disabled | Variants `primary` / `secondary` / `ghost`. It is the base for icon and toolbar buttons |
+| BaseButton | `src/shared/ui/BaseButton.vue:1` | default / hover / focus-visible / active / disabled | Variants `primary` / `secondary` / `ghost`. It is the base for icon and toolbar buttons |
 
 ## Interaction & writing conventions
 

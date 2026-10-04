@@ -1,7 +1,7 @@
 ---
 status: current
-mode: greenfield-bootstrap   # current (brownfield scan) | greenfield-bootstrap (target foundation)
-updated_at: "2026-10-02"
+mode: current   # current (brownfield scan) | greenfield-bootstrap (target foundation)
+updated_at: "2026-10-04"
 reflects_commit: "7d26cf9"
 # machine-readable keys — on greenfield they encode the DECIDED toolchain; "" = not yet decided.
 language: "typescript 5 (node 24, pnpm)"
@@ -14,10 +14,9 @@ frontend: "vue 3 + pinia + vite + plain css custom properties"
 
 # Architecture map — imgly-editor
 
-> **Target foundation** (greenfield bootstrap), produced by `survey` from `docs/idea-brief.md` and
-> the foundation session of 2026-10-02. `/sdd:scaffold` materializes it; after that this map
-> describes what exists. Paths below marked *(scaffold)* are created by the scaffold plan
-> (`docs/features/_scaffold/tasks.json`). The foundational decisions behind it are in `docs/adr/`.
+> **Materialized foundation.** `survey` produced this map from `docs/idea-brief.md` and the
+> foundation session of 2026-10-02, and `/sdd:scaffold` built it on 2026-10-04. Paths marked
+> *(scaffold)* now exist in the skeleton. The foundational decisions behind it are in `docs/adr/`.
 
 ## Stack
 
@@ -29,9 +28,9 @@ frontend: "vue 3 + pinia + vite + plain css custom properties"
   - `pnpm dev` — Vite dev server
   - `pnpm build` — `vue-tsc -b && vite build` → `dist/`
   - `pnpm test` — `vitest run` (unit, happy-dom + fake-indexeddb)
-  - `pnpm test:e2e` — `playwright test` against `vite preview` (Chromium)
+  - `pnpm test:e2e` — `playwright test` against `vite preview` (Chromium; builds first locally, CI reuses its build)
   - `pnpm lint` — `eslint .` (flat config: typescript-eslint + eslint-plugin-vue) ; `pnpm format` — Prettier
-  - `pnpm typecheck` — `vue-tsc --noEmit` (the "vet" gate)
+  - `pnpm typecheck` — `vue-tsc -b --noEmit` (the "vet" gate)
 - Hosting: static site on **GitHub Pages**, deployed by GitHub Actions; Vite `base` = `/imgly/` (repo name)
 
 ## C4 — system as it is
@@ -87,7 +86,7 @@ import each other; cross-feature coordination goes through the `editor` store or
 - **Inter-module communication:** direct imports along the allowed direction (features → core/infra/render/shared). Features coordinate through the `editor` Pinia store. There is no event bus — `src/features/editor/store.ts` *(scaffold)*
 - **UI / styling:** plain CSS. Tokens are CSS custom properties in `src/shared/styles/tokens.css`, and components use `<style scoped>`. There is no UI kit and no CSS framework — see §Frontend / UI foundation
 - **Formatting / linting:** Prettier (single quotes, no semicolons, width 100) + ESLint flat config. `vue-tsc --noEmit` must pass — `eslint.config.js`, `.prettierrc` *(scaffold)*
-- **Git / CI:** one workflow `.github/workflows/ci.yml` runs install → lint → typecheck → unit → build on every push and PR. On `main` it also deploys `dist/` to GitHub Pages *(scaffold)*
+- **Git / CI:** one workflow `.github/workflows/ci.yml` runs install → lint → typecheck → unit → build → e2e on every push and PR. On `main` it also deploys `dist/` to GitHub Pages *(scaffold)*
 
 ## Datastores
 
