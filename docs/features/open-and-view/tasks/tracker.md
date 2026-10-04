@@ -25,7 +25,7 @@
 | T18 | [Precache the decode worker for offline opens, run e2e on three engines in CI, and record the widened rules](./t18-offline-precache-and-ci.md) | wiring | Blazheiko | S | T5, T14 | done |
 | T19 | [Add the cross-engine reference-set e2e: honest outcome per file, 8 of 8 orientations, Work integrity on every refusal](./t19-e2e-reference-set.md) | tests | Blazheiko | M | T6, T14, T15, T16, T17, T18 | done |
 | T20 | [Add the @perf suite: time to first Preview, long tasks, zoom/pan frame rate and memory after 10 opens](./t20-perf-suite.md) | tests | Blazheiko | M | T15, T18, T19 | done |
-| T21 | Parse a simple-format WebP whose first chunk is larger than the header window (review S1) | domain | Blazheiko | S | — | todo |
+| T21 | Parse a simple-format WebP whose first chunk is larger than the header window (review S1) | domain | Blazheiko | S | — | done |
 | T22 | Declare a GIF's size from its screen and first frame, and refuse an over-ceiling bitmap after decoding (review S2) | infra | Blazheiko | S | — | todo |
 | T23 | Refuse files above a byte-size cap as TOO_LARGE before decoding (review Q5) | infra | Blazheiko | S | T22 | todo |
 | T24 | Land 100% and stepped zoom on the exact target and always leave auto-fit (review S6, Q2) | domain | Blazheiko | S | — | todo |

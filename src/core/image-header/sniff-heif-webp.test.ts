@@ -48,6 +48,16 @@ describe('sniffImageHeader — WebP', () => {
     expect(header(webpExtended(400, 300, true))).toMatchObject({ animated: true })
   })
 
+  it('reads a simple-format frame whose chunk runs past the header window', () => {
+    // A >1 MiB VP8/VP8L image: only the window is read, so the chunk's tail is never seen.
+    const declare = (b: Uint8Array) => {
+      new DataView(b.buffer, b.byteOffset).setUint32(16, 5_000_000, true)
+      return b
+    }
+    expect(header(declare(webpLossy(4000, 3000)))).toMatchObject({ width: 4000, height: 3000 })
+    expect(header(declare(webpLossless(4000, 3000)))).toMatchObject({ width: 4000, height: 3000 })
+  })
+
   it('is UNREADABLE when the first chunk is truncated', () => {
     const cut = webpLossy(10, 10).subarray(0, 24)
     expect(errorOf(cut).code).toBe('UNREADABLE')

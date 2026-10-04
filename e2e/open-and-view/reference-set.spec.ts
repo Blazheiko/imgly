@@ -56,6 +56,11 @@ const REFERENCE_SET: [string, () => FilePayload, Outcome][] = [
   ['JPEG', () => file('photo.jpg', 'image/jpeg'), { opens: { width: 320, height: 240 } }],
   ['PNG', () => file('photo.png', 'image/png'), { opens: { width: 320, height: 240 } }],
   ['WebP', () => file('photo.webp', 'image/webp'), { opens: { width: 320, height: 240 } }],
+  [
+    'WebP over 1 MiB',
+    () => file('large-lossless.webp', 'image/webp'),
+    { opens: { width: 720, height: 540 } },
+  ],
   ['AVIF', () => file('photo.avif', 'image/avif'), { opens: { width: 320, height: 240 } }],
   [
     'animated GIF',

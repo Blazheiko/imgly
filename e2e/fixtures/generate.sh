@@ -13,6 +13,10 @@ magick -size 24x16 xc:'#ff0000' -size 24x16 xc:'#00ff00' +append \
 magick -size 320x240 gradient:'#203060-#e0a040' photo.png
 magick photo.png -quality 90 photo.jpg
 cwebp -quiet -q 80 photo.png -o photo.webp
+# A simple-format (VP8L) WebP over 1 MiB: its one chunk runs past the 1 MiB header window.
+magick -seed 7 -size 720x540 xc: +noise Random noise.png
+cwebp -quiet -lossless noise.png -o large-lossless.webp
+rm noise.png
 avifenc -q 60 photo.png photo.avif >/dev/null
 heif-enc -q 50 photo.png -o photo.heic >/dev/null
 magick -delay 50 -size 64x48 xc:'#ff0000' -size 64x48 xc:'#0000ff' -loop 0 animated.gif
