@@ -24,11 +24,23 @@ export function isSuperseded(value: unknown): value is Superseded {
   return value === SUPERSEDED
 }
 
+/** What the per-session probes found (feature ADR 0001); no user-agent sniffing. */
+export interface Capabilities {
+  /** `createImageBitmap` already applies EXIF orientation. */
+  appliesOrientation: boolean
+  decodesHeic: boolean
+}
+
 export interface DecodeRequest {
   file: Blob
+  /** Absent for the session's first worker, which runs the probes itself. */
+  capabilities?: Capabilities
 }
 
 /** Errors cross the worker boundary as plain `{ code, details }` objects. */
 export type DecodeResponse = Result<DecodedImage, AppError>
+
+/** The first worker of a session also returns what its probes found. */
+export type DecodeMessage = DecodeResponse & { capabilities?: Capabilities }
 
 export type DecodeOutcome = DecodeResponse | Superseded

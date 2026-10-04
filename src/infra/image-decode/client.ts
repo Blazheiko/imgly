@@ -1,5 +1,11 @@
 import { appError, err, isAppErrorCode, type AppError, type Result } from '@/core'
-import { SUPERSEDED, type DecodedImage, type DecodeOutcome, type DecodeRequest } from './types'
+import {
+  SUPERSEDED,
+  type Capabilities,
+  type DecodedImage,
+  type DecodeOutcome,
+  type DecodeRequest,
+} from './types'
 
 const FORMATS = new Set(['jpeg', 'png', 'gif', 'webp', 'avif', 'heic'])
 
@@ -35,12 +41,27 @@ export function parseWorkerResponse(data: unknown): Result<DecodedImage, AppErro
   return { ok: true, value: value as unknown as DecodedImage }
 }
 
+function parseCapabilities(data: unknown): Capabilities | undefined {
+  const value = (data as { capabilities?: Record<string, unknown> } | null)?.capabilities
+  if (
+    typeof value !== 'object' ||
+    value === null ||
+    typeof value.appliesOrientation !== 'boolean' ||
+    typeof value.decodesHeic !== 'boolean'
+  ) {
+    return undefined
+  }
+  return { appliesOrientation: value.appliesOrientation, decodesHeic: value.decodesHeic }
+}
+
 /**
  * One worker per open. A new call terminates the previous worker at once and resolves its
  * promise as `Superseded` (AC-16b); a worker is also terminated when its result arrives.
  */
 export function createDecoder(createWorker: () => Worker) {
   let current: { worker: Worker; settle: (outcome: DecodeOutcome) => void } | undefined
+  // The probes run in the session's first worker; later workers get the cached results.
+  let capabilities: Capabilities | undefined
 
   return function decodeImage(file: Blob): Promise<DecodeOutcome> {
     current?.worker.terminate()
@@ -61,10 +82,14 @@ export function createDecoder(createWorker: () => Worker) {
         worker.terminate()
         job.settle(outcome)
       }
-      worker.onmessage = (event) => finish(parseWorkerResponse(event.data))
+      worker.onmessage = (event) => {
+        capabilities ??= parseCapabilities(event.data)
+        finish(parseWorkerResponse(event.data))
+      }
       worker.onerror = () => finish(err(appError('DECODE_FAILED')))
       worker.onmessageerror = () => finish(err(appError('DECODE_FAILED')))
-      worker.postMessage({ file } satisfies DecodeRequest)
+      const request: DecodeRequest = capabilities ? { file, capabilities } : { file }
+      worker.postMessage(request)
     })
   }
 }

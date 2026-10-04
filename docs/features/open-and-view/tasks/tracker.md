@@ -10,7 +10,7 @@
 | T3 | [Implement the open policy: size ceiling, Downscale-limit target size, reduction steps and drop-candidate order](./t03-open-policy.md) | domain | Blazheiko | S | T1 | done |
 | T4 | [Implement the pure View model (Fit, zoom steps, clamp, zoom-at-point, pan clamp, auto-fit) and the Work revision rule](./t04-view-model-and-work-revision.md) | domain | Blazheiko | M | — | done |
 | T5 | [Build the decode worker pipeline and the main-thread decodeImage client with supersede and error mapping](./t05-decode-worker-pipeline.md) | infra | Blazheiko | L | T2, T3 | done |
-| T6 | [Add the worker's orientation and HEIC capability probes and the EXIF-orientation fallback](./t06-decode-capability-probes.md) | infra | Blazheiko | M | T5 | todo |
+| T6 | [Add the worker's orientation and HEIC capability probes and the EXIF-orientation fallback](./t06-decode-capability-probes.md) | infra | Blazheiko | M | T5 | done |
 | T7 | [Add the platform intake: window drop guard, files from a DataTransfer, and the single-file picker](./t07-platform-intake.md) | infra | Blazheiko | S | — | done |
 | T8 | [Build the WebGL2 preview renderer: mipmapped Original texture, View transform uniform, DPR sizing, draw-on-change](./t08-preview-renderer.md) | infra | Blazheiko | M | T4 | done |
 | T9 | [Handle WebGL context loss: restore from the kept bitmap within the deadline, else report DISPLAY_LOST](./t09-context-loss-restore.md) | infra | Blazheiko | S | T1, T8 | done |

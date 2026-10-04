@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { runDecode, type DecodeEnv } from './pipeline'
+import type { Capabilities } from './types'
+
+const BROWSER_ORIENTS: Capabilities = { appliesOrientation: true, decodesHeic: false }
 
 // A minimal valid PNG header: signature + IHDR declaring the given size.
 function pngBytes(width: number, height: number): Uint8Array<ArrayBuffer> {
@@ -46,6 +49,7 @@ type FakeBitmap = { width: number; height: number; close: ReturnType<typeof vi.f
 function fakeEnv(decodedSize?: { width: number; height: number }) {
   const bitmaps: FakeBitmap[] = []
   const draws: { width: number; height: number; quality: string }[] = []
+  const transforms: (string | number)[][] = []
   const make = (width: number, height: number) => {
     const b = { width, height, close: vi.fn() }
     bitmaps.push(b)
@@ -61,6 +65,8 @@ function fakeEnv(decodedSize?: { width: number; height: number }) {
         imageSmoothingEnabled: false,
         imageSmoothingQuality: 'low',
         drawImage: () => draws.push({ width, height, quality: ctx.imageSmoothingQuality }),
+        setTransform: (...m: number[]) => transforms.push(['set', ...m]),
+        transform: (...m: number[]) => transforms.push(['then', ...m]),
       }
       return {
         width,
@@ -70,13 +76,13 @@ function fakeEnv(decodedSize?: { width: number; height: number }) {
       } as unknown as OffscreenCanvas
     },
   }
-  return { env, bitmaps, draws }
+  return { env, bitmaps, draws, transforms }
 }
 
 describe('runDecode (worker pipeline)', () => {
   it('returns a small image unchanged without any reduction step (AC-06)', async () => {
     const { env, draws } = fakeEnv({ width: 640, height: 480 })
-    const result = await runDecode(new Blob([pngBytes(640, 480)]), env)
+    const result = await runDecode(new Blob([pngBytes(640, 480)]), env, BROWSER_ORIENTS)
 
     expect(result).toMatchObject({
       ok: true,
@@ -87,7 +93,7 @@ describe('runDecode (worker pipeline)', () => {
 
   it('decodes upright, in sRGB', async () => {
     const { env } = fakeEnv({ width: 640, height: 480 })
-    await runDecode(new Blob([pngBytes(640, 480)]), env)
+    await runDecode(new Blob([pngBytes(640, 480)]), env, BROWSER_ORIENTS)
     expect(env.createImageBitmap).toHaveBeenCalledWith(expect.any(Blob), {
       imageOrientation: 'from-image',
       colorSpaceConversion: 'default',
@@ -96,7 +102,7 @@ describe('runDecode (worker pipeline)', () => {
 
   it('reduces to the Downscale limit with high-quality steps, closing intermediates (AC-05)', async () => {
     const { env, bitmaps, draws } = fakeEnv({ width: 12000, height: 8000 })
-    const result = await runDecode(new Blob([pngBytes(12000, 8000)]), env)
+    const result = await runDecode(new Blob([pngBytes(12000, 8000)]), env, BROWSER_ORIENTS)
 
     expect(draws).toEqual([
       { width: 6000, height: 4000, quality: 'high' },
@@ -121,7 +127,7 @@ describe('runDecode (worker pipeline)', () => {
 
   it('refuses TOO_LARGE before createImageBitmap is called (AC-09)', async () => {
     const { env } = fakeEnv({ width: 1, height: 1 })
-    const result = await runDecode(new Blob([pngBytes(20000, 6000)]), env)
+    const result = await runDecode(new Blob([pngBytes(20000, 6000)]), env, BROWSER_ORIENTS)
 
     expect(result).toMatchObject({ ok: false, error: { code: 'TOO_LARGE' } })
     expect(env.createImageBitmap).not.toHaveBeenCalled()
@@ -129,14 +135,14 @@ describe('runDecode (worker pipeline)', () => {
 
   it('refuses NOT_AN_IMAGE by content before decoding (AC-08)', async () => {
     const { env } = fakeEnv({ width: 1, height: 1 })
-    const result = await runDecode(new Blob(['just text']), env)
+    const result = await runDecode(new Blob(['just text']), env, BROWSER_ORIENTS)
     expect(result).toEqual({ ok: false, error: { code: 'NOT_AN_IMAGE' } })
     expect(env.createImageBitmap).not.toHaveBeenCalled()
   })
 
   it('reports DECODE_FAILED when the browser cannot decode the bytes', async () => {
     const { env } = fakeEnv(undefined)
-    expect(await runDecode(new Blob([pngBytes(10, 10)]), env)).toEqual({
+    expect(await runDecode(new Blob([pngBytes(10, 10)]), env, BROWSER_ORIENTS)).toEqual({
       ok: false,
       error: { code: 'DECODE_FAILED' },
     })
@@ -149,7 +155,7 @@ describe('runDecode (worker pipeline)', () => {
         arrayBuffer: () => Promise.reject(new DOMException('no', 'NotReadableError')),
       }),
     } as unknown as Blob
-    expect(await runDecode(refused, env)).toEqual({
+    expect(await runDecode(refused, env, BROWSER_ORIENTS)).toEqual({
       ok: false,
       error: { code: 'FILE_NOT_PERMITTED' },
     })
@@ -160,9 +166,112 @@ describe('runDecode (worker pipeline)', () => {
     const apng = pngBytes(4, 4)
     // Rename the IDAT chunk to acTL: an animation control before image data.
     apng.set([0x61, 0x63, 0x54, 0x4c], 37)
-    expect(await runDecode(new Blob([apng]), env)).toMatchObject({
+    expect(await runDecode(new Blob([apng]), env, BROWSER_ORIENTS)).toMatchObject({
       ok: true,
       value: { animated: true, format: 'png' },
     })
   })
+
+  it('refuses HEIC as UNSUPPORTED_FORMAT without decoding where the probe found no support (AC-07)', async () => {
+    const { env } = fakeEnv({ width: 8, height: 8 })
+    const result = await runDecode(new Blob([heicBytes(4032, 3024)]), env, {
+      appliesOrientation: true,
+      decodesHeic: false,
+    })
+    expect(result).toEqual({
+      ok: false,
+      error: { code: 'UNSUPPORTED_FORMAT', details: { format: 'HEIC' } },
+    })
+    expect(env.createImageBitmap).not.toHaveBeenCalled()
+  })
+
+  it('reports a failed HEIC decode as DECODE_FAILED where HEIC is supported (AC-08)', async () => {
+    const { env } = fakeEnv(undefined)
+    const result = await runDecode(new Blob([heicBytes(4032, 3024)]), env, {
+      appliesOrientation: true,
+      decodesHeic: true,
+    })
+    expect(result).toEqual({ ok: false, error: { code: 'DECODE_FAILED' } })
+  })
+
+  it('rotates an orientation-6 photo itself when the browser does not, before the 4096 target', async () => {
+    // Stored 6000×4000 landscape; upright it is a 4000×6000 portrait.
+    const { env, draws, transforms } = fakeEnv({ width: 6000, height: 4000 })
+    const result = await runDecode(new Blob([jpegBytes(6000, 4000, 6)]), env, {
+      appliesOrientation: false,
+      decodesHeic: false,
+    })
+
+    expect(result).toMatchObject({
+      ok: true,
+      value: { sourceWidth: 4000, sourceHeight: 6000, width: 2731, height: 4096, downscaled: true },
+    })
+    expect(draws).toEqual([{ width: 2731, height: 4096, quality: 'high' }])
+    expect(transforms).toContainEqual(['then', 0, 1, -1, 0, 4000, 0])
+  })
+
+  it('applies orientation even when no reduction is needed', async () => {
+    const { env, draws } = fakeEnv({ width: 300, height: 200 })
+    const result = await runDecode(new Blob([jpegBytes(300, 200, 8)]), env, {
+      appliesOrientation: false,
+      decodesHeic: false,
+    })
+    expect(result).toMatchObject({
+      ok: true,
+      value: { width: 200, height: 300, downscaled: false },
+    })
+    expect(draws).toEqual([{ width: 200, height: 300, quality: 'high' }])
+  })
+
+  it('never rotates twice when the browser already applied orientation', async () => {
+    // The browser hands back the upright 4000×6000 bitmap itself.
+    const { env, transforms } = fakeEnv({ width: 4000, height: 6000 })
+    const result = await runDecode(new Blob([jpegBytes(6000, 4000, 6)]), env, BROWSER_ORIENTS)
+    expect(result).toMatchObject({ ok: true, value: { width: 2731, height: 4096 } })
+    expect(transforms.filter(([kind]) => kind === 'then')).toEqual([])
+  })
 })
+
+function heicBytes(width: number, height: number): Uint8Array<ArrayBuffer> {
+  const be32 = (n: number) => [(n >>> 24) & 255, (n >> 16) & 255, (n >> 8) & 255, n & 255]
+  const str = (s: string) => Array.from(s, (c) => c.charCodeAt(0))
+  const box = (type: string, body: number[]) => [...be32(body.length + 8), ...str(type), ...body]
+  const ispe = box('ispe', [0, 0, 0, 0, ...be32(width), ...be32(height)])
+  const meta = box('meta', [0, 0, 0, 0, ...box('iprp', box('ipco', ispe))])
+  return Uint8Array.from([...box('ftyp', [...str('heic'), 0, 0, 0, 0, ...str('mif1')]), ...meta])
+}
+
+function jpegBytes(width: number, height: number, orientation: number): Uint8Array<ArrayBuffer> {
+  const be16 = (n: number) => [(n >> 8) & 255, n & 255]
+  const str = (s: string) => Array.from(s, (c) => c.charCodeAt(0))
+  const tiff = [
+    ...str('MM'),
+    0,
+    42,
+    0,
+    0,
+    0,
+    8,
+    0,
+    1,
+    0x01,
+    0x12,
+    0,
+    3,
+    0,
+    0,
+    0,
+    1,
+    ...be16(orientation),
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+  ]
+  const exif = [...str('Exif'), 0, 0, ...tiff]
+  const app1 = [0xff, 0xe1, ...be16(exif.length + 2), ...exif]
+  const sof = [0xff, 0xc0, 0, 11, 8, ...be16(height), ...be16(width), 1, 1, 0x11, 0]
+  return Uint8Array.from([0xff, 0xd8, ...app1, ...sof, 0xff, 0xda, 0, 2, 0xff, 0xd9])
+}

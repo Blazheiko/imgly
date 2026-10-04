@@ -8,10 +8,13 @@ import {
   sniffImageHeader,
   targetSize,
   type AppError,
+  type ExifOrientation,
   type Result,
+  type Size,
 } from '@/core'
 import { errorName, mapReadError } from './errors'
-import type { DecodedImage } from './types'
+import { orientationTransform, type CanvasMatrix } from './orient'
+import type { Capabilities, DecodedImage } from './types'
 
 /** The browser APIs the pipeline needs, injected so it runs under unit tests too. */
 export interface DecodeEnv {
@@ -24,18 +27,20 @@ export const browserEnv: DecodeEnv = {
   createCanvas: (width, height) => new OffscreenCanvas(width, height),
 }
 
-const DECODE_OPTIONS: ImageBitmapOptions = {
+export const DECODE_OPTIONS: ImageBitmapOptions = {
   imageOrientation: 'from-image',
   colorSpaceConversion: 'default', // sRGB (feature ADR 0004)
 }
 
 /**
- * header window → sniff → open policy → decode → stepwise reduction (feature ADR 0001). The
- * ceiling is checked from the declared size before any pixel is decoded (AC-09).
+ * header window → sniff → open policy → decode → orient (if the browser didn't) → stepwise
+ * reduction (feature ADR 0001). The ceiling is checked from the declared size before any pixel
+ * is decoded (AC-09), and HEIC is refused without decoding where the probe found no support.
  */
 export async function runDecode(
   file: Blob,
   env: DecodeEnv,
+  capabilities: Capabilities,
 ): Promise<Result<DecodedImage, AppError>> {
   let window: Uint8Array
   try {
@@ -49,6 +54,9 @@ export async function runDecode(
   const allowed = checkOpenPolicy(sniffed.value)
   if (!allowed.ok) return allowed
   const header = allowed.value
+  if (header.format === 'heic' && !capabilities.decodesHeic) {
+    return err(appError('UNSUPPORTED_FORMAT', { format: 'HEIC' }))
+  }
 
   let decoded: ImageBitmap
   try {
@@ -57,9 +65,14 @@ export async function runDecode(
     return err(appError(mapReadError(errorName(error))))
   }
 
-  const source = { width: decoded.width, height: decoded.height }
+  const orientation = capabilities.appliesOrientation ? 1 : header.exifOrientation
+  const upright = orientationFor(orientation, decoded)
+  const source = { width: upright.width, height: upright.height }
   const target = targetSize(source.width, source.height)
-  const reduced = reduce(decoded, reductionSteps(source, target), env)
+  const steps = reductionSteps(source, target)
+  if (upright.matrix && steps.length === 0)
+    steps.push({ width: target.width, height: target.height })
+  const reduced = reduce(decoded, steps, upright, env)
   if (!reduced) return err(appError('DECODE_FAILED'))
 
   return ok({
@@ -74,21 +87,40 @@ export async function runDecode(
   })
 }
 
-/** Draws through each step with high-quality smoothing, closing every intermediate bitmap. */
+/** The upright size, and the transform to get there when the worker must orient (2–8). */
+function orientationFor(
+  orientation: ExifOrientation,
+  stored: Size,
+): Size & { matrix?: CanvasMatrix } {
+  if (orientation === 1) return { width: stored.width, height: stored.height }
+  return orientationTransform(orientation, stored.width, stored.height)
+}
+
+/**
+ * Draws through each step with high-quality smoothing, closing every intermediate bitmap. The
+ * first step also applies the orientation transform when the worker must orient.
+ */
 function reduce(
   start: ImageBitmap,
-  steps: { width: number; height: number }[],
+  steps: Size[],
+  upright: Size & { matrix?: CanvasMatrix },
   env: DecodeEnv,
 ): ImageBitmap | undefined {
   let current = start
   try {
-    for (const step of steps) {
+    for (const [i, step] of steps.entries()) {
       const canvas = env.createCanvas(step.width, step.height)
       const ctx = canvas.getContext('2d')
       if (!ctx) throw new Error('no 2d context')
       ctx.imageSmoothingEnabled = true
       ctx.imageSmoothingQuality = 'high'
-      ctx.drawImage(current, 0, 0, step.width, step.height)
+      if (i === 0 && upright.matrix) {
+        ctx.setTransform(step.width / upright.width, 0, 0, step.height / upright.height, 0, 0)
+        ctx.transform(...upright.matrix)
+        ctx.drawImage(current, 0, 0)
+      } else {
+        ctx.drawImage(current, 0, 0, step.width, step.height)
+      }
       const next = canvas.transferToImageBitmap()
       current.close()
       current = next
