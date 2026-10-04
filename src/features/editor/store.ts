@@ -23,7 +23,14 @@ import {
   type DecodedImage,
   type DecodeOutcome,
 } from '@/infra/image-decode'
-import { newId } from '@/shared'
+import { newId, useNotices, type NoticeInput } from '@/shared'
+import {
+  failureMessage,
+  failureNoImageFiles,
+  infoDownscaled,
+  infoFirstFrame,
+  infoOthersIgnored,
+} from './messages'
 
 export type Decoder = (file: Blob) => Promise<DecodeOutcome>
 
@@ -39,6 +46,22 @@ export type OpenOutcome =
   | { kind: 'ignored' }
 
 export type EditorPhase = 'idle' | 'reading' | 'confirming'
+
+/** The info notices one opened image raises, in catalog order (AC-05, AC-11). */
+function imageNotices(image: OpenedImage): NoticeInput[] {
+  const notices: NoticeInput[] = []
+  if (image.downscaled) {
+    notices.push({
+      kind: 'info',
+      text: infoDownscaled(
+        { width: image.sourceWidth, height: image.sourceHeight },
+        { width: image.width, height: image.height },
+      ),
+    })
+  }
+  if (image.animated) notices.push({ kind: 'info', text: infoFirstFrame() })
+  return notices
+}
 
 /** Before the canvas has a size the View can't be fitted; auto-fit fits it once it has one. */
 const UNSIZED_VIEW: View = { zoom: 1, panX: 0, panY: 0, autoFit: true }
@@ -57,6 +80,9 @@ export const useEditorStore = defineStore('editor', () => {
   const phase = ref<EditorPhase>('idle')
   let latestOpenId = 0
   let decode: Decoder = decodeImage
+  const notices = useNotices()
+  // Notices that belong to the image awaiting confirmation; raised only if it replaces (AC-15).
+  let heldNotices: NoticeInput[] = []
 
   const hasUnsavedEdits = computed(() => (work.value ? workHasUnsavedEdits(work.value) : false))
 
@@ -85,6 +111,7 @@ export const useEditorStore = defineStore('editor', () => {
     if (!outcome.ok) return { kind: 'refused', error: outcome.error }
 
     if (work.value && workHasUnsavedEdits(work.value)) {
+      heldNotices = []
       pending.value = outcome.value
       phase.value = 'confirming'
       return { kind: 'confirming' }
@@ -97,7 +124,10 @@ export const useEditorStore = defineStore('editor', () => {
     if (phase.value !== 'confirming' || !image) return { kind: 'ignored' }
     pending.value = null
     phase.value = 'idle'
-    return replace(image)
+    const outcome = replace(image)
+    raiseAfterReplace(outcome, heldNotices)
+    heldNotices = []
+    return outcome
   }
 
   function cancelReplace(): OpenOutcome {
@@ -105,7 +135,58 @@ export const useEditorStore = defineStore('editor', () => {
     pending.value?.bitmap.close()
     pending.value = null
     phase.value = 'idle'
+    heldNotices = []
     return { kind: 'cancelled' }
+  }
+
+  /** Raises an opened image's notices plus `extra` in one step, once it has replaced the Work. */
+  function raiseAfterReplace(outcome: OpenOutcome, extra: NoticeInput[]) {
+    if (outcome.kind !== 'replaced') return
+    const all = [...imageNotices(outcome.image), ...extra]
+    if (all.length > 0) notices.pushAll(all)
+  }
+
+  /** Opens one chosen file and raises its notices (after the replace) or its refusal. */
+  async function openFile(file: Blob): Promise<OpenOutcome> {
+    const outcome = await openImage(file)
+    if (outcome.kind === 'refused')
+      notices.pushAll([{ kind: 'failure', text: failureMessage(outcome.error) }])
+    raiseAfterReplace(outcome, [])
+    return outcome
+  }
+
+  /**
+   * Tries dropped files in browser order until one is read (AC-03); a newer open stops the loop.
+   * None read → the first image file's reason, or the AC-04 notice when none was an image.
+   */
+  async function openDrop(drop: { files: Blob[]; nonFileCount: number }): Promise<OpenOutcome> {
+    const { files } = drop
+    if (files.length === 0) {
+      notices.pushAll([{ kind: 'failure', text: failureNoImageFiles() }])
+      return { kind: 'ignored' }
+    }
+    const ignored: NoticeInput[] =
+      files.length > 1 ? [{ kind: 'info', text: infoOthersIgnored(files.length - 1) }] : []
+    let firstImageRefusal: AppError | undefined
+
+    for (const file of files) {
+      const outcome = await openImage(file)
+      if (outcome.kind === 'refused') {
+        if (outcome.error.code !== 'NOT_AN_IMAGE') firstImageRefusal ??= outcome.error
+        continue
+      }
+      if (outcome.kind === 'confirming') heldNotices = ignored
+      raiseAfterReplace(outcome, ignored)
+      return outcome
+    }
+
+    notices.pushAll([
+      {
+        kind: 'failure',
+        text: firstImageRefusal ? failureMessage(firstImageRefusal) : failureNoImageFiles(),
+      },
+    ])
+    return firstImageRefusal ? { kind: 'refused', error: firstImageRefusal } : { kind: 'ignored' }
   }
 
   /** Swaps in the new Work at Fit in one step; the old Original is closed once it was picked up. */
@@ -138,6 +219,8 @@ export const useEditorStore = defineStore('editor', () => {
     hasUnsavedEdits,
     setDecoder,
     openImage,
+    openFile,
+    openDrop,
     confirmReplace,
     cancelReplace,
     applyEdit,
