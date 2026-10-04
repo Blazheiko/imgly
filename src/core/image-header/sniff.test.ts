@@ -202,6 +202,14 @@ describe('sniffImageHeader — refused formats (AC-07)', () => {
       'SVG',
     ],
     ['SVG with BOM and whitespace', bytes([0xef, 0xbb, 0xbf], '  \n<svg/>'), 'SVG'],
+    ['SVG starting with a comment', bytes('<!-- Generator: Sketch -->\n<svg/>'), 'SVG'],
+    [
+      'SVG starting with a DOCTYPE',
+      bytes(
+        '<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">\n<svg/>',
+      ),
+      'SVG',
+    ],
     ['BMP', bytes('BM', le32(70), le32(0), le32(54), le32(40), le32(2), le32(2)), 'BMP'],
     ['ICO', bytes([0, 0, 1, 0], le16(1), new Uint8Array(16)), 'ICO'],
     ['TIFF little-endian', bytes('II', [42, 0], le32(8), new Uint8Array(8)), 'TIFF or camera RAW'],
@@ -225,6 +233,8 @@ describe('sniffImageHeader — not an image (AC-08)', () => {
     ['three bytes', bytes('abc')],
     ['plain text', bytes('hello, this is not an image at all')],
     ['an HTML page', bytes('<!doctype html><html><body></body></html>')],
+    ['an HTML page with an inline SVG', bytes('<!-- page -->\n<html><body><svg/></body></html>')],
+    ['an unclosed comment', bytes('<!-- no end <svg/>')],
     ['a PDF', bytes('%PDF-1.7\n%')],
     ['a "BM" text without a DIB header', bytes('BMW is a car maker, not a bitmap')],
   ])('%s is NOT_AN_IMAGE', (_label, input) => {

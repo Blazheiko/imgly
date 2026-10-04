@@ -38,15 +38,38 @@ function isBmp(b: Uint8Array): boolean {
   return dibSize !== undefined && BMP_DIB_HEADER_SIZES.has(dibSize)
 }
 
-/** `<svg`, or an XML prolog with `<svg` somewhere in the first few KiB. */
+/**
+ * `<svg` after any leading comments, an `svg` DOCTYPE, or an XML prolog with `<svg` somewhere in
+ * the first few KiB.
+ */
 function isSvg(b: Uint8Array): boolean {
-  let o = matches(b, 0, [0xef, 0xbb, 0xbf]) ? 3 : 0
-  while (o < b.length && isSpace(b[o]!)) o++
-  if (matches(b, o, '<svg')) return true
-  if (!matches(b, o, '<?xml')) return false
   const end = Math.min(b.length, SVG_SCAN_BYTES)
-  for (let i = o; i < end; i++) if (matches(b, i, '<svg')) return true
-  return false
+  let o = matches(b, 0, [0xef, 0xbb, 0xbf]) ? 3 : 0
+  for (;;) {
+    while (o < end && isSpace(b[o]!)) o++
+    if (!matches(b, o, '<!--')) break
+    o = indexOf(b, '-->', o + 4, end)
+    if (o < 0) return false
+    o += 3
+  }
+  if (matches(b, o, '<svg')) return true
+  if (isDoctypeSvg(b, o)) return true
+  if (!matches(b, o, '<?xml')) return false
+  return indexOf(b, '<svg', o, end) >= 0
+}
+
+function isDoctypeSvg(b: Uint8Array, o: number): boolean {
+  const doctype = '<!doctype svg'
+  for (let i = 0; i < doctype.length; i++) {
+    const c = b[o + i]
+    if (c === undefined || (c | 0x20) !== doctype.charCodeAt(i)) return false
+  }
+  return true
+}
+
+function indexOf(b: Uint8Array, text: string, from: number, end: number): number {
+  for (let i = from; i < end; i++) if (matches(b, i, text)) return i
+  return -1
 }
 
 function isSpace(c: number): boolean {
