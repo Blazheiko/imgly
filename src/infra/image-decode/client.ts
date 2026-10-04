@@ -57,7 +57,8 @@ function parseCapabilities(data: unknown): Capabilities | undefined {
 
 /**
  * One worker per open. A new call terminates the previous worker at once and resolves its
- * promise as `Superseded` (AC-16b); a worker is also terminated when its result arrives.
+ * promise as `Superseded` (AC-16b); a worker is also terminated when its result arrives. Every
+ * call settles: a worker that can't start or can't take the request is DECODE_FAILED.
  */
 export function createDecoder(createWorker: () => Worker) {
   let current: { worker: Worker; settle: (outcome: DecodeOutcome) => void } | undefined
@@ -69,7 +70,13 @@ export function createDecoder(createWorker: () => Worker) {
     current?.settle(SUPERSEDED)
 
     return new Promise((resolve) => {
-      const worker = createWorker()
+      let worker: Worker
+      try {
+        worker = createWorker()
+      } catch {
+        resolve(err(appError('DECODE_FAILED')))
+        return
+      }
       const job = {
         worker,
         settle: (outcome: DecodeOutcome) => {
@@ -92,7 +99,11 @@ export function createDecoder(createWorker: () => Worker) {
       worker.onerror = () => finish(err(appError('DECODE_FAILED')))
       worker.onmessageerror = () => finish(err(appError('DECODE_FAILED')))
       const request: DecodeRequest = capabilities ? { file, capabilities } : { file }
-      worker.postMessage(request)
+      try {
+        worker.postMessage(request)
+      } catch {
+        finish(err(appError('DECODE_FAILED')))
+      }
     })
   }
 }

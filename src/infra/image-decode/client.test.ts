@@ -100,6 +100,32 @@ describe('decodeImage client', () => {
     })
   })
 
+  it('resolves DECODE_FAILED when the worker cannot be created', async () => {
+    const decode = createDecoder(() => {
+      throw new Error('worker blocked')
+    })
+    await expect(decode(new Blob())).resolves.toEqual({
+      ok: false,
+      error: { code: 'DECODE_FAILED' },
+    })
+  })
+
+  it('resolves DECODE_FAILED and terminates the worker when posting the request throws', async () => {
+    FakeWorker.created = []
+    const decode = createDecoder(() => {
+      const worker = new FakeWorker()
+      worker.postMessage = () => {
+        throw new DOMException('no', 'DataCloneError')
+      }
+      return worker as unknown as Worker
+    })
+    await expect(decode(new Blob())).resolves.toEqual({
+      ok: false,
+      error: { code: 'DECODE_FAILED' },
+    })
+    expect(FakeWorker.created[0]!.terminated).toBe(true)
+  })
+
   it('maps a worker error event to DECODE_FAILED without raw error text', async () => {
     const { decode, workers } = setup()
     const pending = decode(new Blob())
