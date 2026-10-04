@@ -1,0 +1,417 @@
+{
+  "slug": "open-and-view",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Add the open error codes and the header parser for JPEG, PNG/APNG, GIF and the refused formats",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-07",
+        "AC-08",
+        "AC-11"
+      ],
+      "dod": "Vitest proves sniffImageHeader returns format, size, animated and orientation for JPEG/PNG/APNG/GIF fixtures, the named UNSUPPORTED_FORMAT for SVG/BMP/ICO/TIFF/RAW/PSD and NOT_AN_IMAGE/UNREADABLE for junk and truncated bytes, never throwing; result.ts carries all eight new codes",
+      "files_hint": [
+        "src/core/result.ts",
+        "src/core/image-header/"
+      ],
+      "file": "docs/features/open-and-view/tasks/t01-header-parser-jpeg-png-gif.md"
+    },
+    {
+      "id": "T2",
+      "title": "Extend the header parser to WebP, AVIF and HEIC/HEIF and add the property/fuzz test",
+      "layer": "domain",
+      "deps": [
+        "T1"
+      ],
+      "acs": [
+        "AC-07",
+        "AC-08",
+        "AC-09"
+      ],
+      "dod": "Vitest proves sniffImageHeader reads WebP (VP8/VP8L/VP8X), AVIF/AVIS and HEIC sizes and animation, returns UNREADABLE for missing ispe or oversized boxes, and the fuzz suite over truncated and mutated samples never throws or hangs",
+      "files_hint": [
+        "src/core/image-header/"
+      ],
+      "file": "docs/features/open-and-view/tasks/t02-header-parser-webp-avif-heic.md"
+    },
+    {
+      "id": "T3",
+      "title": "Implement the open policy: size ceiling, Downscale-limit target size, reduction steps and drop-candidate order",
+      "layer": "domain",
+      "deps": [
+        "T1"
+      ],
+      "acs": [
+        "AC-03",
+        "AC-05",
+        "AC-06",
+        "AC-09"
+      ],
+      "dod": "Vitest proves checkOpenPolicy refuses above 100 MP with both sizes in MP, targetSize maps 6000x4000 to 4096x2731 and keeps <=4096 unchanged with a >=1 px short side, reductionSteps never exceed 16384 px, and orderDropCandidates keeps browser order",
+      "files_hint": [
+        "src/core/open/"
+      ],
+      "file": "docs/features/open-and-view/tasks/t03-open-policy.md"
+    },
+    {
+      "id": "T4",
+      "title": "Implement the pure View model (Fit, zoom steps, clamp, zoom-at-point, pan clamp, auto-fit) and the Work revision rule",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-01",
+        "AC-12",
+        "AC-12b",
+        "AC-13",
+        "AC-14"
+      ],
+      "dod": "Vitest proves fitZoom never exceeds 1, zoom clamps to [min(Fit,10%), 800%], steps follow ZOOM_STEPS, zoomAt keeps the pointer point fixed, pan stops at edges and centres fitting axes, resize honours autoFit, and hasUnsavedEdits flips only via withEdit",
+      "files_hint": [
+        "src/core/view/",
+        "src/core/document.ts"
+      ],
+      "file": "docs/features/open-and-view/tasks/t04-view-model-and-work-revision.md"
+    },
+    {
+      "id": "T5",
+      "title": "Build the decode worker pipeline and the main-thread decodeImage client with supersede and error mapping",
+      "layer": "infra",
+      "deps": [
+        "T2",
+        "T3"
+      ],
+      "acs": [
+        "AC-05",
+        "AC-06",
+        "AC-08",
+        "AC-09",
+        "AC-10",
+        "AC-16b"
+      ],
+      "dod": "Vitest proves decodeImage terminates a superseded worker and resolves it as Superseded, terminates on result, passes typed {code, details} errors through, and maps NotReadable/NotFound/Security errors to FILE_NOT_PERMITTED; the worker runs header -> policy -> decode -> stepwise downscale -> transfer",
+      "files_hint": [
+        "src/infra/image-decode/"
+      ],
+      "file": "docs/features/open-and-view/tasks/t05-decode-worker-pipeline.md"
+    },
+    {
+      "id": "T6",
+      "title": "Add the worker's orientation and HEIC capability probes and the EXIF-orientation fallback",
+      "layer": "infra",
+      "deps": [
+        "T5"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-07",
+        "AC-08"
+      ],
+      "dod": "Vitest proves the 8-orientation transform table and that probe results from the first worker are cached and passed to later workers; HEIC decode failure maps to UNSUPPORTED_FORMAT where the probe says unsupported and DECODE_FAILED where it says supported",
+      "files_hint": [
+        "src/infra/image-decode/"
+      ],
+      "file": "docs/features/open-and-view/tasks/t06-decode-capability-probes.md"
+    },
+    {
+      "id": "T7",
+      "title": "Add the platform intake: window drop guard, files from a DataTransfer, and the single-file picker",
+      "layer": "infra",
+      "deps": [],
+      "acs": [
+        "AC-02",
+        "AC-04",
+        "AC-18"
+      ],
+      "dod": "Vitest (happy-dom) proves installDropGuard prevents the default on dragover and drop, filesFromDataTransfer returns only files in browser order with a non-file count, and pickImageFile resolves null on cancel",
+      "files_hint": [
+        "src/infra/platform/"
+      ],
+      "file": "docs/features/open-and-view/tasks/t07-platform-intake.md"
+    },
+    {
+      "id": "T8",
+      "title": "Build the WebGL2 preview renderer: mipmapped Original texture, View transform uniform, DPR sizing, draw-on-change",
+      "layer": "infra",
+      "deps": [
+        "T4"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-12"
+      ],
+      "dod": "Vitest proves viewToTransform maps Fit, 100%, zoom-at-point and pan correctly and the renderer schedules exactly one rAF per change and none when idle; setOriginal uploads the new texture before deleting the old one and marks imgly:first-frame",
+      "files_hint": [
+        "src/render/preview-renderer.ts",
+        "src/render/view-transform.ts"
+      ],
+      "file": "docs/features/open-and-view/tasks/t08-preview-renderer.md"
+    },
+    {
+      "id": "T9",
+      "title": "Handle WebGL context loss: restore from the kept bitmap within the deadline, else report DISPLAY_LOST",
+      "layer": "infra",
+      "deps": [
+        "T1",
+        "T8"
+      ],
+      "acs": [
+        "AC-19",
+        "AC-19b"
+      ],
+      "dod": "Vitest with fake timers proves the renderer goes restoring -> ready when restored within 5000 ms (re-uploading from the kept bitmap), restoring -> lost after the deadline or on rebuild failure, and ignores late restores",
+      "files_hint": [
+        "src/render/preview-renderer.ts"
+      ],
+      "file": "docs/features/open-and-view/tasks/t09-context-loss-restore.md"
+    },
+    {
+      "id": "T10",
+      "title": "Add the notice queue and the shared UI primitives Spinner, Toast, ToastStack, Dialog and CanvasMessage",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-11b"
+      ],
+      "dod": "Vitest proves the notice queue shows every notice of one open together, auto-dismisses info after 6000 ms and keeps failures until dismissed, and Dialog traps focus, cancels on Esc and returns focus; the five primitives are registered in docs/design-system.md",
+      "files_hint": [
+        "src/shared/notices/",
+        "src/shared/ui/",
+        "docs/design-system.md"
+      ],
+      "file": "docs/features/open-and-view/tasks/t10-notices-and-ui-primitives.md"
+    },
+    {
+      "id": "T11",
+      "title": "Implement the editor store's open and replace rule: latest-open-wins, confirm on Unsaved edits, cancel, and View actions",
+      "layer": "app",
+      "deps": [
+        "T4",
+        "T5"
+      ],
+      "acs": [
+        "AC-14",
+        "AC-15",
+        "AC-16",
+        "AC-16b"
+      ],
+      "dod": "Vitest with a fake decoder proves the store replaces without confirmation when there are no Unsaved edits, enters confirming when there are, cancel keeps Work/View and closes the pending bitmap, refusals change nothing, and only the latest open can replace",
+      "files_hint": [
+        "src/features/editor/store.ts"
+      ],
+      "file": "docs/features/open-and-view/tasks/t11-editor-store-open-replace.md"
+    },
+    {
+      "id": "T12",
+      "title": "Add drop sequencing, the messages catalog and the notices raised by each open",
+      "layer": "app",
+      "deps": [
+        "T3",
+        "T10",
+        "T11"
+      ],
+      "acs": [
+        "AC-03",
+        "AC-04",
+        "AC-05",
+        "AC-06",
+        "AC-07",
+        "AC-08",
+        "AC-09",
+        "AC-10",
+        "AC-11",
+        "AC-11b"
+      ],
+      "dod": "Vitest proves every AppError and info notice renders the exact catalog copy, drops are tried in browser order until one opens with a files-ignored notice, an all-failed drop shows the first image file's reason or the AC-04 notice, and notices are pushed only after a replace",
+      "files_hint": [
+        "src/features/editor/store.ts",
+        "src/features/editor/messages.ts"
+      ],
+      "file": "docs/features/open-and-view/tasks/t12-drop-sequencing-and-messages.md"
+    },
+    {
+      "id": "T13",
+      "title": "Build the editor shell and SCR-01: top bar, empty canvas with Open image, drop overlay, loading spinner and toast boundary",
+      "layer": "ui",
+      "deps": [
+        "T7",
+        "T10",
+        "T12"
+      ],
+      "acs": [
+        "AC-02",
+        "AC-04",
+        "AC-17"
+      ],
+      "dod": "Playwright e2e on three engines proves the empty editor shows one primary Open image action and the drop hint, a dropped non-image shows 'Only image files can be opened.' without navigation, and the drop overlay appears on drag-enter; component tests cover SCR-01 states",
+      "files_hint": [
+        "src/features/editor/EditorView.vue",
+        "src/features/editor/components/EditorTopBar.vue",
+        "src/features/editor/components/EmptyCanvas.vue",
+        "src/features/editor/components/DropOverlay.vue",
+        "src/app/"
+      ],
+      "file": "docs/features/open-and-view/tasks/t13-editor-shell-empty-canvas.md"
+    },
+    {
+      "id": "T14",
+      "title": "Build SCR-02's PreviewCanvas with the renderer, Fit on open, and the zoom and pan gestures",
+      "layer": "ui",
+      "deps": [
+        "T8",
+        "T11",
+        "T13"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-12",
+        "AC-12b",
+        "AC-13"
+      ],
+      "dod": "Playwright e2e proves an opened image appears at Fit (never above 100%), Ctrl/Cmd+wheel zooms toward the pointer without page zoom, wheel/Shift+wheel/drag pan and stop at the edge, resize re-fits only until a manual zoom, and Chromium shows 1 image px per device px at 100%",
+      "files_hint": [
+        "src/features/editor/components/PreviewCanvas.vue",
+        "src/features/editor/EditorView.vue"
+      ],
+      "file": "docs/features/open-and-view/tasks/t14-preview-canvas-gestures.md"
+    },
+    {
+      "id": "T15",
+      "title": "Build the status bar: Original dimensions readout, zoom controls with the live zoom level, and the zoom shortcuts",
+      "layer": "ui",
+      "deps": [
+        "T11",
+        "T13"
+      ],
+      "acs": [
+        "AC-05",
+        "AC-06",
+        "AC-12",
+        "AC-12b"
+      ],
+      "dod": "Playwright e2e and component tests prove the readout shows the Original's dimensions while the Work is open (4096 x 2731 px for 6000x4000), the zoom buttons and Shift+1/Shift+0/+/- step through fixed levels within [min(Fit,10%), 800%] with a live percentage, and Ctrl/Cmd +/-/0 are never intercepted",
+      "files_hint": [
+        "src/features/editor/components/EditorStatusBar.vue",
+        "src/features/editor/components/DimensionsReadout.vue",
+        "src/features/editor/components/ZoomBar.vue",
+        "src/features/editor/EditorView.vue"
+      ],
+      "file": "docs/features/open-and-view/tasks/t15-status-bar-zoom-controls.md"
+    },
+    {
+      "id": "T16",
+      "title": "Build SCR-03, the replace confirmation dialog, on the store's confirming phase",
+      "layer": "ui",
+      "deps": [
+        "T10",
+        "T11",
+        "T13"
+      ],
+      "acs": [
+        "AC-15"
+      ],
+      "dod": "Playwright e2e on three engines proves that opening an image over a Work with test-prepared Unsaved edits shows the SCR-03 dialog with focus on Cancel, Cancel/Esc keep the Work id, revision and View with no notices, and Replace shows the new image at Fit followed by its notices",
+      "files_hint": [
+        "src/features/editor/components/ReplaceDialog.vue",
+        "src/features/editor/EditorView.vue"
+      ],
+      "file": "docs/features/open-and-view/tasks/t16-replace-dialog.md"
+    },
+    {
+      "id": "T17",
+      "title": "Add the start-up capability gate and the blocking screens SCR-04, SCR-05 plus SCR-02's restoring state",
+      "layer": "ui",
+      "deps": [
+        "T7",
+        "T9",
+        "T10",
+        "T13"
+      ],
+      "acs": [
+        "AC-18",
+        "AC-19",
+        "AC-19b"
+      ],
+      "dod": "Playwright e2e proves a browser without WebGL2 shows the SCR-04 message with no Open image and a drop that opens nothing without navigation, a WEBGL_lose_context loss restored in time redraws at the same View, and an unrestored loss shows SCR-05 after 5000 ms",
+      "files_hint": [
+        "src/render/capabilities.ts",
+        "src/app/",
+        "src/features/editor/EditorView.vue",
+        "src/features/editor/store.ts"
+      ],
+      "file": "docs/features/open-and-view/tasks/t17-capability-gate-blocking-screens.md"
+    },
+    {
+      "id": "T18",
+      "title": "Precache the decode worker for offline opens, run e2e on three engines in CI, and record the widened rules",
+      "layer": "wiring",
+      "deps": [
+        "T5",
+        "T14"
+      ],
+      "acs": [
+        "AC-01"
+      ],
+      "dod": "CI runs the functional e2e suite on Chromium, Firefox and WebKit, and offline.spec.ts proves an image opens to a fitted Preview with the dimensions readout after going offline and reloading; ESLint forbids vue/pinia/features imports in src/infra; architecture-map records both decision overrides",
+      "files_hint": [
+        "vite.config.ts",
+        "playwright.config.ts",
+        ".github/workflows/ci.yml",
+        "eslint.config.js",
+        "docs/architecture-map.md",
+        "e2e/open-and-view/offline.spec.ts"
+      ],
+      "file": "docs/features/open-and-view/tasks/t18-offline-precache-and-ci.md"
+    },
+    {
+      "id": "T19",
+      "title": "Add the cross-engine reference-set e2e: honest outcome per file, 8 of 8 orientations, Work integrity on every refusal",
+      "layer": "tests",
+      "deps": [
+        "T6",
+        "T14",
+        "T15",
+        "T16",
+        "T17",
+        "T18"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-07",
+        "AC-08",
+        "AC-09",
+        "AC-11",
+        "AC-16"
+      ],
+      "dod": "Playwright on Chromium, Firefox and WebKit opens every reference fixture with and without a prepared Work and asserts a correct Preview or the exact catalog message, 8/8 upright orientations, TOO_LARGE for the bomb before decoding, and unchanged Work id/revision on every refusal",
+      "files_hint": [
+        "e2e/open-and-view/reference-set.spec.ts",
+        "e2e/fixtures/"
+      ],
+      "file": "docs/features/open-and-view/tasks/t19-e2e-reference-set.md"
+    },
+    {
+      "id": "T20",
+      "title": "Add the @perf suite: time to first Preview, long tasks, zoom/pan frame rate and memory after 10 opens",
+      "layer": "tests",
+      "deps": [
+        "T15",
+        "T18",
+        "T19"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-12",
+        "AC-13"
+      ],
+      "dod": "The @perf Playwright suite, run by hand on the reference machine, reports p95 time to first Preview for the 12 MP and 48 MP JPEG, the longest long task, zoom/pan fps and the memory ratio after 10 opens against the spec §6 targets, and the dev bitmap counter returns to one retained Original",
+      "files_hint": [
+        "e2e/open-and-view/perf.spec.ts",
+        "src/infra/image-decode/",
+        "src/features/editor/store.ts"
+      ],
+      "file": "docs/features/open-and-view/tasks/t20-perf-suite.md"
+    }
+  ]
+}
