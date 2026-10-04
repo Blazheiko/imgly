@@ -39,18 +39,21 @@ describe('checkOpenPolicy (AC-09)', () => {
       ok: false,
       error: {
         code: 'TOO_LARGE',
-        details: { width: 100_000_001, height: 1, megapixels: 100, ceilingMegapixels: 100 },
+        details: { width: 100_000_001, height: 1, megapixels: 100.1, ceilingMegapixels: 100 },
       },
     })
   })
 
-  it('rounds megapixels to one decimal', () => {
+  it('rounds megapixels up to one decimal, so a refused size never reads as the ceiling', () => {
     const result = checkOpenPolicy(header(50_000, 50_000))
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.error.details).toMatchObject({ megapixels: 2500 })
 
+    const justOver = checkOpenPolicy(header(10_001, 10_000))
+    if (!justOver.ok) expect(justOver.error.details).toMatchObject({ megapixels: 100.1 })
+
     const odd = checkOpenPolicy(header(12_345, 9_876))
-    if (!odd.ok) expect(odd.error.details).toMatchObject({ megapixels: 121.9 })
+    if (!odd.ok) expect(odd.error.details).toMatchObject({ megapixels: 122 })
   })
 })
 

@@ -36,6 +36,7 @@ describe('message catalog (screens.md §Message catalog)', () => {
   it.each([
     ['SVG', "SVG files can't be opened here. Convert it to JPEG or PNG."],
     ['PSD', "PSD files can't be opened here. Convert it to JPEG or PNG."],
+    ['Camera RAW', "Camera RAW files can't be opened here. Convert it to JPEG or PNG."],
     [
       'TIFF or camera RAW',
       "TIFF or camera RAW files can't be opened here. Convert it to JPEG or PNG.",

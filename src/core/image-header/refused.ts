@@ -9,7 +9,7 @@ const BMP_DIB_HEADER_SIZES = new Set([12, 40, 52, 56, 64, 108, 124])
  * `undefined` when the bytes match none of them.
  */
 export function detectRefusedFormat(b: Uint8Array): RefusedFormatName | undefined {
-  if (isCameraRaw(b)) return 'camera RAW'
+  if (isCameraRaw(b)) return 'Camera RAW'
   if (matches(b, 0, 'II*\0') || matches(b, 0, 'MM\0*')) return 'TIFF or camera RAW'
   if (matches(b, 0, 'II+\0') || matches(b, 0, 'MM\0+')) return 'TIFF or camera RAW' // BigTIFF
   if (matches(b, 0, '8BPS')) return 'PSD'

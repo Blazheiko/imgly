@@ -27,6 +27,7 @@ export function checkFileBytes(bytes: number): Result<number, AppError> {
   )
 }
 
+/** One decimal, rounded up: 100.01 MP reads 100.1 MP, never the ceiling's own 100 MP. */
 function toMegapixels(pixels: number): number {
-  return Math.round(pixels / 100_000) / 10
+  return Math.ceil(pixels / 100_000) / 10
 }

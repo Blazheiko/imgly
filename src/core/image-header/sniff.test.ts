@@ -188,11 +188,11 @@ describe('sniffImageHeader — refused formats (AC-07)', () => {
     ['TIFF little-endian', bytes('II', [42, 0], le32(8), new Uint8Array(8)), 'TIFF or camera RAW'],
     ['TIFF big-endian', bytes('MM', [0, 42], be32(8), new Uint8Array(8)), 'TIFF or camera RAW'],
     ['PSD', bytes('8BPS', [0, 1], new Uint8Array(20)), 'PSD'],
-    ['Canon CRW', bytes('II', [0x1a, 0, 0, 0], 'HEAPCCDR', new Uint8Array(8)), 'camera RAW'],
-    ['Canon CR3', bytes(be32(24), 'ftyp', 'crx ', be32(1), 'crx isom'), 'camera RAW'],
-    ['Fujifilm RAF', bytes('FUJIFILMCCD-RAW 0201', new Uint8Array(8)), 'camera RAW'],
-    ['Olympus ORF', bytes('IIRO', [8, 0, 0, 0], new Uint8Array(8)), 'camera RAW'],
-    ['Panasonic RW2', bytes('IIU', [0], [8, 0, 0, 0], new Uint8Array(8)), 'camera RAW'],
+    ['Canon CRW', bytes('II', [0x1a, 0, 0, 0], 'HEAPCCDR', new Uint8Array(8)), 'Camera RAW'],
+    ['Canon CR3', bytes(be32(24), 'ftyp', 'crx ', be32(1), 'crx isom'), 'Camera RAW'],
+    ['Fujifilm RAF', bytes('FUJIFILMCCD-RAW 0201', new Uint8Array(8)), 'Camera RAW'],
+    ['Olympus ORF', bytes('IIRO', [8, 0, 0, 0], new Uint8Array(8)), 'Camera RAW'],
+    ['Panasonic RW2', bytes('IIU', [0], [8, 0, 0, 0], new Uint8Array(8)), 'Camera RAW'],
   ]
 
   it.each(cases)('names %s', (_label, input, format) => {

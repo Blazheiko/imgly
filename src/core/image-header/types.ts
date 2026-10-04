@@ -20,4 +20,4 @@ export const HEADER_WINDOW_BYTES = 1024 * 1024
 
 /** Display names used in the UNSUPPORTED_FORMAT notice (AC-07). */
 export type RefusedFormatName =
-  'SVG' | 'BMP' | 'ICO' | 'TIFF or camera RAW' | 'camera RAW' | 'PSD' | 'HEIC'
+  'SVG' | 'BMP' | 'ICO' | 'TIFF or camera RAW' | 'Camera RAW' | 'PSD' | 'HEIC'

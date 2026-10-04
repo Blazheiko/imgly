@@ -308,10 +308,11 @@ browser error text is ever shown.
 | info | first frame only | AC-11 | Animated image: only the first frame was kept. |
 | info | other files ignored | AC-03 | The editor works with one image at a time. {n} other file(s) were ignored. (singular: "1 other file was ignored.") |
 | failure | no image files dropped | AC-04 | Only image files can be opened. |
-| failure | `UNSUPPORTED_FORMAT` | AC-07 | {FORMAT} files can't be opened here. Convert it to JPEG or PNG. (TIFF and TIFF-based camera RAW share one name: "TIFF or camera RAW", `sad.md` §11) |
+| failure | `UNSUPPORTED_FORMAT` | AC-07 | {FORMAT} files can't be opened here. Convert it to JPEG or PNG. (TIFF and TIFF-based camera RAW share one name: "TIFF or camera RAW", `sad.md` §11; any other RAW is "Camera RAW") |
 | failure | `UNSUPPORTED_FORMAT` (HEIC/HEIF) | AC-07 | HEIC files can't be opened in this browser. Convert it to JPEG or PNG, or use a browser that opens HEIC. |
 | failure | `NOT_AN_IMAGE` / `UNREADABLE` / `DECODE_FAILED` | AC-08 | This file couldn't be read as an image. |
-| failure | `TOO_LARGE` | AC-09 | This image is too large: {w}×{h} px ({mp} MP). The largest the editor opens is {ceiling} MP. |
+| failure | `TOO_LARGE` | AC-09 | This image is too large: {w}×{h} px ({mp} MP). The largest the editor opens is {ceiling} MP. ({mp} is rounded up to one decimal, so it never equals the ceiling) |
+| failure | `TOO_LARGE` (byte ceiling) | AC-09 | This file is too large: {mb} MB. The largest file the editor opens is {ceiling} MB. |
 | failure | `FILE_NOT_PERMITTED` | AC-10 | The app wasn't allowed to read this file. Make it available on this computer first, for example by downloading it from your cloud drive. |
 | blocking | `UNSUPPORTED_BROWSER` | AC-18 | SCR-04 copy |
 | blocking | `DISPLAY_LOST` | AC-19b | SCR-05 copy |
