@@ -12,10 +12,14 @@ export default defineConfig({
     baseURL: `http://localhost:${PORT}/imgly/`,
     trace: 'on-first-retry',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
+  ],
   webServer: {
-    // CI builds in its own step; locally build first so the preview is never stale.
-    command: `${process.env.CI ? '' : 'pnpm build && '}pnpm preview --port ${PORT} --strictPort`,
+    // Its own build with the e2e test hooks, kept out of dist/ so they never reach Pages.
+    command: `VITE_E2E_HOOKS=true pnpm exec vite build --outDir dist-e2e && pnpm exec vite preview --outDir dist-e2e --port ${PORT} --strictPort`,
     url: `http://localhost:${PORT}/imgly/`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
