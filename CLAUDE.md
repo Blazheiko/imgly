@@ -21,19 +21,22 @@ Before a commit, `pnpm lint && pnpm typecheck && pnpm test` must pass.
 
 The architecture is a functional core with feature folders ([ADR 0002](docs/adr/0002-organize-code-as-functional-core-with-feature-folders.md)).
 
-| Path                  | What lives there                                                             | May import                                                              |
-| --------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `src/core/`           | Pure TS domain: Work document, command stack, `Result` and error codes       | nothing outside `core`. No Vue, no Pinia, no DOM (ESLint enforces this) |
-| `src/render/`         | WebGL2 adjustments, Canvas 2D compositor, export encoder                     | `core`, `shared`                                                        |
-| `src/infra/db/`       | IndexedDB (`openDb`, migrations, repositories)                               | `core` (types), `shared`                                                |
-| `src/infra/platform/` | File open/save, clipboard, drag and drop, `launchQueue`                      | `core` (types), `shared`                                                |
-| `src/shared/`         | Design tokens, UI primitives (`src/shared/ui/`), `ids.ts`                    | `core` (types) only — never `features`, `infra`, `render`               |
-| `src/features/<f>/`   | One feature: components, a Pinia setup store `store.ts`, a public `index.ts` | `core`, `infra`, `render`, `shared`                                     |
-| `src/app/`            | App shell, Pinia install, service-worker registration                        | `features` (through `index.ts` only)                                    |
+| Path                      | What lives there                                                             | May import                                                              |
+| ------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `src/core/`               | Pure TS domain: Work document, command stack, `Result` and error codes       | nothing outside `core`. No Vue, no Pinia, no DOM (ESLint enforces this) |
+| `src/render/`             | WebGL2 adjustments, Canvas 2D compositor, export encoder                     | `core`, `shared`                                                        |
+| `src/infra/db/`           | IndexedDB (`openDb`, migrations, repositories)                               | `core` (types and pure functions), `shared`                             |
+| `src/infra/platform/`     | File open/save, clipboard, drag and drop, `launchQueue`                      | `core` (types and pure functions), `shared`                             |
+| `src/infra/image-decode/` | Decode worker and `decodeImage` client: header sniff, policy, decode, reduce | `core` (types and pure functions), `shared`                             |
+| `src/shared/`             | Design tokens, UI primitives (`src/shared/ui/`), `ids.ts`                    | `core` (types) only — never `features`, `infra`, `render`               |
+| `src/features/<f>/`       | One feature: components, a Pinia setup store `store.ts`, a public `index.ts` | `core`, `infra`, `render`, `shared`                                     |
+| `src/app/`                | App shell, Pinia install, service-worker registration                        | `features` (through `index.ts` only)                                    |
 
 Features never import each other. They coordinate through the `editor` store
 (`src/features/editor/store.ts`) or `core` commands, and there is no event bus. Import other modules
-only through their `index.ts`.
+only through their `index.ts`. `infra` may call pure, side-effect-free `core` functions (widened by
+open-and-view, `docs/features/open-and-view/sad.md` §1), never Vue, Pinia, a feature or the app
+shell; `src/infra/import-rules.test.ts` and ESLint enforce it.
 
 ## Conventions
 
@@ -48,7 +51,7 @@ only through their `index.ts`.
   `{ version, upgrade(db, tx) }`, and append them to `migrations` in `migrations/index.ts`. Never edit
   a released step. A "down" is a new forward step. Cover each step with a `fake-indexeddb/auto` test.
 - **Tests:** co-locate Vitest unit tests as `*.test.ts`. Component tests use `@vue/test-utils`
-  on happy-dom. e2e tests go in `e2e/*.spec.ts`, but only for what happy-dom can't do (WebGL, the
+  on happy-dom. e2e tests go in `e2e/<feature>/*.spec.ts` (fixtures in `e2e/fixtures/`), but only for what happy-dom can't do (WebGL, the
   service worker and offline reload, downloads).
 - **Styling:** plain CSS with `<style scoped>`. Every colour, spacing value and font comes from
   `var(--…)` in `src/shared/styles/tokens.css`. Don't add a UI kit or CSS framework. Reuse

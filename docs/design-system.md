@@ -39,7 +39,7 @@ reads better on a neutral dark surround). A light theme comes from `@media (pref
 in the same file.
 
 - **Colors:** `--color-*` (surface, surface-raised, canvas-surround, border, text, text-muted, accent + hover/active, on-accent, danger, focus-ring) — `src/shared/styles/tokens.css`
-- **Spacing / sizing:** a 4px-based scale `--space-1…--space-8`, plus `--radius-*`, `--panel-width` and `--toolbar-size` — `src/shared/styles/tokens.css`
+- **Spacing / sizing:** a 4px-based scale `--space-1…--space-8`, plus `--radius-*`, `--panel-width`, `--toolbar-size` and the primitive widths `--toast-max-width`, `--dialog-width`, `--canvas-message-max-width` — `src/shared/styles/tokens.css`
 - **Typography:** the system UI font stack. `--font-size-xs…lg`, `--font-weight-*` and `--font-mono` for numeric readouts such as slider values and pixel sizes — `src/shared/styles/tokens.css`
 
 ## Component inventory

@@ -16,7 +16,7 @@ withDefaults(defineProps<{ title: string; role?: 'status' | 'alert' }>(), { role
   flex-direction: column;
   align-items: center;
   gap: var(--space-3);
-  max-width: 520px;
+  max-width: var(--canvas-message-max-width);
   margin: auto;
   padding: var(--space-6);
   text-align: center;

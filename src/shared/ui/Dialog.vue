@@ -88,7 +88,7 @@ onBeforeUnmount(() => {
 
 .dialog__panel {
   position: relative;
-  width: min(440px, calc(100vw - 2 * var(--space-4)));
+  width: min(var(--dialog-width), calc(100vw - 2 * var(--space-4)));
   padding: var(--space-6);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);

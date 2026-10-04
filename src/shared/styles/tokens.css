@@ -32,6 +32,9 @@
   --control-height: 32px;
   --toolbar-size: 48px;
   --panel-width: 280px;
+  --toast-max-width: 420px;
+  --dialog-width: 440px;
+  --canvas-message-max-width: 520px;
 
   /* typography */
   --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;

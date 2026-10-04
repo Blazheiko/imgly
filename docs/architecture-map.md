@@ -76,6 +76,7 @@ for `src/infra/**`. Features do not import each other; cross-feature coordinatio
 | render | `src/render/` *(scaffold)* | infra (GPU) | used by `features/editor` | WebGL2 adjustment shader, Canvas 2D drawing compositor, export encoder |
 | infra/db | `src/infra/db/` *(scaffold)* | infra (persistence) | `src/infra/db/index.ts` *(scaffold)* | `openDb()` with versioned upgrade steps, `WorksRepository` (save, load, list recent, evict oldest) |
 | infra/platform | `src/infra/platform/` *(scaffold)* | infra (OS APIs) | used by features | File open and save, clipboard, drag and drop, `launchQueue` file handling with fallbacks |
+| infra/image-decode | `src/infra/image-decode/` | infra (worker) | used by `features/editor` | Decode worker (header window → `sniffImageHeader` → open policy → `createImageBitmap` → orient → stepwise reduction) and the `decodeImage` client with supersede and error mapping (open-and-view ADR-0001) |
 | shared | `src/shared/` *(scaffold)* | ui primitives, styles, utils | imported everywhere except `core` | Design tokens, base UI primitives, `ids.ts` (UUIDv7) |
 | features | `src/features/<feature>/` | ui (components) + store (Pinia) | mounted by `src/app/App.vue` | One folder per feature: `editor`, `crop`, `adjust`, `draw`, `export`, `gallery`, `os-integration`. The scaffold creates only `editor` as the baseline |
 

@@ -24,7 +24,7 @@ defineEmits<{ dismiss: [] }>()
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
-  max-width: 420px;
+  max-width: var(--toast-max-width);
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--color-border);
   border-left-width: 3px;
