@@ -125,7 +125,8 @@ onBeforeUnmount(() => {
     class="preview-canvas"
     :class="{
       'preview-canvas--pannable': pannable,
-      'preview-canvas--space-pan': props.spacePan,
+      // A fitted image can't pan, so Space keeps the default cursor there (screens.md SCR-02).
+      'preview-canvas--space-pan': props.spacePan && pannable,
       'preview-canvas--dragging': dragging,
     }"
     data-testid="preview-canvas"
@@ -145,13 +146,11 @@ onBeforeUnmount(() => {
   touch-action: none;
 }
 
-.preview-canvas--pannable,
-.preview-canvas--space-pan {
+.preview-canvas--pannable {
   cursor: grab;
 }
 
-.preview-canvas--pannable.preview-canvas--dragging,
-.preview-canvas--space-pan.preview-canvas--dragging {
+.preview-canvas--pannable.preview-canvas--dragging {
   cursor: grabbing;
 }
 </style>
