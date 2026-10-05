@@ -240,6 +240,234 @@ On confirm, the panel first applies any value still being typed (AC-17), then th
 - Write refused → `EXPORT_NOT_PERMITTED` (AC-14).
 - After AC-01b or AC-14 the chosen file is empty, because the dialog emptied or created it (§2). The app removes it where `FileSystemHandle.remove()` exists. Either way the notice says that a file with that name may now be empty or missing (AC-13).
 
+<!-- Flows below were added by `sequences` and use the generic participant vocabulary: <user> is the Editor or the Portfolio reviewer, <ui> is the editor view with the export action and panel (SCR-01 to SCR-05 of ux-flows.md), <service> is the feature logic (the export and editor stores with the core rules), <service> (render) is the export worker, <external-system> is the browser and operating system. Nothing in these flows is written to persistent storage: every "keeps" note is in-memory session state. -->
+
+### Session format check
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant UI as <ui>
+    participant S as <service>
+    participant R as <service> (render)
+    participant X as <external-system>
+
+    Note over UI,S: Precondition: the first image of this browser session has just opened
+    UI->>S: reports the first successful open
+    S->>R: starts the format check
+    Note over S: while it runs, JPEG and WebP are not selectable, PNG always is
+    R->>X: encodes a small semi-transparent sample as JPEG and as WebP
+    X-->>R: two encoded samples
+    R->>R: judges each sample by its content, not by its declared type
+    alt sample is in the asked format
+        R-->>S: format available
+    else sample is another format, or encoding failed
+        R-->>S: format not available
+    end
+    Note over S: keeps the result for the session (in memory, not persisted)
+    S-->>UI: unavailable formats show "not available in this browser"
+    Note over UI,S: Postcondition: the check never runs again this session, and an already open panel never changes its selected format by itself
+```
+
+The check starts when the session's first image opens (AC-12). Until it finishes, only PNG can be chosen, so a panel opened early is preset to PNG and stays on PNG. Each format is judged by what the browser actually produced: Safari returns PNG when asked for WebP, so WebP is marked unavailable. A failed or erroring check counts as "not available". The result is kept in memory for the rest of the session.
+
+### Open the export panel and set the choices
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant UI as <ui>
+    participant S as <service>
+
+    alt no image is open
+        U->>UI: chooses Export or presses Ctrl/Cmd+S
+        UI-->>U: Export stays unavailable, hint says to open an image first, the browser's Save page never opens
+    else an image is open
+        U->>UI: clicks Export, activates it from the keyboard, or presses Ctrl/Cmd+S
+        UI->>S: opens the panel for this Work
+        S->>S: picks the format: remembered for this Work, else the Source format if the check confirmed it, else PNG
+        S->>S: picks the quality: remembered this session, else 90, and the size: remembered for this Work, else full size
+        S->>S: cleans the Source name and adds "-edited" and the format's extension
+        S-->>UI: format, quality, size as width x height, suggested name
+        opt JPEG selected and the Work has transparent pixels
+            UI-->>U: one-line hint that transparent areas become white, PNG or WebP keep them
+        end
+        U->>UI: changes format, quality or size, then leaves the field or presses Enter in it
+        UI->>S: applies the value
+        alt quality outside 1 to 100, fractional, or not a number
+            S-->>UI: snaps to the nearest bound, rounds, or returns to the previous value
+        else size larger than the Work or too small for a 1 px short side
+            S-->>UI: snaps to full size or to the smallest valid long side
+        else valid value
+            S-->>UI: keeps it and shows the new width x height or extension
+        end
+        Note over S: remembers the choice at once, even if the export is cancelled (in memory, not persisted)
+        alt Escape or a click outside
+            UI->>S: applies a value still being typed, then closes the panel
+        else confirm button, Enter or Space on it, or Ctrl/Cmd+S
+            UI->>S: applies a value still being typed, then starts the export
+        end
+    end
+    Note over U,S: Postcondition: the file always gets the values the panel shows
+```
+
+With no image open, Export and Ctrl/Cmd+S only show the "open an image first" hint (AC-17). Otherwise the panel opens with the format remembered for this Work, or the Source format if the format check confirmed it, or PNG. The quality is the session's remembered value or 90, and the size is this Work's remembered size or full size (AC-19). The suggested name is the cleaned Source name plus `-edited` and the format's extension (AC-07). A JPEG choice on a Work with transparent pixels shows the white-background hint (AC-15). Each value is applied when the Editor leaves the field or presses Enter in it, with the snapping and rounding rules of AC-04, AC-05 and AC-06, and it is remembered at once. Closing or confirming first applies a value still being typed (AC-17, AC-19).
+
+### Export: cancel, refusals and failures
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant UI as <ui>
+    participant S as <service>
+    participant R as <service> (render)
+    participant X as <external-system>
+
+    Note over U,S: Precondition: the Editor confirmed in the panel and the exporting phase began
+    S->>R: copy of the Work at confirm, size, format, quality
+    R->>X: renders the whole Work at the chosen size and encodes it
+    Note over R,X: sRGB pixels only, no Exif, XMP, IPTC, text blocks or other colour profile (AC-16)
+    alt graphics interrupted, or the size cannot be produced
+        X-->>R: render or encode fails
+        R-->>S: export failed
+        S-->>UI: reason: export failed, try again or choose a smaller size
+    else content is not the chosen format or size
+        X-->>R: encoded file
+        R->>R: judges the file by its content
+        R-->>S: format mismatch
+        S->>S: marks the format unavailable for the session, selects PNG and remembers it for this Work
+        S-->>UI: reason why it was not saved, format shown as not available
+    else verified file
+        R-->>S: verified file
+        Note over S,X: a written or downloaded file continues as in Critical flow 1
+        opt browser has a Save as dialog
+            alt the activation window has lapsed
+                S-->>UI: "File ready — Save…", the verified file is kept
+                U->>UI: clicks Save (Escape or a click outside ends it as cancelled, below)
+            end
+            S->>X: opens Save as with the suggested name and only the chosen type
+            alt Editor cancels the dialog, or leaves the File-ready state
+                X-->>S: cancelled
+                S-->>UI: no message
+            else returned name has no matching extension
+                X-->>S: handle and name, the chosen file is now empty
+                S->>X: removes the empty file where the browser allows
+                S-->>UI: reason: save again with the matching extension, and a file with that name may now be empty or missing
+            else write refused by the system or the browser
+                X-->>S: not allowed
+                S->>X: removes the empty file where the browser allows
+                S-->>UI: reason: not allowed to save there, choose another folder, and a file with that name may now be empty or missing
+            end
+        end
+    end
+    S->>S: leaves the exporting phase without a save point
+    Note over U,S: Postcondition: Unsaved edits kept, the panel stays open with the same choices (a refused format replaced by PNG), retrying is one confirm
+```
+
+The export worker renders the whole Work and encodes it with no metadata (AC-16). If rendering fails because the graphics were interrupted or the size can't be produced, nothing is written and the reason suggests trying again or a smaller size (AC-13). If the file turns out not to be in the chosen format or size, it is not saved, that format becomes unavailable for the session, and the panel selects PNG (AC-12). Both failures happen before any dialog, so they never touch the disk (ADR-0001). In Chromium a lapsed activation window shows "File ready — Save…" (§1 Decision override). Cancelling the dialog, or leaving the File-ready state, ends with no message (AC-10). A wrong extension (AC-01b) or a refused write (AC-14) comes after the dialog has already emptied or created the file, so the app removes it where it can and the notice says the file may now be empty or missing (AC-13). In every case the Unsaved edits stay and the panel keeps its choices (AC-17).
+
+### While an export runs
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant UI as <ui>
+    participant S as <service>
+
+    Note over U,S: Precondition: the exporting phase began at confirm, the Work and its revision were snapshotted
+    S-->>UI: Open image, Export and the editing controls disabled, progress shown on Export and in the panel
+    alt Editor drops a file
+        U->>UI: drops a file on the window
+        UI->>S: asks to open it
+        S-->>UI: refused, not queued
+        UI-->>U: notice: wait for the export to finish
+    else Editor tries Open image, an edit, or a second export
+        U->>UI: activates a disabled control
+        UI-->>U: nothing happens, no notice
+    else Editor presses Ctrl/Cmd+S, Escape, or clicks outside the panel
+        U->>UI: key or click
+        UI-->>U: nothing happens, the panel stays open
+    else Editor zooms or pans
+        U->>UI: zooms or pans the Preview
+        UI->>S: updates the View
+        S-->>UI: Preview redrawn, the Work is unchanged
+    end
+    S->>S: export ends, the exporting phase is left
+    S-->>UI: controls enabled again
+    Note over U,S: Postcondition: the file holds the whole Work as it was at confirm, whatever the zoom and pan, and the View is exactly as the Editor left it
+```
+
+From confirm until the export ends, including while the "Save as…" dialog is open, "Open image", Export and the editing controls are disabled and show progress (AC-11). A dropped file is refused and a notice asks the Editor to wait; that is the only notice in this state. Ctrl/Cmd+S, Escape and a click outside do nothing (AC-17); the File-ready state is the one exception (§1 Decision override). Zoom and pan keep working. They change only the View, and the export ignores the View: the file is the whole Work as snapshotted at confirm, and the View is left as it was (AC-03).
+
+### Open another image after an export
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant UI as <ui>
+    participant S as <service>
+
+    Note over U,S: Precondition: an export of this Work has just ended
+    U->>UI: opens another image by Open image or by a drop
+    UI->>S: asks to replace the Work with the new image
+    alt the export completed and nothing was edited since
+        S->>S: the Work's revision equals its save point
+        S->>S: replaces the Work at once
+    else the export was cancelled, refused or failed, or the Work was edited after it
+        S-->>UI: replace confirmation
+        U->>UI: confirms or cancels
+        UI->>S: answer
+        Note over S: on cancel the Work stays as it was
+    end
+    S->>S: the new Work takes the new image's Source name and Source format
+    Note over S: export choices for the new Work start from its Source format and full size, quality stays from the session (in memory, not persisted)
+    Note over U,S: Postcondition: the next export is named after the new image, never the replaced one
+```
+
+A completed export set the save point, so if nothing was edited since, opening another image replaces the Work without asking (AC-09). After a cancelled, refused or failed export, or after a new edit, the Work still has Unsaved edits and the replace confirmation appears (AC-10). Whichever path replaced the Work, "Open image" or a drop, the new Work carries the new image's Source name and Source format, so the next export's name and default format come from it (AC-08, AC-19).
+
+### Coverage
+
+| User story | Flows |
+|---|---|
+| US-01 | Critical flow 1; Export: cancel, refusals and failures; While an export runs |
+| US-02 | Open the export panel and set the choices |
+| US-03 | Open the export panel and set the choices |
+| US-04 | Open the export panel and set the choices; Open another image after an export |
+| US-05 | Critical flow 1; While an export runs; Open another image after an export |
+| US-06 | Session format check; Export: cancel, refusals and failures |
+| US-07 | Export: cancel, refusals and failures (encode step note) |
+| US-08 | Open the export panel and set the choices |
+
+| AC | Shown by |
+|---|---|
+| AC-01 | Critical flow 1, Save as branch |
+| AC-01b | Export: cancel, refusals and failures, "no matching extension" branch |
+| AC-02 | Critical flow 1, "no Save as dialog" branch |
+| AC-03 | While an export runs, zoom and pan branch and postcondition |
+| AC-04 | Open the export panel, quality branch |
+| AC-05 | Open the export panel, size display and valid-value branch |
+| AC-06 | Open the export panel, size snap branch |
+| AC-07 | Open the export panel, suggested-name step |
+| AC-08 | Open another image after an export, Source name step |
+| AC-09 | Critical flow 1 (save point); Open another image after an export, first branch |
+| AC-10 | Export: cancel branch; Open another image after an export, second branch |
+| AC-11 | While an export runs |
+| AC-12 | Session format check; Export: format mismatch branch |
+| AC-13 | Export: render failure branch, and the empty-file handling after the dialog |
+| AC-14 | Export: write refused branch |
+| AC-15 | Open the export panel, transparency hint |
+| AC-16 | Export: note on the encode step. The guarantee is a property of the file's content, verified by a chunk and segment scan in tests (§8 Privacy) |
+| AC-17 | Open the export panel (entry, no-image hint, Enter, confirm, close); Export (panel stays open); While an export runs (keys ignored) |
+| AC-18 | Non-runtime: offline, the flows are identical, because the export worker script is precached (§7) and nothing uses the network |
+| AC-19 | Open the export panel (defaults and memory); Open another image after an export (new Work defaults) |
+
+**Flags for design** (not decided here): the "File ready — Save…" state is a panel state `screens` must draw, and ux-flows.md does not have it yet (§1 Decision override). "Nothing happens, no notice" when a disabled control is activated during an export is this view's reading of AC-11 ("only a drop shows this notice"). No flow writes to persistent storage, so `data-model` has nothing to index.
+
 ## 7. Deployment view
 
 export reuses the existing deployment unit: one static bundle built by `.github/workflows/ci.yml` and served by GitHub Pages under `/imgly/` (repo ADR 0001). There are no servers; each browser tab is its own runtime, with at most one export worker rendering an export, plus the session's short-lived format-check worker, which may still be running when a PNG export starts (AC-12 keeps PNG available meanwhile). The check encodes only a 2×2 sample, so it adds nothing measurable to the memory figures below. The one deployment change is a new build asset: Vite emits `export.worker.ts` as a separate hashed module script, and the Workbox precache must list it, as it does the decode worker, so export works with no network after the first load (spec §6 offline row, AC-18).
