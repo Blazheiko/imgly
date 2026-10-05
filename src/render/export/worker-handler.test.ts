@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { jpeg, png, webpLossy } from '@/core/image-header/test-fixtures'
 import { createFakeCanvas, createFakeGl, type FakeGl } from '../fake-gl'
-import { handleExport, type ExportEnv, type ExportRequest } from './worker-handler'
+import { handleCheck, handleExport, type ExportEnv, type ExportRequest } from './worker-handler'
 
 type FakeBitmap = ImageBitmap & { close: ReturnType<typeof vi.fn> }
 const bitmap = (width: number, height: number) =>
@@ -16,7 +16,13 @@ function setup(
   const fake = opts.gl === undefined ? createFakeGl() : opts.gl
   const canvases: { width: number; height: number; options?: unknown }[] = []
   const encodes: unknown[] = []
+  const samples: FakeBitmap[] = []
   const env: ExportEnv = {
+    createSample: () => {
+      const sample = bitmap(2, 2)
+      samples.push(sample)
+      return sample
+    },
     createCanvas: (width, height) => {
       const canvas = createFakeCanvas(fake?.gl ?? null)
       canvas.width = width
@@ -38,7 +44,7 @@ function setup(
       }) as unknown as OffscreenCanvas
     },
   }
-  return { fake, env, canvases, encodes }
+  return { fake, env, canvases, encodes, samples }
 }
 
 function defaultEncoded(width: number, height: number, type: string): Uint8Array {
@@ -217,5 +223,42 @@ describe('handleExport (export worker)', () => {
     const req = request()
     await handleExport(req, env)
     expect(req.bitmap.close).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('handleCheck (session format check, AC-12)', () => {
+  it('trial-encodes a 2×2 sample per lossy format through the export path', async () => {
+    const { env, canvases, encodes, samples } = setup()
+    expect(await handleCheck(env)).toEqual({ jpeg: true, webp: true })
+    expect(canvases.map(({ width, height }) => [width, height])).toEqual([
+      [2, 2],
+      [2, 2],
+    ])
+    expect(encodes).toEqual([
+      { type: 'image/jpeg', quality: 0.9 },
+      { type: 'image/webp', quality: 0.9 },
+    ])
+    expect(samples.map((s) => s.close.mock.calls.length)).toEqual([1, 1])
+  })
+
+  it('judges by content: WebP encoded as PNG is unavailable', async () => {
+    const { env } = setup({
+      encoded: (w, h, type) =>
+        type === 'image/webp' ? png({ width: w, height: h }) : defaultEncoded(w, h, type),
+    })
+    expect(await handleCheck(env)).toEqual({ jpeg: true, webp: false })
+  })
+
+  it('counts an encoder error as unavailable', async () => {
+    const { env } = setup({ encoded: () => 'reject' })
+    expect(await handleCheck(env)).toEqual({ jpeg: false, webp: false })
+  })
+
+  it('counts a sample that cannot be made as unavailable', async () => {
+    const { env } = setup()
+    env.createSample = () => {
+      throw new Error('no 2d canvas')
+    }
+    expect(await handleCheck(env)).toEqual({ jpeg: false, webp: false })
   })
 })

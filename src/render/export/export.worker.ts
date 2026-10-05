@@ -1,11 +1,21 @@
 /// <reference lib="webworker" />
-import { browserExportEnv, handleExport, type ExportRequest } from './worker-handler'
+import {
+  browserExportEnv,
+  handleCheck,
+  handleExport,
+  type ExportWorkerMessage,
+} from './worker-handler'
 
 const scope = self as unknown as DedicatedWorkerGlobalScope
 
-scope.onmessage = async (event: MessageEvent<ExportRequest>) => {
+scope.onmessage = async (event: MessageEvent<ExportWorkerMessage>) => {
+  const message = event.data
+  if (message.kind === 'check') {
+    scope.postMessage(await handleCheck(browserExportEnv))
+    return
+  }
   const started = performance.now()
-  const result = await handleExport(event.data, browserExportEnv)
+  const result = await handleExport(message.request, browserExportEnv)
   if (import.meta.env.DEV) {
     // Stage timing only — never a file name, pixels or metadata (sad.md §8 Privacy).
     console.debug(

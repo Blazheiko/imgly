@@ -10,7 +10,7 @@
 | T3 | [Carry Source name, Source format and the transparency fact on the Work from every open](t03-work-source-name-format-transparency.md) | domain | Blazheiko | M | T1 | done |
 | T4 | [Add the editor store's exclusive exporting phase, beginExport/finishExport and the save point](t04-editor-exporting-phase-and-save-point.md) | app | Blazheiko | M | T3 | done |
 | T5 | [Extract the shared shader module and build the export worker that renders, flattens, encodes and verifies one export](t05-shared-shaders-and-export-worker.md) | infra | Blazheiko | M | T1 | done |
-| T6 | [Add the once-per-session format check and the main-thread export client (worker spawn, transfer, terminate)](t06-format-check-and-export-client.md) | infra | Blazheiko | S | T5 | todo |
+| T6 | [Add the once-per-session format check and the main-thread export client (worker spawn, transfer, terminate)](t06-format-check-and-export-client.md) | infra | Blazheiko | S | T5 | done |
 | T7 | [Add the platform save path: Save as… dialog, verified write, empty-target removal and the download hand-off](t07-platform-save-file.md) | infra | Blazheiko | M | T1 | todo |
 | T8 | [Create the export store: panel state, defaults, session memory, format availability and the messages catalog](t08-export-store-panel-state-and-memory.md) | app | Blazheiko | M | T2, T3, T6 | todo |
 | T9 | [Orchestrate the export in the export store: snapshot, encode, Save as… or download, refusals, File ready, save point](t09-export-store-run-export.md) | app | Blazheiko | M | T4, T7, T8 | todo |

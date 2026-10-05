@@ -23,11 +23,29 @@ export interface ExportRequest {
 /** The browser APIs the export needs, injected so it runs under unit tests too. */
 export interface ExportEnv {
   createCanvas(width: number, height: number): OffscreenCanvas
+  /** A 2×2 semi-transparent bitmap for the session format check. */
+  createSample(): ImageBitmap
 }
 
 export const browserExportEnv: ExportEnv = {
   createCanvas: (width, height) => new OffscreenCanvas(width, height),
+  createSample: () => {
+    const canvas = new OffscreenCanvas(2, 2)
+    const ctx = canvas.getContext('2d')!
+    ctx.fillStyle = 'rgba(200, 40, 40, 0.5)'
+    ctx.fillRect(0, 0, 2, 2)
+    return canvas.transferToImageBitmap()
+  },
 }
+
+/** What the worker answers to the session format check; PNG is always offered. */
+export interface FormatCheck {
+  jpeg: boolean
+  webp: boolean
+}
+
+/** A message to the export worker: one export, or the session format check. */
+export type ExportWorkerMessage = { kind: 'export'; request: ExportRequest } | { kind: 'check' }
 
 /** Fills the canvas with the whole Work, upright: uv (0,0) → top-left in clip space (AC-03). */
 const FULL_QUAD = new Float32Array([2, 0, 0, 0, -2, 0, -1, 1, 1])
@@ -54,6 +72,26 @@ export async function handleExport(
   } finally {
     bitmap.close()
   }
+}
+
+/**
+ * Trial-encodes a 2×2 sample in JPEG and WebP through the very path an export takes, judged by
+ * content; any error counts as unavailable (AC-12).
+ */
+export async function handleCheck(env: ExportEnv): Promise<FormatCheck> {
+  const check = async (format: 'jpeg' | 'webp') => {
+    try {
+      const sample = env.createSample()
+      const result = await handleExport(
+        { bitmap: sample, width: 2, height: 2, format, quality: 90 },
+        env,
+      )
+      return result.ok
+    } catch {
+      return false
+    }
+  }
+  return { jpeg: await check('jpeg'), webp: await check('webp') }
 }
 
 /** Draws the Work into the canvas; false when there is no usable WebGL2 context. */

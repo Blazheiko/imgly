@@ -2,3 +2,4 @@
 export * from './preview-renderer'
 export * from './view-transform'
 export * from './capabilities'
+export * from './export'
