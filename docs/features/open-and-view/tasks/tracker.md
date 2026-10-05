@@ -44,5 +44,12 @@
 | T37 | Recognise an SVG that starts with a comment or a DOCTYPE and has no XML prolog (review F3) | domain | Blazheiko | S | — | done |
 | T38 | Add the Reload, low-clamp and fitted-no-pan e2e tests and mark the engine-limited test-plan rows (review F4) | tests | Blazheiko | S | — | done |
 | T39 | Show the grab cursor in Space pan mode only when the image is pannable (review F5) | ui | Blazheiko | S | — | done |
+| T40 | Detect an animated GIF whose second frame lies past the header window by walking block lengths over bounded further reads (review R1) | infra | Blazheiko | S | — | todo |
+| T41 | Check the upright orientation pixels on all three engines through a 2D-canvas readback hook (review R2) | tests | Blazheiko | S | — | todo |
+| T42 | Carry the AC-09 byte ceiling into the sad.md flow, the US-04 ux-flow and the test plan (review R3) | wiring | Blazheiko | S | — | todo |
+| T43 | Treat Canon CRW and Sigma X3F names as image files when judging a drop (review R4) | domain | Blazheiko | S | — | todo |
+| T44 | Point the stage-record, worker-count and ledger test-plan rows and QG-2 at the unit tests that prove them (review R5) | wiring | Blazheiko | S | — | todo |
+| T45 | Mark the reference machine, size ceiling and restore deadline notes as resolved (review R6) | wiring | Blazheiko | S | T42, T44 | todo |
+| T46 | Cite the SCR-02 screen state on the UI tasks T15, T25, T26 and T39 (review R7) | wiring | Blazheiko | S | — | todo |
 
-**Total:** 39 tasks (T21–T33 are the review-2026-10-04 follow-ups, T34–T39 the review-2026-10-04-2 follow-ups), ~26 person-days (S = ½ day, M/L = 1 day).
+**Total:** 46 tasks (T21–T33 are the review-2026-10-04 follow-ups, T34–T39 the review-2026-10-04-2 follow-ups, T40–T46 the review-2026-10-05 follow-ups), ~29.5 person-days (S = ½ day, M/L = 1 day).

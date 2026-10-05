@@ -783,6 +783,144 @@
       "review_findings": [
         "F5"
       ]
+    },
+    {
+      "id": "T40",
+      "title": "Detect an animated GIF whose second frame lies past the header window by walking block lengths over bounded further reads",
+      "layer": "infra",
+      "deps": [],
+      "acs": [
+        "AC-11"
+      ],
+      "dod": "When the in-window scan ends at the window edge with one frame, the worker walks further sub-block lengths over bounded file.slice reads (iteration cap, no allocation that scales with a declared size) and reports animated when a second image descriptor exists; sniff test aligned; a large animated GIF in the reference set shows the first-frame notice",
+      "files_hint": [
+        "src/core/image-header/gif.ts",
+        "src/infra/image-decode/",
+        "e2e/fixtures/",
+        "e2e/open-and-view/"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05.md",
+      "review_findings": [
+        "R1"
+      ]
+    },
+    {
+      "id": "T41",
+      "title": "Check the upright orientation pixels on all three engines through a 2D-canvas readback hook",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-01"
+      ],
+      "dod": "An e2e-only test hook draws the Original to a 2D canvas and returns corner pixels; the reference-set orientation tests assert the upright layout on Chromium, Firefox and WebKit; test-plan row 31 matches",
+      "files_hint": [
+        "src/app/test-hooks.ts",
+        "e2e/open-and-view/reference-set.spec.ts",
+        "docs/features/open-and-view/test-plan.md"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05.md",
+      "review_findings": [
+        "R2"
+      ]
+    },
+    {
+      "id": "T42",
+      "title": "Carry the AC-09 byte ceiling into the sad.md flow, the US-04 ux-flow and the test plan",
+      "layer": "wiring",
+      "deps": [],
+      "acs": [
+        "AC-09"
+      ],
+      "dod": "sad.md §6 flow 2 refuses a file above 500 MB before the header read and its coverage row says so; ux-flows US-04 has the byte decision; test-plan has unit and integration rows pointing at the existing tests",
+      "files_hint": [
+        "docs/features/open-and-view/sad.md",
+        "docs/features/open-and-view/ux-flows.md",
+        "docs/features/open-and-view/test-plan.md"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05.md",
+      "review_findings": [
+        "R3"
+      ]
+    },
+    {
+      "id": "T43",
+      "title": "Treat Canon CRW and Sigma X3F names as image files when judging a drop",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-10",
+        "AC-04"
+      ],
+      "dod": "IMAGE_EXTENSIONS includes crw and x3f; a drop.test case shows a locked .CRW with no MIME type gets the not-permitted reason",
+      "files_hint": [
+        "src/core/open/drop.ts",
+        "src/features/editor/drop.test.ts"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05.md",
+      "review_findings": [
+        "R4"
+      ]
+    },
+    {
+      "id": "T44",
+      "title": "Point the stage-record, worker-count and ledger test-plan rows and QG-2 at the unit tests that prove them",
+      "layer": "wiring",
+      "deps": [],
+      "acs": [
+        "AC-09",
+        "AC-16b",
+        "AC-05"
+      ],
+      "dod": "test-plan rows 43, 59 and 92 and sad.md QG-2 name the unit tests and the level change; no row promises a worker stage record",
+      "files_hint": [
+        "docs/features/open-and-view/test-plan.md",
+        "docs/features/open-and-view/sad.md"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05.md",
+      "review_findings": [
+        "R5"
+      ]
+    },
+    {
+      "id": "T45",
+      "title": "Mark the reference machine, size ceiling and restore deadline notes as resolved",
+      "layer": "wiring",
+      "deps": [
+        "T42",
+        "T44"
+      ],
+      "acs": [
+        "AC-09",
+        "AC-19",
+        "AC-19b"
+      ],
+      "dod": "sad.md:49,576,578 and ux-flows.md:201 point to spec §8, sad.md §8 and RESTORE_DEADLINE_MS instead of calling them open",
+      "files_hint": [
+        "docs/features/open-and-view/sad.md",
+        "docs/features/open-and-view/ux-flows.md"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05.md",
+      "review_findings": [
+        "R6"
+      ]
+    },
+    {
+      "id": "T46",
+      "title": "Cite the SCR-02 screen state on the UI tasks T15, T25, T26 and T39",
+      "layer": "wiring",
+      "deps": [],
+      "acs": [
+        "AC-12",
+        "AC-13"
+      ],
+      "dod": "Each of T15, T25, T26 and T39 names SCR-02 zoomed / panned in tasks.json",
+      "files_hint": [
+        "docs/features/open-and-view/tasks.json"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05.md",
+      "review_findings": [
+        "R7"
+      ]
     }
   ]
 }
