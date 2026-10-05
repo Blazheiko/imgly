@@ -19,6 +19,11 @@ export function infoOthersIgnored(count: number): string {
   return `The editor works with one image at a time. ${others}`
 }
 
+/** A file dropped while an export runs is refused, not queued (export AC-11). */
+export function infoExportInProgress(): string {
+  return 'Wait for the export to finish, then drop the image again.'
+}
+
 export function failureNoImageFiles(): string {
   return 'Only image files can be opened.'
 }

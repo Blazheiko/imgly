@@ -13,6 +13,8 @@ import {
   withEdit,
   zoomAt as zoomView,
   type AppError,
+  type ImageFormat,
+  type Original,
   type Point,
   type Result,
   type Size,
@@ -37,6 +39,7 @@ import {
   failureMessage,
   failureNoImageFiles,
   infoDownscaled,
+  infoExportInProgress,
   infoFirstFrame,
   infoOthersIgnored,
 } from './messages'
@@ -57,7 +60,16 @@ export type OpenOutcome =
   | { kind: 'superseded' }
   | { kind: 'ignored' }
 
-export type EditorPhase = 'idle' | 'reading' | 'confirming'
+export type EditorPhase = 'idle' | 'reading' | 'confirming' | 'exporting'
+
+/** The Work as it was at confirm; the export renders it and the save point is its revision. */
+export interface ExportSnapshot {
+  workId: string
+  revision: number
+  original: Original<ImageBitmap>
+  sourceName: string
+  sourceFormat: ImageFormat
+}
 
 /**
  * Whether the canvas area can show the Preview: `checking` until the start-up gate answers,
@@ -145,7 +157,7 @@ export const useEditorStore = defineStore('editor', () => {
   }
 
   async function openImage(file: Blob): Promise<OpenOutcome> {
-    if (phase.value === 'confirming') return { kind: 'ignored' }
+    if (phase.value === 'confirming' || phase.value === 'exporting') return { kind: 'ignored' }
     const id = ++latestOpenId
     phase.value = 'reading'
 
@@ -211,6 +223,10 @@ export const useEditorStore = defineStore('editor', () => {
    * made before the content was read counts only for such a file.
    */
   async function openDrop({ files }: { files: File[] }): Promise<OpenOutcome> {
+    if (phase.value === 'exporting') {
+      notices.pushAll([{ kind: 'info', text: infoExportInProgress() }])
+      return { kind: 'ignored' }
+    }
     if (files.length === 0) {
       notices.pushAll([{ kind: 'failure', text: failureNoImageFiles() }])
       return { kind: 'ignored' }
@@ -262,9 +278,41 @@ export const useEditorStore = defineStore('editor', () => {
     return { kind: 'replaced', image: facts }
   }
 
-  /** The edit entry point: every change to the Work goes through here and raises its revision. */
+  /**
+   * The edit entry point: every change to the Work goes through here and raises its revision.
+   * Refused while exporting, so the file is the Work as it was at confirm (export AC-11).
+   */
   function applyEdit() {
-    if (work.value) work.value = withEdit(work.value)
+    if (work.value && phase.value !== 'exporting') work.value = withEdit(work.value)
+  }
+
+  /**
+   * Enters the exclusive `exporting` phase and snapshots the Work, or returns null when no Work is
+   * open or the editor is busy (export AC-11).
+   */
+  function beginExport(): ExportSnapshot | null {
+    const current = work.value
+    if (!current || phase.value !== 'idle') return null
+    phase.value = 'exporting'
+    return {
+      workId: current.id,
+      revision: current.revision,
+      original: current.original,
+      sourceName: current.sourceName,
+      sourceFormat: current.sourceFormat,
+    }
+  }
+
+  /**
+   * Leaves `exporting`. Only a finished hand-off (`saved`) sets the save point, and only to the
+   * snapshot's revision, so a cancel, refusal or failure keeps Unsaved edits (export AC-09, AC-10).
+   */
+  function finishExport(snapshot: ExportSnapshot, saved: boolean) {
+    if (phase.value === 'exporting') phase.value = 'idle'
+    const current = work.value
+    if (saved && current && current.id === snapshot.workId) {
+      work.value = { ...current, cleanRevision: snapshot.revision }
+    }
   }
 
   function updateView(next: (view: View, ctx: ViewContext) => View) {
@@ -291,6 +339,8 @@ export const useEditorStore = defineStore('editor', () => {
     confirmReplace,
     cancelReplace,
     applyEdit,
+    beginExport,
+    finishExport,
     zoomAt: (factor: number, point: Point) => updateView((v, c) => zoomView(v, factor, point, c)),
     stepZoom: (direction: 1 | -1) => updateView((v, c) => stepView(v, direction, c)),
     panBy: (dx: number, dy: number) => updateView((v, c) => panView(v, dx, dy, c)),

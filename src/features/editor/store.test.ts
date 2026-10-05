@@ -3,6 +3,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { nextTick, watch } from 'vue'
 import { appError, err, ok, type AppError, type Result } from '@/core'
 import { SUPERSEDED, type DecodedImage, type DecodeOutcome } from '@/infra/image-decode'
+import { useNotices } from '@/shared'
 import { useEditorStore } from './store'
 
 type FakeBitmap = ImageBitmap & { close: ReturnType<typeof vi.fn> }
@@ -385,5 +386,162 @@ describe('editor store — Source name, Source format and transparency (export A
     await open(named('second.gif'), decoded(800, 600, { format: 'gif' }))
     editor.cancelReplace()
     expect(editor.work).toMatchObject({ sourceName: 'first', sourceFormat: 'jpeg' })
+  })
+})
+
+describe('editor store — exporting phase and save point (export AC-09, AC-10, AC-11)', () => {
+  let decoder: ReturnType<typeof fakeDecoder>
+  let editor: ReturnType<typeof useEditorStore>
+
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    decoder = fakeDecoder()
+    editor = useEditorStore()
+    editor.setDecoder(decoder.decode)
+    editor.setCanvasSize(1000, 800)
+  })
+
+  const named = (name: string) => new File([new Uint8Array([1])], name)
+
+  async function openWork(name = 'photo.jpg') {
+    const pending = editor.openImage(named(name))
+    decoder.answer(decoder.decode.mock.calls.length - 1, ok(decoded(800, 600)))
+    await pending
+  }
+
+  it('refuses to begin with no Work open', () => {
+    expect(editor.beginExport()).toBeNull()
+    expect(editor.phase).toBe('idle')
+  })
+
+  it('refuses to begin while reading, confirming or already exporting', async () => {
+    await openWork()
+    editor.applyEdit()
+
+    void editor.openImage(named('b.jpg'))
+    expect(editor.phase).toBe('reading')
+    expect(editor.beginExport()).toBeNull()
+    decoder.answer(decoder.decode.mock.calls.length - 1, ok(decoded(800, 600)))
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(editor.phase).toBe('confirming')
+    expect(editor.beginExport()).toBeNull()
+    editor.cancelReplace()
+
+    expect(editor.beginExport()).not.toBeNull()
+    expect(editor.beginExport()).toBeNull()
+    expect(editor.phase).toBe('exporting')
+  })
+
+  it('snapshots the Work at confirm', async () => {
+    await openWork('IMG_4021.jpg')
+    editor.applyEdit()
+    const work = editor.work!
+
+    expect(editor.beginExport()).toEqual({
+      workId: work.id,
+      revision: 1,
+      original: work.original,
+      sourceName: 'IMG_4021',
+      sourceFormat: 'jpeg',
+    })
+    expect(editor.phase).toBe('exporting')
+  })
+
+  it('a finished export clears Unsaved edits and a replace then needs no confirmation (AC-09)', async () => {
+    await openWork()
+    editor.applyEdit()
+    const snapshot = editor.beginExport()!
+
+    editor.finishExport(snapshot, true)
+    expect(editor.phase).toBe('idle')
+    expect(editor.hasUnsavedEdits).toBe(false)
+
+    const pending = editor.openImage(named('next.png'))
+    decoder.answer(decoder.decode.mock.calls.length - 1, ok(decoded(800, 600)))
+    expect((await pending).kind).toBe('replaced')
+  })
+
+  it('an edit after a finished export makes the Work unsaved again (AC-09)', async () => {
+    await openWork()
+    editor.applyEdit()
+    editor.finishExport(editor.beginExport()!, true)
+    editor.applyEdit()
+    expect(editor.hasUnsavedEdits).toBe(true)
+  })
+
+  it('a cancelled, refused or failed export keeps Unsaved edits (AC-10)', async () => {
+    await openWork()
+    editor.applyEdit()
+    editor.finishExport(editor.beginExport()!, false)
+
+    expect(editor.phase).toBe('idle')
+    expect(editor.hasUnsavedEdits).toBe(true)
+    const pending = editor.openImage(named('next.png'))
+    decoder.answer(decoder.decode.mock.calls.length - 1, ok(decoded(800, 600)))
+    expect((await pending).kind).toBe('confirming')
+  })
+
+  it('sets the save point to the snapshot revision, never the current one', async () => {
+    await openWork()
+    editor.applyEdit()
+    const snapshot = editor.beginExport()!
+    // A stray revision bump during the export (applyEdit refuses, so simulate a later Work).
+    editor.work = { ...editor.work!, revision: 5 }
+    editor.finishExport(snapshot, true)
+
+    expect(editor.work!.cleanRevision).toBe(1)
+    expect(editor.hasUnsavedEdits).toBe(true)
+  })
+
+  it('sets no save point when the snapshot belongs to another Work', async () => {
+    await openWork()
+    editor.applyEdit()
+    const snapshot = editor.beginExport()!
+    editor.finishExport({ ...snapshot, workId: 'someone-else' }, true)
+
+    expect(editor.phase).toBe('idle')
+    expect(editor.hasUnsavedEdits).toBe(true)
+  })
+
+  it('refuses opens and edits while exporting, without queuing them (AC-11)', async () => {
+    await openWork()
+    const before = editor.work!
+    const snapshot = editor.beginExport()!
+    const calls = decoder.decode.mock.calls.length
+
+    expect(await editor.openFile(named('other.png'))).toEqual({ kind: 'ignored' })
+    expect(await editor.openImage(named('other.png'))).toEqual({ kind: 'ignored' })
+    editor.applyEdit()
+    expect(decoder.decode.mock.calls.length).toBe(calls)
+    expect(editor.work).toBe(before)
+    expect(useNotices().items).toEqual([])
+
+    editor.finishExport(snapshot, false)
+    expect(decoder.decode.mock.calls.length).toBe(calls)
+    expect(editor.work!.revision).toBe(0)
+  })
+
+  it('refuses a drop while exporting with the one "wait" notice (AC-11)', async () => {
+    await openWork()
+    editor.beginExport()
+    const calls = decoder.decode.mock.calls.length
+
+    expect(await editor.openDrop({ files: [named('dropped.png')] })).toEqual({ kind: 'ignored' })
+    expect(decoder.decode.mock.calls.length).toBe(calls)
+    expect(useNotices().items.map((n) => [n.kind, n.text])).toEqual([
+      ['info', 'Wait for the export to finish, then drop the image again.'],
+    ])
+  })
+
+  it('keeps zoom and pan live while exporting (AC-11)', async () => {
+    await openWork()
+    editor.beginExport()
+    const view = editor.view
+
+    editor.stepZoom(1)
+    expect(editor.view.zoom).not.toBe(view.zoom)
+    editor.fit()
+    expect(editor.view).toEqual(view)
   })
 })
