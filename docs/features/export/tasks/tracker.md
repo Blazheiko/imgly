@@ -14,7 +14,7 @@
 | T7 | [Add the platform save path: Save as… dialog, verified write, empty-target removal and the download hand-off](t07-platform-save-file.md) | infra | Blazheiko | M | T1 | todo |
 | T8 | [Create the export store: panel state, defaults, session memory, format availability and the messages catalog](t08-export-store-panel-state-and-memory.md) | app | Blazheiko | M | T2, T3, T6 | todo |
 | T9 | [Orchestrate the export in the export store: snapshot, encode, Save as… or download, refusals, File ready, save point](t09-export-store-run-export.md) | app | Blazheiko | M | T4, T7, T8 | todo |
-| T10 | [Add the Popover and SegmentedControl shared primitives and register them in the design system](t10-popover-and-segmented-control.md) | ui | Blazheiko | S | — | todo |
+| T10 | [Add the Popover and SegmentedControl shared primitives and register them in the design system](t10-popover-and-segmented-control.md) | ui | Blazheiko | S | — | done |
 | T11 | [Add the NumberField and SliderField shared primitives (apply on blur and Enter, apply-now) and register them](t11-number-field-and-slider-field.md) | ui | Blazheiko | S | — | todo |
 | T12 | [Build the export panel (SCR-03) in every state on the export store and the new primitives](t12-export-panel.md) | ui | Blazheiko | M | T9, T10, T11 | todo |
 | T13 | [Mount the Export action in the editor top bar with its states, the Ctrl/Cmd+S shortcut and the exporting lock](t13-export-action-shortcut-and-mount.md) | wiring | Blazheiko | M | T12 | todo |

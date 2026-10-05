@@ -2,7 +2,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { defineComponent, h, nextTick } from 'vue'
-import { CanvasMessage, Dialog, Spinner, Toast, ToastStack } from './index'
+import {
+  CanvasMessage,
+  Dialog,
+  Popover,
+  SegmentedControl,
+  Spinner,
+  Toast,
+  ToastStack,
+} from './index'
+import type { SegmentedOption } from './SegmentedControl.vue'
 import { useNotices } from '../notices'
 
 describe('Spinner', () => {
@@ -154,5 +163,160 @@ describe('CanvasMessage', () => {
     expect(mount(CanvasMessage, { props: { title: 'Restoring…' } }).attributes('role')).toBe(
       'status',
     )
+  })
+})
+
+describe('Popover', () => {
+  function setup(props: { open: boolean; locked?: boolean }) {
+    const anchor = document.createElement('button')
+    anchor.textContent = 'Export'
+    document.body.appendChild(anchor)
+    const outside = document.createElement('div')
+    document.body.appendChild(outside)
+    const wrapper = mount(Popover, {
+      props: { ...props, anchor, label: 'Export' },
+      slots: { default: '<button class="first">PNG</button><button>JPEG</button>' },
+      attachTo: document.body,
+    })
+    return { wrapper, anchor, outside }
+  }
+
+  afterEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  it('renders nothing while closed and a non-modal panel when open', async () => {
+    const { wrapper } = setup({ open: false })
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+
+    await wrapper.setProps({ open: true })
+    const panel = wrapper.get('[role="dialog"]')
+    expect(panel.attributes('aria-modal')).toBe('false')
+    expect(panel.attributes('aria-label')).toBe('Export')
+    expect(document.querySelector('[data-testid="dialog-backdrop"]')).toBeNull()
+  })
+
+  it('moves focus into the panel on open and back to the anchor on close', async () => {
+    const { wrapper, anchor } = setup({ open: false })
+    anchor.focus()
+    await wrapper.setProps({ open: true })
+    await nextTick()
+    expect(document.activeElement?.className).toBe('first')
+
+    await wrapper.setProps({ open: false })
+    await nextTick()
+    expect(document.activeElement).toBe(anchor)
+  })
+
+  it('does not trap focus', async () => {
+    const { wrapper } = setup({ open: true })
+    await nextTick()
+    const event = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+    wrapper.get('[role="dialog"]').element.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(false)
+  })
+
+  it('emits close on Escape and on a pointerdown outside it and the anchor', async () => {
+    const { wrapper, anchor, outside } = setup({ open: true })
+    await nextTick()
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    expect(wrapper.emitted('close')).toHaveLength(1)
+
+    anchor.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+    wrapper.get('.first').element.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+    expect(wrapper.emitted('close')).toHaveLength(1)
+
+    outside.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+    expect(wrapper.emitted('close')).toHaveLength(2)
+  })
+
+  it('ignores Escape and outside clicks while locked', async () => {
+    const { wrapper, outside } = setup({ open: true, locked: true })
+    await nextTick()
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    outside.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+    expect(wrapper.emitted('close')).toBeUndefined()
+  })
+
+  it('stops listening once closed', async () => {
+    const { wrapper, outside } = setup({ open: true })
+    await wrapper.setProps({ open: false })
+    outside.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    expect(wrapper.emitted('close')).toBeUndefined()
+  })
+})
+
+describe('SegmentedControl', () => {
+  const options: SegmentedOption<string>[] = [
+    { value: 'png', label: 'PNG' },
+    { value: 'jpeg', label: 'JPEG' },
+    { value: 'webp', label: 'WebP', disabled: true, hint: "WebP isn't available in this browser." },
+  ]
+
+  function setup(modelValue = 'png', opts: SegmentedOption<string>[] = options) {
+    return mount(SegmentedControl, {
+      props: { modelValue, options: opts, label: 'Format' },
+      attachTo: document.body,
+    })
+  }
+
+  afterEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  it('is a labelled radiogroup with one checked radio', () => {
+    const wrapper = setup('jpeg')
+    const group = wrapper.get('[role="radiogroup"]')
+    expect(group.attributes('aria-label')).toBe('Format')
+    const radios = wrapper.findAll('[role="radio"]')
+    expect(radios.map((r) => r.attributes('aria-checked'))).toEqual(['false', 'true', 'false'])
+    expect(radios.map((r) => r.attributes('tabindex'))).toEqual(['-1', '0', '-1'])
+  })
+
+  it('selects an enabled option on click and never a disabled one', async () => {
+    const wrapper = setup('png')
+    await wrapper.findAll('[role="radio"]')[1]!.trigger('click')
+    expect(wrapper.emitted('update:modelValue')).toEqual([['jpeg']])
+
+    await wrapper.findAll('[role="radio"]')[2]!.trigger('click')
+    expect(wrapper.emitted('update:modelValue')).toEqual([['jpeg']])
+  })
+
+  it('moves with arrow keys, skipping disabled options and wrapping', async () => {
+    const wrapper = setup('png')
+    const radios = () => wrapper.findAll('[role="radio"]')
+    const press = async (index: number, key: string) => {
+      await radios()[index]!.trigger('keydown', { key })
+      const value = wrapper.emitted<[string]>('update:modelValue')!.at(-1)![0]
+      await wrapper.setProps({ modelValue: value })
+      return value
+    }
+
+    expect(await press(0, 'ArrowRight')).toBe('jpeg')
+    expect(await press(1, 'ArrowRight')).toBe('png')
+    expect(await press(0, 'ArrowLeft')).toBe('jpeg')
+    expect(document.activeElement).toBe(radios()[1]!.element)
+    expect(radios()[1]!.attributes('tabindex')).toBe('0')
+  })
+
+  it('stays on the only enabled option', async () => {
+    const wrapper = setup('png', [
+      { value: 'png', label: 'PNG' },
+      { value: 'jpeg', label: 'JPEG', disabled: true },
+      { value: 'webp', label: 'WebP', disabled: true },
+    ])
+    await wrapper.get('[role="radio"]').trigger('keydown', { key: 'ArrowDown' })
+    await wrapper.get('[role="radio"]').trigger('keydown', { key: 'ArrowUp' })
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+  })
+
+  it('marks disabled options and shows their hints under the group', () => {
+    const wrapper = setup('png')
+    const webp = wrapper.findAll('[role="radio"]')[2]!
+    expect(webp.attributes('aria-disabled')).toBe('true')
+    expect(wrapper.text()).toContain("WebP isn't available in this browser.")
   })
 })

@@ -56,6 +56,8 @@ or declare `NEW: <name>` with a reason why no existing primitive fits.
 | ToastStack | `src/shared/ui/ToastStack.vue:1` | empty / one / many stacked | The single bottom-right notice boundary, bound to `useNotices` in `src/shared/notices/`. Info dismisses itself after 6000 ms, failures stay (AC-11b) |
 | Dialog | `src/shared/ui/Dialog.vue:1` | open (backdrop, focus trapped) | `role="alertdialog"`, `title`, `initialFocus` selector, default + `actions` slots. `Esc` and backdrop click emit `cancel`; focus returns to the opener |
 | CanvasMessage | `src/shared/ui/CanvasMessage.vue:1` | `status` / `alert`; with or without action | Full-canvas message for blocking conditions (SCR-04, SCR-05): `title`, default slot body, optional `action` slot |
+| Popover | `src/shared/ui/Popover.vue:1` | closed / open / locked | Non-modal `role="dialog"` hung right-aligned under an `anchor`, width `--panel-width`, no backdrop. Focus moves in on open (`initialFocus` selector or first focusable), is not trapped, and returns to the anchor on close. `Esc` and a pointerdown outside the panel and anchor emit `close` unless `locked` (export, SCR-03) |
+| SegmentedControl | `src/shared/ui/SegmentedControl.vue:1` | selected / hover / focus-visible / disabled option; with hints | `role="radiogroup"` of `role="radio"` buttons with `v-model`, `options: { value, label, disabled?, hint? }[]` and `label`. Roving tabindex; arrow keys move and select, skipping disabled options and wrapping. Option hints render as one-line notes under the group (export format, size presets) |
 
 ## Interaction & writing conventions
 
