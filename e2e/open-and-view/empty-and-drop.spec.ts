@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { gotoReady, type DropPrevented } from './helpers'
+import { dropGeneratedImage, gotoReady, waitForWork, type DropPrevented } from './helpers'
 
 /** Dispatches a real drag-and-drop of in-memory files onto the page body. */
 async function dropFiles(
@@ -68,5 +68,35 @@ test.describe('SCR-01 — empty editor', () => {
     await gotoReady(page)
     await expect.poll(() => page.evaluate(() => typeof window.__imglyTest)).toBe('object')
     expect(await page.evaluate(() => window.__imglyTest!.work())).toBeNull()
+  })
+})
+
+test.describe('a drop over an open Work (AC-04)', () => {
+  test('a link dragged from another tab replaces nothing and never navigates', async ({ page }) => {
+    await gotoReady(page)
+    await dropGeneratedImage(page, { width: 400, height: 300 })
+    await waitForWork(page, 400, 300)
+    const before = await page.evaluate(() => window.__imglyTest!.work())
+    const url = page.url()
+
+    // A dragged link arrives as string items only (uri-list and plain text), never as a file.
+    const prevented = await page.evaluate(() => {
+      const dt = new DataTransfer()
+      dt.setData('text/uri-list', 'https://example.com/cat.jpg')
+      dt.setData('text/plain', 'https://example.com/cat.jpg')
+      const result: Record<string, boolean> = {}
+      for (const type of ['dragenter', 'dragover', 'drop']) {
+        const event = new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt })
+        document.body.dispatchEvent(event)
+        result[type] = event.defaultPrevented
+      }
+      return { dragover: result.dragover!, drop: result.drop! }
+    })
+
+    await expect(page.getByRole('alert')).toHaveText(/Only image files can be opened\./)
+    expect(prevented).toEqual({ dragover: true, drop: true })
+    expect(await page.evaluate(() => window.__imglyTest!.work())).toEqual(before)
+    expect(page.url()).toBe(url)
+    await expect(page.getByRole('alertdialog')).toHaveCount(0)
   })
 })
