@@ -19,8 +19,11 @@ const spacePan = ref(false)
 /** The Preview's screens (SCR-01/02) are up: not checking, not SCR-04 or SCR-05. */
 const live = computed(() => editor.display === 'ok' || editor.display === 'restoring')
 
-/** Opens are refused on the blocking screens and while the replace dialog waits for an answer. */
-const acceptsOpens = () => live.value && editor.phase !== 'confirming'
+/** View keys and drops are handled on the Preview's screens unless the replace dialog waits. */
+const interactive = () => live.value && editor.phase !== 'confirming'
+
+/** Opens are also refused while an export runs (export AC-11); zoom and pan stay live. */
+const acceptsOpens = () => interactive() && editor.phase !== 'exporting'
 
 const reloadButton = ref<InstanceType<typeof BaseButton>>()
 watch(
@@ -63,7 +66,7 @@ function onKeydown(event: KeyboardEvent) {
     return
   }
   if (mod || event.altKey || isTextField(event.target)) return
-  if (!editor.work || !acceptsOpens()) return
+  if (!editor.work || !interactive()) return
   if (event.code === 'Space') {
     event.preventDefault() // a focused button would otherwise fire on release (AC-13)
     spacePan.value = true
@@ -102,8 +105,9 @@ function endSpacePan() {
 const uninstallDropGuard = installDropGuard(window, {
   onDragEnter: () => (dragging.value = acceptsOpens()),
   onDragLeave: () => (dragging.value = false),
+  // During an export the store refuses the drop with its "wait" notice (export AC-11).
   onDrop: (dataTransfer) => {
-    if (acceptsOpens()) void editor.openDrop(filesFromDataTransfer(dataTransfer))
+    if (interactive()) void editor.openDrop(filesFromDataTransfer(dataTransfer))
   },
 })
 
@@ -130,7 +134,13 @@ onBeforeUnmount(() => {
     :class="{ 'editor-view--with-status-bar': live && editor.work }"
     data-testid="editor-view"
   >
-    <EditorTopBar :show-open="live && editor.work !== null" @open="openPicked" />
+    <EditorTopBar
+      :show-open="live && editor.work !== null"
+      :open-disabled="editor.phase === 'exporting'"
+      @open="openPicked"
+    >
+      <template v-if="live" #actions><slot name="top-bar-actions" /></template>
+    </EditorTopBar>
     <section class="editor-view__canvas" aria-label="Canvas">
       <CanvasMessage
         v-if="editor.display === 'unsupported'"

@@ -17,7 +17,7 @@
 | T10 | [Add the Popover and SegmentedControl shared primitives and register them in the design system](t10-popover-and-segmented-control.md) | ui | Blazheiko | S | — | done |
 | T11 | [Add the NumberField and SliderField shared primitives (apply on blur and Enter, apply-now) and register them](t11-number-field-and-slider-field.md) | ui | Blazheiko | S | — | done |
 | T12 | [Build the export panel (SCR-03) in every state on the export store and the new primitives](t12-export-panel.md) | ui | Blazheiko | M | T9, T10, T11 | done |
-| T13 | [Mount the Export action in the editor top bar with its states, the Ctrl/Cmd+S shortcut and the exporting lock](t13-export-action-shortcut-and-mount.md) | wiring | Blazheiko | M | T12 | todo |
+| T13 | [Mount the Export action in the editor top bar with its states, the Ctrl/Cmd+S shortcut and the exporting lock](t13-export-action-shortcut-and-mount.md) | wiring | Blazheiko | M | T12 | done |
 | T14 | [Precache the export worker and prove export works offline after the first load](t14-offline-export-precache.md) | wiring | Blazheiko | S | T15 | todo |
 | T15 | [Write the functional e2e suite: format honesty, fidelity, quality and size, naming, metadata, downloads and Save as…](t15-e2e-export-functional-suite.md) | tests | Blazheiko | M | T13 | todo |
 | T16 | [Write the @perf export suite: export time p95, longest freeze and memory after 10 exports](t16-perf-export-suite.md) | tests | Blazheiko | S | T15 | todo |
