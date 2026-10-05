@@ -78,42 +78,81 @@ Changelog: [`docs/features/open-and-view/_ship/changelog.md`](docs/features/open
 | df334ed | T32 | make never-navigates falsifiable, harden the fuzz suite, cover the renderer seam |
 | 20253cb | T33 | report Firefox's AbortError on a refused file read as not permitted |
 | a9385d5 | T33 | add the missing UI-level AC tests and defer the visual baselines |
+| 4f80429 | — | add the review-2026-10-04-2 follow-ups T34–T39 |
+| 309ccca | T34 | refuse a GIF with no image descriptor inside the header window as unreadable |
+| b1387d2 | T35 | count an early refusal as an image reason only for a file that looks like one |
+| cec08e5 | T36 | align the spec with the resolved ceilings and colour decision |
+| 8423ef2 | T37 | recognise an SVG that starts with a comment or an svg DOCTYPE |
+| 70fcf8c | T38 | cover Reload, the zoom limits and a fitted drag, and mark engine-limited rows |
+| 4caac10 | T39 | show the Space pan grab cursor only when the image can pan |
+| 776a8ce | — | add the open-and-view ship drafts and the next-steps note |
+| 14a5e30 | — | add the review-2026-10-05 follow-ups T40–T46 |
+| bdf62a4 | T40 | detect an animated GIF whose second frame lies past the header window |
+| 3415fb0 | T41 | check the upright orientation pixels on all three engines |
+| 15fd058 | T42 | carry the AC-09 byte ceiling into the flows and the test plan |
+| 7ed7b0d | T43 | treat Canon CRW and Sigma X3F names as image files when judging a drop |
+| 9d5e83e | T44 | point the stage-record, worker-count and ledger rows at the tests that prove them |
+| 99217d3 | T45 | mark the reference machine, ceiling and restore deadline notes as resolved |
+| 1f96a7b | T46 | cite SCR-02 on the UI tasks T15, T25, T26 and T39, and close T40–T46 |
+| 4308f39 | — | add the review-2026-10-05-2 follow-ups T47–T56 |
+| 2dba905 | T47 | test the CRW and X3F drop extensions each on their own |
+| f29d952 | T48 | check the first-frame Original pixels of an animated GIF on all three engines |
+| aa3e3e3 | T49 | cap the GIF late-frame walk at 64 MiB past the header window |
+| a8347f4 | T50 | show the 500 MB byte-ceiling refusal in the rendered toast |
+| e676cb2 | T51 | assert one retained Original at the end of the replace and over-Work e2e tests |
+| c2bcd71 | T52 | compare the Preview before a context loss with the Preview after restore |
+| b6f780f | T53 | drop a link over an open Work end to end |
+| b0dfffb | T54 | cite the screen states on T10 and SCR-02 success, error and drag-over on T13 |
+| ae9801a | T55 | show the GIF late-frame walk in the pipeline comment and sad.md flow 4 |
+| e6e37b8 | T56 | remove the unstyled Space pan class and its prop |
+
+Commits from T34 on carry no `SDD-Task` trailer. They are mapped to their tasks by title in `tasks.json`.
 
 ## Review
 
-[`_review/review-2026-10-04.md`](docs/features/open-and-view/_review/review-2026-10-04.md) ran four
-clean-context passes: AC-01–AC-11b, AC-12–AC-19b with ADR fidelity, quality and boundaries, and
-security (required by spec §6.1). Its verdict was **CHANGES REQUESTED**, with S1–S8 and Q1–Q10. Each
-finding is fixed in T21–T33 above. The only deferral is the visual-regression baselines (S8), owned
-by Blazheiko and due before roadmap step 4 `sdd:implement`. **No re-review of the changed surface has
-been recorded yet.** The review asks for one, so run it before merging.
+Four clean-context review rounds ran, and each returned **CHANGES REQUESTED**:
+
+| Record | Scope | Findings | Fixed in |
+|---|---|---|---|
+| [`review-2026-10-04.md`](docs/features/open-and-view/_review/review-2026-10-04.md) | whole feature: AC-01–AC-11b, AC-12–AC-19b with ADR fidelity, quality and boundaries, and security (spec §6.1) | S1–S8, Q1–Q10 | T21–T33 (S8 visual baselines deferred) |
+| [`review-2026-10-04-2.md`](docs/features/open-and-view/_review/review-2026-10-04-2.md) | changed surface | N1, F1–F5 | T34–T39 |
+| [`review-2026-10-05.md`](docs/features/open-and-view/_review/review-2026-10-05.md) | changed surface | R1–R8 | T40–T46; R8 (stale ship drafts) fixed by this PR body |
+| [`review-2026-10-05-2.md`](docs/features/open-and-view/_review/review-2026-10-05-2.md) | fix delta plus a whole-feature stage-1 trace | V1–V10 | T47–T56 |
+
+The last two rounds found no defect in production behaviour. Their findings were about test
+strength, traceability and docs, plus the GIF walk cap. **The final fix delta, `4308f39..b6f780f`
+(T47–T56), has not been re-reviewed.** Run `/sdd:review open-and-view` on that surface before
+merging if you want a recorded PASS.
 
 ## Verification
 
-Re-run on `a9385d5`, 2026-10-04:
+Re-run on `b6f780f`, 2026-10-05:
 
-- Unit (Vitest, happy-dom + fake-indexeddb): **405 / 405 passed**.
-- E2E (Playwright: Chromium, Firefox, WebKit, against `vite preview` of the hooks build): **230 passed, 10 skipped**. The skips are by design: the @perf suite without `PERF=1`, offline reload on Playwright WebKit, and the WebGL pixel and `WEBGL_lose_context` checks that run on Chromium only.
+- Unit (Vitest, happy-dom + fake-indexeddb): **428 / 428 passed**.
+- E2E (Playwright: Chromium, Firefox, WebKit, against `vite preview` of the hooks build): **251 passed, 10 skipped**, exit 0. The skips are by design: the @perf suite without `PERF=1`, offline reload on Playwright WebKit, and the `WEBGL_lose_context` / WebGL pixel checks that are Chromium-only.
 - Lint + typecheck: `pnpm lint` and `pnpm typecheck` are clean.
-- Performance: measured at `d6e1bc1` before the review fixes and **not re-run** (it needs `PERF=1 --headed`). Chromium on an Apple M1 Pro; the spec's reference machine is an M1 Air. Time to first Preview p95 was 49 ms for 12 MP (≤ 1500) and 157 ms for 48 MP (≤ 3000). The longest task was 63 / 89 ms (≤ 200). Zoom/pan ran at 119 fps (≥ 50). Memory after 10 opens was 109% of the first (≤ 110%; clean builds read 100–110%, so the margin is thin).
+- Performance: last measured at `d6e1bc1` and **not re-run** (it needs `PERF=1 --headed`). Time to first Preview p95 was 49 ms for 12 MP and 157 ms for 48 MP. The longest task was 89 ms or less, zoom/pan ran at 119 fps, and memory after 10 opens was 109% of the first (the limit is 110%). That ran on Chromium on an M1 Pro; the reference machine is an M1 Air.
 - Ran the feature: I drove the **production** build (`pnpm build` + `vite preview`; `window.__imglyTest` is undefined) in headless Chromium through the real UI:
   - AC-17: the empty app shows "Open image" and "or drop an image anywhere in this window".
-  - AC-01: picking `photo.jpg` through the file chooser shows `320 × 240 px` at `100%`, with no notice.
-  - AC-01 / S1: dropping `large-lossless.webp` (1,166,480 B, one chunk past the 1 MiB header window) opens at `720 × 540 px`.
-  - AC-08 / S7: dropping `text-named.png` (typed `image/png`) shows "This file couldn't be read as an image." The readout stays `720 × 540 px`.
-  - AC-09 / AC-16: dropping a PNG whose IHDR (with a valid CRC) declares 20000×20000 shows "This image is too large: 20000×20000 px (400 MP). The largest the editor opens is 100 MP." The open Work is unchanged at `320 × 240 px`.
-  - AC-05 / AC-11: dropping `big-animated.gif` (6000×4000) shows `4096 × 2731 px` with "Reduced to the 4096 px limit: 6000×4000 → 4096×2731." and "Animated image: only the first frame was kept."
-  - AC-12b / S6: pressing 100% and then resizing the window keeps `100%` (no re-fit), and Fit returns to `18%`.
-  - AC-12 / S3: Ctrl+wheel over the status bar is `defaultPrevented`, so the page doesn't zoom.
-  - AC-13 / S4: pressing and releasing Space with "Zoom in" focused leaves the zoom at `18%`, so the button isn't pressed.
+  - AC-01: picking `photo.jpg` through the real file chooser shows `320 × 240 px` at `100%` (never above 100%), with no notice.
+  - AC-07: dropping `drawing.svg` shows "SVG files can't be opened here. Convert it to JPEG or PNG." The Work stays at `320 × 240 px`.
+  - AC-08: dropping `text-named.png` (typed `image/png`) shows "This file couldn't be read as an image." The Work is unchanged.
+  - AC-09 / AC-16: dropping a well-formed PNG whose IHDR declares 20000×20000 shows "This image is too large: 20000×20000 px (400 MP). The largest the editor opens is 100 MP." The Work is unchanged.
+  - AC-05 / AC-11 / AC-11b: dropping `big-animated.gif` (6000×4000) shows `4096 × 2731 px` with two stacked notices: "Reduced to the 4096 px limit: 6000×4000 → 4096×2731." and "Animated image: only the first frame was kept."
+  - AC-03: dropping `notes.txt` + `photo.png` + `photo.webp` opens `photo.png` and says "The editor works with one image at a time. 2 other files were ignored."
+  - AC-04 (V7): dropping a link (`text/uri-list` only) over the open Work shows "Only image files can be opened." The Work is unchanged and the drop is `defaultPrevented`.
+  - AC-12: Zoom in goes from 100% to 150%, then 100% and Fit work. Ctrl+wheel over the Preview is `defaultPrevented` and zooms the View (128%), not the page.
   - AC-02: the URL stayed `/imgly/` throughout, with zero page errors.
-- Still manual (not done here): HEIC and Safari pinch in **real Safari** (`e2e/fixtures/README.md` ship checklist).
+  - Offline (QG-1b): after the service worker took control, I went offline, reloaded and dropped `photo.avif`. It opened at `320 × 240 px`.
+- Still manual (not done here): HEIC and Safari pinch in **real Safari** (`e2e/fixtures/README.md` ship checklist). AC-15 can't be exercised in production yet, since there are no edits until roadmap step 4. It is covered by e2e on a test-prepared Work.
 
 ## Operational notes
 
 - Migration: none. This feature keeps no data.
-- Feature flag / config: none. The decode worker joins the service-worker precache, so offline opens work after the first load.
-- Rollback: revert the merge and redeploy Pages.
-- Open spec questions shipped at their defaults: the size ceiling (100 MP) and sRGB conversion (spec §8). The new 500 MB byte ceiling (T23) is a constant in the open policy.
+- Feature flag / config: none. Test hooks are compiled only into `dist-e2e/`, and the production `dist/` was checked and contains none.
+- Service worker: the decode worker joins the precache, so offline opens work after the first load, and a deploy changes the precache manifest.
+- Rollback: revert the merge and redeploy Pages. No stored state needs undoing.
+- Limits: 100 MP pixel ceiling, 500 MB byte ceiling, 4096 px Downscale limit, sRGB on open (spec §8, now resolved). The GIF late-frame scan stops 64 MiB past the header window (`sad.md` §11).
+- Deferred: the visual-regression baselines (review S8), owner Blazheiko, due before roadmap step 4 `sdd:implement`.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)

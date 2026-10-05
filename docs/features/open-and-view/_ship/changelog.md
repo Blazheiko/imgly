@@ -45,12 +45,19 @@ wheel (or a Safari trackpad pinch) to zoom, and drag, Space + drag or the wheel 
 - Service worker: the decode worker is now in the precache, so a new deploy changes the precache
   manifest and clients pick it up on their next service-worker update.
 - Rollback: revert the merge and redeploy GitHub Pages. No stored state needs undoing.
-- Review: `_review/review-2026-10-04.md` requested changes, and all of them are fixed (T21–T33). A
-  re-review of the changed surface is still pending.
+- Review: four review rounds (`_review/review-2026-10-04.md`, `-04-2`, `-05`, `-05-2`), each
+  returning CHANGES REQUESTED, with every finding fixed in T21–T56. No defect in production
+  behaviour was found in the last two rounds. The final fix delta (T47–T56, `4308f39..b6f780f`) has
+  not been re-reviewed.
+- Limits: the size ceiling is 100 MP, with a separate 500 MB byte ceiling and no limit on side
+  length. Every Original is converted to sRGB. These were open in spec §8 and are now resolved.
+  The scan for a second GIF frame past the header window stops at 64 MiB, so a still-looking GIF
+  whose second frame lies beyond that opens without the animation notice (accepted in `sad.md` §11).
 - Known follow-ups: the visual-regression baselines are deferred (owner Blazheiko, due before
-  roadmap step 4). AC-15 is verified against a test-prepared Work with Unsaved edits, and roadmap
-  step 4 (crop and rotate) must re-verify it with real edits. The size ceiling (default 100 MP) and
-  the sRGB conversion are still open questions in spec §8, shipped at their defaults.
+  roadmap step 4 `sdd:implement`). AC-15 is verified against a test-prepared Work with Unsaved
+  edits, and roadmap step 4 (crop and rotate) must re-verify it with real edits. HEIC and Safari
+  pinch still need a manual check in real Safari (`e2e/fixtures/README.md`). Keeping metadata stays
+  open in spec §8 for the export feature.
 
 **Acceptance criteria delivered:** AC-01 – AC-19b (AC-01 … AC-11, AC-11b, AC-12, AC-12b, AC-13 …
 AC-16, AC-16b, AC-17, AC-18, AC-19, AC-19b): pick or drop to open at Fit and upright; multi-file
