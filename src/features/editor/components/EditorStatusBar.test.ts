@@ -18,6 +18,7 @@ async function openedEditor(width: number, height: number) {
       format: 'jpeg',
       animated: false,
       downscaled: false,
+      hasTransparency: false,
     }),
   )
   editor.setCanvasSize(1000, 1000)

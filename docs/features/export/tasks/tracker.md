@@ -7,7 +7,7 @@
 |---|---|---|---|---|---|---|
 | T1 | [Add the export error codes and the pure file-name rules (Source name, suggested name, extension match)](t01-core-file-name-and-error-codes.md) | domain | Blazheiko | S | — | done |
 | T2 | [Add the pure size, quality and default-format rules (presets, long side, half-up rounding, snapping)](t02-core-size-quality-default-format.md) | domain | Blazheiko | S | — | done |
-| T3 | [Carry Source name, Source format and the transparency fact on the Work from every open](t03-work-source-name-format-transparency.md) | domain | Blazheiko | M | T1 | todo |
+| T3 | [Carry Source name, Source format and the transparency fact on the Work from every open](t03-work-source-name-format-transparency.md) | domain | Blazheiko | M | T1 | done |
 | T4 | [Add the editor store's exclusive exporting phase, beginExport/finishExport and the save point](t04-editor-exporting-phase-and-save-point.md) | app | Blazheiko | M | T3 | todo |
 | T5 | [Extract the shared shader module and build the export worker that renders, flattens, encodes and verifies one export](t05-shared-shaders-and-export-worker.md) | infra | Blazheiko | M | T1 | todo |
 | T6 | [Add the once-per-session format check and the main-thread export client (worker spawn, transfer, terminate)](t06-format-check-and-export-client.md) | infra | Blazheiko | S | T5 | todo |

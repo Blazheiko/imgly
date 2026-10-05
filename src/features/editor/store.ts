@@ -8,6 +8,7 @@ import {
   panBy as panView,
   resizeView,
   setActualSize,
+  sourceNameOf,
   stepZoom as stepView,
   withEdit,
   zoomAt as zoomView,
@@ -103,6 +104,8 @@ export const useEditorStore = defineStore('editor', () => {
   const notices = useNotices()
   // Notices that belong to the image awaiting confirmation; raised only if it replaces (AC-15).
   let heldNotices: NoticeInput[] = []
+  // The file name of the image awaiting confirmation, for its Source name (export AC-08).
+  let pendingFileName = ''
 
   const hasUnsavedEdits = computed(() => (work.value ? workHasUnsavedEdits(work.value) : false))
 
@@ -154,13 +157,15 @@ export const useEditorStore = defineStore('editor', () => {
     phase.value = 'idle'
     if (!outcome.ok) return { kind: 'refused', error: outcome.error }
 
+    const fileName = file instanceof File ? file.name : ''
     if (work.value && workHasUnsavedEdits(work.value)) {
       heldNotices = []
       pending.value = outcome.value
+      pendingFileName = fileName
       phase.value = 'confirming'
       return { kind: 'confirming' }
     }
-    return replace(outcome.value)
+    return replace(outcome.value, fileName)
   }
 
   function confirmReplace(): OpenOutcome {
@@ -168,7 +173,7 @@ export const useEditorStore = defineStore('editor', () => {
     if (phase.value !== 'confirming' || !image) return { kind: 'ignored' }
     pending.value = null
     phase.value = 'idle'
-    const outcome = replace(image)
+    const outcome = replace(image, pendingFileName)
     raiseAfterReplace(outcome, heldNotices)
     heldNotices = []
     return outcome
@@ -234,11 +239,23 @@ export const useEditorStore = defineStore('editor', () => {
     return firstImageRefusal ? { kind: 'refused', error: firstImageRefusal } : { kind: 'ignored' }
   }
 
-  /** Swaps in the new Work at Fit in one step; the old Original is closed once it was picked up. */
-  function replace(image: DecodedImage): OpenOutcome {
+  /**
+   * Swaps in the new Work at Fit in one step, named after `fileName` (export AC-08); the old
+   * Original is closed once it was picked up.
+   */
+  function replace(image: DecodedImage, fileName: string): OpenOutcome {
     const old = work.value?.original.pixels
     const { bitmap, ...facts } = image
-    work.value = createWork({ width: image.width, height: image.height, pixels: bitmap }, newId())
+    work.value = createWork(
+      {
+        width: image.width,
+        height: image.height,
+        pixels: bitmap,
+        hasTransparency: image.hasTransparency,
+      },
+      newId(),
+      { sourceName: sourceNameOf(fileName), sourceFormat: image.format },
+    )
     const ctx = context()
     view.value = ctx ? fitView(ctx) : UNSIZED_VIEW
     if (old) void nextTick(() => closeBitmap(old))

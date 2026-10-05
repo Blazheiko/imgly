@@ -16,6 +16,7 @@ import {
   type Result,
   type Size,
 } from '@/core'
+import { hasTransparentPixel } from './alpha'
 import { errorName, mapReadError } from './errors'
 import { orientationTransform, type CanvasMatrix } from './orient'
 import type { Capabilities, DecodedImage } from './types'
@@ -24,11 +25,16 @@ import type { Capabilities, DecodedImage } from './types'
 export interface DecodeEnv {
   createImageBitmap(source: Blob, options: ImageBitmapOptions): Promise<ImageBitmap>
   createCanvas(width: number, height: number): OffscreenCanvas
+  /** Whether the bitmap has a pixel that is not fully opaque (export AC-15). */
+  hasTransparency(bitmap: ImageBitmap): boolean
 }
+
+const createCanvas = (width: number, height: number) => new OffscreenCanvas(width, height)
 
 export const browserEnv: DecodeEnv = {
   createImageBitmap: (source, options) => createImageBitmap(source, options),
-  createCanvas: (width, height) => new OffscreenCanvas(width, height),
+  createCanvas,
+  hasTransparency: (bitmap) => hasTransparentPixel(bitmap, createCanvas),
 }
 
 export const DECODE_OPTIONS: ImageBitmapOptions = {
@@ -103,6 +109,8 @@ export async function runDecode(
     format: header.format,
     animated,
     downscaled: target.downscaled,
+    // One pass over the final Original, off the main thread; JPEG has no alpha channel.
+    hasTransparency: header.format !== 'jpeg' && env.hasTransparency(reduced),
   })
 }
 

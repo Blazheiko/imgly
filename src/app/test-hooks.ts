@@ -4,7 +4,15 @@ import { bitmapLedger } from '@/shared'
 
 /** What e2e tests may read and prepare. Only installed in the Playwright build (VITE_E2E_HOOKS). */
 export interface ImglyTestHooks {
-  work(): { id: string; revision: number; width: number; height: number } | null
+  work(): {
+    id: string
+    revision: number
+    width: number
+    height: number
+    sourceName: string
+    sourceFormat: string
+    hasTransparency: boolean
+  } | null
   view(): { zoom: number; panX: number; panY: number; autoFit: boolean }
   /**
    * The Original's RGB at (x, y), drawn through a 2D canvas so it needs no WebGL and every engine
@@ -36,8 +44,16 @@ export function installTestHooks(pinia: Pinia): void {
     work: () => {
       const work = editor.work
       if (!work) return null
-      const { id, revision, original } = work
-      return { id, revision, width: original.width, height: original.height }
+      const { id, revision, original, sourceName, sourceFormat } = work
+      return {
+        id,
+        revision,
+        width: original.width,
+        height: original.height,
+        sourceName,
+        sourceFormat,
+        hasTransparency: original.hasTransparency,
+      }
     },
     view: () => ({ ...editor.view }),
     originalPixel: (x, y) => {

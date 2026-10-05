@@ -38,7 +38,7 @@ function pngBytes(width: number, height: number, animated = false): Uint8Array<A
 
 type FakeBitmap = { width: number; height: number; close: ReturnType<typeof vi.fn> }
 
-function fakeEnv(decodedSize?: { width: number; height: number }) {
+function fakeEnv(decodedSize?: { width: number; height: number }, transparent = false) {
   const bitmaps: FakeBitmap[] = []
   const draws: { width: number; height: number; quality: string }[] = []
   const transforms: (string | number)[][] = []
@@ -47,7 +47,12 @@ function fakeEnv(decodedSize?: { width: number; height: number }) {
     bitmaps.push(b)
     return b
   }
+  const scanned: unknown[] = []
   const env: DecodeEnv = {
+    hasTransparency: (bitmap) => {
+      scanned.push(bitmap)
+      return transparent
+    },
     createImageBitmap: vi.fn(async () => {
       if (!decodedSize) throw new DOMException('bad', 'InvalidStateError')
       return make(decodedSize.width, decodedSize.height) as unknown as ImageBitmap
@@ -68,7 +73,7 @@ function fakeEnv(decodedSize?: { width: number; height: number }) {
       } as unknown as OffscreenCanvas
     },
   }
-  return { env, bitmaps, draws, transforms }
+  return { env, bitmaps, draws, transforms, scanned }
 }
 
 describe('runDecode (worker pipeline)', () => {
@@ -287,6 +292,32 @@ describe('runDecode (worker pipeline)', () => {
       expect(read).toBeLessThanOrEqual(GIF_WALK_MAX_BYTES)
       expect(env.createImageBitmap).toHaveBeenCalledOnce()
     })
+  })
+
+  it('reports whether the final Original has a pixel that is not fully opaque (AC-15)', async () => {
+    const clear = fakeEnv({ width: 640, height: 480 }, true)
+    const result = await runDecode(new Blob([pngBytes(640, 480)]), clear.env, BROWSER_ORIENTS)
+    expect(result).toMatchObject({ ok: true, value: { hasTransparency: true } })
+    expect(clear.scanned).toEqual([result.ok && result.value.bitmap])
+
+    const solid = fakeEnv({ width: 640, height: 480 }, false)
+    const opaque = await runDecode(new Blob([pngBytes(640, 480)]), solid.env, BROWSER_ORIENTS)
+    expect(opaque).toMatchObject({ ok: true, value: { hasTransparency: false } })
+  })
+
+  it('never scans a JPEG, which has no alpha channel', async () => {
+    const { env, scanned } = fakeEnv({ width: 300, height: 200 }, true)
+    const result = await runDecode(new Blob([jpegBytes(300, 200, 1)]), env, BROWSER_ORIENTS)
+    expect(result).toMatchObject({ ok: true, value: { hasTransparency: false } })
+    expect(scanned).toEqual([])
+  })
+
+  it('scans the reduced Original, not the full decode', async () => {
+    const { env, scanned } = fakeEnv({ width: 8192, height: 4096 }, false)
+    const result = await runDecode(new Blob([pngBytes(8192, 4096)]), env, BROWSER_ORIENTS)
+    expect(scanned).toHaveLength(1)
+    expect(scanned[0]).toMatchObject({ width: 4096, height: 2048 })
+    expect(result.ok && result.value.bitmap).toBe(scanned[0])
   })
 
   it('refuses HEIC as UNSUPPORTED_FORMAT without decoding where the probe found no support (AC-07)', async () => {

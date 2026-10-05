@@ -19,6 +19,7 @@ function decoded(width: number, height: number, extra: Partial<DecodedImage> = {
     format: 'jpeg',
     animated: false,
     downscaled: false,
+    hasTransparency: false,
     ...extra,
   }
 }
@@ -303,5 +304,86 @@ describe('editor store — bitmap ledger (sad.md §8 resource lifetime)', () => 
     await nextTick()
 
     expect(bitmapLedger.received - bitmapLedger.closed).toBe(1)
+  })
+})
+
+describe('editor store — Source name, Source format and transparency (export AC-08, AC-15)', () => {
+  let decoder: ReturnType<typeof fakeDecoder>
+  let editor: ReturnType<typeof useEditorStore>
+
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    decoder = fakeDecoder()
+    editor = useEditorStore()
+    editor.setDecoder(decoder.decode)
+    editor.setCanvasSize(1000, 800)
+  })
+
+  const named = (name: string) => new File([new Uint8Array([1])], name)
+  const answerLast = (image: DecodedImage) =>
+    decoder.answer(decoder.decode.mock.calls.length - 1, ok(image))
+
+  async function open(blob: Blob, image = decoded(800, 600)) {
+    const pending = editor.openImage(blob)
+    answerLast(image)
+    return pending
+  }
+
+  it('takes the Source name from the file name and the Source format from the content', async () => {
+    await open(named('IMG_4021.HEIC'), decoded(800, 600, { format: 'heic' }))
+    expect(editor.work).toMatchObject({ sourceName: 'IMG_4021', sourceFormat: 'heic' })
+  })
+
+  it('keeps an unknown extension in the Source name', async () => {
+    await open(named('scan.v2'), decoded(800, 600, { format: 'png' }))
+    expect(editor.work!.sourceName).toBe('scan.v2')
+  })
+
+  it('gives a Blob with no name an empty Source name', async () => {
+    await open(file())
+    expect(editor.work!.sourceName).toBe('')
+  })
+
+  it('carries the transparency fact on the Original', async () => {
+    await open(named('a.png'), decoded(800, 600, { format: 'png', hasTransparency: true }))
+    expect(editor.work!.original.hasTransparency).toBe(true)
+
+    await open(named('b.jpg'), decoded(800, 600, { format: 'jpeg' }))
+    expect(editor.work!.original.hasTransparency).toBe(false)
+  })
+
+  it('a replace by "Open image" brings the new name and format (AC-08)', async () => {
+    await open(named('first.jpg'), decoded(800, 600, { format: 'jpeg' }))
+    await open(named('second.webp'), decoded(800, 600, { format: 'webp' }))
+    expect(editor.work).toMatchObject({ sourceName: 'second', sourceFormat: 'webp' })
+  })
+
+  it('a replace by a drop brings the new name and format (AC-08)', async () => {
+    await open(named('first.jpg'), decoded(800, 600, { format: 'jpeg' }))
+    const dropped = editor.openDrop({ files: [named('dropped.PNG')] })
+    await Promise.resolve()
+    answerLast(decoded(800, 600, { format: 'png' }))
+    await dropped
+    expect(editor.work).toMatchObject({ sourceName: 'dropped', sourceFormat: 'png' })
+  })
+
+  it('a confirmed replace over Unsaved edits brings the new name and format', async () => {
+    await open(named('first.jpg'))
+    editor.applyEdit()
+    expect((await open(named('second.gif'), decoded(800, 600, { format: 'gif' }))).kind).toBe(
+      'confirming',
+    )
+    expect(editor.work!.sourceName).toBe('first')
+
+    editor.confirmReplace()
+    expect(editor.work).toMatchObject({ sourceName: 'second', sourceFormat: 'gif' })
+  })
+
+  it('a cancelled replace keeps the old name and format', async () => {
+    await open(named('first.jpg'))
+    editor.applyEdit()
+    await open(named('second.gif'), decoded(800, 600, { format: 'gif' }))
+    editor.cancelReplace()
+    expect(editor.work).toMatchObject({ sourceName: 'first', sourceFormat: 'jpeg' })
   })
 })

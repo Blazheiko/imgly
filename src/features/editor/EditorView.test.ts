@@ -147,6 +147,7 @@ describe('EditorView — zoom shortcuts (SCR-02)', () => {
         format: 'png',
         animated: false,
         downscaled: false,
+        hasTransparency: false,
       },
     }))
     editor.setCanvasSize(1000, 1000)
@@ -258,6 +259,7 @@ describe('EditorView — SCR-03 replace dialog', () => {
         format: 'png',
         animated: false,
         downscaled: false,
+        hasTransparency: false,
       },
     }))
     editor.setCanvasSize(1000, 1000)
@@ -352,6 +354,7 @@ describe('EditorView — blocking screens', () => {
         format: 'png',
         animated: false,
         downscaled: false,
+        hasTransparency: false,
       }),
     )
     await editor.runCapabilityGate(async () => ok(undefined))
@@ -377,6 +380,7 @@ describe('EditorView — blocking screens', () => {
         format: 'png',
         animated: false,
         downscaled: false,
+        hasTransparency: false,
       }),
     )
     await editor.runCapabilityGate(async () => ok(undefined))

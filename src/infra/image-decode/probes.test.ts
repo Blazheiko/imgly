@@ -25,6 +25,7 @@ describe('runProbes', () => {
       createCanvas: () => {
         throw new Error('unused')
       },
+      hasTransparency: () => false,
       createImageBitmap: vi.fn(async (blob: Blob) => {
         const outcome = blob.type === 'image/jpeg' ? behaviour.jpeg : behaviour.heic
         if (outcome === 'throw') throw new DOMException('no', 'InvalidStateError')

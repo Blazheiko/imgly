@@ -15,6 +15,7 @@ const image = (width: number) => ({
   format: 'png' as const,
   animated: false,
   downscaled: false,
+  hasTransparency: false,
 })
 
 describe('ReplaceDialog (SCR-03, AC-15)', () => {

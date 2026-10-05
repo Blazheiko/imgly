@@ -11,6 +11,8 @@ export interface DecodedImage {
   format: ImageFormat
   animated: boolean
   downscaled: boolean
+  /** At least one pixel of the Original is not fully opaque (export AC-15). */
+  hasTransparency: boolean
 }
 
 /** A newer open replaced this one; not an error — the caller ignores it (AC-16b). */

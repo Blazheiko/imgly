@@ -5,7 +5,15 @@ export {}
 declare global {
   interface Window {
     __imglyTest?: {
-      work(): { id: string; revision: number; width: number; height: number } | null
+      work(): {
+        id: string
+        revision: number
+        width: number
+        height: number
+        sourceName: string
+        sourceFormat: string
+        hasTransparency: boolean
+      } | null
       view(): { zoom: number; panX: number; panY: number; autoFit: boolean }
       originalPixel(x: number, y: number): number[]
       applyEdit(): void
