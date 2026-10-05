@@ -7,6 +7,7 @@ declare global {
     __imglyTest?: {
       work(): { id: string; revision: number; width: number; height: number } | null
       view(): { zoom: number; panX: number; panY: number; autoFit: boolean }
+      originalPixel(x: number, y: number): number[]
       applyEdit(): void
       bitmaps(): { received: number; closed: number; retained: number }
       holdNextOpen(): void

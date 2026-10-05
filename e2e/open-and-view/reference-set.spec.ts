@@ -270,8 +270,20 @@ test.describe('EXIF orientation — 8 of 8 upright', () => {
       // Upright aspect on every engine: the reference is landscape 48×32.
       await waitForWork(page, 48, 32)
       await expect(page.getByTestId('dimensions-readout')).toHaveText('48 × 32 px')
+      const near = (rgb: number[], want: number[]) =>
+        rgb.every((c, i) => Math.abs(c - want[i]!) <= 40)
 
-      if (browserName !== 'chromium') return // WebGL pixel checks stay on Chromium only
+      // The Original's own pixels, read through a 2D canvas, so every engine checks the layout.
+      const original = await page.evaluate(() => {
+        const at = (x: number, y: number) => window.__imglyTest!.originalPixel(x, y)
+        return { tl: at(6, 4), tr: at(41, 4), bl: at(6, 27), br: at(41, 27) }
+      })
+      expect(near(original.tl, [255, 0, 0]), `Original top-left ${original.tl}`).toBe(true)
+      expect(near(original.tr, [0, 255, 0]), `Original top-right ${original.tr}`).toBe(true)
+      expect(near(original.bl, [0, 0, 255]), `Original bottom-left ${original.bl}`).toBe(true)
+      expect(near(original.br, [255, 255, 0]), `Original bottom-right ${original.br}`).toBe(true)
+
+      if (browserName !== 'chromium') return // WebGL pixel checks of the Preview stay on Chromium
       const area = await canvasArea(page)
       const v = await view(page)
       expect(v.zoom).toBe(1)
@@ -296,8 +308,6 @@ test.describe('EXIF orientation — 8 of 8 upright', () => {
           Array.from(ctx.getImageData(x, y, 1, 1).data.slice(0, 3))
         return { tl: at(6, 4), tr: at(41, 4), bl: at(6, 27), br: at(41, 27) }
       }, shot.toString('base64'))
-      const near = (rgb: number[], want: number[]) =>
-        rgb.every((c, i) => Math.abs(c - want[i]!) <= 40)
       expect(near(corners.tl, [255, 0, 0]), `top-left ${corners.tl}`).toBe(true)
       expect(near(corners.tr, [0, 255, 0]), `top-right ${corners.tr}`).toBe(true)
       expect(near(corners.bl, [0, 0, 255]), `bottom-left ${corners.bl}`).toBe(true)

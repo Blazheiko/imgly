@@ -6,6 +6,11 @@ import { bitmapLedger } from '@/shared'
 export interface ImglyTestHooks {
   work(): { id: string; revision: number; width: number; height: number } | null
   view(): { zoom: number; panX: number; panY: number; autoFit: boolean }
+  /**
+   * The Original's RGB at (x, y), drawn through a 2D canvas so it needs no WebGL and every engine
+   * can check the upright pixel layout (AC-01). An empty array when no Work is open.
+   */
+  originalPixel(x: number, y: number): number[]
   /** Prepares Unsaved edits until an editing tool exists (spec Decision override on AC-15). */
   applyEdit(): void
   /** Bitmaps received from the decode worker and closed by the app; retained should be 1. */
@@ -35,6 +40,13 @@ export function installTestHooks(pinia: Pinia): void {
       return { id, revision, width: original.width, height: original.height }
     },
     view: () => ({ ...editor.view }),
+    originalPixel: (x, y) => {
+      const pixels = editor.work?.original.pixels
+      if (!pixels) return []
+      const ctx = new OffscreenCanvas(pixels.width, pixels.height).getContext('2d')!
+      ctx.drawImage(pixels, 0, 0)
+      return Array.from(ctx.getImageData(x, y, 1, 1).data.slice(0, 3))
+    },
     applyEdit: () => editor.applyEdit(),
     bitmaps: () => ({
       received: bitmapLedger.received,
