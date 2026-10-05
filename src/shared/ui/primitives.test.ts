@@ -5,8 +5,10 @@ import { defineComponent, h, nextTick } from 'vue'
 import {
   CanvasMessage,
   Dialog,
+  NumberField,
   Popover,
   SegmentedControl,
+  SliderField,
   Spinner,
   Toast,
   ToastStack,
@@ -318,5 +320,162 @@ describe('SegmentedControl', () => {
     const webp = wrapper.findAll('[role="radio"]')[2]!
     expect(webp.attributes('aria-disabled')).toBe('true')
     expect(wrapper.text()).toContain("WebP isn't available in this browser.")
+  })
+})
+
+describe('NumberField', () => {
+  // Clamp to 1…100, round, revert on garbage — the shape of the export quality rule.
+  const normalize = vi.fn((raw: string, previous: number) => {
+    const value = Number(raw.trim())
+    if (raw.trim() === '' || Number.isNaN(value)) return previous
+    return Math.min(100, Math.max(1, Math.round(value)))
+  })
+
+  function setup(modelValue = 90) {
+    normalize.mockClear()
+    return mount(NumberField, {
+      props: { modelValue, label: 'Long side', unit: 'px', normalize },
+      attachTo: document.body,
+    })
+  }
+
+  afterEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  it('shows a labelled input with its value and unit', () => {
+    const wrapper = setup(4096)
+    const input = wrapper.get('input')
+    expect((input.element as HTMLInputElement).value).toBe('4096')
+    expect(wrapper.get('label').text()).toContain('Long side')
+    expect(wrapper.find(`label[for="${input.attributes('id')}"]`).exists()).toBe(true)
+    expect(wrapper.text()).toContain('px')
+  })
+
+  it('does not apply while typing, then normalizes once on blur', async () => {
+    const wrapper = setup(90)
+    const input = wrapper.get('input')
+    await input.setValue('150')
+    expect(normalize).not.toHaveBeenCalled()
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+
+    await input.trigger('blur')
+    expect(normalize).toHaveBeenCalledTimes(1)
+    expect(normalize).toHaveBeenCalledWith('150', 90)
+    expect(wrapper.emitted('update:modelValue')).toEqual([[100]])
+    expect((input.element as HTMLInputElement).value).toBe('100')
+  })
+
+  it('applies on Enter without submitting or bubbling', async () => {
+    const form = document.createElement('form')
+    const onSubmit = vi.fn((event: Event) => event.preventDefault())
+    const onKeydown = vi.fn()
+    form.addEventListener('submit', onSubmit)
+    form.addEventListener('keydown', onKeydown)
+    document.body.appendChild(form)
+    normalize.mockClear()
+    const wrapper = mount(NumberField, {
+      props: { modelValue: 90, label: 'Quality', normalize },
+      attachTo: form,
+    })
+    const input = wrapper.get('input')
+    await input.setValue('42.5')
+    const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+    input.element.dispatchEvent(event)
+    await nextTick()
+
+    expect(event.defaultPrevented).toBe(true)
+    expect(onKeydown).not.toHaveBeenCalled()
+    expect(onSubmit).not.toHaveBeenCalled()
+    expect(wrapper.emitted('update:modelValue')).toEqual([[43]])
+  })
+
+  it('reverts an empty or non-numeric value to the previous one', async () => {
+    const wrapper = setup(90)
+    const input = wrapper.get('input')
+    await input.setValue('abc')
+    await input.trigger('blur')
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+    expect((input.element as HTMLInputElement).value).toBe('90')
+  })
+
+  it('exposes apply(), which acts like a blur only when text is pending', async () => {
+    const wrapper = setup(90)
+    ;(wrapper.vm as unknown as { apply(): void }).apply()
+    expect(normalize).not.toHaveBeenCalled()
+
+    await wrapper.get('input').setValue('7')
+    ;(wrapper.vm as unknown as { apply(): void }).apply()
+    expect(wrapper.emitted('update:modelValue')).toEqual([[7]])
+  })
+
+  it('follows a new modelValue while nothing is being typed', async () => {
+    const wrapper = setup(90)
+    await wrapper.setProps({ modelValue: 50 })
+    expect((wrapper.get('input').element as HTMLInputElement).value).toBe('50')
+  })
+
+  it('can be disabled', () => {
+    const wrapper = mount(NumberField, {
+      props: { modelValue: 1, label: 'Quality', normalize, disabled: true },
+    })
+    expect(wrapper.get('input').attributes('disabled')).toBeDefined()
+  })
+})
+
+describe('SliderField', () => {
+  const normalize = (raw: string, previous: number) => {
+    const value = Number(raw)
+    return raw.trim() === '' || Number.isNaN(value)
+      ? previous
+      : Math.min(100, Math.max(1, Math.round(value)))
+  }
+
+  function setup(modelValue = 90) {
+    return mount(SliderField, {
+      props: { modelValue, label: 'Quality', min: 1, max: 100, normalize },
+      attachTo: document.body,
+    })
+  }
+
+  afterEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  it('pairs a labelled range with a number field on the same value', () => {
+    const wrapper = setup(90)
+    const range = wrapper.get('input[type="range"]')
+    expect(range.attributes('min')).toBe('1')
+    expect(range.attributes('max')).toBe('100')
+    expect(range.attributes('aria-label')).toBe('Quality')
+    expect((range.element as HTMLInputElement).value).toBe('90')
+    expect((wrapper.get('input:not([type="range"])').element as HTMLInputElement).value).toBe('90')
+  })
+
+  it('emits the dragged value and the number field shows it', async () => {
+    const wrapper = setup(90)
+    await wrapper.get('input[type="range"]').setValue('35')
+    expect(wrapper.emitted('update:modelValue')).toEqual([[35]])
+
+    await wrapper.setProps({ modelValue: 35 })
+    expect((wrapper.get('input:not([type="range"])').element as HTMLInputElement).value).toBe('35')
+  })
+
+  it('emits a typed value normalized and the range follows it', async () => {
+    const wrapper = setup(90)
+    const number = wrapper.get('input:not([type="range"])')
+    await number.setValue('500')
+    await number.trigger('blur')
+    expect(wrapper.emitted('update:modelValue')).toEqual([[100]])
+
+    await wrapper.setProps({ modelValue: 100 })
+    expect((wrapper.get('input[type="range"]').element as HTMLInputElement).value).toBe('100')
+  })
+
+  it('exposes apply() for a value still being typed', async () => {
+    const wrapper = setup(90)
+    await wrapper.get('input:not([type="range"])').setValue('12')
+    ;(wrapper.vm as unknown as { apply(): void }).apply()
+    expect(wrapper.emitted('update:modelValue')).toEqual([[12]])
   })
 })
