@@ -12,7 +12,7 @@
 | T5 | [Extract the shared shader module and build the export worker that renders, flattens, encodes and verifies one export](t05-shared-shaders-and-export-worker.md) | infra | Blazheiko | M | T1 | done |
 | T6 | [Add the once-per-session format check and the main-thread export client (worker spawn, transfer, terminate)](t06-format-check-and-export-client.md) | infra | Blazheiko | S | T5 | done |
 | T7 | [Add the platform save path: Save as… dialog, verified write, empty-target removal and the download hand-off](t07-platform-save-file.md) | infra | Blazheiko | M | T1 | done |
-| T8 | [Create the export store: panel state, defaults, session memory, format availability and the messages catalog](t08-export-store-panel-state-and-memory.md) | app | Blazheiko | M | T2, T3, T6 | todo |
+| T8 | [Create the export store: panel state, defaults, session memory, format availability and the messages catalog](t08-export-store-panel-state-and-memory.md) | app | Blazheiko | M | T2, T3, T6 | done |
 | T9 | [Orchestrate the export in the export store: snapshot, encode, Save as… or download, refusals, File ready, save point](t09-export-store-run-export.md) | app | Blazheiko | M | T4, T7, T8 | todo |
 | T10 | [Add the Popover and SegmentedControl shared primitives and register them in the design system](t10-popover-and-segmented-control.md) | ui | Blazheiko | S | — | done |
 | T11 | [Add the NumberField and SliderField shared primitives (apply on blur and Enter, apply-now) and register them](t11-number-field-and-slider-field.md) | ui | Blazheiko | S | — | done |
