@@ -11,6 +11,14 @@ async function loseContext(page: Page, restoreAfterMs?: number) {
   }, restoreAfterMs)
 }
 
+/** The Preview as drawn, after two frames so the latest draw has reached the screen. */
+async function previewShot(page: Page) {
+  await page.evaluate(
+    () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))),
+  )
+  return page.getByTestId('preview-canvas').screenshot({ animations: 'disabled' })
+}
+
 test.describe('SCR-04 — unsupported browser (AC-18)', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
@@ -69,12 +77,16 @@ test.describe('graphics interruptions (AC-19, AC-19b)', () => {
     const before = {
       view: await view(page),
       work: await page.evaluate(() => window.__imglyTest!.work()),
+      preview: await previewShot(page),
     }
     const level = await page.getByTestId('zoom-level').textContent()
 
     await loseContext(page, 1000)
     await expect(page.getByTestId('restoring')).toBeVisible()
     await expect(page.getByTestId('restoring')).toHaveCount(0, { timeout: 4000 })
+
+    // The texture rebuilt from the kept Original draws the same picture, not a blank one.
+    expect((await previewShot(page)).equals(before.preview), 'Preview after restore').toBe(true)
 
     expect(await view(page)).toEqual(before.view)
     expect(await page.evaluate(() => window.__imglyTest!.work())).toEqual(before.work)
