@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { nextTick } from 'vue'
-import { createWork, type ImageFormat } from '@/core'
+import { appError, createWork, err, ok, type AppError, type ImageFormat, type Result } from '@/core'
 import { useEditorStore } from '@/features/editor'
-import type { FormatAvailabilityCheck } from '@/render'
-import { useExportStore } from './store'
+import type { SaveFileHandle } from '@/infra/platform'
+import type { ExportRequest, FormatAvailabilityCheck } from '@/render'
+import { bitmapLedger, useNotices } from '@/shared'
+import { useExportStore, type SavePlatform } from './store'
 
 type Checker = () => Promise<FormatAvailabilityCheck>
 
@@ -328,5 +330,262 @@ describe('export store — derived panel values', () => {
     check.answer(ALL)
     await flush()
     expect(store.availability.jpeg).toBe(false)
+  })
+})
+
+describe('export store — running an export (AC-01, AC-01b, AC-02, AC-09–AC-14)', () => {
+  let editor: ReturnType<typeof useEditorStore>
+  let store: ReturnType<typeof useExportStore>
+  let exporter: ReturnType<
+    typeof vi.fn<(request: ExportRequest) => Promise<Result<Blob, AppError>>>
+  >
+  let platform: {
+    pickSaveTarget: ReturnType<typeof vi.fn<SavePlatform['pickSaveTarget']>>
+    writeFile: ReturnType<typeof vi.fn<SavePlatform['writeFile']>>
+    discardEmptyTarget: ReturnType<typeof vi.fn<SavePlatform['discardEmptyTarget']>>
+    downloadFile: ReturnType<typeof vi.fn<SavePlatform['downloadFile']>>
+  }
+  const blob = new Blob([new Uint8Array([1, 2, 3])], { type: 'image/jpeg' })
+  const handle = { name: 'x', createWritable: vi.fn() } as unknown as SaveFileHandle
+  const picked = (name: string) => ok({ kind: 'picked' as const, handle, name })
+  const texts = () => useNotices().items.map((n) => `${n.kind}: ${n.text}`)
+
+  beforeEach(async () => {
+    setActivePinia(createPinia())
+    editor = useEditorStore()
+    store = useExportStore()
+    store.setFormatChecker(async () => ALL)
+    store.setSaveDialogProbe(() => true)
+    exporter = vi.fn(async () => ok(blob))
+    platform = {
+      pickSaveTarget: vi.fn(async () => picked('IMG_4021-edited.jpg')),
+      writeFile: vi.fn(async () => ok(undefined)),
+      discardEmptyTarget: vi.fn(async () => true),
+      downloadFile: vi.fn(),
+    }
+    store.setExporter(exporter)
+    store.setBitmapCopier(async (source) => ({ ...source, close: vi.fn() }) as ImageBitmap)
+    store.setSavePlatform(platform)
+    openWork(editor, { sourceName: 'IMG_4021', sourceFormat: 'jpeg' })
+    await flush()
+    editor.applyEdit()
+    store.openPanel()
+  })
+
+  it('renders a copy of the Work at confirm with the panel values', async () => {
+    store.setQuality(70)
+    store.selectPreset(50)
+    await store.confirm()
+
+    expect(exporter).toHaveBeenCalledTimes(1)
+    const request = exporter.mock.calls[0]![0]
+    expect(request).toMatchObject({ width: 2048, height: 1536, format: 'jpeg', quality: 70 })
+    expect(request.bitmap).not.toBe(editor.work!.original.pixels)
+  })
+
+  it('applies a value still being typed before it exports (AC-17)', async () => {
+    store.registerFlush(() => store.setQuality(33))
+    await store.confirm()
+    expect(exporter.mock.calls[0]![0].quality).toBe(33)
+  })
+
+  it('saves through the dialog: written, saved, panel closed, file named (AC-01, AC-09)', async () => {
+    await store.confirm()
+
+    expect(platform.pickSaveTarget).toHaveBeenCalledWith('IMG_4021-edited.jpg', 'jpeg')
+    expect(platform.writeFile).toHaveBeenCalledWith(handle, blob)
+    expect(editor.hasUnsavedEdits).toBe(false)
+    expect(editor.phase).toBe('idle')
+    expect(store.status).toBe('idle')
+    expect(store.panelOpen).toBe(false)
+    expect(texts()).toEqual(['info: Saved IMG_4021-edited.jpg.'])
+  })
+
+  it('names the file the dialog returned when it differs (AC-01b)', async () => {
+    platform.pickSaveTarget.mockResolvedValueOnce(picked('holiday.JPEG'))
+    await store.confirm()
+    expect(texts()).toEqual(['info: Saved holiday.JPEG.'])
+    expect(editor.hasUnsavedEdits).toBe(false)
+  })
+
+  it('hands the file to the downloads where there is no dialog (AC-02, AC-09)', async () => {
+    store.setSaveDialogProbe(() => false)
+    await store.confirm()
+
+    expect(platform.pickSaveTarget).not.toHaveBeenCalled()
+    expect(platform.downloadFile).toHaveBeenCalledWith('IMG_4021-edited.jpg', blob)
+    expect(editor.hasUnsavedEdits).toBe(false)
+    expect(store.panelOpen).toBe(false)
+    expect(texts()).toEqual(["info: IMG_4021-edited.jpg is in your browser's downloads."])
+  })
+
+  it('is exporting from confirm until the end, and a second confirm does nothing (AC-11)', async () => {
+    let release!: () => void
+    exporter.mockImplementationOnce(
+      () => new Promise((resolve) => (release = () => resolve(ok(blob)))),
+    )
+    const first = store.confirm()
+    await flush()
+    expect(store.status).toBe('exporting')
+    expect(editor.phase).toBe('exporting')
+
+    await store.confirm()
+    store.closePanel()
+    expect(store.panelOpen).toBe(true)
+    expect(exporter).toHaveBeenCalledTimes(1)
+
+    release()
+    await first
+    expect(store.status).toBe('idle')
+  })
+
+  it('a cancelled dialog shows nothing and keeps Unsaved edits and choices (AC-10)', async () => {
+    store.selectPreset(25)
+    platform.pickSaveTarget.mockResolvedValueOnce(ok({ kind: 'cancelled' }))
+    await store.confirm()
+
+    expect(platform.writeFile).not.toHaveBeenCalled()
+    expect(editor.hasUnsavedEdits).toBe(true)
+    expect(editor.phase).toBe('idle')
+    expect(store.panelOpen).toBe(true)
+    expect(store.sizeChoice).toEqual({ kind: 'preset', percent: 25 })
+    expect(texts()).toEqual([])
+  })
+
+  it('EXPORT_FAILED: no dialog, nothing written, reason shown, Unsaved edits kept (AC-13)', async () => {
+    exporter.mockResolvedValueOnce(err(appError('EXPORT_FAILED')))
+    await store.confirm()
+
+    expect(platform.pickSaveTarget).not.toHaveBeenCalled()
+    expect(platform.writeFile).not.toHaveBeenCalled()
+    expect(platform.downloadFile).not.toHaveBeenCalled()
+    expect(editor.hasUnsavedEdits).toBe(true)
+    expect(store.panelOpen).toBe(true)
+    expect(store.status).toBe('idle')
+    expect(texts()).toEqual(['failure: The export failed. Try again, or choose a smaller size.'])
+  })
+
+  it('EXPORT_FAILED when the copy of the Original cannot be made', async () => {
+    store.setBitmapCopier(() => Promise.reject(new Error('oom')))
+    await store.confirm()
+    expect(exporter).not.toHaveBeenCalled()
+    expect(editor.phase).toBe('idle')
+    expect(texts()).toEqual(['failure: The export failed. Try again, or choose a smaller size.'])
+  })
+
+  it('EXPORT_FORMAT_MISMATCH: not saved, format off for the session, PNG selected (AC-12)', async () => {
+    store.selectFormat('webp')
+    exporter.mockResolvedValueOnce(
+      err(appError('EXPORT_FORMAT_MISMATCH', { asked: 'webp', produced: 'png' })),
+    )
+    await store.confirm()
+
+    expect(platform.pickSaveTarget).not.toHaveBeenCalled()
+    expect(platform.writeFile).not.toHaveBeenCalled()
+    expect(store.availability.webp).toBe(false)
+    expect(store.format).toBe('png')
+    expect(store.panelOpen).toBe(true)
+    expect(editor.hasUnsavedEdits).toBe(true)
+    expect(texts()).toEqual([
+      "failure: This browser didn't make a real WebP file, so nothing was saved. WebP is turned off for now; PNG is selected.",
+    ])
+  })
+
+  it.each(['photo', 'photo.png'])(
+    'EXPORT_EXTENSION_MISMATCH for %j: nothing written, emptied file removed, notice + suffix (AC-01b, AC-13)',
+    async (name) => {
+      platform.pickSaveTarget.mockResolvedValueOnce(picked(name))
+      await store.confirm()
+
+      expect(platform.writeFile).not.toHaveBeenCalled()
+      expect(platform.discardEmptyTarget).toHaveBeenCalledWith(handle)
+      expect(editor.hasUnsavedEdits).toBe(true)
+      expect(store.panelOpen).toBe(true)
+      expect(texts()).toEqual([
+        `failure: "${name}" doesn't end in .jpg, so nothing was written. Save again with a .jpg name. A file named "${name}" there may now be empty or missing.`,
+      ])
+    },
+  )
+
+  it('keeps the "may now be empty" suffix even when the file could not be removed', async () => {
+    platform.pickSaveTarget.mockResolvedValueOnce(picked('photo.png'))
+    platform.discardEmptyTarget.mockResolvedValueOnce(false)
+    await store.confirm()
+    expect(texts()[0]).toContain('A file named "photo.png" there may now be empty or missing.')
+  })
+
+  it('EXPORT_NOT_PERMITTED: target removed where possible, notice + suffix, Unsaved kept (AC-14)', async () => {
+    platform.writeFile.mockResolvedValueOnce(err(appError('EXPORT_NOT_PERMITTED')))
+    await store.confirm()
+
+    expect(platform.discardEmptyTarget).toHaveBeenCalledWith(handle)
+    expect(editor.hasUnsavedEdits).toBe(true)
+    expect(store.panelOpen).toBe(true)
+    expect(texts()).toEqual([
+      'failure: The app wasn\'t allowed to save there. Choose another folder. A file named "IMG_4021-edited.jpg" there may now be empty or missing.',
+    ])
+  })
+
+  it('File ready: a lapsed activation keeps the verified file until Save… (ADR-0001)', async () => {
+    platform.pickSaveTarget.mockResolvedValueOnce(ok({ kind: 'activationLapsed' }))
+    await store.confirm()
+
+    expect(store.status).toBe('fileReady')
+    expect(editor.phase).toBe('exporting')
+    expect(platform.writeFile).not.toHaveBeenCalled()
+    expect(texts()).toEqual([])
+
+    await store.saveFromReady()
+    expect(exporter).toHaveBeenCalledTimes(1)
+    expect(platform.pickSaveTarget).toHaveBeenCalledTimes(2)
+    expect(platform.writeFile).toHaveBeenCalledWith(handle, blob)
+    expect(editor.hasUnsavedEdits).toBe(false)
+    expect(store.status).toBe('idle')
+    expect(store.panelOpen).toBe(false)
+  })
+
+  it('File ready → cancel ends the export as cancelled, no message (AC-10)', async () => {
+    platform.pickSaveTarget.mockResolvedValueOnce(ok({ kind: 'activationLapsed' }))
+    await store.confirm()
+    store.cancelReady()
+
+    expect(store.status).toBe('idle')
+    expect(editor.phase).toBe('idle')
+    expect(editor.hasUnsavedEdits).toBe(true)
+    expect(store.panelOpen).toBe(true)
+    expect(texts()).toEqual([])
+  })
+
+  it('the save point is the revision at confirm (AC-09, AC-11)', async () => {
+    let release!: () => void
+    exporter.mockImplementationOnce(
+      () => new Promise((resolve) => (release = () => resolve(ok(blob)))),
+    )
+    const pending = store.confirm()
+    await flush()
+    editor.applyEdit() // refused while exporting
+    release()
+    await pending
+    expect(editor.work!.revision).toBe(1)
+    expect(editor.work!.cleanRevision).toBe(1)
+  })
+
+  it('does nothing with no Work open', async () => {
+    editor.work = null
+    await store.confirm()
+    expect(exporter).not.toHaveBeenCalled()
+  })
+
+  it('counts the copy in the bitmap ledger and closes it, so one Original stays retained', async () => {
+    const copies: { close: ReturnType<typeof vi.fn> }[] = []
+    store.setBitmapCopier(async () => {
+      const copy = { width: 1, height: 1, close: vi.fn() }
+      copies.push(copy)
+      return copy as unknown as ImageBitmap
+    })
+    const before = { ...bitmapLedger }
+    await store.confirm()
+    expect(copies[0]!.close).toHaveBeenCalled()
+    expect(bitmapLedger.received - before.received).toBe(bitmapLedger.closed - before.closed)
   })
 })

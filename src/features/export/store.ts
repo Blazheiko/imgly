@@ -1,31 +1,70 @@
 import { computed, ref, shallowRef, watch } from 'vue'
 import { defineStore } from 'pinia'
 import {
+  appError,
   DEFAULT_QUALITY,
   defaultFormat,
   exportFileName,
   exportSize,
   longSideFor,
+  matchesExtension,
   normalizeLongSide,
   normalizeQuality,
   SIZE_PRESETS,
+  type AppError,
   type ExportFormat,
   type FormatAvailability,
+  type Result,
   type Size,
   type SizeChoice,
 } from '@/core'
-import { useEditorStore } from '@/features/editor'
-import { hasSaveDialog } from '@/infra/platform'
-import { checkExportFormats, type FormatAvailabilityCheck } from '@/render'
+import { useEditorStore, type ExportSnapshot } from '@/features/editor'
 import {
+  discardEmptyTarget,
+  downloadFile,
+  hasSaveDialog,
+  pickSaveTarget,
+  writeFile,
+} from '@/infra/platform'
+import {
+  checkExportFormats,
+  exportImage,
+  type ExportRequest,
+  type FormatAvailabilityCheck,
+} from '@/render'
+import { bitmapLedger, closeBitmap, useNotices } from '@/shared'
+import {
+  failureMessage,
   hintChecking,
   hintTransparency,
   hintUnavailable,
+  infoDownloaded,
+  infoSaved,
   lineDownloads,
   lineSaveDialog,
 } from './messages'
 
 export type FormatChecker = () => Promise<FormatAvailabilityCheck>
+export type Exporter = (request: ExportRequest) => Promise<Result<Blob, AppError>>
+export type BitmapCopier = (source: ImageBitmap) => Promise<ImageBitmap>
+
+/** The platform save functions, injectable so tests can drive every branch. */
+export interface SavePlatform {
+  pickSaveTarget: typeof pickSaveTarget
+  writeFile: typeof writeFile
+  discardEmptyTarget: typeof discardEmptyTarget
+  downloadFile: typeof downloadFile
+}
+
+/** `fileReady`: the activation lapsed before "Save as…" could open; the verified file is kept. */
+export type ExportStatus = 'idle' | 'exporting' | 'fileReady'
+
+/** The choices frozen at confirm, so the file always has the values the panel showed (AC-17). */
+interface ExportJob {
+  snapshot: ExportSnapshot
+  format: ExportFormat
+  name: string
+}
 
 /** A lossy format is `checking` until the session's check answers; PNG is always available. */
 export type Availability = 'checking' | boolean
@@ -63,6 +102,13 @@ export const useExportStore = defineStore('export', () => {
   const choice = ref<WorkChoice | null>(null)
   const checker = shallowRef<FormatChecker>(checkExportFormats)
   const saveDialogProbe = shallowRef<() => boolean>(hasSaveDialog)
+  const status = ref<ExportStatus>('idle')
+  const notices = useNotices()
+  let exporter: Exporter = exportImage
+  let copyBitmap: BitmapCopier = (source) => createImageBitmap(source)
+  let platform: SavePlatform = { pickSaveTarget, writeFile, discardEmptyTarget, downloadFile }
+  // The verified file waiting for "Save…" in the File-ready state.
+  let ready: { job: ExportJob; blob: Blob } | null = null
   const disabled = new Set<LossyFormat>()
   const flushers = new Set<() => void>()
   let checkStarted = false
@@ -73,6 +119,18 @@ export const useExportStore = defineStore('export', () => {
 
   function setSaveDialogProbe(next: () => boolean) {
     saveDialogProbe.value = next
+  }
+
+  function setExporter(next: Exporter) {
+    exporter = next
+  }
+
+  function setBitmapCopier(next: BitmapCopier) {
+    copyBitmap = next
+  }
+
+  function setSavePlatform(next: Partial<SavePlatform>) {
+    platform = { ...platform, ...next }
   }
 
   /** The session's one format check, started by the first open; a mismatch outranks it. */
@@ -181,10 +239,128 @@ export const useExportStore = defineStore('export', () => {
     return true
   }
 
-  /** Applies values still being typed, then closes (Escape or a click outside, AC-19). */
+  /**
+   * Applies values still being typed, then closes (Escape or a click outside, AC-19). Refused while
+   * an export runs (AC-17); in File ready the panel calls `cancelReady()` instead.
+   */
   function closePanel() {
+    if (status.value !== 'idle') return
     flushPending()
     panelOpen.value = false
+  }
+
+  function fail(error: AppError, touchedFile?: string) {
+    notices.pushAll([{ kind: 'failure', text: failureMessage(error, { touchedFile }) }])
+  }
+
+  /** Ends the export; only a finished hand-off sets the save point (AC-09, AC-10). */
+  function finish(job: ExportJob, saved: boolean, info?: string) {
+    ready = null
+    status.value = 'idle'
+    editor.finishExport(job.snapshot, saved)
+    if (!saved) return
+    panelOpen.value = false
+    if (info) notices.pushAll([{ kind: 'info', text: info }])
+  }
+
+  /**
+   * Confirm: apply pending values, snapshot the Work, render + encode + verify a copy in the
+   * export worker, then save through "Save as…" or hand off to the downloads (sad.md §6 flow 1).
+   * Every render or format failure ends before the disk is touched (ADR-0001).
+   */
+  async function confirm(): Promise<void> {
+    if (status.value !== 'idle') return
+    flushPending()
+    const snapshot = editor.beginExport()
+    if (!snapshot) return
+    status.value = 'exporting'
+    const job: ExportJob = { snapshot, format: format.value, name: suggestedName.value }
+    const { width, height } = dimensions.value
+    const lossyQuality = quality.value
+
+    let copy: ImageBitmap
+    try {
+      copy = await copyBitmap(snapshot.original.pixels)
+    } catch {
+      fail(appError('EXPORT_FAILED'))
+      finish(job, false)
+      return
+    }
+    bitmapLedger.noteReceived()
+    const result = await exporter({
+      bitmap: copy,
+      width,
+      height,
+      format: job.format,
+      quality: lossyQuality,
+    })
+    closeBitmap(copy) // already transferred and closed in the worker; this records it
+    if (!result.ok) {
+      if (result.error.code === 'EXPORT_FORMAT_MISMATCH') disableFormat(job.format)
+      fail(result.error)
+      finish(job, false)
+      return
+    }
+
+    if (!saveDialogProbe.value()) {
+      platform.downloadFile(job.name, result.value)
+      finish(job, true, infoDownloaded(job.name))
+      return
+    }
+    await saveThroughDialog(job, result.value)
+  }
+
+  async function saveThroughDialog(job: ExportJob, blob: Blob): Promise<void> {
+    status.value = 'exporting'
+    const target = await platform.pickSaveTarget(job.name, job.format)
+    if (!target.ok) {
+      fail(target.error)
+      finish(job, false)
+      return
+    }
+    const outcome = target.value
+    if (outcome.kind === 'cancelled') {
+      finish(job, false)
+      return
+    }
+    if (outcome.kind === 'activationLapsed') {
+      ready = { job, blob }
+      status.value = 'fileReady'
+      return
+    }
+    // The dialog has already emptied or created the file: every refusal from here removes it
+    // where it can and says it may now be empty or missing (AC-13).
+    if (!matchesExtension(outcome.name, job.format)) {
+      await platform.discardEmptyTarget(outcome.handle)
+      fail(
+        appError('EXPORT_EXTENSION_MISMATCH', { name: outcome.name, format: job.format }),
+        outcome.name,
+      )
+      finish(job, false)
+      return
+    }
+    const written = await platform.writeFile(outcome.handle, blob)
+    if (!written.ok) {
+      await platform.discardEmptyTarget(outcome.handle)
+      fail(written.error, outcome.name)
+      finish(job, false)
+      return
+    }
+    finish(job, true, infoSaved(outcome.name))
+  }
+
+  /** "Save…" in File ready: opens the dialog again for the kept, verified file. */
+  async function saveFromReady(): Promise<void> {
+    if (status.value !== 'fileReady' || !ready) return
+    const { job, blob } = ready
+    ready = null
+    await saveThroughDialog(job, blob)
+  }
+
+  /** Leaving File ready (Escape or a click outside) ends the export as cancelled (AC-10). */
+  function cancelReady() {
+    if (status.value !== 'fileReady' || !ready) return
+    finish(ready.job, false)
   }
 
   function selectFormat(next: ExportFormat) {
@@ -226,6 +402,7 @@ export const useExportStore = defineStore('export', () => {
 
   return {
     panelOpen,
+    status,
     availability,
     quality,
     format,
@@ -240,6 +417,9 @@ export const useExportStore = defineStore('export', () => {
     formatHints,
     setFormatChecker,
     setSaveDialogProbe,
+    setExporter,
+    setBitmapCopier,
+    setSavePlatform,
     openPanel,
     closePanel,
     selectFormat,
@@ -249,5 +429,8 @@ export const useExportStore = defineStore('export', () => {
     disableFormat,
     registerFlush,
     flushPending,
+    confirm,
+    saveFromReady,
+    cancelReady,
   }
 })
