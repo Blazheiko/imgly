@@ -162,9 +162,10 @@ describe('sniffImageHeader — GIF', () => {
     expect(header(gif({ width: 300, height: 200, frames: 3 })).animated).toBe(true)
   })
 
-  it('is not animated when the second descriptor lies beyond the window', () => {
+  it('leaves a second descriptor beyond the window to the worker’s continued walk', () => {
     const one = gif({ width: 8, height: 8, frames: 2 })
     // Cut right after the first frame's terminator, before the second frame's extension block.
+    // The header sees one frame; runDecode resumes the walk past the window (AC-11, T40).
     const cut = one.subarray(0, one.length - 25)
     expect(header(cut).animated).toBe(false)
   })

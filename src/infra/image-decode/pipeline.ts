@@ -2,11 +2,13 @@ import {
   appError,
   checkFileBytes,
   checkOpenPolicy,
+  continueGifWalk,
   err,
   HEADER_WINDOW_BYTES,
   ok,
   reductionSteps,
   sniffImageHeader,
+  startGifWalk,
   targetSize,
   type AppError,
   type ExifOrientation,
@@ -62,6 +64,8 @@ export async function runDecode(
   if (header.format === 'heic' && !capabilities.decodesHeic) {
     return err(appError('UNSUPPORTED_FORMAT', { format: 'HEIC' }))
   }
+  const animated =
+    header.animated || (header.format === 'gif' && (await hasLateGifFrame(file, window)))
 
   let decoded: ImageBitmap
   try {
@@ -96,9 +100,31 @@ export async function runDecode(
     width: reduced.width,
     height: reduced.height,
     format: header.format,
-    animated: header.animated,
+    animated,
     downscaled: target.downscaled,
   })
+}
+
+/**
+ * Whether a GIF whose header window held only one frame has a second one further on (AC-11). Walks
+ * block lengths over header-window-sized slices, never decoding, so memory stays bounded however
+ * large the first frame is (feature ADR 0002). A read that fails leaves the decode to report it.
+ */
+async function hasLateGifFrame(file: Blob, window: Uint8Array): Promise<boolean> {
+  let walk = startGifWalk(window)
+  while (!walk.done && walk.offset < file.size) {
+    let chunk: Uint8Array
+    try {
+      const slice = file.slice(walk.offset, walk.offset + HEADER_WINDOW_BYTES)
+      chunk = new Uint8Array(await slice.arrayBuffer())
+    } catch {
+      return false
+    }
+    const next = continueGifWalk(walk, chunk)
+    if (next.offset === walk.offset && !next.done) return false // the file ends inside a block
+    walk = next
+  }
+  return walk.frames >= 2
 }
 
 /** The upright size, and the transform to get there when the worker must orient (2–8). */

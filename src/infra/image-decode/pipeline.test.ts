@@ -187,6 +187,64 @@ describe('runDecode (worker pipeline)', () => {
     })
   })
 
+  describe('a GIF whose second frame lies past the header window (AC-11)', () => {
+    // An 8×8 GIF whose first frame carries `dataBlocks` 255-byte sub-blocks, then `frames - 1`
+    // more frames and, unless `truncated`, the trailer.
+    function largeGif(dataBlocks: number, frames: number, truncated = false): Uint8Array {
+      const le16 = (n: number) => [n & 255, (n >> 8) & 255]
+      const out: number[] = [...Array.from('GIF89a', (c) => c.charCodeAt(0))]
+      out.push(...le16(8), ...le16(8), 0x80, 0, 0, 0, 0, 0, 0, 0, 0)
+      const frame = (blocks: number) => {
+        out.push(0x21, 0xf9, 4, 0, 10, 0, 0, 0)
+        out.push(0x2c, ...le16(0), ...le16(0), ...le16(8), ...le16(8), 0, 2)
+        for (let n = 0; n < blocks; n++) out.push(255, ...new Array<number>(255).fill(0xaa))
+        out.push(3, 0x4c, 0x01, 0x00, 0)
+      }
+      frame(dataBlocks)
+      for (let n = 1; n < frames; n++) frame(0)
+      if (!truncated) out.push(0x3b)
+      return Uint8Array.from(out)
+    }
+
+    /** A Blob that records every slice it is asked for. */
+    function recordingBlob(data: Uint8Array) {
+      const blob = new Blob([data as Uint8Array<ArrayBuffer>])
+      const slices: [number, number][] = []
+      const file = {
+        size: blob.size,
+        slice: (start = 0, end = blob.size) => {
+          slices.push([start, end])
+          return blob.slice(start, end)
+        },
+      } as unknown as Blob
+      return { file, slices }
+    }
+
+    const decodeGif = (data: Uint8Array) => {
+      const { env } = fakeEnv({ width: 8, height: 8 })
+      const { file, slices } = recordingBlob(data)
+      return { result: runDecode(file, env, BROWSER_ORIENTS), slices, env }
+    }
+
+    it('reports it animated, reading only bounded slices before decoding', async () => {
+      const { result, slices, env } = decodeGif(largeGif(6000, 2)) // ~1.5 MB first frame
+      expect(await result).toMatchObject({ ok: true, value: { format: 'gif', animated: true } })
+      expect(slices.length).toBeGreaterThan(1)
+      for (const [start, end] of slices) expect(end - start).toBeLessThanOrEqual(1 << 20)
+      expect(env.createImageBitmap).toHaveBeenCalledOnce()
+    })
+
+    it('reports a still GIF with a large frame not animated', async () => {
+      const { result } = decodeGif(largeGif(6000, 1))
+      expect(await result).toMatchObject({ ok: true, value: { animated: false } })
+    })
+
+    it('stops at the end of a file truncated inside its first frame', async () => {
+      const { result } = decodeGif(largeGif(6000, 1, true).subarray(0, 1_400_000))
+      expect(await result).toMatchObject({ ok: true, value: { animated: false } })
+    })
+  })
+
   it('refuses HEIC as UNSUPPORTED_FORMAT without decoding where the probe found no support (AC-07)', async () => {
     const { env } = fakeEnv({ width: 8, height: 8 })
     const result = await runDecode(new Blob([heicBytes(4032, 3024)]), env, {

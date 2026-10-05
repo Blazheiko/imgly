@@ -70,6 +70,24 @@ function paddedFrameBombGif(): FilePayload {
   return { name: 'padded-frame-bomb.gif', mimeType: 'image/gif', buffer }
 }
 
+/** The 2-frame GIF with a comment extension after its first frame that pushes the second past 1 MiB. */
+function lateFrameAnimatedGif(): FilePayload {
+  const gif = fixture('animated.gif')
+  const firstFrameEnd = 116 // after frame 1's data terminator: the second control extension follows
+  if (gif[firstFrameEnd] !== 0x21 || gif[firstFrameEnd + 1] !== 0xf9) {
+    throw new Error('animated.gif changed: update firstFrameEnd')
+  }
+  const block = Buffer.concat([Buffer.from([255]), Buffer.alloc(255, 0x20)])
+  const blocks = Array.from({ length: 4200 }, () => block) // 4200 × 256 B > 1 MiB
+  const comment = Buffer.concat([Buffer.from([0x21, 0xfe]), ...blocks, Buffer.from([0])])
+  const buffer = Buffer.concat([
+    gif.subarray(0, firstFrameEnd),
+    comment,
+    gif.subarray(firstFrameEnd),
+  ])
+  return { name: 'late-frame-animated.gif', mimeType: 'image/gif', buffer }
+}
+
 /** A valid JPEG with more than 1 MiB of APP2 metadata before its frame header (accepted risk). */
 function bigMetadataJpeg(): FilePayload {
   const jpg = fixture('photo.jpg')
@@ -103,6 +121,14 @@ const REFERENCE_SET: [string, () => FilePayload, Outcome][] = [
   [
     'animated GIF',
     () => file('animated.gif', 'image/gif'),
+    {
+      opens: { width: 64, height: 48 },
+      notice: 'Animated image: only the first frame was kept.',
+    },
+  ],
+  [
+    'animated GIF whose second frame is past 1 MiB',
+    lateFrameAnimatedGif,
     {
       opens: { width: 64, height: 48 },
       notice: 'Animated image: only the first frame was kept.',
