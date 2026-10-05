@@ -59,7 +59,7 @@
 | T52 | Compare the Preview before a context loss with the Preview after restore (review V6) | tests | Blazheiko | S | — | todo |
 | T53 | Drop a link over an open Work end to end (review V7) | tests | Blazheiko | S | — | todo |
 | T54 | Cite the screen states on T10 and the SCR-02 success, error and drag-over states on T13 (review V8) | wiring | Blazheiko | S | — | todo |
-| T55 | Document the GIF late-frame walk in the pipeline comment and sad.md flow 4 (review V9) | wiring | Blazheiko | S | T49 | todo |
+| T55 | Document the GIF late-frame walk in the pipeline comment and sad.md flow 4 (review V9) | wiring | Blazheiko | S | T49 | done |
 | T56 | Remove the unstyled Space pan class and the assertions that test only it (review V10) | ui | Blazheiko | S | — | todo |
 
 **Total:** 56 tasks (T21–T33 are the review-2026-10-04 follow-ups, T34–T39 the review-2026-10-04-2 follow-ups, T40–T46 the review-2026-10-05 follow-ups, T47–T56 the review-2026-10-05-2 follow-ups), ~34.5 person-days (S = ½ day, M/L = 1 day).

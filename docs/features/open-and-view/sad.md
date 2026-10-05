@@ -337,6 +337,9 @@ sequenceDiagram
         ED-->>UI: Work unchanged
         UI-->>U: reason naming the format, suggesting JPEG or PNG, and another browser for HEIC
     else Supported image
+        opt a GIF whose header window holds only one frame
+            DEC->>DEC: walks block lengths past the header window, in bounded reads up to 64 MiB, to find a second frame
+        end
         DEC->>BR: decodes upright to sRGB, first frame only
         alt the decode fails, for a truncated or corrupt file
             BR-->>DEC: decode error
@@ -357,7 +360,7 @@ sequenceDiagram
     Note over U,UI: Postcondition: the Original's dimensions stay visible while the Work is open. Informational notices dismiss themselves, failure reasons stay until dismissed
 ```
 
-HEIC counts as a Supported image only where the worker's probe found that this browser decodes it; elsewhere it takes the first branch. Notices for a new image are raised only after the replace, so a cancelled confirmation shows none.
+HEIC counts as a Supported image only where the worker's probe found that this browser decodes it; elsewhere it takes the first branch. A GIF whose first frame fills the header window is checked for a later frame by walking block lengths, never decoding, up to `GIF_WALK_MAX_BYTES` past the window (§11). Notices for a new image are raised only after the replace, so a cancelled confirmation shows none.
 
 ### Flow 5: inspect the image with zoom, pan, Fit and 100% (US-05: AC-12, AC-12b, AC-13, AC-14)
 

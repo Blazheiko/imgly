@@ -37,8 +37,8 @@ export const DECODE_OPTIONS: ImageBitmapOptions = {
 }
 
 /**
- * byte ceiling → header window → sniff → open policy → decode → orient (if the browser didn't) → stepwise
- * reduction (feature ADR 0001). The ceiling is checked from the declared size before any pixel
+ * byte ceiling → header window → sniff → open policy → GIF late-frame walk (a GIF whose window holds
+ * one frame) → decode → orient (if the browser didn't) → stepwise reduction (feature ADR 0001). The ceiling is checked from the declared size before any pixel
  * is decoded (AC-09), and again on the decoded bitmap in case the header understated it. HEIC is
  * refused without decoding where the probe found no support.
  */
