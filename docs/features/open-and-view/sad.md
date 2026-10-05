@@ -46,7 +46,7 @@ target_surfaces: [web-frontend]  # filled in §4 — subset of: backend-service 
 **Organisational.**
 - Solo, spare-time project; owner Blazheiko. No per-feature effort budget: the only limit is the 4–6 week MVP budget for the whole roadmap (spec §1). No hard deadline
 - TDD is on (`.claude/sdd.local.md`): unit tests with Vitest, e2e with Playwright
-- The spec §6 targets bind to the reference machine: Apple M1 MacBook Air with the latest Chrome (spec §8 open question, due before `sdd:plan-tests`)
+- The spec §6 targets bind to the reference machine: Apple M1 MacBook Air with the latest Chrome (resolved 2026-10-04, spec §8)
 
 **Conventions.**
 - `docs/architecture-map.md` §Conventions: `core` and `infra` return `Result<T, AppError>` with a typed `code` and throw only for programmer errors; UUIDv7 IDs from `newId()`; unit tests co-located as `*.test.ts`; e2e in `e2e/*.spec.ts`; features expose `index.ts` and are mounted from `src/app/App.vue`; plain CSS with tokens from `src/shared/styles/tokens.css`
@@ -578,9 +578,9 @@ Each top-3 goal from §1 expanded into testable scenarios. Numbers are quoted fr
 | A GIF whose first image descriptor lies past the 1 MiB header window (for example after a long comment extension) can't be sized before decoding, and its frame may hide a decompression bomb (re-review N1) | Low | The header parser refuses a GIF with no complete image descriptor inside the window as `UNREADABLE` (AC-09), the same as the JPEG with over 1 MiB of metadata; a padded-GIF sample is in the reference set. A real GIF with that much metadata before its first frame is refused too — accepted | Blazheiko (owner) |
 | WebKit decodes a damaged PNG into a blank bitmap instead of failing, so a damaged file could open as a blank Preview (found by the T19 reference set) | Low | The header parser verifies the CRC of every PNG chunk inside the 1 MiB window and refuses a mismatch as `UNREADABLE` (AC-08) on every engine. Damage that lies only beyond the first 1 MiB is still decoded leniently by WebKit — accepted; revisit with a full-file CRC pass in the worker if it is seen in practice | Blazheiko (owner) |
 | HEIC decoding can be checked only in real Safari, because WebKit on Linux does not decode it (§7) | Low | Manual open of the HEIC samples in Safari in the pre-release pass; CI covers the HEIC refusal path (AC-07) | Blazheiko (owner) |
-| The WebGL context-restore deadline (ADR-0003) is not fixed yet; too short shows SCR-05 needlessly, too long leaves a black canvas | Low | Fix the value in `tasks` and cover it with a `WEBGL_lose_context` e2e for both AC-19 and AC-19b | Blazheiko (owner) |
+| **Resolved.** The WebGL context-restore deadline (ADR-0003) needed a value: too short shows SCR-05 needlessly, too long leaves a black canvas | Low | Fixed at 5000 ms (`RESTORE_DEADLINE_MS` in `src/render/preview-renderer.ts`), asserted in `src/render/context-loss.test.ts` and covered by the `WEBGL_lose_context` e2e for AC-19 and AC-19b (`e2e/open-and-view/blocking.spec.ts`) | Blazheiko (owner) |
 | The widened `infra → core` rule and the three-engine CI (§1 Decision overrides) are not yet reflected in `docs/architecture-map.md` or an import lint rule, so a later feature could read the old rule | Low | During `implement`, update `docs/architecture-map.md` §Module inventory and §Conventions, and encode "infra may import only types and pure functions from core" in the ESLint import rules | Blazheiko (owner) |
-| The spec §6 targets bind to a reference machine that is not confirmed yet (spec §8 open question) | Low | Default Apple M1 MacBook Air with the latest Chrome; confirm before `sdd:plan-tests` | Blazheiko (owner) |
+| **Resolved.** The spec §6 targets needed a confirmed reference machine | Low | Confirmed 2026-10-04 in `sdd:plan-tests` (spec §8): Apple M1 MacBook Air with the latest stable Chrome | Blazheiko (owner) |
 
 **Accepted debt (acceptable in v1, plan to fix later):**
 - Colours outside sRGB in Display P3 photos are clipped without a notice (ADR-0004); wide-gamut support would need a colour space on the Original and a re-open of the source file

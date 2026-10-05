@@ -201,7 +201,7 @@ If the browser lacks the required graphics capability, the canvas area shows a f
 | AC-06 | Flow US-03 → "no" branch, no notice; dimensions stay visible | |
 | AC-07 | Flow US-04 → "recognised image, not a Supported image here" | |
 | AC-08 | Flow US-04 → "not an image, damaged or disguised", "declared size unreadable", "decode fails" | Three entry points, one reason |
-| AC-09 | Flow US-04 → "larger than 500 MB", before reading; "above the size ceiling", before decoding | Ceiling value is spec §8 open question |
+| AC-09 | Flow US-04 → "larger than 500 MB", before reading; "above the size ceiling", before decoding | Ceilings resolved in `sad.md` §8 (spec §8): 100 MP and 500 MB |
 | AC-10 | Flow US-04 → "not allowed to read" | |
 | AC-11 | Flow US-04 → "animated" → first frame plus notice | |
 | AC-11b | Flow US-04 → "All notices from this open are shown"; Platform decisions → Modality | Persistence rule (informational self-dismiss, reasons stay) |
