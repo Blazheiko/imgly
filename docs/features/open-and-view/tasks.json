@@ -290,7 +290,7 @@
         "AC-12",
         "AC-12b"
       ],
-      "dod": "Playwright e2e and component tests prove the readout shows the Original's dimensions while the Work is open (4096 x 2731 px for 6000x4000), the zoom buttons and Shift+1/Shift+0/+/- step through fixed levels within [min(Fit,10%), 800%] with a live percentage, and Ctrl/Cmd +/-/0 are never intercepted",
+      "dod": "Builds SCR-02 default and zoomed / panned (status bar). Playwright e2e and component tests prove the readout shows the Original's dimensions while the Work is open (4096 x 2731 px for 6000x4000), the zoom buttons and Shift+1/Shift+0/+/- step through fixed levels within [min(Fit,10%), 800%] with a live percentage, and Ctrl/Cmd +/-/0 are never intercepted",
       "files_hint": [
         "src/features/editor/components/EditorStatusBar.vue",
         "src/features/editor/components/DimensionsReadout.vue",
@@ -500,7 +500,7 @@
       "acs": [
         "AC-12"
       ],
-      "dod": "Ctrl+wheel anywhere is prevented; gesturestart/gesturechange zoom the View; component tests",
+      "dod": "Builds SCR-02 zoomed / panned. Ctrl+wheel anywhere is prevented; gesturestart/gesturechange zoom the View; component tests",
       "files_hint": [
         "src/features/editor/"
       ],
@@ -517,7 +517,7 @@
       "acs": [
         "AC-13"
       ],
-      "dod": "While a Work is open Space down/up is prevented and sets pan mode; component test",
+      "dod": "Builds SCR-02 zoomed / panned. While a Work is open Space down/up is prevented and sets pan mode; component test",
       "files_hint": [
         "src/features/editor/EditorView.vue"
       ],
@@ -775,7 +775,7 @@
       "acs": [
         "AC-13"
       ],
-      "dod": "Holding Space over a fitted image keeps the default cursor; component case",
+      "dod": "Builds SCR-02 zoomed / panned. Holding Space over a fitted image keeps the default cursor; component case",
       "files_hint": [
         "src/features/editor/components/PreviewCanvas.vue"
       ],
