@@ -248,10 +248,15 @@ sequenceDiagram
     SPA->>WorkerA: terminates worker A, its memory is freed at once
     SPA->>SPA: marks open A as superseded, it can never replace the Work
     SPA->>WorkerB: starts worker B and posts file B
-    WorkerB->>WorkerB: reads the header window
-    alt the file cannot be read
+    WorkerB->>Core: checks the file's byte size against the 500 MB byte ceiling
+    alt the file is larger than the byte ceiling
+        Core-->>WorkerB: too large, with its size and the ceiling in MB
+        WorkerB-->>SPA: the refusal reason, before any byte is read
+    else the file cannot be read
+        WorkerB->>WorkerB: reads the header window
         WorkerB-->>SPA: not permitted to read the file
     else the header is judged
+        WorkerB->>WorkerB: reads the header window
         WorkerB->>Core: judges the header window and the size ceiling
         alt not an image, damaged or disguised
             Core-->>WorkerB: unreadable
@@ -265,7 +270,7 @@ sequenceDiagram
     SPA-->>Editor: the reason, which stays until dismissed
 ```
 
-Every refusal ends the same way: the worker reports a typed reason, the `editor` store changes nothing, and the reason goes to the notice queue as a failure that stays until dismissed. A late answer from a terminated worker can never arrive, and the store also ignores any result whose open is no longer the latest.
+The byte ceiling is judged from the file's size alone, so a file above 500 MB is refused before any of it is read (AC-09). Every refusal ends the same way: the worker reports a typed reason, the `editor` store changes nothing, and the reason goes to the notice queue as a failure that stays until dismissed. A late answer from a terminated worker can never arrive, and the store also ignores any result whose open is no longer the latest.
 
 ### Flow 3: drop several files or something that is not an image (US-02: AC-02, AC-03, AC-04)
 
@@ -469,7 +474,7 @@ The restore deadline is a tactical value fixed in `tasks` (§11).
 | AC-06 | Flow 4, downscale step skipped and no downscale notice | AC-16 | Flow 2 |
 | AC-07 | Flow 4, unsupported-format branch | AC-16b | Flow 2 |
 | AC-08 | Flow 2, unreadable branch; Flow 4, decode-fails branch | AC-17 | Flow 6, capabilities-present branch |
-| AC-09 | Flow 2, too-large branch | AC-18 | Flow 6, capability-missing branch |
+| AC-09 | Flow 2, byte-ceiling branch (before the header read) and too-large branch | AC-18 | Flow 6, capability-missing branch |
 | AC-10 | Flow 2, not-permitted branch | AC-19 | Flow 7, restored branch |
 | AC-11 | Flow 4, first-frame decode and notice | AC-19b | Flow 7, lost branch |
 | AC-11b | Flow 4, all notices at once | | |
