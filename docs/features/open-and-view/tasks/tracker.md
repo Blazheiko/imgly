@@ -52,7 +52,7 @@
 | T45 | Mark the reference machine, size ceiling and restore deadline notes as resolved (review R6) | wiring | Blazheiko | S | T42, T44 | done |
 | T46 | Cite the SCR-02 screen state on the UI tasks T15, T25, T26 and T39 (review R7) | wiring | Blazheiko | S | — | done |
 | T47 | Test the CRW and X3F drop extensions each on their own (review V1) | tests | Blazheiko | S | — | done |
-| T48 | Check the first-frame Original pixels of an animated GIF on all three engines (review V2) | tests | Blazheiko | S | — | todo |
+| T48 | Check the first-frame Original pixels of an animated GIF on all three engines (review V2) | tests | Blazheiko | S | — | done |
 | T49 | Cap the GIF late-frame walk at a named byte budget (review V3) | infra | Blazheiko | S | — | done |
 | T50 | Show the 500 MB byte-ceiling refusal in the rendered toast (review V4) | tests | Blazheiko | S | — | done |
 | T51 | Assert one retained Original at the end of the replace and over-Work e2e tests (review V5) | tests | Blazheiko | S | — | todo |

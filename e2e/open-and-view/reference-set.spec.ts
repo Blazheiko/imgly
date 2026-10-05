@@ -104,7 +104,12 @@ const HEIC =
   "HEIC files can't be opened in this browser. Convert it to JPEG or PNG, or use a browser that opens HEIC."
 
 type Outcome =
-  | { opens: { width: number; height: number }; notice?: string }
+  | {
+      opens: { width: number; height: number }
+      notice?: string
+      /** An Original pixel and the colour it must have, read through a 2D canvas on every engine. */
+      pixel?: { x: number; y: number; rgb: number[] }
+    }
   | { refused: string }
   | { heic: true }
 
@@ -124,6 +129,7 @@ const REFERENCE_SET: [string, () => FilePayload, Outcome][] = [
     {
       opens: { width: 64, height: 48 },
       notice: 'Animated image: only the first frame was kept.',
+      pixel: { x: 32, y: 24, rgb: [255, 0, 0] }, // red: frame 1, never blue frame 2 (AC-11)
     },
   ],
   [
@@ -132,6 +138,7 @@ const REFERENCE_SET: [string, () => FilePayload, Outcome][] = [
     {
       opens: { width: 64, height: 48 },
       notice: 'Animated image: only the first frame was kept.',
+      pixel: { x: 32, y: 24, rgb: [255, 0, 0] }, // red: frame 1, never blue frame 2 (AC-11)
     },
   ],
   [
@@ -200,6 +207,14 @@ async function expectOutcome(page: Page, outcome: Outcome, browserName: string) 
     `${outcome.opens.width} × ${outcome.opens.height} px`,
   )
   if (outcome.notice) await expect(page.getByText(outcome.notice)).toBeVisible()
+  if (outcome.pixel) {
+    const { x, y, rgb: want } = outcome.pixel
+    const rgb = await page.evaluate(([x, y]) => window.__imglyTest!.originalPixel(x, y), [x, y])
+    expect(
+      rgb.every((c, i) => Math.abs(c - want[i]!) <= 40),
+      `Original pixel (${x}, ${y}) ${rgb}`,
+    ).toBe(true)
+  }
 }
 
 test.describe('reference set — no Work open', () => {
