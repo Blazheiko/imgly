@@ -61,6 +61,13 @@ export function startGifWalk(b: Uint8Array): GifWalk {
   return continueGifWalk(start, b.subarray(start.offset))
 }
 
+/**
+ * The most bytes the worker walks past the header window looking for a second frame (AC-11,
+ * feature ADR 0002). A GIF whose second frame starts beyond it opens without the first-frame
+ * notice; the cap keeps a large still GIF from being read twice before it decodes.
+ */
+export const GIF_WALK_MAX_BYTES = 64 * 1024 * 1024
+
 /** The most bytes one step reads: an image descriptor, from its introducer to its packed field. */
 export const GIF_WALK_MIN_CHUNK = 10
 

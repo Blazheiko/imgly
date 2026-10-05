@@ -8,7 +8,13 @@ import { isWebp, parseWebp } from './webp'
 import { HEADER_WINDOW_BYTES, type ImageHeader } from './types'
 
 export * from './types'
-export { continueGifWalk, GIF_WALK_MIN_CHUNK, startGifWalk, type GifWalk } from './gif'
+export {
+  continueGifWalk,
+  GIF_WALK_MAX_BYTES,
+  GIF_WALK_MIN_CHUNK,
+  startGifWalk,
+  type GifWalk,
+} from './gif'
 
 /**
  * Judges a file by its first bytes (feature ADR 0002): the format, declared size, animation and

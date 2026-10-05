@@ -4,6 +4,7 @@ import {
   checkOpenPolicy,
   continueGifWalk,
   err,
+  GIF_WALK_MAX_BYTES,
   HEADER_WINDOW_BYTES,
   ok,
   reductionSteps,
@@ -108,14 +109,16 @@ export async function runDecode(
 /**
  * Whether a GIF whose header window held only one frame has a second one further on (AC-11). Walks
  * block lengths over header-window-sized slices, never decoding, so memory stays bounded however
- * large the first frame is (feature ADR 0002). A read that fails leaves the decode to report it.
+ * large the first frame is, and stops `GIF_WALK_MAX_BYTES` past the window (feature ADR 0002). A
+ * read that fails leaves the decode to report it.
  */
 async function hasLateGifFrame(file: Blob, window: Uint8Array): Promise<boolean> {
   let walk = startGifWalk(window)
-  while (!walk.done && walk.offset < file.size) {
+  const end = Math.min(file.size, window.length + GIF_WALK_MAX_BYTES)
+  while (!walk.done && walk.offset < end) {
     let chunk: Uint8Array
     try {
-      const slice = file.slice(walk.offset, walk.offset + HEADER_WINDOW_BYTES)
+      const slice = file.slice(walk.offset, Math.min(walk.offset + HEADER_WINDOW_BYTES, end))
       chunk = new Uint8Array(await slice.arrayBuffer())
     } catch {
       return false

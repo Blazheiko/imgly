@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { GIF_WALK_MAX_BYTES, HEADER_WINDOW_BYTES } from '@/core'
 import { runDecode, type DecodeEnv } from './pipeline'
 import type { Capabilities } from './types'
 
@@ -242,6 +243,49 @@ describe('runDecode (worker pipeline)', () => {
     it('stops at the end of a file truncated inside its first frame', async () => {
       const { result } = decodeGif(largeGif(6000, 1, true).subarray(0, 1_400_000))
       expect(await result).toMatchObject({ ok: true, value: { animated: false } })
+    })
+
+    it('stops reading at GIF_WALK_MAX_BYTES and reports a frame beyond it not animated', async () => {
+      // A first frame of 255-byte sub-blocks that runs past the cap, generated per slice so the
+      // test never holds the whole file.
+      const head = largeGif(0, 1, true).subarray(0, -5) // up to the first frame's LZW code size
+      const size = HEADER_WINDOW_BYTES + GIF_WALK_MAX_BYTES + 4 * HEADER_WINDOW_BYTES
+      const blocks = Uint8Array.from({ length: HEADER_WINDOW_BYTES + 256 }, (_, i) =>
+        i % 256 ? 0xaa : 255,
+      )
+      const bytes = (start: number, end: number) => {
+        const out = new Uint8Array(end - start)
+        for (let p = start; p < end;) {
+          if (p < head.length) {
+            out[p - start] = head[p]!
+            p++
+            continue
+          }
+          const phase = (p - head.length) % 256
+          const run = Math.min(end - p, blocks.length - phase)
+          out.set(blocks.subarray(phase, phase + run), p - start)
+          p += run
+        }
+        return out
+      }
+      const slices: [number, number][] = []
+      const file = {
+        size,
+        slice: (start = 0, end = size) => {
+          slices.push([start, end])
+          return new Blob([bytes(start, Math.min(end, size))])
+        },
+      } as unknown as Blob
+      const { env } = fakeEnv({ width: 8, height: 8 })
+
+      expect(await runDecode(file, env, BROWSER_ORIENTS)).toMatchObject({
+        ok: true,
+        value: { animated: false },
+      })
+      const pastWindow = slices.filter(([start]) => start > 0)
+      const read = pastWindow.reduce((sum, [start, end]) => sum + end - start, 0)
+      expect(read).toBeLessThanOrEqual(GIF_WALK_MAX_BYTES)
+      expect(env.createImageBitmap).toHaveBeenCalledOnce()
     })
   })
 
