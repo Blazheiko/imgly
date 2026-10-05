@@ -107,6 +107,17 @@ describe('EditorView — SCR-01 (empty editor)', () => {
     expect(wrapper.find('[role="alert"]').exists()).toBe(true)
   })
 
+  it('shows the byte-ceiling reason for a file above 500 MB in the failure toast (AC-09)', async () => {
+    decode.mockResolvedValue(err(appError('TOO_LARGE', { megabytes: 612, ceilingMegabytes: 500 })))
+    window.dispatchEvent(dropEvent('drop', [new File(['x'], 'scan.tif', { type: 'image/tiff' })]))
+    await flushPromises()
+
+    expect(wrapper.get('[role="alert"]').text()).toContain(
+      'This file is too large: 612 MB. The largest file the editor opens is 500 MB.',
+    )
+    expect(wrapper.find('.base-button--primary').exists()).toBe(true) // still SCR-01
+  })
+
   it('shows a labelled spinner while reading, keeping Open image enabled', async () => {
     decode.mockImplementation(() => new Promise(() => {}))
     window.dispatchEvent(dropEvent('drop', [new File(['x'], 'a.png')]))

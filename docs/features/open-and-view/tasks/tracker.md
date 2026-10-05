@@ -54,7 +54,7 @@
 | T47 | Test the CRW and X3F drop extensions each on their own (review V1) | tests | Blazheiko | S | — | done |
 | T48 | Check the first-frame Original pixels of an animated GIF on all three engines (review V2) | tests | Blazheiko | S | — | todo |
 | T49 | Cap the GIF late-frame walk at a named byte budget (review V3) | infra | Blazheiko | S | — | done |
-| T50 | Show the 500 MB byte-ceiling refusal in the rendered toast (review V4) | tests | Blazheiko | S | — | todo |
+| T50 | Show the 500 MB byte-ceiling refusal in the rendered toast (review V4) | tests | Blazheiko | S | — | done |
 | T51 | Assert one retained Original at the end of the replace and over-Work e2e tests (review V5) | tests | Blazheiko | S | — | todo |
 | T52 | Compare the Preview before a context loss with the Preview after restore (review V6) | tests | Blazheiko | S | — | todo |
 | T53 | Drop a link over an open Work end to end (review V7) | tests | Blazheiko | S | — | todo |
