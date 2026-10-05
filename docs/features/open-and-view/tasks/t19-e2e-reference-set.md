@@ -9,7 +9,7 @@ files_hint: ["e2e/open-and-view/reference-set.spec.ts", "e2e/fixtures/"]
 owner: "Blazheiko"
 estimate: "M"
 context_budget: "M"   # measured: 67 inlined lines
-status: "todo"
+status: "done"
 ---
 <!-- Self-contained task. Every inlined chunk carries a provenance signature; the source always wins.
 To the executing agent: work from what is inlined here. If a slice is insufficient, ambiguous, or

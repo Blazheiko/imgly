@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import { EditorView } from '@/features/editor'
+import { onMounted } from 'vue'
+import { EditorView, useEditorStore } from '@/features/editor'
+
+// Start-up order: EditorView's setup installs the window drop guard first; the capability gate
+// runs once it is mounted, and decides between SCR-01 and SCR-04 (AC-18).
+const editor = useEditorStore()
+onMounted(() => void editor.runCapabilityGate())
 </script>
 
 <template>

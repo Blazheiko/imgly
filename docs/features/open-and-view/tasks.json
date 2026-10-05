@@ -174,7 +174,7 @@
       "acs": [
         "AC-11b"
       ],
-      "dod": "Vitest proves the notice queue shows every notice of one open together, auto-dismisses info after 6000 ms and keeps failures until dismissed, and Dialog traps focus, cancels on Esc and returns focus; the five primitives are registered in docs/design-system.md",
+      "dod": "Vitest proves the notice queue shows every notice of one open together, auto-dismisses info after 6000 ms and keeps failures until dismissed, and Dialog traps focus, cancels on Esc and returns focus; the five primitives are registered in docs/design-system.md; builds SCR-01 error, SCR-02 success / error, SCR-03, SCR-04 and SCR-05 (the toast, dialog and canvas-message primitives they show)",
       "files_hint": [
         "src/shared/notices/",
         "src/shared/ui/",
@@ -244,7 +244,7 @@
         "AC-04",
         "AC-17"
       ],
-      "dod": "Playwright e2e on three engines proves the empty editor shows one primary Open image action and the drop hint, a dropped non-image shows 'Only image files can be opened.' without navigation, and the drop overlay appears on drag-enter; component tests cover SCR-01 states",
+      "dod": "Playwright e2e on three engines proves the empty editor shows one primary Open image action and the drop hint, a dropped non-image shows 'Only image files can be opened.' without navigation, and the drop overlay appears on drag-enter; component tests cover SCR-01 states; builds SCR-02 success / error / drag-over (info and failure toasts over the Work, the drop overlay over the Work)",
       "files_hint": [
         "src/features/editor/EditorView.vue",
         "src/features/editor/components/EditorTopBar.vue",
@@ -290,7 +290,7 @@
         "AC-12",
         "AC-12b"
       ],
-      "dod": "Playwright e2e and component tests prove the readout shows the Original's dimensions while the Work is open (4096 x 2731 px for 6000x4000), the zoom buttons and Shift+1/Shift+0/+/- step through fixed levels within [min(Fit,10%), 800%] with a live percentage, and Ctrl/Cmd +/-/0 are never intercepted",
+      "dod": "Builds SCR-02 default and zoomed / panned (status bar). Playwright e2e and component tests prove the readout shows the Original's dimensions while the Work is open (4096 x 2731 px for 6000x4000), the zoom buttons and Shift+1/Shift+0/+/- step through fixed levels within [min(Fit,10%), 800%] with a live percentage, and Ctrl/Cmd +/-/0 are never intercepted",
       "files_hint": [
         "src/features/editor/components/EditorStatusBar.vue",
         "src/features/editor/components/DimensionsReadout.vue",
@@ -412,6 +412,701 @@
         "src/features/editor/store.ts"
       ],
       "file": "docs/features/open-and-view/tasks/t20-perf-suite.md"
+    },
+    {
+      "id": "T21",
+      "title": "Parse a simple-format WebP whose first chunk is larger than the header window",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-01",
+        "AC-08"
+      ],
+      "dod": "A VP8/VP8L WebP over 1 MiB parses from its frame header alone; a unit test plus a >1 MiB WebP e2e fixture open it",
+      "files_hint": [
+        "src/core/image-header/webp.ts",
+        "src/core/image-header/sniff-heif-webp.test.ts",
+        "e2e/fixtures/"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04.md",
+      "review_findings": [
+        "S1"
+      ]
+    },
+    {
+      "id": "T22",
+      "title": "Declare a GIF's size from its screen and first frame, and refuse an over-ceiling bitmap after decoding",
+      "layer": "infra",
+      "deps": [],
+      "acs": [
+        "AC-09"
+      ],
+      "dod": "A GIF with a frame larger than its screen declares the larger size; a decoded bitmap above the ceiling is closed and refused as TOO_LARGE",
+      "files_hint": [
+        "src/core/image-header/gif.ts",
+        "src/infra/image-decode/pipeline.ts"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04.md",
+      "review_findings": [
+        "S2"
+      ]
+    },
+    {
+      "id": "T23",
+      "title": "Refuse files above a byte-size cap as TOO_LARGE before decoding",
+      "layer": "infra",
+      "deps": [
+        "T22"
+      ],
+      "acs": [
+        "AC-09"
+      ],
+      "dod": "A file above the byte cap is refused with TOO_LARGE without being decoded; unit tests on policy and pipeline",
+      "files_hint": [
+        "src/core/open/",
+        "src/infra/image-decode/pipeline.ts"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04.md",
+      "review_findings": [
+        "Q5"
+      ]
+    },
+    {
+      "id": "T24",
+      "title": "Land 100% and stepped zoom on the exact target and always leave auto-fit",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-12",
+        "AC-12b"
+      ],
+      "dod": "setActualSize/stepZoom set autoFit false even when the zoom is unchanged, and land on exact targets (644/4096 case)",
+      "files_hint": [
+        "src/core/view/"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04.md",
+      "review_findings": [
+        "S6",
+        "Q2"
+      ]
+    },
+    {
+      "id": "T25",
+      "title": "Block page zoom everywhere in the editor and turn Safari pinch gestures into View zoom",
+      "layer": "ui",
+      "deps": [
+        "T24"
+      ],
+      "acs": [
+        "AC-12"
+      ],
+      "dod": "Builds SCR-02 zoomed / panned. Ctrl+wheel anywhere is prevented; gesturestart/gesturechange zoom the View; component tests",
+      "files_hint": [
+        "src/features/editor/"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04.md",
+      "review_findings": [
+        "S3"
+      ]
+    },
+    {
+      "id": "T26",
+      "title": "Add Space+drag pan mode that never presses the focused button",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-13"
+      ],
+      "dod": "Builds SCR-02 zoomed / panned. While a Work is open Space down/up is prevented and sets pan mode; component test",
+      "files_hint": [
+        "src/features/editor/EditorView.vue"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04.md",
+      "review_findings": [
+        "S4"
+      ]
+    },
+    {
+      "id": "T27",
+      "title": "Report a renderer that fails at mount as display lost, and never show the replace dialog over SCR-05",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-18",
+        "AC-19b",
+        "AC-15"
+      ],
+      "dod": "createPreviewRenderer never throws and returns err(DISPLAY_LOST); PreviewCanvas sets lost on failure; the replace is cancelled on loss; tests",
+      "files_hint": [
+        "src/render/preview-renderer.ts",
+        "src/features/editor/"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04.md",
+      "review_findings": [
+        "S5",
+        "Q3"
+      ]
+    },
+    {
+      "id": "T28",
+      "title": "Give a dropped image-typed file that is not an image the unreadable reason",
+      "layer": "app",
+      "deps": [],
+      "acs": [
+        "AC-08",
+        "AC-03"
+      ],
+      "dod": "A dropped file with image MIME or extension gets AC-08's message; unit + drop e2e for text-named.png",
+      "files_hint": [
+        "src/features/editor/store.ts",
+        "src/core/open/drop.ts",
+        "e2e/open-and-view/"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04.md",
+      "review_findings": [
+        "S7",
+        "Q6"
+      ]
+    },
+    {
+      "id": "T29",
+      "title": "Settle every decode as DECODE_FAILED when the worker rejects or cannot start",
+      "layer": "infra",
+      "deps": [],
+      "acs": [
+        "AC-16"
+      ],
+      "dod": "An unhandled worker rejection or a createWorker throw resolves the client with DECODE_FAILED; tests",
+      "files_hint": [
+        "src/infra/image-decode/"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04.md",
+      "review_findings": [
+        "Q1"
+      ]
+    },
+    {
+      "id": "T30",
+      "title": "Round refused sizes up and capitalise Camera RAW in the messages",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-07",
+        "AC-09"
+      ],
+      "dod": "100.01 MP reads 100.1 MP; the RAW message starts \"Camera RAW\"; tests",
+      "files_hint": [
+        "src/core/open/policy.ts",
+        "src/core/image-header/refused.ts"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04.md",
+      "review_findings": [
+        "Q4"
+      ]
+    },
+    {
+      "id": "T31",
+      "title": "Tokenise the hard-coded primitive widths and document image-decode and the widened infra rule",
+      "layer": "wiring",
+      "deps": [],
+      "acs": [],
+      "dod": "Dialog/Toast/CanvasMessage widths come from tokens; CLAUDE.md and architecture-map list src/infra/image-decode and the e2e path",
+      "files_hint": [
+        "src/shared/",
+        "CLAUDE.md",
+        "docs/architecture-map.md"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04.md",
+      "review_findings": [
+        "Q7",
+        "Q10"
+      ]
+    },
+    {
+      "id": "T32",
+      "title": "Make the never-navigates checks falsifiable, strengthen the fuzz invariants, and cover the PreviewCanvas renderer seam",
+      "layer": "tests",
+      "deps": [
+        "T27"
+      ],
+      "acs": [
+        "AC-02",
+        "AC-08",
+        "AC-18"
+      ],
+      "dod": "e2e asserts defaultPrevented; fuzz checks invariants with a 1 MiB budget; PreviewCanvas tests through an injected renderer",
+      "files_hint": [
+        "e2e/open-and-view/",
+        "src/core/image-header/fuzz.test.ts",
+        "src/features/editor/components/"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04.md",
+      "review_findings": [
+        "Q8",
+        "Q9"
+      ]
+    },
+    {
+      "id": "T33",
+      "title": "Add the missing UI-level AC tests and mark the visual baselines deferred",
+      "layer": "tests",
+      "deps": [
+        "T28"
+      ],
+      "acs": [
+        "AC-03",
+        "AC-10",
+        "AC-11",
+        "AC-11b",
+        "AC-15",
+        "AC-16b"
+      ],
+      "dod": "UI-level tests for AC-03/10/11/11b/16b and exact View equality on AC-15 cancel; test-plan marks the baselines deferred (owner Blazheiko, before roadmap step 4)",
+      "files_hint": [
+        "e2e/open-and-view/",
+        "docs/features/open-and-view/test-plan.md"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04.md",
+      "review_findings": [
+        "S8"
+      ]
+    },
+    {
+      "id": "T34",
+      "title": "Refuse a GIF whose first image descriptor is not inside the header window as unreadable",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-09"
+      ],
+      "dod": "A GIF with no complete image descriptor inside the 1 MiB window is UNREADABLE before decoding; unit case, a padded-GIF reference-set entry, and a sad.md §11 risk row",
+      "files_hint": [
+        "src/core/image-header/gif.ts",
+        "e2e/fixtures/",
+        "e2e/open-and-view/",
+        "docs/features/open-and-view/sad.md"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04-2.md",
+      "review_findings": [
+        "N1"
+      ]
+    },
+    {
+      "id": "T35",
+      "title": "Count a byte-ceiling or not-permitted refusal as an image reason only for a file that looks like an image",
+      "layer": "app",
+      "deps": [],
+      "acs": [
+        "AC-04",
+        "AC-03"
+      ],
+      "dod": "A dropped 600 MB non-image or a locked non-image gets the only-images message and never beats a real image reason; drop.test cases for both",
+      "files_hint": [
+        "src/features/editor/store.ts",
+        "src/core/open/drop.ts"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04-2.md",
+      "review_findings": [
+        "F1"
+      ]
+    },
+    {
+      "id": "T36",
+      "title": "Bring the spec in line with the resolved ceiling and Display P3 decisions and the byte ceiling message",
+      "layer": "wiring",
+      "deps": [],
+      "acs": [
+        "AC-09"
+      ],
+      "dod": "spec.md §8 questions ticked with pointers to sad.md §8 and ADR-0004, §6 row says 100 MP, AC-09 names the byte ceiling and its exact message (added-by-fix)",
+      "files_hint": [
+        "docs/features/open-and-view/spec.md"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04-2.md",
+      "review_findings": [
+        "F2"
+      ]
+    },
+    {
+      "id": "T37",
+      "title": "Recognise an SVG that starts with a comment or a DOCTYPE and has no XML prolog",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-07"
+      ],
+      "dod": "Leading comments and an svg DOCTYPE are skipped (or <svg is found in the first 4 KiB of text starting with <); sniff.test cases for both forms",
+      "files_hint": [
+        "src/core/image-header/refused.ts"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04-2.md",
+      "review_findings": [
+        "F3"
+      ]
+    },
+    {
+      "id": "T38",
+      "title": "Add the Reload, low-clamp and fitted-no-pan e2e tests and mark the engine-limited test-plan rows",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-11",
+        "AC-12b",
+        "AC-13",
+        "AC-19",
+        "AC-19b"
+      ],
+      "dod": "e2e for the SCR-05 Reload click, the low zoom clamp and a fitted image not moving; test-plan marks WebKit offline and the Chromium-only context-loss and pixel checks as engine-limited with the reason; T18 DoD corrected",
+      "files_hint": [
+        "e2e/open-and-view/",
+        "docs/features/open-and-view/test-plan.md",
+        "docs/features/open-and-view/tasks/t18-offline-precache-and-ci.md"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04-2.md",
+      "review_findings": [
+        "F4"
+      ]
+    },
+    {
+      "id": "T39",
+      "title": "Show the grab cursor in Space pan mode only when the image is pannable",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-13"
+      ],
+      "dod": "Builds SCR-02 zoomed / panned. Holding Space over a fitted image keeps the default cursor; component case",
+      "files_hint": [
+        "src/features/editor/components/PreviewCanvas.vue"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-04-2.md",
+      "review_findings": [
+        "F5"
+      ]
+    },
+    {
+      "id": "T40",
+      "title": "Detect an animated GIF whose second frame lies past the header window by walking block lengths over bounded further reads",
+      "layer": "infra",
+      "deps": [],
+      "acs": [
+        "AC-11"
+      ],
+      "dod": "When the in-window scan ends at the window edge with one frame, the worker walks further sub-block lengths over bounded file.slice reads (iteration cap, no allocation that scales with a declared size) and reports animated when a second image descriptor exists; sniff test aligned; a large animated GIF in the reference set shows the first-frame notice",
+      "files_hint": [
+        "src/core/image-header/gif.ts",
+        "src/infra/image-decode/",
+        "e2e/fixtures/",
+        "e2e/open-and-view/"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05.md",
+      "review_findings": [
+        "R1"
+      ]
+    },
+    {
+      "id": "T41",
+      "title": "Check the upright orientation pixels on all three engines through a 2D-canvas readback hook",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-01"
+      ],
+      "dod": "An e2e-only test hook draws the Original to a 2D canvas and returns corner pixels; the reference-set orientation tests assert the upright layout on Chromium, Firefox and WebKit; test-plan row 31 matches",
+      "files_hint": [
+        "src/app/test-hooks.ts",
+        "e2e/open-and-view/reference-set.spec.ts",
+        "docs/features/open-and-view/test-plan.md"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05.md",
+      "review_findings": [
+        "R2"
+      ]
+    },
+    {
+      "id": "T42",
+      "title": "Carry the AC-09 byte ceiling into the sad.md flow, the US-04 ux-flow and the test plan",
+      "layer": "wiring",
+      "deps": [],
+      "acs": [
+        "AC-09"
+      ],
+      "dod": "sad.md §6 flow 2 refuses a file above 500 MB before the header read and its coverage row says so; ux-flows US-04 has the byte decision; test-plan has unit and integration rows pointing at the existing tests",
+      "files_hint": [
+        "docs/features/open-and-view/sad.md",
+        "docs/features/open-and-view/ux-flows.md",
+        "docs/features/open-and-view/test-plan.md"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05.md",
+      "review_findings": [
+        "R3"
+      ]
+    },
+    {
+      "id": "T43",
+      "title": "Treat Canon CRW and Sigma X3F names as image files when judging a drop",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-10",
+        "AC-04"
+      ],
+      "dod": "IMAGE_EXTENSIONS includes crw and x3f; a drop.test case shows a locked .CRW with no MIME type gets the not-permitted reason",
+      "files_hint": [
+        "src/core/open/drop.ts",
+        "src/features/editor/drop.test.ts"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05.md",
+      "review_findings": [
+        "R4"
+      ]
+    },
+    {
+      "id": "T44",
+      "title": "Point the stage-record, worker-count and ledger test-plan rows and QG-2 at the unit tests that prove them",
+      "layer": "wiring",
+      "deps": [],
+      "acs": [
+        "AC-09",
+        "AC-16b",
+        "AC-05"
+      ],
+      "dod": "test-plan rows 43, 59 and 92 and sad.md QG-2 name the unit tests and the level change; no row promises a worker stage record",
+      "files_hint": [
+        "docs/features/open-and-view/test-plan.md",
+        "docs/features/open-and-view/sad.md"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05.md",
+      "review_findings": [
+        "R5"
+      ]
+    },
+    {
+      "id": "T45",
+      "title": "Mark the reference machine, size ceiling and restore deadline notes as resolved",
+      "layer": "wiring",
+      "deps": [
+        "T42",
+        "T44"
+      ],
+      "acs": [
+        "AC-09",
+        "AC-19",
+        "AC-19b"
+      ],
+      "dod": "sad.md:49,576,578 and ux-flows.md:201 point to spec §8, sad.md §8 and RESTORE_DEADLINE_MS instead of calling them open",
+      "files_hint": [
+        "docs/features/open-and-view/sad.md",
+        "docs/features/open-and-view/ux-flows.md"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05.md",
+      "review_findings": [
+        "R6"
+      ]
+    },
+    {
+      "id": "T46",
+      "title": "Cite the SCR-02 screen state on the UI tasks T15, T25, T26 and T39",
+      "layer": "wiring",
+      "deps": [],
+      "acs": [
+        "AC-12",
+        "AC-13"
+      ],
+      "dod": "Each of T15, T25, T26 and T39 names SCR-02 zoomed / panned in tasks.json",
+      "files_hint": [
+        "docs/features/open-and-view/tasks.json"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05.md",
+      "review_findings": [
+        "R7"
+      ]
+    },
+    {
+      "id": "T47",
+      "title": "Test the CRW and X3F drop extensions each on their own",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-10",
+        "AC-04"
+      ],
+      "dod": "A locked .CRW and a locked .X3F with no MIME type, each dropped alone, get the not-permitted reason; reverting either extension in IMAGE_EXTENSIONS turns the test red",
+      "files_hint": [
+        "src/features/editor/drop.test.ts"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05-2.md",
+      "review_findings": [
+        "V1"
+      ]
+    },
+    {
+      "id": "T48",
+      "title": "Check the first-frame Original pixels of an animated GIF on all three engines",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-11"
+      ],
+      "dod": "The animated-GIF reference entries assert originalPixel is frame 1's colour on Chromium, Firefox and WebKit; test-plan row 71 drops the engine limit",
+      "files_hint": [
+        "e2e/open-and-view/reference-set.spec.ts",
+        "e2e/open-and-view/open-flows.spec.ts",
+        "docs/features/open-and-view/test-plan.md"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05-2.md",
+      "review_findings": [
+        "V2"
+      ]
+    },
+    {
+      "id": "T49",
+      "title": "Cap the GIF late-frame walk at a named byte budget",
+      "layer": "infra",
+      "deps": [],
+      "acs": [
+        "AC-11"
+      ],
+      "dod": "GIF_WALK_MAX_BYTES bounds the bytes the late-frame walk reads past the header window; past it the walk reports not animated; a pipeline.test case proves the reads stop at the cap; sad.md §11 accepts that a second frame beyond the cap goes undetected",
+      "files_hint": [
+        "src/infra/image-decode/pipeline.ts",
+        "src/infra/image-decode/pipeline.test.ts",
+        "docs/features/open-and-view/sad.md"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05-2.md",
+      "review_findings": [
+        "V3"
+      ]
+    },
+    {
+      "id": "T50",
+      "title": "Show the 500 MB byte-ceiling refusal in the rendered toast",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-09"
+      ],
+      "dod": "An EditorView component test opens a file the decoder refuses with TOO_LARGE {megabytes: 612, ceilingMegabytes: 500} and asserts the role=alert toast text",
+      "files_hint": [
+        "src/features/editor/EditorView.test.ts"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05-2.md",
+      "review_findings": [
+        "V4"
+      ]
+    },
+    {
+      "id": "T51",
+      "title": "Assert one retained Original at the end of the replace and over-Work e2e tests",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-05",
+        "AC-16b"
+      ],
+      "dod": "replace.spec.ts and the over-Work reference tests end with bitmaps().retained === 1; the test-plan leak-check bullet drops the worker counter and points at client.test.ts for the worker",
+      "files_hint": [
+        "e2e/open-and-view/replace.spec.ts",
+        "e2e/open-and-view/reference-set.spec.ts",
+        "docs/features/open-and-view/test-plan.md"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05-2.md",
+      "review_findings": [
+        "V5"
+      ]
+    },
+    {
+      "id": "T52",
+      "title": "Compare the Preview before a context loss with the Preview after restore",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-19"
+      ],
+      "dod": "On Chromium the blocking e2e takes a canvas screenshot before loseContext and asserts it matches after the restoring overlay clears",
+      "files_hint": [
+        "e2e/open-and-view/blocking.spec.ts"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05-2.md",
+      "review_findings": [
+        "V6"
+      ]
+    },
+    {
+      "id": "T53",
+      "title": "Drop a link over an open Work end to end",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-04"
+      ],
+      "dod": "An e2e opens an image, drops a DataTransfer with only text/uri-list, and asserts the 'Only image files can be opened.' alert, the Work unchanged and the drop default prevented; test-plan row 41 names it",
+      "files_hint": [
+        "e2e/open-and-view/empty-and-drop.spec.ts",
+        "docs/features/open-and-view/test-plan.md"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05-2.md",
+      "review_findings": [
+        "V7"
+      ]
+    },
+    {
+      "id": "T54",
+      "title": "Cite the screen states on T10 and the SCR-02 success, error and drag-over states on T13",
+      "layer": "wiring",
+      "deps": [],
+      "acs": [
+        "AC-11b",
+        "AC-16",
+        "AC-02"
+      ],
+      "dod": "T10 cites SCR-01 error, SCR-02 success / error, SCR-03, SCR-04 and SCR-05; T13 cites SCR-02 success / error / drag-over",
+      "files_hint": [
+        "docs/features/open-and-view/tasks.json"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05-2.md",
+      "review_findings": [
+        "V8"
+      ]
+    },
+    {
+      "id": "T55",
+      "title": "Document the GIF late-frame walk in the pipeline comment and sad.md flow 4",
+      "layer": "wiring",
+      "deps": [
+        "T49"
+      ],
+      "acs": [
+        "AC-11"
+      ],
+      "dod": "The pipeline doc comment and sad.md §6 flow 4 show the GIF late-frame walk past the header window",
+      "files_hint": [
+        "src/infra/image-decode/pipeline.ts",
+        "docs/features/open-and-view/sad.md"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05-2.md",
+      "review_findings": [
+        "V9"
+      ]
+    },
+    {
+      "id": "T56",
+      "title": "Remove the unstyled Space pan class and the assertions that test only it",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-13"
+      ],
+      "dod": "preview-canvas--space-pan is gone from PreviewCanvas and its tests; the --pannable cursor test still covers the cursor rule",
+      "files_hint": [
+        "src/features/editor/components/PreviewCanvas.vue",
+        "src/features/editor/components/PreviewCanvas.test.ts",
+        "src/features/editor/EditorView.test.ts"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05-2.md",
+      "review_findings": [
+        "V10"
+      ]
     }
   ]
 }

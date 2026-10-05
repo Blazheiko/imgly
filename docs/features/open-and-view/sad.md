@@ -46,7 +46,7 @@ target_surfaces: [web-frontend]  # filled in §4 — subset of: backend-service 
 **Organisational.**
 - Solo, spare-time project; owner Blazheiko. No per-feature effort budget: the only limit is the 4–6 week MVP budget for the whole roadmap (spec §1). No hard deadline
 - TDD is on (`.claude/sdd.local.md`): unit tests with Vitest, e2e with Playwright
-- The spec §6 targets bind to the reference machine: Apple M1 MacBook Air with the latest Chrome (spec §8 open question, due before `sdd:plan-tests`)
+- The spec §6 targets bind to the reference machine: Apple M1 MacBook Air with the latest Chrome (resolved 2026-10-04, spec §8)
 
 **Conventions.**
 - `docs/architecture-map.md` §Conventions: `core` and `infra` return `Result<T, AppError>` with a typed `code` and throw only for programmer errors; UUIDv7 IDs from `newId()`; unit tests co-located as `*.test.ts`; e2e in `e2e/*.spec.ts`; features expose `index.ts` and are mounted from `src/app/App.vue`; plain CSS with tokens from `src/shared/styles/tokens.css`
@@ -248,10 +248,15 @@ sequenceDiagram
     SPA->>WorkerA: terminates worker A, its memory is freed at once
     SPA->>SPA: marks open A as superseded, it can never replace the Work
     SPA->>WorkerB: starts worker B and posts file B
-    WorkerB->>WorkerB: reads the header window
-    alt the file cannot be read
+    WorkerB->>Core: checks the file's byte size against the 500 MB byte ceiling
+    alt the file is larger than the byte ceiling
+        Core-->>WorkerB: too large, with its size and the ceiling in MB
+        WorkerB-->>SPA: the refusal reason, before any byte is read
+    else the file cannot be read
+        WorkerB->>WorkerB: reads the header window
         WorkerB-->>SPA: not permitted to read the file
     else the header is judged
+        WorkerB->>WorkerB: reads the header window
         WorkerB->>Core: judges the header window and the size ceiling
         alt not an image, damaged or disguised
             Core-->>WorkerB: unreadable
@@ -265,7 +270,7 @@ sequenceDiagram
     SPA-->>Editor: the reason, which stays until dismissed
 ```
 
-Every refusal ends the same way: the worker reports a typed reason, the `editor` store changes nothing, and the reason goes to the notice queue as a failure that stays until dismissed. A late answer from a terminated worker can never arrive, and the store also ignores any result whose open is no longer the latest.
+The byte ceiling is judged from the file's size alone, so a file above 500 MB is refused before any of it is read (AC-09). Every refusal ends the same way: the worker reports a typed reason, the `editor` store changes nothing, and the reason goes to the notice queue as a failure that stays until dismissed. A late answer from a terminated worker can never arrive, and the store also ignores any result whose open is no longer the latest.
 
 ### Flow 3: drop several files or something that is not an image (US-02: AC-02, AC-03, AC-04)
 
@@ -332,6 +337,9 @@ sequenceDiagram
         ED-->>UI: Work unchanged
         UI-->>U: reason naming the format, suggesting JPEG or PNG, and another browser for HEIC
     else Supported image
+        opt a GIF whose header window holds only one frame
+            DEC->>DEC: walks block lengths past the header window, in bounded reads up to 64 MiB, to find a second frame
+        end
         DEC->>BR: decodes upright to sRGB, first frame only
         alt the decode fails, for a truncated or corrupt file
             BR-->>DEC: decode error
@@ -352,7 +360,7 @@ sequenceDiagram
     Note over U,UI: Postcondition: the Original's dimensions stay visible while the Work is open. Informational notices dismiss themselves, failure reasons stay until dismissed
 ```
 
-HEIC counts as a Supported image only where the worker's probe found that this browser decodes it; elsewhere it takes the first branch. Notices for a new image are raised only after the replace, so a cancelled confirmation shows none.
+HEIC counts as a Supported image only where the worker's probe found that this browser decodes it; elsewhere it takes the first branch. A GIF whose first frame fills the header window is checked for a later frame by walking block lengths, never decoding, up to `GIF_WALK_MAX_BYTES` past the window (§11). Notices for a new image are raised only after the replace, so a cancelled confirmation shows none.
 
 ### Flow 5: inspect the image with zoom, pan, Fit and 100% (US-05: AC-12, AC-12b, AC-13, AC-14)
 
@@ -469,7 +477,7 @@ The restore deadline is a tactical value fixed in `tasks` (§11).
 | AC-06 | Flow 4, downscale step skipped and no downscale notice | AC-16 | Flow 2 |
 | AC-07 | Flow 4, unsupported-format branch | AC-16b | Flow 2 |
 | AC-08 | Flow 2, unreadable branch; Flow 4, decode-fails branch | AC-17 | Flow 6, capabilities-present branch |
-| AC-09 | Flow 2, too-large branch | AC-18 | Flow 6, capability-missing branch |
+| AC-09 | Flow 2, byte-ceiling branch (before the header read) and too-large branch | AC-18 | Flow 6, capability-missing branch |
 | AC-10 | Flow 2, not-permitted branch | AC-19 | Flow 7, restored branch |
 | AC-11 | Flow 4, first-frame decode and notice | AC-19b | Flow 7, lost branch |
 | AC-11b | Flow 4, all notices at once | | |
@@ -508,7 +516,7 @@ open-and-view reuses the existing deployment unit: one static bundle built by `.
 |---|---|---|
 | Error handling | `core` and `infra` return `Result<T, AppError>`; hostile input never throws. New codes: `FILE_NOT_PERMITTED` (AC-10), `NOT_AN_IMAGE`, `UNREADABLE` (declared size not found in the header window) and `DECODE_FAILED` (AC-08, one message), `UNSUPPORTED_FORMAT` with the format name (AC-07), `TOO_LARGE` with both sizes in megapixels (AC-09), `UNSUPPORTED_BROWSER` (AC-18), `DISPLAY_LOST` (AC-19b). The worker posts errors as plain `{ code, details }` objects. A superseded open is not an error: `decodeImage` resolves it as `Superseded` and the store ignores it | `docs/architecture-map.md` §Conventions; codes in `src/core/result.ts` |
 | User messages | Every `AppError` code maps to exactly one plain-language message in one catalog, `src/features/editor/messages.ts`; no raw browser error text ever reaches the Editor. Notices go through one queue in `src/shared/notices/`: informational ones (downscale, first frame only, files ignored) dismiss themselves, failure reasons stay until dismissed, and all notices of one open are shown together without hiding each other (AC-11b). Blocking conditions (SCR-04, SCR-05) replace the canvas area instead of using a notice | `docs/design-system.md` §Interaction & writing conventions; here |
-| Size ceiling | 100 MP, measured as the declared width × height and checked before any decode (AC-09). No separate limit on file size in bytes or on the length of one side: intermediate canvases in the worker never exceed 16 384 px per side, so a very elongated image within the ceiling is reduced in a first, larger step instead of being refused, and a file the browser itself cannot decode ends as AC-08. Resolves spec §8 (size ceiling) | here; `src/core/open/` |
+| Size ceiling | 100 MP, measured as the declared width × height and checked before any decode (AC-09), and checked again on the decoded bitmap in case a header understated it. A separate byte ceiling of 500 MB (`SIZE_CEILING_BYTES`) refuses a file from its size before any of it is read, so a small-header file with a huge body never reaches the worker whole (review 2026-10-04, Q5). No limit on the length of one side: intermediate canvases in the worker never exceed 16 384 px per side, so a very elongated image within the ceiling is reduced in a first, larger step instead of being refused, and a file the browser itself cannot decode ends as AC-08. Resolves spec §8 (size ceiling) | here; `src/core/open/` |
 | Resource lifetime | Every `ImageBitmap` is `close()`d as soon as it is no longer needed: intermediates in the worker, the new bitmap on a cancelled replace, the old Original after a replace. The old texture is deleted after the new one is uploaded (§6, flow 1). Each open's worker is terminated when its result arrives or when a newer open starts. Exactly one Original (bitmap + texture) is retained while a Work is open | here; ADR-0001, ADR-0003 |
 | Concurrency | Latest open wins: the store gives every open an increasing id and accepts a result only if its id is still the latest; the previous worker is terminated at once (AC-16b). The View stays live during an open; the Work is swapped in one synchronous store action | here; ADR-0001 |
 | Capability detection | Probed once, never assumed: the start-up gate in `src/render/capabilities.ts` (WebGL2, texture size, worker canvas, AC-18) and the worker's per-session probes (does the browser apply EXIF orientation, does it decode HEIC). Results are cached for the session. No user-agent sniffing | ADR-0001, ADR-0003 |
@@ -532,7 +540,7 @@ open-and-view reuses the existing deployment unit: one static bundle built by `.
 
 ADR files live under `docs/features/open-and-view/adr/NNNN-<title>.md`. The repo-wide foundation decisions this feature builds on are in `docs/adr/` (0001 client-only Vue PWA, 0002 functional core with feature folders, 0004 WebGL2 and Canvas 2D); repo ADR 0003 (IndexedDB persistence) is not touched here.
 
-Decided inline, below the ADR gate: extending `features/editor` rather than a new feature folder (§5), the performance suite running on the reference machine and the e2e suite on three engines (§7), and the 100 MP size ceiling with no byte or side limit (§8).
+Decided inline, below the ADR gate: extending `features/editor` rather than a new feature folder (§5), the performance suite running on the reference machine and the e2e suite on three engines (§7), and the 100 MP size ceiling, the 500 MB byte ceiling and no side limit (§8).
 
 ## 10. Quality requirements
 
@@ -551,7 +559,7 @@ Each top-3 goal from §1 expanded into testable scenarios. Numbers are quoted fr
 **QG-2. Work integrity under untrusted input**
 - **When:** each file of the reference test set (JPEG, PNG, WebP, AVIF, animated GIF, HEIC, damaged, truncated, oversize, mis-named files, spec §7) and the 8 EXIF orientation images is opened, once with no Work and once over a Work with Unsaved edits; plus a decompression bomb (a small file declaring dimensions above the size ceiling, default 100 MP, fixed in §8) and fuzzed headers
 - **Then:** 100% of files end in either a correct Preview or a plain-language reason, with 0 blank canvases or tab crashes (spec §7); 8 of 8 orientation images display upright (spec §7); on every refusal the open Work stays exactly as it was and no confirmation is asked (AC-16); the bomb is refused before any pixel is decoded (AC-09)
-- **How verify:** Vitest units with the fixture set for `sniffImageHeader` and `checkOpenPolicy`, plus a property test over truncated and mutated samples asserting that it always returns a `Result`, never throws and never allocates in proportion to a declared size (ADR-0002). Playwright e2e on Chromium, Firefox and WebKit runs the whole set and asserts the outcome, the message text from the catalog, and that the Work's `id` and `revision` are unchanged after each refusal; for the bomb it asserts that the worker reported `TOO_LARGE` without reaching its decode stage. The HEIC files are opened by hand in real Safari before release (§7)
+- **How verify:** Vitest units with the fixture set for `sniffImageHeader` and `checkOpenPolicy`, plus a property test over truncated and mutated samples asserting that it always returns a `Result`, never throws and never allocates in proportion to a declared size (ADR-0002). Playwright e2e on Chromium, Firefox and WebKit runs the whole set and asserts the outcome, the message text from the catalog, and that the Work's `id` and `revision` are unchanged after each refusal; for the bomb it asserts the too-large notice. That the worker never reaches its decode stage is proven at unit level: the pipeline refuses before `createImageBitmap` is called (`src/infra/image-decode/pipeline.test.ts`, review 2026-10-05 R5). The HEIC files are opened by hand in real Safari before release (§7)
 
 **QG-3. Smooth, stable View**
 - **When:** a scripted zoom and pan runs over a 4096 px Original; then the 48 MP JPEG is opened 10 times in a row
@@ -570,10 +578,13 @@ Each top-3 goal from §1 expanded into testable scenarios. Numbers are quoted fr
 | The `@perf` suite runs only by hand on the reference machine (§7), so a speed or memory regression can ship unnoticed between releases | Medium | A "run `@perf` on the reference machine" item in the `ship` checklist; between releases, the development build logs the worker's stage timings (§8), so a large slowdown shows up while working on the app | Blazheiko (owner) |
 | A later editing feature forgets to raise the Work's revision, so its edits are lost on replace without a confirmation | Medium | Edits go through the `editor` store's edit entry point, which raises the revision (ADR-0005); roadmap step 4 re-verifies AC-15 with a real edit (spec §1 Decision override) | Blazheiko (owner) |
 | A valid JPEG with more than 1 MiB of metadata before its frame header is refused as unreadable (ADR-0002) | Low | Keep such a sample in the reference set; raise `HEADER_WINDOW_BYTES` if real photos hit it | Blazheiko (owner) |
+| A GIF whose first image descriptor lies past the 1 MiB header window (for example after a long comment extension) can't be sized before decoding, and its frame may hide a decompression bomb (re-review N1) | Low | The header parser refuses a GIF with no complete image descriptor inside the window as `UNREADABLE` (AC-09), the same as the JPEG with over 1 MiB of metadata; a padded-GIF sample is in the reference set. A real GIF with that much metadata before its first frame is refused too — accepted | Blazheiko (owner) |
+| An animated GIF whose second frame starts more than 64 MiB past the header window opens without the "only the first frame is kept" notice (re-review 3 V3) | Low | The worker walks GIF block lengths past the window only up to `GIF_WALK_MAX_BYTES` (64 MiB), so a large still GIF is never read twice in full before it decodes (ADR-0002 iteration cap); the first frame is still kept and the Work is correct, only the notice is missing. A first frame that large is rare — accepted | Blazheiko (owner) |
+| WebKit decodes a damaged PNG into a blank bitmap instead of failing, so a damaged file could open as a blank Preview (found by the T19 reference set) | Low | The header parser verifies the CRC of every PNG chunk inside the 1 MiB window and refuses a mismatch as `UNREADABLE` (AC-08) on every engine. Damage that lies only beyond the first 1 MiB is still decoded leniently by WebKit — accepted; revisit with a full-file CRC pass in the worker if it is seen in practice | Blazheiko (owner) |
 | HEIC decoding can be checked only in real Safari, because WebKit on Linux does not decode it (§7) | Low | Manual open of the HEIC samples in Safari in the pre-release pass; CI covers the HEIC refusal path (AC-07) | Blazheiko (owner) |
-| The WebGL context-restore deadline (ADR-0003) is not fixed yet; too short shows SCR-05 needlessly, too long leaves a black canvas | Low | Fix the value in `tasks` and cover it with a `WEBGL_lose_context` e2e for both AC-19 and AC-19b | Blazheiko (owner) |
+| **Resolved.** The WebGL context-restore deadline (ADR-0003) needed a value: too short shows SCR-05 needlessly, too long leaves a black canvas | Low | Fixed at 5000 ms (`RESTORE_DEADLINE_MS` in `src/render/preview-renderer.ts`), asserted in `src/render/context-loss.test.ts` and covered by the `WEBGL_lose_context` e2e for AC-19 and AC-19b (`e2e/open-and-view/blocking.spec.ts`) | Blazheiko (owner) |
 | The widened `infra → core` rule and the three-engine CI (§1 Decision overrides) are not yet reflected in `docs/architecture-map.md` or an import lint rule, so a later feature could read the old rule | Low | During `implement`, update `docs/architecture-map.md` §Module inventory and §Conventions, and encode "infra may import only types and pure functions from core" in the ESLint import rules | Blazheiko (owner) |
-| The spec §6 targets bind to a reference machine that is not confirmed yet (spec §8 open question) | Low | Default Apple M1 MacBook Air with the latest Chrome; confirm before `sdd:plan-tests` | Blazheiko (owner) |
+| **Resolved.** The spec §6 targets needed a confirmed reference machine | Low | Confirmed 2026-10-04 in `sdd:plan-tests` (spec §8): Apple M1 MacBook Air with the latest stable Chrome | Blazheiko (owner) |
 
 **Accepted debt (acceptable in v1, plan to fix later):**
 - Colours outside sRGB in Display P3 photos are clipped without a notice (ADR-0004); wide-gamut support would need a colour space on the Original and a re-open of the source file

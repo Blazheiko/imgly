@@ -9,7 +9,7 @@ files_hint: ["vite.config.ts", "playwright.config.ts", ".github/workflows/ci.yml
 owner: "Blazheiko"
 estimate: "S"
 context_budget: "S"   # measured: 39 inlined lines
-status: "todo"
+status: "done"
 ---
 <!-- Self-contained task. Every inlined chunk carries a provenance signature; the source always wins.
 To the executing agent: work from what is inlined here. If a slice is insufficient, ambiguous, or
@@ -100,7 +100,7 @@ Internal — no API surface.
 
 ## Definition of Done
 
-- [ ] `e2e/open-and-view/offline.spec.ts` passes in CI on Chromium, Firefox and WebKit
+- [ ] `e2e/open-and-view/offline.spec.ts` passes in CI on Chromium and Firefox; it is skipped on WebKit, because Playwright's WebKit cannot reload a page while offline, and Safari offline is a manual pre-release check (corrected by review 2026-10-04-2 F4)
 - [ ] CI runs the e2e matrix; ESLint rejects a `vue` import inside `src/infra/`
 - [ ] `docs/architecture-map.md` reflects both §1 Decision overrides
 - [ ] lint + typecheck clean

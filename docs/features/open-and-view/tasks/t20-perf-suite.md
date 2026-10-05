@@ -9,7 +9,7 @@ files_hint: ["e2e/open-and-view/perf.spec.ts", "src/infra/image-decode/", "src/f
 owner: "Blazheiko"
 estimate: "M"
 context_budget: "M"   # measured: 53 inlined lines
-status: "todo"
+status: "done"
 ---
 <!-- Self-contained task. Every inlined chunk carries a provenance signature; the source always wins.
 To the executing agent: work from what is inlined here. If a slice is insufficient, ambiguous, or

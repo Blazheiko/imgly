@@ -88,7 +88,9 @@ After the image is read and turned upright, its long side is compared with the D
 
 ```mermaid
 flowchart TD
-    F["File handed to the Open pipeline"] --> A{"Allowed to read the file?"}
+    F["File handed to the Open pipeline"] --> B{"File larger than 500 MB?"}
+    B -->|"yes"| E9B["Reason: file size in MB and the largest file opened, 500 MB, refused before reading"]
+    B -->|"no"| A{"Allowed to read the file?"}
     A -->|"no: permissions, cloud file not downloaded"| E10["Reason: not allowed to read, make it available on this computer"]
     A -->|"yes"| T{"What is it, judged by content?"}
     T -->|"not an image, damaged or disguised"| E8["Reason: could not be read as an image"]
@@ -105,10 +107,11 @@ flowchart TD
     E8 --> U
     E7 --> U
     E9 --> U
+    E9B --> U
     OK --> NB["All notices from this open are shown, none hides another"]
 ```
 
-This is the inside of the Open pipeline. First, if the OS or browser won't let the app read the file (permissions, a cloud file not downloaded), the reason says so and suggests making it available locally (AC-10). Then the content, not the name, decides: not an image, damaged or disguised gives "could not be read as an image" (AC-08). A recognised format that isn't a Supported image here (HEIC in a browser without support, SVG, BMP, ICO, TIFF, RAW, PSD) gets a notice that names the format and suggests converting it (AC-07). For a Supported image, the declared dimensions are read first. Unreadable dimensions count as unreadable (AC-08), and dimensions above the ceiling are refused before decoding, with the image's size and the largest accepted size (AC-09). A decode that fails is AC-08 again. An animated image keeps its first frame and adds a notice (AC-11). Every refusal leaves the screen and the Work exactly as they were, asks no confirmation, and keeps the reason on screen until dismissed (AC-16). When one open produces several notices, all are shown (AC-11b).
+This is the inside of the Open pipeline. First, a file larger than 500 MB is refused from its size alone, before any of it is read, with its size in MB and the largest file the editor opens (AC-09). Then, if the OS or browser won't let the app read the file (permissions, a cloud file not downloaded), the reason says so and suggests making it available locally (AC-10). Then the content, not the name, decides: not an image, damaged or disguised gives "could not be read as an image" (AC-08). A recognised format that isn't a Supported image here (HEIC in a browser without support, SVG, BMP, ICO, TIFF, RAW, PSD) gets a notice that names the format and suggests converting it (AC-07). For a Supported image, the declared dimensions are read first. Unreadable dimensions count as unreadable (AC-08), and dimensions above the ceiling are refused before decoding, with the image's size and the largest accepted size (AC-09). A decode that fails is AC-08 again. An animated image keeps its first frame and adds a notice (AC-11). Every refusal leaves the screen and the Work exactly as they were, asks no confirmation, and keeps the reason on screen until dismissed (AC-16). When one open produces several notices, all are shown (AC-11b).
 
 ### Flow: US-05 — Inspect the image closely
 
@@ -198,7 +201,7 @@ If the browser lacks the required graphics capability, the canvas area shows a f
 | AC-06 | Flow US-03 → "no" branch, no notice; dimensions stay visible | |
 | AC-07 | Flow US-04 → "recognised image, not a Supported image here" | |
 | AC-08 | Flow US-04 → "not an image, damaged or disguised", "declared size unreadable", "decode fails" | Three entry points, one reason |
-| AC-09 | Flow US-04 → "above the size ceiling", before decoding | Ceiling value is spec §8 open question |
+| AC-09 | Flow US-04 → "larger than 500 MB", before reading; "above the size ceiling", before decoding | Ceilings resolved in `sad.md` §8 (spec §8): 100 MP and 500 MB |
 | AC-10 | Flow US-04 → "not allowed to read" | |
 | AC-11 | Flow US-04 → "animated" → first frame plus notice | |
 | AC-11b | Flow US-04 → "All notices from this open are shown"; Platform decisions → Modality | Persistence rule (informational self-dismiss, reasons stay) |

@@ -21,7 +21,7 @@ draw on and export an image, then reopen any recent work later and re-edit it wi
 | # | Step | Source | Size | Status |
 |---|---|---|:---:|---|
 | 1 | Project skeleton: the app builds, boots, tests run, it deploys to GitHub Pages and works offline as a PWA shell ([`_scaffold`](features/_scaffold/)) | architecture-map.md §Module inventory | S | spec'd |
-| 2 | Open and view an image: pick or drop a file, downscale it to the limit, zoom and pan the preview, get a plain reason when it can't open ([`open-and-view`](features/open-and-view/)) | idea-brief.md §5 Out of scope (downscale) + §7 Recommendation | M | spec'd |
+| 2 | Open and view an image: pick or drop a file, downscale it to the limit, zoom and pan the preview, get a plain reason when it can't open ([`open-and-view`](features/open-and-view/)) | idea-brief.md §5 Out of scope (downscale) + §7 Recommendation | M | shipped |
 | 3 | Export the current image as PNG, JPEG or WebP with a quality setting | idea-brief.md §7 Recommendation | S | idea |
 | 4 | Crop and rotate the image in 90° steps | idea-brief.md §7 Recommendation | M | idea |
 | 5 | Adjust brightness, contrast, saturation, temperature/tint, grayscale and sepia with a live preview | idea-brief.md §7 Recommendation | M | idea |
@@ -99,3 +99,4 @@ flowchart LR
 
 | Step | Shipped | Link |
 |---|---|---|
+| 2 — Open and view an image | 2026-10-05 (PR open, not merged) | [changelog](features/open-and-view/_ship/changelog.md) · PR: pending |

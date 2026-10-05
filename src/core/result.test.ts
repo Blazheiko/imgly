@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { appError, err, ok, type Result } from './result'
+import { appError, err, ok, type AppErrorCode, type Result } from './result'
 
 describe('Result', () => {
   it('ok wraps a value', () => {
@@ -20,5 +20,22 @@ describe('Result', () => {
     if (result.ok) throw new Error('expected an error')
     expect(result.error.code).toBe('STORAGE_QUOTA')
     expect(result.error.details).toEqual({ usedBytes: 10 })
+  })
+})
+
+describe('AppErrorCode', () => {
+  it('carries every open-and-view code', () => {
+    const codes: AppErrorCode[] = [
+      'FILE_NOT_PERMITTED',
+      'NOT_AN_IMAGE',
+      'UNREADABLE',
+      'DECODE_FAILED',
+      'UNSUPPORTED_FORMAT',
+      'TOO_LARGE',
+      'UNSUPPORTED_BROWSER',
+      'DISPLAY_LOST',
+    ]
+
+    expect(codes.map((code) => appError(code).code)).toEqual(codes)
   })
 })

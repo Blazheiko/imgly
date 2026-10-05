@@ -28,7 +28,7 @@ frontend: "vue 3 + pinia + vite + plain css custom properties"
   - `pnpm dev` — Vite dev server
   - `pnpm build` — `vue-tsc -b && vite build` → `dist/`
   - `pnpm test` — `vitest run` (unit, happy-dom + fake-indexeddb)
-  - `pnpm test:e2e` — `playwright test` against `vite preview` (Chromium; builds first locally, CI reuses its build)
+  - `pnpm test:e2e` — `playwright test` on Chromium, Firefox and WebKit against `vite preview` of its own hooks-enabled build in `dist-e2e/` (never `dist/`); `@perf` tests are excluded unless `PERF=1`
   - `pnpm lint` — `eslint .` (flat config: typescript-eslint + eslint-plugin-vue) ; `pnpm format` — Prettier
   - `pnpm typecheck` — `vue-tsc -b --noEmit` (the "vet" gate)
 - Hosting: static site on **GitHub Pages**, deployed by GitHub Actions; Vite `base` = `/imgly/` (repo name)
@@ -62,8 +62,12 @@ C4Container
 ## Module inventory
 
 Target layout. `src/core/` must not import Vue, Pinia, or DOM/browser APIs. `src/features/*` may import
-`core`, `infra`, `shared`. `src/infra/` may import `core` (types only) and `shared`. Features do not
-import each other; cross-feature coordination goes through the `editor` store or `core` commands.
+`core`, `infra`, `shared`. `src/infra/` may import `core` types **and pure, side-effect-free
+functions** (widened by open-and-view, `docs/features/open-and-view/sad.md` §1 Decision override 1:
+the decode worker runs the same `sniffImageHeader` / `checkOpenPolicy` / target-size code the unit
+tests cover) and `shared`, but never Vue, Pinia, a feature or the app shell — ESLint enforces this
+for `src/infra/**`. Features do not import each other; cross-feature coordination goes through the
+`editor` store or `core` commands.
 
 | Module | Path | Layers | Wired at | Responsibility |
 |---|---|---|---|---|
@@ -72,6 +76,7 @@ import each other; cross-feature coordination goes through the `editor` store or
 | render | `src/render/` *(scaffold)* | infra (GPU) | used by `features/editor` | WebGL2 adjustment shader, Canvas 2D drawing compositor, export encoder |
 | infra/db | `src/infra/db/` *(scaffold)* | infra (persistence) | `src/infra/db/index.ts` *(scaffold)* | `openDb()` with versioned upgrade steps, `WorksRepository` (save, load, list recent, evict oldest) |
 | infra/platform | `src/infra/platform/` *(scaffold)* | infra (OS APIs) | used by features | File open and save, clipboard, drag and drop, `launchQueue` file handling with fallbacks |
+| infra/image-decode | `src/infra/image-decode/` | infra (worker) | used by `features/editor` | Decode worker (header window → `sniffImageHeader` → open policy → `createImageBitmap` → orient → stepwise reduction) and the `decodeImage` client with supersede and error mapping (open-and-view ADR-0001) |
 | shared | `src/shared/` *(scaffold)* | ui primitives, styles, utils | imported everywhere except `core` | Design tokens, base UI primitives, `ids.ts` (UUIDv7) |
 | features | `src/features/<feature>/` | ui (components) + store (Pinia) | mounted by `src/app/App.vue` | One folder per feature: `editor`, `crop`, `adjust`, `draw`, `export`, `gallery`, `os-integration`. The scaffold creates only `editor` as the baseline |
 
@@ -82,11 +87,11 @@ import each other; cross-feature coordination goes through the `editor` store or
 - **IDs:** UUIDv7 strings generated in the app (`newId()`), time-sortable. They give the gallery order and the evict-oldest rule — `src/shared/ids.ts` *(scaffold)*
 - **Persistence / DB access:** only `src/infra/db/*` touches IndexedDB, through repository functions that return `Result`. Images are stored as `Blob`s, never as data URLs. Stores and components never call `idb` directly — `src/infra/db/open-db.ts` *(scaffold)*. `works-repository.ts` arrives with the first persistence feature
 - **Migrations:** IndexedDB schema versions are ordered upgrade steps `src/infra/db/migrations/NNNN-<name>.ts`, each exporting `{ version, upgrade(db, tx) }`. `openDb()` runs every step whose version is greater than `oldVersion`. Steps are forward-only (IndexedDB cannot downgrade). A "down" means a new forward step. The `0001-init` step creates the `works` store — `src/infra/db/migrations/0001-init.ts` *(scaffold)*
-- **Tests:** Vitest. Unit tests are co-located as `*.test.ts` next to the source. IndexedDB tests use `fake-indexeddb/auto`. Component tests use `@vue/test-utils` + happy-dom. e2e tests live in `e2e/*.spec.ts` (Playwright, Chromium) and cover what happy-dom cannot: WebGL, the service worker and offline reload, downloads — `src/app/smoke.test.ts`, `e2e/smoke.spec.ts` *(scaffold)*
+- **Tests:** Vitest. Unit tests are co-located as `*.test.ts` next to the source. IndexedDB tests use `fake-indexeddb/auto`. Component tests use `@vue/test-utils` + happy-dom. e2e tests live in `e2e/**/*.spec.ts` (Playwright) and cover what happy-dom cannot: WebGL, the service worker and offline reload, downloads. The functional e2e suite runs on **Chromium, Firefox and WebKit** in CI (widened by open-and-view, `sad.md` §1 Decision override 2); WebGL pixel checks stay Chromium-only. `@perf`-tagged tests run by hand on the reference machine before release (`PERF=1 pnpm test:e2e`). e2e reads and prepares state only through `window.__imglyTest` (`src/app/test-hooks.ts`), present only in the `VITE_E2E_HOOKS` build — `src/app/smoke.test.ts`, `e2e/smoke.spec.ts`, `e2e/open-and-view/`
 - **Inter-module communication:** direct imports along the allowed direction (features → core/infra/render/shared). Features coordinate through the `editor` Pinia store. There is no event bus — `src/features/editor/store.ts` *(scaffold)*
 - **UI / styling:** plain CSS. Tokens are CSS custom properties in `src/shared/styles/tokens.css`, and components use `<style scoped>`. There is no UI kit and no CSS framework — see §Frontend / UI foundation
 - **Formatting / linting:** Prettier (single quotes, no semicolons, width 100) + ESLint flat config. `vue-tsc --noEmit` must pass — `eslint.config.js`, `.prettierrc` *(scaffold)*
-- **Git / CI:** one workflow `.github/workflows/ci.yml` runs install → lint → typecheck → unit → build → e2e on every push and PR. On `main` it also deploys `dist/` to GitHub Pages *(scaffold)*
+- **Git / CI:** one workflow `.github/workflows/ci.yml` runs install → lint → typecheck → unit → build → e2e (three engines) on every push and PR. On `main` it also deploys `dist/` to GitHub Pages *(scaffold)*
 
 ## Datastores
 

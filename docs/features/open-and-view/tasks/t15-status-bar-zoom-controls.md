@@ -9,7 +9,7 @@ files_hint: ["src/features/editor/components/EditorStatusBar.vue", "src/features
 owner: "Blazheiko"
 estimate: "S"
 context_budget: "M"   # measured: 69 inlined lines
-status: "todo"
+status: "done"
 ---
 <!-- Self-contained task. Every inlined chunk carries a provenance signature; the source always wins.
 To the executing agent: work from what is inlined here. If a slice is insufficient, ambiguous, or
