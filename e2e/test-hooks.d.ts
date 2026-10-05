@@ -16,6 +16,8 @@ declare global {
       } | null
       view(): { zoom: number; panX: number; panY: number; autoFit: boolean }
       originalPixel(x: number, y: number): number[]
+      previewAt100(): number[]
+      exportStatus(): string
       applyEdit(): void
       bitmaps(): { received: number; closed: number; retained: number }
       holdNextOpen(): void
