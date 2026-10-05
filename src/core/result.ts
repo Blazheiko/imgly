@@ -23,6 +23,14 @@ export type AppErrorCode =
   | 'UNSUPPORTED_BROWSER'
   /** The GPU context was lost and could not be restored in time. AC-19b */
   | 'DISPLAY_LOST'
+  /** Rendering, encoding, size or graphics failed during an export; nothing was written. AC-13 */
+  | 'EXPORT_FAILED'
+  /** The browser produced a different format than asked: `details.{asked,produced}`. AC-12 */
+  | 'EXPORT_FORMAT_MISMATCH'
+  /** The browser refused to write the chosen file (permission, read-only target). AC-14 */
+  | 'EXPORT_NOT_PERMITTED'
+  /** The save dialog returned a name whose extension doesn't match the format: `details.name`. AC-01b */
+  | 'EXPORT_EXTENSION_MISMATCH'
 
 export interface AppError {
   code: AppErrorCode
@@ -53,6 +61,10 @@ const APP_ERROR_CODES: Record<AppErrorCode, true> = {
   TOO_LARGE: true,
   UNSUPPORTED_BROWSER: true,
   DISPLAY_LOST: true,
+  EXPORT_FAILED: true,
+  EXPORT_FORMAT_MISMATCH: true,
+  EXPORT_NOT_PERMITTED: true,
+  EXPORT_EXTENSION_MISMATCH: true,
 }
 
 /** Runtime check for codes that crossed a boundary untyped (e.g. a worker message). */
