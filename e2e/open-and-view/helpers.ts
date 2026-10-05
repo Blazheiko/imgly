@@ -51,6 +51,16 @@ export async function waitForWork(page: Page, width: number, height: number) {
 
 export const view = (page: Page) => page.evaluate(() => window.__imglyTest!.view())
 
+/**
+ * The leak check (test-plan cleanup boundary): every bitmap the worker sent has been closed except
+ * the one Original the Work keeps (AC-05, AC-16b).
+ */
+export async function expectOneRetainedOriginal(page: Page) {
+  await expect
+    .poll(() => page.evaluate(() => window.__imglyTest!.bitmaps().retained), { timeout: 5_000 })
+    .toBe(1)
+}
+
 /** The canvas area in device pixels, as the View maths sees it. */
 export async function canvasArea(page: Page) {
   return page.evaluate(() => {

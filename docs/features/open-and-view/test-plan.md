@@ -147,7 +147,7 @@ Each error and authorization AC (AC-03, AC-04, AC-07, AC-08, AC-09, AC-10, AC-11
 - **Cleanup boundary.**
   - Per test: each integration and e2e-through-UI test gets its own browser context, which is closed afterwards and takes its workers, bitmaps, GPU context and service-worker state with it. Each unit and component test gets a fresh store and a reset fake clock.
   - Per suite: the generated large fixtures are reused across tests and are only ever read.
-  - Leak check: the development-build bitmap and worker counters must return to their baseline (one retained Original, at most one worker) at the end of each open-and-replace test.
+  - Leak check: the e2e bitmap ledger must be back at one retained Original at the end of each open-and-replace test that settles: Cancel, Esc, Replace and the open without confirmation (`e2e/open-and-view/replace.spec.ts`), and every reference-set entry opened over a Work (`e2e/open-and-view/reference-set.spec.ts`). The worker count has no real-engine counter; it is proven at unit level, where starting a new open terminates the previous worker (`src/infra/image-decode/client.test.ts`). Review 2026-10-05-2 V5.
 
 ## NFR validation (load)
 

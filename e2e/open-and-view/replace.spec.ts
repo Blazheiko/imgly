@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { dropGeneratedImage, gotoReady, waitForWork } from './helpers'
+import { dropGeneratedImage, expectOneRetainedOriginal, gotoReady, waitForWork } from './helpers'
 
 const work = (page: Page) => page.evaluate(() => window.__imglyTest!.work())
 
@@ -46,6 +46,7 @@ test.describe('SCR-03 — replace confirmation (AC-15)', () => {
     await expect(page.getByTestId('zoom-level')).toHaveText(before.level!)
     await expect(page.getByTestId('toast-stack')).toBeEmpty()
     await expect(page.getByRole('button', { name: 'Open image' })).toBeFocused()
+    await expectOneRetainedOriginal(page) // the declined image was closed
   })
 
   test('Esc cancels the same way', async ({ page }) => {
@@ -54,6 +55,7 @@ test.describe('SCR-03 — replace confirmation (AC-15)', () => {
 
     await expect(page.getByRole('alertdialog')).toHaveCount(0)
     expect(await work(page)).toEqual(before.work)
+    await expectOneRetainedOriginal(page)
   })
 
   test('Replace shows the new image at Fit, then its notices', async ({ page }) => {
@@ -70,6 +72,7 @@ test.describe('SCR-03 — replace confirmation (AC-15)', () => {
     await expect(
       page.getByText('Reduced to the 4096 px limit: 6000×4000 → 4096×2731.'),
     ).toBeVisible()
+    await expectOneRetainedOriginal(page) // the replaced Original was closed
   })
 
   test('opens without asking when only the View changed (AC-14)', async ({ page }) => {
@@ -81,5 +84,6 @@ test.describe('SCR-03 — replace confirmation (AC-15)', () => {
     await dropGeneratedImage(page, { width: 3000, height: 2000 })
     await waitForWork(page, 3000, 2000)
     await expect(page.getByRole('alertdialog')).toHaveCount(0)
+    await expectOneRetainedOriginal(page)
   })
 })

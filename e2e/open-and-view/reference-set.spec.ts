@@ -2,7 +2,14 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { crc32 } from 'node:zlib'
 import { expect, test, type Page } from '@playwright/test'
-import { canvasArea, dropGeneratedImage, gotoReady, view, waitForWork } from './helpers'
+import {
+  canvasArea,
+  dropGeneratedImage,
+  expectOneRetainedOriginal,
+  gotoReady,
+  view,
+  waitForWork,
+} from './helpers'
 
 const fixture = (name: string) =>
   readFileSync(fileURLToPath(new URL(`../fixtures/${name}`, import.meta.url)))
@@ -228,6 +235,8 @@ test.describe('reference set — no Work open', () => {
 })
 
 test.describe('reference set — over a Work with Unsaved edits (AC-15, AC-16)', () => {
+  test.afterEach(async ({ page }) => expectOneRetainedOriginal(page))
+
   for (const [label, payload, outcome] of REFERENCE_SET) {
     test(`${label}: never touches the Work unless replaced`, async ({ page, browserName }) => {
       await gotoReady(page)
