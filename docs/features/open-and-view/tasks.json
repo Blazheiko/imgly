@@ -174,7 +174,7 @@
       "acs": [
         "AC-11b"
       ],
-      "dod": "Vitest proves the notice queue shows every notice of one open together, auto-dismisses info after 6000 ms and keeps failures until dismissed, and Dialog traps focus, cancels on Esc and returns focus; the five primitives are registered in docs/design-system.md",
+      "dod": "Vitest proves the notice queue shows every notice of one open together, auto-dismisses info after 6000 ms and keeps failures until dismissed, and Dialog traps focus, cancels on Esc and returns focus; the five primitives are registered in docs/design-system.md; builds SCR-01 error, SCR-02 success / error, SCR-03, SCR-04 and SCR-05 (the toast, dialog and canvas-message primitives they show)",
       "files_hint": [
         "src/shared/notices/",
         "src/shared/ui/",
@@ -244,7 +244,7 @@
         "AC-04",
         "AC-17"
       ],
-      "dod": "Playwright e2e on three engines proves the empty editor shows one primary Open image action and the drop hint, a dropped non-image shows 'Only image files can be opened.' without navigation, and the drop overlay appears on drag-enter; component tests cover SCR-01 states",
+      "dod": "Playwright e2e on three engines proves the empty editor shows one primary Open image action and the drop hint, a dropped non-image shows 'Only image files can be opened.' without navigation, and the drop overlay appears on drag-enter; component tests cover SCR-01 states; builds SCR-02 success / error / drag-over (info and failure toasts over the Work, the drop overlay over the Work)",
       "files_hint": [
         "src/features/editor/EditorView.vue",
         "src/features/editor/components/EditorTopBar.vue",
