@@ -315,6 +315,23 @@ describe('SegmentedControl', () => {
     expect(wrapper.emitted('update:modelValue')).toBeUndefined()
   })
 
+  it('with no option selected, keeps the first enabled option in the tab order', () => {
+    const wrapper = mount(SegmentedControl, {
+      props: {
+        modelValue: null,
+        options: [
+          { value: 'a', label: 'A', disabled: true },
+          { value: 'b', label: 'B' },
+          { value: 'c', label: 'C' },
+        ],
+        label: 'Size',
+      },
+    })
+    const radios = wrapper.findAll('[role="radio"]')
+    expect(radios.map((r) => r.attributes('aria-checked'))).toEqual(['false', 'false', 'false'])
+    expect(radios.map((r) => r.attributes('tabindex'))).toEqual(['-1', '0', '-1'])
+  })
+
   it('marks disabled options and shows their hints under the group', () => {
     const wrapper = setup('png')
     const webp = wrapper.findAll('[role="radio"]')[2]!

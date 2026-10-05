@@ -10,13 +10,19 @@ export interface SegmentedOption<V> {
 }
 
 const props = defineProps<{
-  modelValue: T
+  /** `null` selects nothing (e.g. a typed size that matches no preset). */
+  modelValue: T | null
   options: readonly SegmentedOption<T>[]
   label: string
 }>()
 const emit = defineEmits<{ 'update:modelValue': [value: T] }>()
 
 const radios = ref<HTMLButtonElement[]>([])
+/** The option in the tab order: the selected one, else the first enabled one (roving tabindex). */
+const tabStop = computed(() => {
+  const selected = props.options.findIndex((o) => o.value === props.modelValue && !o.disabled)
+  return selected >= 0 ? selected : props.options.findIndex((o) => !o.disabled)
+})
 const hints = computed(() => props.options.flatMap((option) => (option.hint ? [option.hint] : [])))
 
 function select(index: number) {
@@ -56,7 +62,7 @@ function onKeydown(event: KeyboardEvent, from: number) {
         :aria-checked="option.value === modelValue ? 'true' : 'false'"
         :aria-disabled="option.disabled ? 'true' : undefined"
         :disabled="option.disabled"
-        :tabindex="option.value === modelValue ? 0 : -1"
+        :tabindex="index === tabStop ? 0 : -1"
         @click="select(index)"
         @keydown="onKeydown($event, index)"
       >
