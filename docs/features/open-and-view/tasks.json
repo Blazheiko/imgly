@@ -921,6 +921,192 @@
       "review_findings": [
         "R7"
       ]
+    },
+    {
+      "id": "T47",
+      "title": "Test the CRW and X3F drop extensions each on their own",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-10",
+        "AC-04"
+      ],
+      "dod": "A locked .CRW and a locked .X3F with no MIME type, each dropped alone, get the not-permitted reason; reverting either extension in IMAGE_EXTENSIONS turns the test red",
+      "files_hint": [
+        "src/features/editor/drop.test.ts"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05-2.md",
+      "review_findings": [
+        "V1"
+      ]
+    },
+    {
+      "id": "T48",
+      "title": "Check the first-frame Original pixels of an animated GIF on all three engines",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-11"
+      ],
+      "dod": "The animated-GIF reference entries assert originalPixel is frame 1's colour on Chromium, Firefox and WebKit; test-plan row 71 drops the engine limit",
+      "files_hint": [
+        "e2e/open-and-view/reference-set.spec.ts",
+        "e2e/open-and-view/open-flows.spec.ts",
+        "docs/features/open-and-view/test-plan.md"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05-2.md",
+      "review_findings": [
+        "V2"
+      ]
+    },
+    {
+      "id": "T49",
+      "title": "Cap the GIF late-frame walk at a named byte budget",
+      "layer": "infra",
+      "deps": [],
+      "acs": [
+        "AC-11"
+      ],
+      "dod": "GIF_WALK_MAX_BYTES bounds the bytes the late-frame walk reads past the header window; past it the walk reports not animated; a pipeline.test case proves the reads stop at the cap; sad.md §11 accepts that a second frame beyond the cap goes undetected",
+      "files_hint": [
+        "src/infra/image-decode/pipeline.ts",
+        "src/infra/image-decode/pipeline.test.ts",
+        "docs/features/open-and-view/sad.md"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05-2.md",
+      "review_findings": [
+        "V3"
+      ]
+    },
+    {
+      "id": "T50",
+      "title": "Show the 500 MB byte-ceiling refusal in the rendered toast",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-09"
+      ],
+      "dod": "An EditorView component test opens a file the decoder refuses with TOO_LARGE {megabytes: 612, ceilingMegabytes: 500} and asserts the role=alert toast text",
+      "files_hint": [
+        "src/features/editor/EditorView.test.ts"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05-2.md",
+      "review_findings": [
+        "V4"
+      ]
+    },
+    {
+      "id": "T51",
+      "title": "Assert one retained Original at the end of the replace and over-Work e2e tests",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-05",
+        "AC-16b"
+      ],
+      "dod": "replace.spec.ts and the over-Work reference tests end with bitmaps().retained === 1; the test-plan leak-check bullet drops the worker counter and points at client.test.ts for the worker",
+      "files_hint": [
+        "e2e/open-and-view/replace.spec.ts",
+        "e2e/open-and-view/reference-set.spec.ts",
+        "docs/features/open-and-view/test-plan.md"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05-2.md",
+      "review_findings": [
+        "V5"
+      ]
+    },
+    {
+      "id": "T52",
+      "title": "Compare the Preview before a context loss with the Preview after restore",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-19"
+      ],
+      "dod": "On Chromium the blocking e2e takes a canvas screenshot before loseContext and asserts it matches after the restoring overlay clears",
+      "files_hint": [
+        "e2e/open-and-view/blocking.spec.ts"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05-2.md",
+      "review_findings": [
+        "V6"
+      ]
+    },
+    {
+      "id": "T53",
+      "title": "Drop a link over an open Work end to end",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-04"
+      ],
+      "dod": "An e2e opens an image, drops a DataTransfer with only text/uri-list, and asserts the 'Only image files can be opened.' alert, the Work unchanged and the drop default prevented; test-plan row 41 names it",
+      "files_hint": [
+        "e2e/open-and-view/empty-and-drop.spec.ts",
+        "docs/features/open-and-view/test-plan.md"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05-2.md",
+      "review_findings": [
+        "V7"
+      ]
+    },
+    {
+      "id": "T54",
+      "title": "Cite the screen states on T10 and the SCR-02 success, error and drag-over states on T13",
+      "layer": "wiring",
+      "deps": [],
+      "acs": [
+        "AC-11b",
+        "AC-16",
+        "AC-02"
+      ],
+      "dod": "T10 cites SCR-01 error, SCR-02 success / error, SCR-03, SCR-04 and SCR-05; T13 cites SCR-02 success / error / drag-over",
+      "files_hint": [
+        "docs/features/open-and-view/tasks.json"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05-2.md",
+      "review_findings": [
+        "V8"
+      ]
+    },
+    {
+      "id": "T55",
+      "title": "Document the GIF late-frame walk in the pipeline comment and sad.md flow 4",
+      "layer": "wiring",
+      "deps": [
+        "T49"
+      ],
+      "acs": [
+        "AC-11"
+      ],
+      "dod": "The pipeline doc comment and sad.md §6 flow 4 show the GIF late-frame walk past the header window",
+      "files_hint": [
+        "src/infra/image-decode/pipeline.ts",
+        "docs/features/open-and-view/sad.md"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05-2.md",
+      "review_findings": [
+        "V9"
+      ]
+    },
+    {
+      "id": "T56",
+      "title": "Remove the unstyled Space pan class and the assertions that test only it",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-13"
+      ],
+      "dod": "preview-canvas--space-pan is gone from PreviewCanvas and its tests; the --pannable cursor test still covers the cursor rule",
+      "files_hint": [
+        "src/features/editor/components/PreviewCanvas.vue",
+        "src/features/editor/components/PreviewCanvas.test.ts",
+        "src/features/editor/EditorView.test.ts"
+      ],
+      "file": "docs/features/open-and-view/_review/review-2026-10-05-2.md",
+      "review_findings": [
+        "V10"
+      ]
     }
   ]
 }

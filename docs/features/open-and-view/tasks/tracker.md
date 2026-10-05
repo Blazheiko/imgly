@@ -51,5 +51,15 @@
 | T44 | Point the stage-record, worker-count and ledger test-plan rows and QG-2 at the unit tests that prove them (review R5) | wiring | Blazheiko | S | — | done |
 | T45 | Mark the reference machine, size ceiling and restore deadline notes as resolved (review R6) | wiring | Blazheiko | S | T42, T44 | done |
 | T46 | Cite the SCR-02 screen state on the UI tasks T15, T25, T26 and T39 (review R7) | wiring | Blazheiko | S | — | done |
+| T47 | Test the CRW and X3F drop extensions each on their own (review V1) | tests | Blazheiko | S | — | todo |
+| T48 | Check the first-frame Original pixels of an animated GIF on all three engines (review V2) | tests | Blazheiko | S | — | todo |
+| T49 | Cap the GIF late-frame walk at a named byte budget (review V3) | infra | Blazheiko | S | — | todo |
+| T50 | Show the 500 MB byte-ceiling refusal in the rendered toast (review V4) | tests | Blazheiko | S | — | todo |
+| T51 | Assert one retained Original at the end of the replace and over-Work e2e tests (review V5) | tests | Blazheiko | S | — | todo |
+| T52 | Compare the Preview before a context loss with the Preview after restore (review V6) | tests | Blazheiko | S | — | todo |
+| T53 | Drop a link over an open Work end to end (review V7) | tests | Blazheiko | S | — | todo |
+| T54 | Cite the screen states on T10 and the SCR-02 success, error and drag-over states on T13 (review V8) | wiring | Blazheiko | S | — | todo |
+| T55 | Document the GIF late-frame walk in the pipeline comment and sad.md flow 4 (review V9) | wiring | Blazheiko | S | T49 | todo |
+| T56 | Remove the unstyled Space pan class and the assertions that test only it (review V10) | ui | Blazheiko | S | — | todo |
 
-**Total:** 46 tasks (T21–T33 are the review-2026-10-04 follow-ups, T34–T39 the review-2026-10-04-2 follow-ups, T40–T46 the review-2026-10-05 follow-ups), ~29.5 person-days (S = ½ day, M/L = 1 day).
+**Total:** 56 tasks (T21–T33 are the review-2026-10-04 follow-ups, T34–T39 the review-2026-10-04-2 follow-ups, T40–T46 the review-2026-10-05 follow-ups, T47–T56 the review-2026-10-05-2 follow-ups), ~34.5 person-days (S = ½ day, M/L = 1 day).
