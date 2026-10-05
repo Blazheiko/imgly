@@ -5,6 +5,7 @@ import {
   HEADER_WINDOW_BYTES,
   ok,
   sniffImageHeader,
+  stripMetadata,
   type AppError,
   type ExportFormat,
   type Result,
@@ -64,8 +65,10 @@ export async function handleExport(
   const { bitmap } = request
   try {
     const canvas = env.createCanvas(request.width, request.height)
-    const blob = render(canvas, request) ? await encode(canvas, request) : undefined
-    if (!blob) return failed()
+    if (!render(canvas, request, env)) return failed()
+    const encoded = await encode(copyTo2d(canvas, env), request)
+    const stripped = stripMetadata(new Uint8Array(await encoded.arrayBuffer()))
+    const blob = new Blob([stripped as Uint8Array<ArrayBuffer>], { type: encoded.type })
     return await verify(blob, request)
   } catch {
     return failed()
@@ -94,8 +97,21 @@ export async function handleCheck(env: ExportEnv): Promise<FormatCheck> {
   return { jpeg: await check('jpeg'), webp: await check('webp') }
 }
 
+/**
+ * The bitmap's straight RGBA through a 2D canvas: the one readback every engine agrees on, whatever
+ * premultiplication state a transferred bitmap carries (WebKit's copies disagree with WebGL).
+ */
+function readPixels(bitmap: ImageBitmap, env: ExportEnv): ImageData {
+  const ctx = env
+    .createCanvas(bitmap.width, bitmap.height)
+    .getContext('2d', { willReadFrequently: true })
+  if (!ctx) throw new Error('no 2d context')
+  ctx.drawImage(bitmap, 0, 0)
+  return ctx.getImageData(0, 0, bitmap.width, bitmap.height)
+}
+
 /** Draws the Work into the canvas; false when there is no usable WebGL2 context. */
-function render(canvas: OffscreenCanvas, request: ExportRequest): boolean {
+function render(canvas: OffscreenCanvas, request: ExportRequest, env: ExportEnv): boolean {
   const gl = canvas.getContext('webgl2', {
     alpha: true,
     antialias: false,
@@ -105,7 +121,7 @@ function render(canvas: OffscreenCanvas, request: ExportRequest): boolean {
   if (!gl) return false
   const { bitmap, width, height } = request
   const gpu = buildProgram(gl)
-  const texture = uploadTexture(gl, bitmap)
+  const texture = uploadTexture(gl, readPixels(bitmap, env))
   // Full size samples texel centres 1:1, as the Preview at 100%; smaller sizes use the mipmaps.
   const fullSize = width === bitmap.width && height === bitmap.height
   gl.texParameteri(
@@ -127,6 +143,19 @@ function render(canvas: OffscreenCanvas, request: ExportRequest): boolean {
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
   gl.finish()
   return !gl.isContextLost()
+}
+
+/**
+ * Copies the render into a 2D canvas for encoding. Engines differ on encoding a premultiplied
+ * WebGL canvas directly (WebKit writes premultiplied colour); a 2D copy is un-premultiplied
+ * correctly everywhere, as the Preview's readback is.
+ */
+function copyTo2d(source: OffscreenCanvas, env: ExportEnv): OffscreenCanvas {
+  const copy = env.createCanvas(source.width, source.height)
+  const ctx = copy.getContext('2d')
+  if (!ctx) throw new Error('no 2d context')
+  ctx.drawImage(source, 0, 0)
+  return copy
 }
 
 async function encode(canvas: OffscreenCanvas, request: ExportRequest): Promise<Blob> {

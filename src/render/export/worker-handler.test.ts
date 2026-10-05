@@ -14,7 +14,15 @@ function setup(
   opts: { gl?: FakeGl | null; encoded?: (w: number, h: number, type: string) => Encoded } = {},
 ) {
   const fake = opts.gl === undefined ? createFakeGl() : opts.gl
-  const canvases: { width: number; height: number; options?: unknown }[] = []
+  const canvases: {
+    width: number
+    height: number
+    options?: unknown
+    kind?: string
+    canvas?: unknown
+    drawn: unknown[]
+    encoded: boolean
+  }[] = []
   const encodes: unknown[] = []
   const samples: FakeBitmap[] = []
   const env: ExportEnv = {
@@ -28,20 +36,42 @@ function setup(
       canvas.width = width
       canvas.height = height
       const getContext = canvas.getContext
-      const record = { width, height, options: undefined as unknown }
+      const record = {
+        width,
+        height,
+        options: undefined as unknown,
+        kind: undefined as string | undefined,
+        canvas: undefined as unknown,
+        drawn: [] as unknown[],
+        encoded: false,
+      }
       canvases.push(record)
-      return Object.assign(canvas, {
+      const result = Object.assign(canvas, {
         getContext: (kind: string, options?: unknown) => {
           record.options = options
+          record.kind = kind
+          if (kind === '2d') {
+            return {
+              drawImage: (source: unknown) => record.drawn.push(source),
+              getImageData: (_x: number, _y: number, w: number, h: number) => ({
+                fromCanvas: canvases.indexOf(record),
+                width: w,
+                height: h,
+              }),
+            }
+          }
           return getContext(kind)
         },
         convertToBlob: async (options: { type: string; quality?: number }) => {
+          record.encoded = true
           encodes.push(options)
           const bytes = (opts.encoded ?? defaultEncoded)(width, height, options.type)
           if (bytes === 'reject') throw new DOMException('encode', 'EncodingError')
           return new Blob([bytes as Uint8Array<ArrayBuffer>], { type: options.type })
         },
-      }) as unknown as OffscreenCanvas
+      })
+      record.canvas = result
+      return result as unknown as OffscreenCanvas
     },
   }
   return { fake, env, canvases, encodes, samples }
@@ -78,8 +108,7 @@ describe('handleExport (export worker)', () => {
     if (!result.ok) return
     expect(result.value).toBeInstanceOf(Blob)
     expect(result.value.type).toBe('image/png')
-    expect(canvases).toHaveLength(1)
-    expect(canvases[0]).toMatchObject({ width: 4096, height: 3072 })
+    expect(canvases[0]).toMatchObject({ width: 4096, height: 3072, kind: 'webgl2' })
     expect(encodes).toEqual([{ type: 'image/png' }])
     expect(fake!.calls).toContainEqual(['viewport', 0, 0, 4096, 3072])
     expect(fake!.names()).toContain('drawArrays')
@@ -90,6 +119,18 @@ describe('handleExport (export worker)', () => {
       false,
       new Float32Array([2, 0, 0, 0, -2, 0, -1, 1, 1]),
     ])
+  })
+
+  it('uploads the pixels read through a 2D canvas, not the bitmap (engines premultiply bitmaps differently)', async () => {
+    const { fake, env, canvases } = setup()
+    const req = request()
+    await handleExport(req, env)
+
+    const reader = canvases.findIndex((c) => c.kind === '2d' && c.drawn.includes(req.bitmap))
+    expect(reader).toBeGreaterThanOrEqual(0)
+    expect(canvases[reader]).toMatchObject({ width: 4096, height: 3072 })
+    const upload = fake!.calls.find(([name]) => name === 'texImage2D')!
+    expect(upload.at(-1)).toEqual({ fromCanvas: reader, width: 4096, height: 3072 })
   })
 
   it('uploads premultiplied and samples 1:1 at texel centres at full size', async () => {
@@ -218,6 +259,34 @@ describe('handleExport (export worker)', () => {
     })
   })
 
+  it('encodes from a 2D copy of the render, which every engine un-premultiplies correctly', async () => {
+    const { env, canvases } = setup()
+    await handleExport(request({ width: 2048, height: 1536 }), env)
+
+    const render = canvases.find((c) => c.kind === 'webgl2')
+    const copy = canvases.find((c) => c.encoded)
+    expect(render).toMatchObject({ kind: 'webgl2', encoded: false })
+    expect(copy).toMatchObject({ kind: '2d', width: 2048, height: 1536, encoded: true })
+    expect(copy!.drawn).toEqual([render!.canvas])
+  })
+
+  it('strips metadata blocks the encoder added before returning the file (AC-16)', async () => {
+    const exif = Uint8Array.from([0xff, 0xe1, 0x00, 0x08, 0x45, 0x78, 0x69, 0x66, 0x00, 0x00])
+    const { env } = setup({
+      encoded: (w, h) => {
+        const plain = jpeg({ width: w, height: h })
+        return Uint8Array.from([...plain.subarray(0, 2), ...exif, ...plain.subarray(2)])
+      },
+    })
+    const result = await handleExport(request({ format: 'jpeg' }), env)
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    const bytes = new Uint8Array(await result.value.arrayBuffer())
+    expect(bytes.length).toBe(jpeg({ width: 4096, height: 3072 }).length)
+    expect(Array.from(bytes.subarray(2, 4))).not.toEqual([0xff, 0xe1])
+    expect(result.value.type).toBe('image/jpeg')
+  })
+
   it('closes the bitmap exactly once on success', async () => {
     const { env } = setup()
     const req = request()
@@ -230,7 +299,9 @@ describe('handleCheck (session format check, AC-12)', () => {
   it('trial-encodes a 2×2 sample per lossy format through the export path', async () => {
     const { env, canvases, encodes, samples } = setup()
     expect(await handleCheck(env)).toEqual({ jpeg: true, webp: true })
-    expect(canvases.map(({ width, height }) => [width, height])).toEqual([
+    expect(
+      canvases.filter((c) => c.kind === 'webgl2').map(({ width, height }) => [width, height]),
+    ).toEqual([
       [2, 2],
       [2, 2],
     ])

@@ -78,10 +78,14 @@ export function buildProgram(gl: WebGL2RenderingContext): GpuProgram {
   }
 }
 
-/** Uploads a bitmap as a premultiplied, mipmapped sRGB texture (open-and-view ADR-0003). */
+/**
+ * Uploads pixels as a premultiplied, mipmapped sRGB texture (open-and-view ADR-0003). The premultiply
+ * flag is honoured for `ImageData`; for an `ImageBitmap` the bitmap's own state decides, and WebKit
+ * gets that wrong for bitmap copies, so the export uploads `ImageData`.
+ */
 export function uploadTexture(
   gl: WebGL2RenderingContext,
-  bitmap: ImageBitmap,
+  bitmap: ImageBitmap | ImageData,
 ): WebGLTexture | null {
   const texture = gl.createTexture()
   gl.bindTexture(gl.TEXTURE_2D, texture)
