@@ -187,6 +187,14 @@ describe('editor store — notices and drop sequencing', () => {
         expect(texts()).toEqual(["failure: This file couldn't be read as an image."])
       })
 
+      it('gives a locked Camera RAW file with no MIME type the not-permitted reason (AC-10)', async () => {
+        editor.setDecoder(decodeWith({ 'IMG_0001.CRW': locked, 'SDIM0001.X3F': locked }))
+        await editor.openDrop({ files: [f('IMG_0001.CRW'), f('SDIM0001.X3F')] })
+        expect(texts()).toEqual([
+          "failure: The app wasn't allowed to read this file. Make it available on this computer first, for example by downloading it from your cloud drive.",
+        ])
+      })
+
       it('still gives an image file refused early its own reason', async () => {
         editor.setDecoder(decodeWith({ 'huge.jpg': overBytes, 'locked.png': locked }))
         await editor.openDrop({ files: [f('huge.jpg'), f('locked.png')] })

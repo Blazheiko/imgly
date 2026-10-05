@@ -21,11 +21,13 @@ const IMAGE_EXTENSIONS = new Set([
   'dng',
   'cr2',
   'cr3',
+  'crw',
   'nef',
   'arw',
   'orf',
   'rw2',
   'raf',
+  'x3f',
 ])
 
 /**
