@@ -4,8 +4,6 @@ import type { PreviewRenderer } from '@/render'
 import { useEditorStore } from '../store'
 import { pinchGesture, wheelGesture, type PinchInput } from './gestures'
 
-const props = defineProps<{ spacePan?: boolean }>()
-
 const editor = useEditorStore()
 const canvas = ref<HTMLCanvasElement>()
 const dragging = ref(false)
@@ -124,9 +122,8 @@ onBeforeUnmount(() => {
     ref="canvas"
     class="preview-canvas"
     :class="{
+      // A fitted image can't pan, so it keeps the default cursor, Space or not (screens.md SCR-02).
       'preview-canvas--pannable': pannable,
-      // A fitted image can't pan, so Space keeps the default cursor there (screens.md SCR-02).
-      'preview-canvas--space-pan': props.spacePan && pannable,
       'preview-canvas--dragging': dragging,
     }"
     data-testid="preview-canvas"

@@ -150,7 +150,7 @@ onBeforeUnmount(() => {
       </CanvasMessage>
       <template v-else-if="live">
         <EmptyCanvas v-if="!editor.work" @open="openPicked" />
-        <PreviewCanvas v-else :space-pan="spacePan" />
+        <PreviewCanvas v-else />
         <div
           v-if="editor.display === 'restoring'"
           class="editor-view__restoring"

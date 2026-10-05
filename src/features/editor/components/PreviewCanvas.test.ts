@@ -143,12 +143,4 @@ describe('PreviewCanvas', () => {
     await wrapper.vm.$nextTick()
     expect(wrapper.get('canvas').classes()).toContain('preview-canvas--pannable')
   })
-
-  it('keeps the default cursor in Space pan mode while the image fits (AC-13)', async () => {
-    const wrapper = mount(PreviewCanvas, { props: { spacePan: true } })
-    expect(wrapper.get('canvas').classes()).not.toContain('preview-canvas--space-pan')
-    editor.actualSize()
-    await wrapper.vm.$nextTick()
-    expect(wrapper.get('canvas').classes()).toContain('preview-canvas--space-pan')
-  })
 })

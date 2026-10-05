@@ -197,7 +197,6 @@ describe('EditorView — zoom shortcuts (SCR-02)', () => {
     await nextTick()
     expect(down.defaultPrevented).toBe(true)
     const canvas = wrapper.get('[data-testid="preview-canvas"]')
-    expect(canvas.classes()).toContain('preview-canvas--space-pan')
 
     const startPan = editor.view.panX
     canvas.element.dispatchEvent(
@@ -216,8 +215,7 @@ describe('EditorView — zoom shortcuts (SCR-02)', () => {
     })
     zoomIn.dispatchEvent(up)
     await nextTick()
-    expect(up.defaultPrevented).toBe(true)
-    expect(canvas.classes()).not.toContain('preview-canvas--space-pan')
+    expect(up.defaultPrevented).toBe(true) // keyup is handled only in pan mode
     expect(editor.view.zoom).toBe(1) // released Space did not press Zoom in
   })
 
