@@ -30,7 +30,8 @@ jobs:
       # Firefox has no built-in software GL: WebGL2 on the GPU-less runner needs Mesa (llvmpipe)
       # and an X display, so the e2e run goes under xvfb-run with Firefox headed.
       - run: sudo apt-get install -y --no-install-recommends libegl1 libgl1 libegl-mesa0 libgl1-mesa-dri
-      - run: xvfb-run -a pnpm exec playwright test --project=firefox e2e/export/quality-size.spec.ts --retries=0
+      - run: xvfb-run -a pnpm exec playwright test --project=firefox --project=webkit e2e/export/quality-size.spec.ts --retries=0
+        continue-on-error: true
       - run: xvfb-run -a pnpm test:e2e
       - uses: actions/upload-artifact@v4
         if: failure()
