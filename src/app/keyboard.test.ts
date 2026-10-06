@@ -3,7 +3,7 @@ import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { ok } from '@/core'
 import { useEditorStore } from '@/features/editor'
-import { createFakeRenderer } from '@/features/editor/fake-renderer'
+import { createFakeRenderer } from '@/features/editor/testing'
 import { useExportStore } from '@/features/export'
 import App from './App.vue'
 

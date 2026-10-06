@@ -29,6 +29,6 @@
 | T22 | Time out a worker that never answers (review F6) | infra | Blazheiko | S | — | done |
 | T23 | Re-place the Popover on window resize while open (review F7) | ui | Blazheiko | S | — | done |
 | T24 | Keep the no-Work Export focusable while the first image is read (re-review R1) | ui | Blazheiko | S | — | done |
-| T25 | Import the editor's fake renderer through a testing barrel (re-review R2) | tests | Blazheiko | S | — | todo |
+| T25 | Import the editor's fake renderer through a testing barrel (re-review R2) | tests | Blazheiko | S | — | done |
 
 **Total:** 25 tasks (T17–T23 from review 2026-10-06, T24–T25 from its re-review; review follow-ups carry `source` → the review record instead of a task file), ~16 person-days (S ≈ ½ day, M ≈ 1 day).
