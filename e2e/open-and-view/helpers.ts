@@ -43,10 +43,26 @@ export async function dropGeneratedImage(
   }, spec)
 }
 
+/**
+ * Waits for the Work and for the Preview canvas's first measurement: until its ResizeObserver
+ * fires, the canvas keeps the default 300×150 backing size and the View ignores zoom and fit.
+ */
 export async function waitForWork(page: Page, width: number, height: number) {
   await expect
     .poll(() => page.evaluate(() => window.__imglyTest?.work()), { timeout: 15_000 })
     .toMatchObject({ width, height })
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const canvas = document.querySelector<HTMLCanvasElement>('[data-testid="preview-canvas"]')
+        if (!canvas) return false
+        const r = canvas.getBoundingClientRect()
+        const near = (backing: number, css: number) =>
+          Math.abs(backing - css * devicePixelRatio) <= 1
+        return r.width > 0 && near(canvas.width, r.width) && near(canvas.height, r.height)
+      }),
+    )
+    .toBe(true)
 }
 
 export const view = (page: Page) => page.evaluate(() => window.__imglyTest!.view())
