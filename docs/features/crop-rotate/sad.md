@@ -281,25 +281,16 @@ The export panel counts every size from the Crop (AC-14). For a transparent Orig
 
 ## 7. Deployment view
 
-<!-- 🎯 Why: the TOPOLOGY DevOps must know without reading the deploy charts — how many replicas,
-     where the background worker lives, AT WHAT NUMBERS we scale.
-     📋 Write: 2–3 sentences on topology + monitoring + concrete threshold numbers.
-     📌 e.g. «500 authors → partition by quarter» (not «we'll think about scale later»).
-     🎯 N/A allowed for XS/S that reuses an existing deployment unit with no change.
-     Deployment-diagram scaffold → templates/deployment.md. -->
-
-<Topology in 2–3 sentences. Where it runs, replicas, scaling thresholds.>
+Unchanged topology: the feature ships inside the existing static app on GitHub Pages under `/imgly/`, as part of the same Vite build, and runs entirely in one browser tab. There is no server, replica or scaling unit to add. The service worker precaches the larger app shell and the changed export worker script exactly as it does today, so the tool works offline after the first load. No new hosting configuration, header, permission or browser capability is needed: WebGL2 in the window and in workers is already a start-up requirement (open-and-view capability gate, export ADR-0003).
 
 **Monitoring:**
-- <Metrics — e.g. `<metric_name>`>
-- <Alerts — e.g. «worker lag > 10 min → page on-call»>
-- <Tracing — e.g. spans on the request boundary>
+- No runtime telemetry, by design: the app sends nothing anywhere (§2 Regulatory).
+- Performance marks in the e2e build are the measurement points for spec §6: a "tool ready" mark when SCR-03 is first drawn, frame timing through the existing performance trace, and whole-page memory through `e2e/perf-memory.ts`. They are read by the `@perf` suite (`PERF=1`) on the reference machine, not in CI.
+- CI runs the fidelity, opacity and AC-14 pixel checks on Chromium, Firefox and WebKit with every push (§10).
 
 **Scaling thresholds:**
-- <e.g. comfortable in one table up to N rows/year>
-- <e.g. partition by quarter above N rows/year>
-
-<!-- For XS/S with no deployment change: <!-- N/A: reuses existing deployment unit, no infra change --> -->
+- The Downscale limit bounds everything: the Original's long side is at most 4096 px, so the Crop, the Export and the transparency check's full-size readback are at most 4096 × 4096 px (about 64 MB of RGBA).
+- The Geometry adds no memory per change (ADR-0002); 50 applied changes stay within spec §6's ≤ 110% of memory after the first Apply.
 
 ## 8. Crosscutting concepts
 
