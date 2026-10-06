@@ -202,31 +202,82 @@ The Editor SPA does all the interactive work. It applies every Geometry rule thr
 
 ## 6. Runtime view
 
-<!-- 🎯 Why: the RUNTIME FLOW of 1–2 critical scenarios — who talks to whom, when, in what order.
-     Without §6, §5 is just boxes with no life.
-     📋 Write: a Mermaid sequenceDiagram. Participants are names from §5 (don't invent new ones).
-     Messages are semantic («saves a draft»), NO HTTP verbs / paths / status codes — endpoint-level
-     sequences arrive at the `api` stage.
-     📌 e.g. «author → web: composes draft → web → content API: save». Seed the primary flow(s) here;
-     the `sequences` stage then covers every §5 AC (no cap). Never N/A for M+; XS/S keeps ≥1 happy-path flow. -->
-
-**Critical flow 1: <flow name>**
+**Critical flow 1: open the tool, change the Geometry, then Apply or Cancel**
 
 ```mermaid
 sequenceDiagram
-    actor Actor
-    participant Web
-    participant Service
-    participant Store
-    Actor->>Web: <action>
-    Web->>Service: <call>
-    Service->>Store: <write>
-    Store-->>Service: ok
-    Service-->>Web: result
-    Web-->>Actor: confirmation
+    actor Editor
+    participant SPA as Editor SPA
+    participant Core as Editing core
+    participant Browser as Browser platform
+
+    Editor->>SPA: chooses Crop and rotate, or presses C
+    SPA->>SPA: editor store opens the tool slot if a Work is open and no export runs
+    SPA->>SPA: tool store copies the Work's Geometry as the draft and as the Geometry to return to
+    SPA->>Core: whole turned image for the draft, transform and fit View
+    Core-->>SPA: transform, turned size, Crop corners on screen
+    SPA->>Browser: draws the Original through the transform
+    SPA-->>Editor: whole image, frame where the Crop is, outside dimmed
+    loop each drag, turn, flip, straighten or typed value
+        Editor->>SPA: drags a handle, chooses rotate or flip, moves the slider, or leaves a field
+        SPA->>Core: applies the rule to the draft
+        Core-->>SPA: new draft, Crop inside the turned image in whole pixels
+        SPA->>Browser: redraws with the new transform
+        SPA-->>Editor: Preview, frame and size fields follow
+    end
+    alt Apply, by the button or Enter outside a field
+        Editor->>SPA: applies
+        SPA->>Core: compares the draft with the Geometry at open, field by field
+        Core-->>SPA: equal or different
+        SPA->>SPA: editor store stores the Geometry and raises the revision only if different
+        SPA->>SPA: closes the tool slot and fits the View to the Work's new size
+        SPA-->>Editor: Preview shows only the Crop, status bar shows its size from the Original's
+    else Cancel or Escape
+        Editor->>SPA: cancels
+        SPA->>SPA: closes the tool slot and drops the draft
+        SPA-->>Editor: Work and Unsaved edits as before, View fits the Work
+    end
 ```
 
-**Critical flow 2: <e.g. async event propagation>** — <if applicable, otherwise N/A>.
+Opening the tool needs a Work and no export in progress (AC-15, AC-18). The tool store copies the Work's Geometry as its draft, and the Preview shows the whole turned image with the frame where the Crop is (AC-12, AC-19). Every change goes through the core rules, so the Crop stays whole pixels inside the turned image, turns and flips with the image, and shrinks under a Straighten angle (AC-02 to AC-10). The Preview redraws with a new transform only, so nothing is allocated per change (ADR-0002). Apply stores the draft and raises the revision only when it differs field by field (AC-13). Cancel drops the draft (AC-11). Either way the View then fits the Work (AC-19).
+
+**Critical flow 2: export a Work with a Geometry**
+
+```mermaid
+sequenceDiagram
+    actor Editor
+    participant SPA as Editor SPA
+    participant Core as Editing core
+    participant Exporter as Export worker
+    participant Browser as Browser platform
+
+    Editor->>SPA: opens the export panel
+    SPA->>Core: the Work's size from its Crop
+    Core-->>SPA: full size, presets and long side count from it
+    opt JPEG selected and the Original has transparent pixels
+        SPA->>Exporter: copy of the Original and the Geometry, check for transparency
+        Exporter->>Core: transform for the Geometry
+        Exporter->>Browser: renders the alpha at full size and reads it back
+        Exporter-->>SPA: whether any pixel inside the Crop is not opaque
+        SPA-->>Editor: transparency hint only if one is
+    end
+    Editor->>SPA: confirms
+    SPA->>Exporter: copy of the Original, the Geometry, size, format, quality
+    Exporter->>Core: transform for the Geometry
+    Exporter->>Browser: renders the Crop at the chosen size with the shared shader and encodes
+    Exporter-->>SPA: verified file, then export flows as before
+```
+
+The export panel counts every size from the Crop (AC-14). For a transparent Original with a Geometry, the transparency hint waits for a GPU check of the pixels inside the Crop (ADR-0004). On confirm, the export worker renders exactly the Crop with the same transform and shader as the Preview, so the file holds no pixel from outside the Crop (AC-14, ADR-0002). From the verified file on, export's own flows are unchanged (export sad.md §6).
+
+**Branches the `sequences` stage draws:**
+- No image open: the action and C show "open an image first" (AC-18).
+- Export in progress: the action is disabled and C does nothing; the request is refused, not queued (AC-15).
+- Export or Ctrl/Cmd+S while the tool is open: the hint "apply or cancel the crop first"; the browser's "Save page" never opens (AC-16).
+- Open image or a drop while the tool is open: the tool stays open through reading and the replace confirmation. A confirmed replace closes it and drops the draft; a failed read or a declined replace keeps it as it was (AC-17).
+- Typed angle or size out of range, fractional, empty or not a number: snapped, rounded or reverted when the field is left or Enter is pressed in it (AC-07, AC-10).
+- Reset then Apply, or Reset then Cancel (AC-12); a proportion remembered even after Cancel (AC-08).
+- The transparency check fails: the hint shows, the safe side (ADR-0004).
 
 ## 7. Deployment view
 
