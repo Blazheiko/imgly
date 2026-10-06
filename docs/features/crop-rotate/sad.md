@@ -313,17 +313,15 @@ Unchanged topology: the feature ships inside the existing static app on GitHub P
 
 ## 9. Architecture decisions
 
-<!-- 🎯 Why: the REVERSE INDEX onto the adr/ folder. `ls adr/` gives the files; §9 gives the
-     semantics — why they exist, which SAD section they attach to, what status.
-     📋 Write: a 4-column table, one row per ADR. Mixed status is fine.
-     📌 e.g. «0001 | Store content as a table of typed blocks | Accepted | §4». -->
-
 | # | Title | Status | Section |
 |---|---|---|---|
-| <NNNN> | <imperative — e.g. "Use a sliding-window counter for rate limiting"> | Accepted | §<N> |
-| <NNNN> | <imperative — e.g. "Co-locate the worker in the API process"> | Accepted | §<N> |
+| [0001](adr/0001-model-the-geometry-as-integer-parameters-with-one-core-transform.md) | Model the Geometry as integer parameters on the Work, with every rule and one transform in core | Accepted | §4 |
+| [0002](adr/0002-render-the-geometry-in-the-shared-shader-in-one-pass.md) | Render the Geometry in the shared shader in one pass, sampling the Original directly | Accepted | §4 |
+| [0003](adr/0003-open-tools-in-an-active-tool-slot-with-the-draft-in-the-feature-store.md) | Open tools in an activeTool slot on the editor store, with the draft in the tool's own store | Accepted | §4 |
+| [0004](adr/0004-check-crop-transparency-on-the-gpu-with-the-export-shader.md) | Check for transparency inside the Crop on the GPU with the export shader | Accepted | §4 |
+| [0005](adr/0005-draw-the-crop-frame-as-a-dom-overlay-over-the-preview.md) | Draw the crop frame as a DOM overlay over the Preview canvas | Accepted | §5 |
 
-ADR files live under `docs/features/<slug>/adr/NNNN-<title>.md`.
+ADR files live under `docs/features/crop-rotate/adr/`. Inherited and still binding: repo ADRs 0002, 0003 and 0004; open-and-view ADR-0003 (WebGL2 Preview) and ADR-0005 (revision counter); export ADR-0002 (export worker) and ADR-0003 (window fallback).
 
 ## 10. Quality requirements
 
