@@ -1,5 +1,5 @@
 import { appError, err, isAppErrorCode, ok, type AppError, type Result } from '@/core'
-import type { ExportRequest, ExportWorkerMessage } from './worker-handler'
+import type { ExportRequest, ExportWorkerMessage, FormatCheck } from './worker-handler'
 
 /** Which formats this browser can produce, by content; PNG always (AC-12). */
 export interface FormatAvailabilityCheck {
@@ -35,9 +35,22 @@ function parseExportReply(data: unknown): Result<Blob, AppError> {
   )
 }
 
-function parseCheckReply(data: unknown): FormatAvailabilityCheck {
+/** A check reply; only an explicit `webgl2: false` sends exports to the window. */
+function parseCheckReply(data: unknown): FormatCheck {
   const reply = (typeof data === 'object' && data !== null ? data : {}) as Record<string, unknown>
-  return { png: true, jpeg: reply.jpeg === true, webp: reply.webp === true }
+  return { webgl2: reply.webgl2 !== false, jpeg: reply.jpeg === true, webp: reply.webp === true }
+}
+
+const formatsOf = (check: FormatCheck): FormatAvailabilityCheck => ({
+  png: true,
+  jpeg: check.jpeg,
+  webp: check.webp,
+})
+
+/** The same export and check run in the window, for an engine whose workers lack WebGL2. */
+export interface InWindowExport {
+  exportImage(request: ExportRequest): Promise<Result<Blob, AppError>>
+  check(): Promise<FormatCheck>
 }
 
 /**
@@ -78,11 +91,19 @@ function runInWorker<T>(
   })
 }
 
-/** The main-thread side of the export worker: one short-lived worker per export or check. */
-export function createExportClient(createWorker: () => Worker) {
+/**
+ * The main-thread side of the export worker: one short-lived worker per export or check. When the
+ * session check finds no WebGL2 in the worker, every later check and export runs in the window
+ * instead (export ADR-0003), so the bitmap never goes to a worker that cannot render it.
+ */
+export function createExportClient(createWorker: () => Worker, inWindow?: InWindowExport) {
+  /** Settles with whether exports run in the window; undefined until a check has started. */
+  let useWindow: Promise<boolean> | undefined
+
   return {
     /** Renders, encodes and verifies one export; the bitmap is transferred and closed there. */
     async exportImage(request: ExportRequest): Promise<Result<Blob, AppError>> {
+      if (inWindow && useWindow && (await useWindow)) return inWindow.exportImage(request)
       const { value, posted } = await runInWorker(
         createWorker,
         { kind: 'export', request },
@@ -97,15 +118,22 @@ export function createExportClient(createWorker: () => Worker) {
 
     /** The session format check; never rejects — any error makes that format unavailable. */
     async checkExportFormats(): Promise<FormatAvailabilityCheck> {
-      const { value } = await runInWorker(
+      const inWorker = runInWorker(
         createWorker,
         { kind: 'check' },
         undefined,
         parseCheckReply,
-        UNAVAILABLE,
+        { webgl2: true, ...UNAVAILABLE },
         CHECK_TIMEOUT_MS,
-      )
-      return value
+      ).then(({ value }) => value)
+      useWindow = inWorker.then((check) => inWindow !== undefined && !check.webgl2)
+      const check = await inWorker
+      if (!inWindow || check.webgl2) return formatsOf(check)
+      try {
+        return formatsOf(await inWindow.check())
+      } catch {
+        return UNAVAILABLE
+      }
     },
   }
 }

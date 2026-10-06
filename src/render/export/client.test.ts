@@ -176,6 +176,69 @@ describe('checkExportFormats (AC-12)', () => {
   })
 })
 
+describe('a worker without WebGL2 (export ADR-0003)', () => {
+  function setupInWindow(check = { webgl2: true, jpeg: true, webp: false }) {
+    FakeWorker.created = []
+    FakeWorker.throwOnPost = false
+    const blob = new Blob([new Uint8Array([1])], { type: 'image/jpeg' })
+    const inWindow = {
+      exportImage: vi.fn(async () => ({ ok: true as const, value: blob })),
+      check: vi.fn(async () => check),
+    }
+    const client = createExportClient(() => new FakeWorker() as unknown as Worker, inWindow)
+    return { client, inWindow, blob, workers: FakeWorker.created }
+  }
+
+  it('checks again in the window and exports there, never handing the bitmap to a worker', async () => {
+    const { client, inWindow, blob, workers } = setupInWindow()
+    const checked = client.checkExportFormats()
+    workers[0]!.reply({ webgl2: false, jpeg: false, webp: false })
+    await expect(checked).resolves.toEqual({ png: true, jpeg: true, webp: false })
+    expect(inWindow.check).toHaveBeenCalledTimes(1)
+
+    const req = request()
+    await expect(client.exportImage(req)).resolves.toEqual({ ok: true, value: blob })
+    expect(inWindow.exportImage).toHaveBeenCalledWith(req)
+    expect(workers).toHaveLength(1)
+  })
+
+  it('an export confirmed while the check runs waits for it and goes to the window', async () => {
+    const { client, inWindow, workers } = setupInWindow()
+    const checked = client.checkExportFormats()
+    const exported = client.exportImage(request())
+    workers[0]!.reply({ webgl2: false, jpeg: false, webp: false })
+    await Promise.all([checked, exported])
+    expect(inWindow.exportImage).toHaveBeenCalledTimes(1)
+    expect(workers).toHaveLength(1)
+  })
+
+  it('keeps the worker when it has WebGL2 or its check crashed', async () => {
+    for (const answer of [
+      (w: FakeWorker) => w.reply({ webgl2: true, jpeg: true, webp: true }),
+      (w: FakeWorker) => w.crash(),
+    ]) {
+      const { client, inWindow, workers } = setupInWindow()
+      const checked = client.checkExportFormats()
+      answer(workers[0]!)
+      await checked
+      const exported = client.exportImage(request())
+      await vi.waitFor(() => expect(workers).toHaveLength(2))
+      workers[1]!.reply({ ok: true, value: new Blob() })
+      await exported
+      expect(inWindow.check).not.toHaveBeenCalled()
+      expect(inWindow.exportImage).not.toHaveBeenCalled()
+    }
+  })
+
+  it('never rejects when the check in the window throws', async () => {
+    const { client, inWindow, workers } = setupInWindow()
+    inWindow.check.mockRejectedValueOnce(new Error('no canvas'))
+    const checked = client.checkExportFormats()
+    workers[0]!.reply({ webgl2: false, jpeg: false, webp: false })
+    await expect(checked).resolves.toEqual({ png: true, jpeg: false, webp: false })
+  })
+})
+
 describe('a worker that never answers (AC-11, AC-13)', () => {
   afterEach(() => vi.useRealTimers())
 

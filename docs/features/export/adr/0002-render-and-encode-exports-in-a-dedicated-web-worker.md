@@ -48,7 +48,7 @@ An Export is the Work rendered with all its edits at the full or a chosen smalle
 - Rendering the same Work in two contexts means two code paths to keep in step; a test compares them (sad.md §10 QG-2)
 
 **Neutral**
-- Depends on `OffscreenCanvas` with WebGL2 in workers, present in every target browser; a browser without it fails every export with a plain reason (AC-13)
+- Depends on `OffscreenCanvas` with WebGL2 in workers, present in every target browser; a browser without it fails every export with a plain reason (AC-13) — amended by [[0003-render-in-the-window-when-the-worker-has-no-webgl2]]: Linux WebKit has none, and exports there render in the window
 - Moving to option 2 later would touch only `src/render/export/`; the panel, the store and the save path would not change
 
 ## Links

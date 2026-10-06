@@ -21,9 +21,14 @@ export interface ExportRequest {
   quality: number
 }
 
+/** A canvas the export renders into with WebGL2. */
+export type RenderCanvas = OffscreenCanvas | HTMLCanvasElement
+
 /** The browser APIs the export needs, injected so it runs under unit tests too. */
 export interface ExportEnv {
   createCanvas(width: number, height: number): OffscreenCanvas
+  /** The WebGL2 render target; `createCanvas` when absent. */
+  createRenderCanvas?(width: number, height: number): RenderCanvas
   /** A 2×2 semi-transparent bitmap for the session format check. */
   createSample(): ImageBitmap
 }
@@ -41,6 +46,8 @@ export const browserExportEnv: ExportEnv = {
 
 /** What the worker answers to the session format check; PNG is always offered. */
 export interface FormatCheck {
+  /** This context can render with WebGL2; the client falls back to the window without it. */
+  webgl2: boolean
   jpeg: boolean
   webp: boolean
 }
@@ -64,7 +71,7 @@ export async function handleExport(
 ): Promise<Result<Blob, AppError>> {
   const { bitmap } = request
   try {
-    const canvas = env.createCanvas(request.width, request.height)
+    const canvas = renderCanvas(env, request.width, request.height)
     if (!render(canvas, request, env)) return failed()
     const encoded = await encode(copyTo2d(canvas, env), request)
     const stripped = stripMetadata(new Uint8Array(await encoded.arrayBuffer()))
@@ -82,6 +89,7 @@ export async function handleExport(
  * content; any error counts as unavailable (AC-12).
  */
 export async function handleCheck(env: ExportEnv): Promise<FormatCheck> {
+  if (!canRender(env)) return { webgl2: false, jpeg: false, webp: false }
   const check = async (format: 'jpeg' | 'webp') => {
     try {
       const sample = env.createSample()
@@ -94,7 +102,22 @@ export async function handleCheck(env: ExportEnv): Promise<FormatCheck> {
       return false
     }
   }
-  return { jpeg: await check('jpeg'), webp: await check('webp') }
+  return { webgl2: true, jpeg: await check('jpeg'), webp: await check('webp') }
+}
+
+function renderCanvas(env: ExportEnv, width: number, height: number): RenderCanvas {
+  return env.createRenderCanvas?.(width, height) ?? env.createCanvas(width, height)
+}
+
+/** Whether a WebGL2 context can be made here at all (Linux WebKit has none in workers). */
+function canRender(env: ExportEnv): boolean {
+  try {
+    const gl = renderCanvas(env, 1, 1).getContext('webgl2')
+    gl?.getExtension('WEBGL_lose_context')?.loseContext()
+    return gl !== null && gl !== undefined
+  } catch {
+    return false
+  }
 }
 
 /**
@@ -111,7 +134,7 @@ function readPixels(bitmap: ImageBitmap, env: ExportEnv): ImageData {
 }
 
 /** Draws the Work into the canvas; false when there is no usable WebGL2 context. */
-function render(canvas: OffscreenCanvas, request: ExportRequest, env: ExportEnv): boolean {
+function render(canvas: RenderCanvas, request: ExportRequest, env: ExportEnv): boolean {
   const gl = canvas.getContext('webgl2', {
     alpha: true,
     antialias: false,
@@ -150,7 +173,7 @@ function render(canvas: OffscreenCanvas, request: ExportRequest, env: ExportEnv)
  * WebGL canvas directly (WebKit writes premultiplied colour); a 2D copy is un-premultiplied
  * correctly everywhere, as the Preview's readback is.
  */
-function copyTo2d(source: OffscreenCanvas, env: ExportEnv): OffscreenCanvas {
+function copyTo2d(source: RenderCanvas, env: ExportEnv): OffscreenCanvas {
   const copy = env.createCanvas(source.width, source.height)
   const ctx = copy.getContext('2d')
   if (!ctx) throw new Error('no 2d context')

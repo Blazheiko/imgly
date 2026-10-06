@@ -298,10 +298,11 @@ describe('handleExport (export worker)', () => {
 describe('handleCheck (session format check, AC-12)', () => {
   it('trial-encodes a 2×2 sample per lossy format through the export path', async () => {
     const { env, canvases, encodes, samples } = setup()
-    expect(await handleCheck(env)).toEqual({ jpeg: true, webp: true })
+    expect(await handleCheck(env)).toEqual({ webgl2: true, jpeg: true, webp: true })
     expect(
       canvases.filter((c) => c.kind === 'webgl2').map(({ width, height }) => [width, height]),
     ).toEqual([
+      [1, 1],
       [2, 2],
       [2, 2],
     ])
@@ -317,12 +318,12 @@ describe('handleCheck (session format check, AC-12)', () => {
       encoded: (w, h, type) =>
         type === 'image/webp' ? png({ width: w, height: h }) : defaultEncoded(w, h, type),
     })
-    expect(await handleCheck(env)).toEqual({ jpeg: true, webp: false })
+    expect(await handleCheck(env)).toEqual({ webgl2: true, jpeg: true, webp: false })
   })
 
   it('counts an encoder error as unavailable', async () => {
     const { env } = setup({ encoded: () => 'reject' })
-    expect(await handleCheck(env)).toEqual({ jpeg: false, webp: false })
+    expect(await handleCheck(env)).toEqual({ webgl2: true, jpeg: false, webp: false })
   })
 
   it('counts a sample that cannot be made as unavailable', async () => {
@@ -330,6 +331,26 @@ describe('handleCheck (session format check, AC-12)', () => {
     env.createSample = () => {
       throw new Error('no 2d canvas')
     }
-    expect(await handleCheck(env)).toEqual({ jpeg: false, webp: false })
+    expect(await handleCheck(env)).toEqual({ webgl2: true, jpeg: false, webp: false })
+  })
+
+  it('reports no WebGL2 without trying a format when no context can be made', async () => {
+    const { env, encodes, samples } = setup({ gl: null })
+    expect(await handleCheck(env)).toEqual({ webgl2: false, jpeg: false, webp: false })
+    expect(encodes).toEqual([])
+    expect(samples).toEqual([])
+  })
+
+  it('renders on createRenderCanvas when the env has one', async () => {
+    const { env, canvases } = setup()
+    const rendered: [number, number][] = []
+    const createCanvas = env.createCanvas
+    env.createRenderCanvas = (width, height) => {
+      rendered.push([width, height])
+      return createCanvas(width, height)
+    }
+    expect((await handleExport(request({ width: 64, height: 48 }), env)).ok).toBe(true)
+    expect(rendered).toEqual([[64, 48]])
+    expect(canvases.find((c) => c.kind === 'webgl2')).toMatchObject({ width: 64, height: 48 })
   })
 })
