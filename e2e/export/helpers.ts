@@ -242,6 +242,7 @@ export async function compareWithPreview(page: Page, png: Buffer) {
     let alpha = 0
     let black = 0
     let white = 0
+    let worst = { at: -1, score: -1 }
     for (let i = 0; i < exported.length; i += 4) {
       const ea = exported[i + 3]!
       const pa = preview[i + 3]!
@@ -251,9 +252,20 @@ export async function compareWithPreview(page: Page, png: Buffer) {
         const p = preview[i + c]!
         black = Math.max(black, Math.abs((e * ea) / 255 - (p * pa) / 255))
         white = Math.max(white, Math.abs((e * ea) / 255 + 255 - ea - ((p * pa) / 255 + 255 - pa)))
+        const score = Math.abs((e * ea) / 255 - (p * pa) / 255)
+        if (score > worst.score) worst = { at: i, score }
       }
     }
-    return { width, height, alpha, black, white, samples: preview.length / 4 }
+    const pixel = (data: ArrayLike<number>) =>
+      Array.from({ length: 4 }, (_, c) => data[worst.at + c])
+    /** The pixel furthest apart over black, for the failure message. */
+    const worstPixel = {
+      x: (worst.at / 4) % width,
+      y: Math.floor(worst.at / 4 / width),
+      exported: pixel(exported),
+      preview: pixel(preview),
+    }
+    return { width, height, alpha, black, white, samples: preview.length / 4, worstPixel }
   }, png.toString('base64'))
 }
 

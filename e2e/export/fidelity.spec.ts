@@ -47,9 +47,10 @@ test('a full-size PNG matches the Preview at 100% regardless of zoom and pan', a
   expect(headerOf(file.bytes)).toMatchObject({ format: 'png', width: 200, height: 150 })
   const diff = await compareWithPreview(page, file.bytes)
   expect(diff).toMatchObject({ width: 200, height: 150, samples: 200 * 150 })
-  expect(diff.alpha).toBeLessThanOrEqual(2)
-  expect(diff.black).toBeLessThanOrEqual(2)
-  expect(diff.white).toBeLessThanOrEqual(2)
+  const worst = JSON.stringify(diff.worstPixel)
+  expect(diff.alpha, worst).toBeLessThanOrEqual(2)
+  expect(diff.black, worst).toBeLessThanOrEqual(2)
+  expect(diff.white, worst).toBeLessThanOrEqual(2)
 
   expect(await view(page)).toEqual(before)
   // A finished export is a save point (AC-09): no Unsaved edits, so the next open replaces the
