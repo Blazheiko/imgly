@@ -108,9 +108,10 @@ Verified at `34c254c` on 2026-10-06 (Apple M1 Pro).
   - A real Chrome "Save as…" overwrite with a wrong extension. Playwright stubs
     `showSaveFilePicker` and can't drive the native dialog.
   - A real Safari download.
-- Review: `_review/review-2026-10-06.md` had 7 findings and `-r2` had 3 stage-2 findings. All are
-  fixed in T17–T25. The R1–R3 fixes (T24, T25 and T17's `files_hint`) were checked at ship but not
-  re-reviewed by a clean-context reviewer.
+- Review: three rounds. `_review/review-2026-10-06.md` had 7 findings and `-r2` had 3 stage-2
+  findings. All are fixed, in T17–T25 and, for R3, an edit to `tasks.json`. The third round
+  (`_review/review-2026-10-06-r3.md`) re-reviewed the fix delta (`808be26..34c254c`) and these
+  ship drafts with a clean-context reviewer and returned **PASS**.
 
 ## Operational notes
 

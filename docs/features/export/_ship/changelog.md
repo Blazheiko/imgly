@@ -52,10 +52,10 @@ Escape or a click outside closes the panel when no export is running.
 - Work shape: the Work now carries its Source name, Source format and a transparency fact. All three
   live in memory only, so there's nothing to migrate.
 - Rollback: revert the merge and redeploy GitHub Pages. No stored state needs undoing.
-- Review: two review rounds (`_review/review-2026-10-06.md` with 7 findings, `-r2` with 3
-  stage-2 findings), each returning CHANGES REQUESTED. Every finding was fixed in T17–T25. The
-  final fix delta (T24–T25, `631443c..34c254c`) was checked at ship but not re-reviewed by a
-  clean-context reviewer.
+- Review: three review rounds. `_review/review-2026-10-06.md` had 7 findings and `-r2` had 3
+  stage-2 findings, each returning CHANGES REQUESTED. Every finding was fixed, in T17–T25 and,
+  for R3, an edit to `tasks.json`. The third round (`-r3`) re-reviewed that fix delta
+  (`808be26..34c254c`) and the ship drafts with a clean-context reviewer and returned PASS.
 - Known follow-ups:
   - The manual browser passes from `sad.md` §7 are still to do: a Chrome "Save as…" overwrite with
     a wrong extension (Playwright stubs the native dialog), and a real Safari download.
