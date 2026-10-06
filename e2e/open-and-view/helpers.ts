@@ -93,7 +93,12 @@ async function startupDiagnosis(page: Page): Promise<string> {
     .isVisible()
   const probe = await page.evaluate(async () => {
     const started = performance.now()
-    const gl = document.createElement('canvas').getContext('webgl2')
+    const canvas = document.createElement('canvas')
+    let creationError = ''
+    canvas.addEventListener('webglcontextcreationerror', (e) => {
+      creationError = (e as WebGLContextEvent).statusMessage
+    })
+    const gl = canvas.getContext('webgl2')
     const info = gl?.getExtension('WEBGL_debug_renderer_info')
     const webgl2 = gl
       ? {
@@ -116,6 +121,7 @@ async function startupDiagnosis(page: Page): Promise<string> {
     })
     return {
       webgl2,
+      creationError,
       webglMs,
       createImageBitmap: typeof createImageBitmap === 'function',
       worker,
