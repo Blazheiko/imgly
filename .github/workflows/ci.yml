@@ -13,11 +13,11 @@ concurrency:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: pnpm
@@ -31,7 +31,7 @@ jobs:
       # and an X display, so the e2e run goes under xvfb-run with Firefox headed.
       - run: sudo apt-get install -y --no-install-recommends libegl1 libgl1 libegl-mesa0 libgl1-mesa-dri
       - run: xvfb-run -a pnpm test:e2e
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: playwright-report
@@ -39,7 +39,7 @@ jobs:
             playwright-report/
             test-results/
           retention-days: 7
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         with:
           path: dist/
@@ -47,8 +47,9 @@ jobs:
   deploy:
     needs: check
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
+      actions: read # deploy-pages v4+ reads the Pages artifact through the Actions API
       pages: write
       id-token: write
     environment:
@@ -59,4 +60,4 @@ jobs:
       cancel-in-progress: false
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
