@@ -20,7 +20,9 @@ export default defineConfig({
       name: 'firefox',
       use: {
         ...devices['Desktop Firefox'],
-        // Linux CI has no GPU, and Firefox blocks WebGL on software GL unless forced.
+        // Headless Firefox finds no GL driver on a GPU-less runner (FEATURE_FAILURE_WEBGL_EXHAUSTED_
+        // DRIVERS): CI runs it headed under xvfb-run, where it uses Mesa's software GL.
+        headless: !process.env.CI,
         launchOptions: { firefoxUserPrefs: { 'webgl.force-enabled': true } },
       },
     },
