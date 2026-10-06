@@ -122,50 +122,83 @@ Each tactical decision in later sections traces to one of these seeds. A tactica
 
 ## 5. Building block view
 
-<!-- 🎯 Why: INTERNAL DECOMPOSITION — modules, containers, datastores. The static topology: who
-     may talk to whom. Without §5, §6 (the flows) has no vocabulary of participants.
-     📋 Write: 1 ¶ on the style (layered / hexagonal / clean / event-driven) + a folder tree + a
-     C4Container block.
-     📌 Draw ONE Container per declared `target_surface` (frontmatter): a fullstack
-     [backend-service, web-frontend] = a backend-API container + a web/SPA container; a
-     [backend-service, mobile-app] = the API + the mobile app. The Container(web, …) line below is
-     just one surface's container — swap/add per what was declared in §4. → _shared/surfaces.md
-     📌 e.g. «web app, content API, media worker, datastore, object store, CDN». -->
+The feature follows the repo's functional core with feature folders (repo ADR 0002). Every rule the tool enforces (quarter turns, on-screen flips and the angle's sign, re-anchoring and shrinking the Crop, proportions, whole-pixel rounding, the field input rules, field-by-field equality, the Work's size and the one transform) is pure TypeScript in `src/core/geometry/` and unit-tested without a browser (ADR-0001). Rendering the Geometry lives in `src/render/` beside the existing Preview and export code, as a change to the one shared shader (ADR-0002). crop-rotate is a **new feature folder**, `src/features/crop-rotate/`: the toolbar action, the tool's controls, the crop-frame overlay, its keyboard handling and its store. Like export, its only cross-feature import is `useEditorStore` from `@/features/editor` (repo `CLAUDE.md` §Module boundaries). Through it the tool opens and closes the editor's tool slot, previews its draft and applies the result (ADR-0003). The app shell places the action in the top bar's actions slot next to Export, and places the overlay and controls in a new tool slot of the editor view.
 
-<One paragraph: layered / hexagonal / clean / event-driven, and why.>
+**The crop frame is a DOM overlay over the Preview canvas** — [ADR-0005](adr/0005-draw-the-crop-frame-as-a-dom-overlay-over-the-preview.md). The dimmed outside, the frame, its eight handles and both grids are absolutely positioned elements over the WebGL canvas. The frame and every handle are focusable, with roles and labels, so the keyboard rules of AC-20 are plain DOM focus. The overlay is positioned from the View and the draft Geometry through `core` maths, so it lines up with the pixels the shader draws.
+
+**Cross-feature changes (open-and-view and export):**
+- `Work` gains `geometry: Geometry` (identity at open). `src/core/geometry/` adds `workSize(work)`, and every reader of the Work's size moves to it.
+- The `editor` store gains the tool slot of ADR-0003: `activeTool`, `openTool(id)`, `closeTool()`, `previewGeometry`, `applyGeometry(next)`.
+  - `beginExport()` also refuses while a tool is open.
+  - A confirmed replace closes the tool.
+  - fit-View uses the turned, uncropped image while a tool is open, and `workSize` otherwise (AC-19).
+  - It also gains `activePanel: 'export' | null`, which the export feature sets when its panel opens and closes, so the C key can stay silent while the panel is open (AC-20) without crop-rotate importing export.
+- `PreviewCanvas` draws `previewGeometry ?? work.geometry` and hands it to the renderer with `setGeometry(g)`. `EditorView` gets a `tool` slot over the canvas area for the overlay and the tool's controls.
+- `EditorStatusBar` shows `workSize` followed by "from W×H" of the Original whenever the width or the height differs, compared in order (AC-01). `DimensionsReadout` gains the optional "from" part.
+- The export store sizes from `workSize(work)`. A remembered long side that is larger than the Work snaps to it for display but stays remembered, and comes back when the Crop is widened (AC-14). The request carries `geometry`, and `transparencyHint` uses the GPU check of ADR-0004. Export and Ctrl/Cmd+S check `editor.activeTool` and show "apply or cancel the crop first" instead (AC-16).
 
 **Internal decomposition:**
 
 ```
-<e.g. modules/<feature>/>
-├── domain/       <entities + sentinel errors>
-├── app/          <use cases / services>
-├── infra/        <repository + integration impl>
-├── ports/        <handlers, DTOs, error mapping>
-└── wiring        <self-wiring entry point>
+src/
+├── core/
+│   ├── document.ts               Work + geometry (identity at open)
+│   └── geometry/                 Geometry type and identity, geometryEquals (AC-13), workSize,
+│                                 rotateQuarter (AC-03), flipOnScreen (AC-04), setStraighten + fitCropInside (AC-05/06),
+│                                 clampCrop + rounding (AC-02), proportions and sizes (AC-08/09),
+│                                 parseAngle / parseCropSize (AC-07/10), cropToOriginalUv, overlay maths (ADR-0001)
+├── render/
+│   ├── shaders.ts                u_geometry in the vertex shader, transparent outside the Original (ADR-0002)
+│   ├── preview-renderer.ts       setGeometry(g); LINEAR magnification while straightened; quad sized by the shown size
+│   └── export/
+│       ├── worker-handler.ts     renders with geometry at the export size; new 'alpha' check (ADR-0004)
+│       └── client.ts             exportImage(request with geometry); checkCropTransparency(original, geometry)
+├── features/editor/              store: tool slot, previewGeometry, applyGeometry, activePanel (ADR-0003);
+│                                 PreviewCanvas, EditorView tool slot, EditorStatusBar "from" size
+├── features/export/              sizes from workSize, sends geometry, transparency via the check, refuses while a tool is open
+├── features/crop-rotate/
+│   ├── store.ts                  `cropRotate` store: draft, Geometry at open, proportion per Work (AC-08), field state, apply / cancel / reset
+│   ├── CropRotateAction.vue      the toolbar action with its hints (SCR-01, SCR-02; AC-15, AC-18, AC-20)
+│   ├── CropRotateControls.vue    SCR-03 controls: rotate, flip, straighten slider and field, proportion, width and height, Reset, Cancel, Apply
+│   ├── CropOverlay.vue           SCR-03 frame: dimmed outside, frame, handles, rule-of-thirds and fine grids (ADR-0005)
+│   ├── shortcuts.ts              C to open; inside the tool Enter, Escape and the arrow keys (AC-20)
+│   ├── messages.ts               the tool's hint catalog
+│   └── index.ts                  public surface: CropRotateAction, CropRotateTool, useCropRotateStore
+└── app/App.vue                   mounts CropRotateAction next to ExportAction, and CropRotateTool into the editor's tool slot
 ```
 
-**C4 Container (L2):** <!-- syntax → references/c4-mermaid-syntax.md. Real names, no <placeholder> stubs. ONE Container per declared target_surface (frontmatter); the web container below is one example surface. -->
+Dependency direction stays `features → core | infra | render | shared`. `render` imports `core` for the Geometry type and `cropToOriginalUv`, as repo `CLAUDE.md` §Module boundaries allows. No new `AppError` code: the field rules never fail (they snap or revert), and a failed transparency check is handled inside export.
+
+**C4 Container (L2):**
 
 ```mermaid
 C4Container
-    title <feature> — Containers
+    title crop-rotate — Containers
 
-    Person(actor, "<Actor>")
+    Person(editor, "Editor", "Turns, mirrors, levels and crops the Work")
+    Person(reviewer, "Portfolio reviewer", "Crops or rotates on a first visit")
 
-    Container_Boundary(app, "<Our system>") {
-        Container(web, "<Web/UI>", "<technology>", "<purpose>")
-        Container(api, "<API/handler>", "<technology>", "<purpose>")
-        ContainerDb(db, "<Datastore>", "<technology>", "<purpose>")
+    System_Ext(browser, "Browser platform", "WebGL2 in window and workers, input events")
+    System_Ext(pages, "GitHub Pages", "Serves the static app shell over HTTPS")
+
+    Container_Boundary(app, "imgly-editor (browser tab)") {
+        Container(spa, "Editor SPA", "Vue 3, Pinia, TypeScript, WebGL2", "Crop and rotate tool with its overlay and store, editor store with the tool slot, Preview renderer, export panel")
+        Container(core, "Editing core", "Pure TypeScript", "Geometry rules, Work size, field rules, field-by-field equality and the Crop-to-Original transform")
+        Container(exporter, "Export worker", "Web Worker, OffscreenCanvas, WebGL2", "Renders the Work with its Geometry for an Export and checks the Crop for transparency")
+        Container(sw, "Service worker", "Workbox via vite-plugin-pwa", "Precaches the app shell and worker scripts for offline use")
     }
 
-    System_Ext(ext, "<External>", "<purpose>")
-
-    Rel(actor, web, "<interaction>", "<protocol>")
-    Rel(web, api, "<calls>")
-    Rel(api, db, "<reads/writes>", "<driver>")
-    Rel(api, ext, "<emits>", "<protocol>")
+    Rel(editor, spa, "Drags the frame, turns, flips, straightens, applies or cancels", "mouse, keyboard")
+    Rel(reviewer, spa, "Uses the tool on a first visit", "desktop browser")
+    Rel(spa, core, "Applies every Geometry rule and gets the transform", "function calls")
+    Rel(spa, browser, "Draws the Preview with the Geometry", "WebGL2")
+    Rel(spa, exporter, "Sends a copy of the Original and the Geometry, receives the file or the transparency answer", "postMessage with transfer")
+    Rel(exporter, core, "Gets the same transform", "function calls")
+    Rel(exporter, browser, "Renders with the shared shader", "WebGL2, OffscreenCanvas")
+    Rel(sw, pages, "Fetches the app shell on install and update", "HTTPS")
 ```
+
+The Editor SPA does all the interactive work. It applies every Geometry rule through the editing core, draws the Preview with the Geometry through WebGL2, and shows the crop frame as page elements over the canvas. For an Export, or to check the Crop for transparency, it sends a copy of the Original and the Geometry to the export worker. The worker gets the same transform from the core and renders with the same shader. The decode worker is unchanged and out of this view. The service worker precaches the larger app shell as before.
 
 ## 6. Runtime view
 
