@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest'
-import { createExportClient } from './client'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { CHECK_TIMEOUT_MS, createExportClient, EXPORT_TIMEOUT_MS } from './client'
 import type { ExportRequest } from './worker-handler'
 
 class FakeWorker {
@@ -173,5 +173,43 @@ describe('checkExportFormats (AC-12)', () => {
     workers[1]!.reply({ jpeg: true, webp: true })
     await Promise.all([a, b])
     expect(workers.map((w) => w.terminated)).toEqual([1, 1])
+  })
+})
+
+describe('a worker that never answers (AC-11, AC-13)', () => {
+  afterEach(() => vi.useRealTimers())
+
+  it('fails the export with EXPORT_FAILED after the export timeout and terminates the worker', async () => {
+    vi.useFakeTimers()
+    const { client, workers } = setup()
+    let settled = false
+    const pending = client.exportImage(request()).finally(() => (settled = true))
+
+    await vi.advanceTimersByTimeAsync(EXPORT_TIMEOUT_MS - 1)
+    expect(settled).toBe(false)
+    await vi.advanceTimersByTimeAsync(1)
+    await expect(pending).resolves.toEqual({ ok: false, error: { code: 'EXPORT_FAILED' } })
+    expect(workers[0]!.terminated).toBe(1)
+
+    workers[0]!.reply({ ok: true, value: new Blob() }) // a late reply changes nothing
+    expect(workers[0]!.terminated).toBe(1)
+  })
+
+  it('counts a silent format check as both lossy formats unavailable', async () => {
+    vi.useFakeTimers()
+    const { client, workers } = setup()
+    const pending = client.checkExportFormats()
+    await vi.advanceTimersByTimeAsync(CHECK_TIMEOUT_MS)
+    await expect(pending).resolves.toEqual({ png: true, jpeg: false, webp: false })
+    expect(workers[0]!.terminated).toBe(1)
+  })
+
+  it('clears the timer when the worker answers in time', async () => {
+    vi.useFakeTimers()
+    const { client, workers } = setup()
+    const pending = client.checkExportFormats()
+    workers[0]!.reply({ jpeg: true, webp: true })
+    await expect(pending).resolves.toEqual({ png: true, jpeg: true, webp: true })
+    expect(vi.getTimerCount()).toBe(0)
   })
 })
