@@ -347,8 +347,8 @@
       "dod": "With a Work open, Space keydown+keyup on the top-bar Export opens the panel and on the panel's confirm runs the export; space-pan still starts over the canvas; component tests press Space",
       "files_hint": [
         "src/features/editor/EditorView.vue",
-        "src/features/editor/EditorView.test.ts",
-        "src/features/export/ExportAction.test.ts"
+        "src/features/export/ExportAction.vue",
+        "src/app/keyboard.test.ts"
       ],
       "source": "docs/features/export/_review/review-2026-10-06.md"
     },
@@ -444,6 +444,34 @@
         "src/shared/ui/primitives.test.ts"
       ],
       "source": "docs/features/export/_review/review-2026-10-06.md"
+    },
+    {
+      "id": "T24",
+      "title": "Keep the no-Work Export focusable while the first image is read (re-review R1)",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-17"
+      ],
+      "dod": "With no Work and the editor reading, Export has aria-disabled and no native disabled, and activating it shows the open-an-image hint; with a Work it stays disabled while reading",
+      "files_hint": [
+        "src/features/export/ExportAction.vue",
+        "src/features/export/ExportAction.test.ts"
+      ],
+      "source": "docs/features/export/_review/review-2026-10-06-r2.md"
+    },
+    {
+      "id": "T25",
+      "title": "Import the editor's fake renderer through a testing barrel (re-review R2)",
+      "layer": "tests",
+      "deps": [],
+      "acs": [],
+      "dod": "src/features/editor/testing.ts re-exports createFakeRenderer; src/app/keyboard.test.ts imports @/features/editor/testing; no deep cross-module import remains in src/app",
+      "files_hint": [
+        "src/features/editor/testing.ts",
+        "src/app/keyboard.test.ts"
+      ],
+      "source": "docs/features/export/_review/review-2026-10-06-r2.md"
     }
   ]
 }
