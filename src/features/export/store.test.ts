@@ -199,6 +199,18 @@ describe('export store — session memory (AC-19)', () => {
     expect(store.sizeChoice).toEqual({ kind: 'preset', percent: 100 })
   })
 
+  it('closes the panel when another Work replaces the open one, so the new Work starts fresh', async () => {
+    store.selectFormat('webp')
+    openWork(editor, { sourceFormat: 'jpeg' }) // a drop or Ctrl/Cmd+O with the panel still open
+    await flush()
+    expect(store.panelOpen).toBe(false)
+
+    store.openPanel()
+    expect(store.format).toBe('jpeg')
+    store.selectFormat('png')
+    expect(store.format).toBe('png')
+  })
+
   it('snaps a remembered long side larger than a smaller Work (AC-06)', async () => {
     store.setLongSide(4000)
     expect(store.dimensions).toEqual({ width: 4000, height: 3000 })

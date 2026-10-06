@@ -22,7 +22,7 @@
 | T15 | [Write the functional e2e suite: format honesty, fidelity, quality and size, naming, metadata, downloads and Save as…](t15-e2e-export-functional-suite.md) | tests | Blazheiko | M | T13 | done |
 | T16 | [Write the @perf export suite: export time p95, longest freeze and memory after 10 exports](t16-perf-export-suite.md) | tests | Blazheiko | S | T15 | done |
 | T17 | Let Space press export controls instead of starting space-pan (review F1) | wiring | Blazheiko | S | — | done |
-| T18 | Close the export panel when the Work is replaced while it is open (review F2) | app | Blazheiko | S | — | todo |
+| T18 | Close the export panel when the Work is replaced while it is open (review F2) | app | Blazheiko | S | — | done |
 | T19 | Make the AC-09 e2e check observe Unsaved edits (review F3) | tests | Blazheiko | S | — | todo |
 | T20 | Assert the AC-15 blend on partly transparent pixels (review F4) | tests | Blazheiko | S | — | todo |
 | T21 | Treat any non-idle editor phase as export-unavailable (review F5) | app | Blazheiko | S | — | todo |

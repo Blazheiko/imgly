@@ -158,6 +158,15 @@ export const useExportStore = defineStore('export', () => {
     { immediate: true },
   )
 
+  // A drop or Ctrl/Cmd+O can replace the Work with the panel open; its choices belong to the old
+  // Work, so the panel closes and the new Work starts from its own defaults (AC-19).
+  watch(
+    () => editor.work?.id,
+    (id, previous) => {
+      if (previous && id !== previous && status.value === 'idle') panelOpen.value = false
+    },
+  )
+
   const workSize = computed<Size | null>(() => {
     const original = editor.work?.original
     return original ? { width: original.width, height: original.height } : null
