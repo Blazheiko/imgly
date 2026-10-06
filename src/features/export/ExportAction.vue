@@ -20,6 +20,8 @@ const hasWork = computed(() => editor.work !== null)
 const exporting = computed(() => editor.phase === 'exporting')
 // Reading an image or the replace dialog also make Export unavailable for the moment.
 const unavailable = computed(() => exporting.value || store.editorBusy)
+// With no Work it stays focusable (aria-disabled) and shows its hint, even during a read (SCR-02).
+const disabled = computed(() => exporting.value || (hasWork.value && store.editorBusy))
 
 function notifyNoImage() {
   notices.pushAll([{ kind: 'info', text: infoNoImage() }])
@@ -49,7 +51,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown, { capture
   <BaseButton
     ref="button"
     variant="primary"
-    :disabled="unavailable"
+    :disabled="disabled"
     :aria-disabled="hasWork ? undefined : 'true'"
     :aria-describedby="hasWork ? undefined : hintId"
     :aria-expanded="store.panelOpen ? 'true' : 'false'"

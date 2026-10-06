@@ -99,6 +99,19 @@ describe('ExportAction and Ctrl/Cmd+S (AC-11, AC-17)', () => {
     expect(texts()).toEqual(['Open an image first to export it.'])
   })
 
+  it('with no image, stays focusable with its hint while the first image is read (SCR-02)', async () => {
+    const button = exportButton()
+    ;(button.element as HTMLButtonElement).focus()
+    editor.phase = 'reading'
+    await flush()
+    expect(button.attributes('disabled')).toBeUndefined()
+    expect(button.attributes('aria-disabled')).toBe('true')
+    expect(document.activeElement).toBe(button.element)
+
+    await button.trigger('click')
+    expect(texts()).toEqual(['Open an image first to export it.'])
+  })
+
   it("Ctrl/Cmd+S with no image shows the hint and never the browser's Save page", () => {
     const event = pressSave()
     expect(event.defaultPrevented).toBe(true)
