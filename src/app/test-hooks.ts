@@ -14,6 +14,8 @@ export interface ImglyTestHooks {
     sourceName: string
     sourceFormat: string
     hasTransparency: boolean
+    /** The Work has Unsaved edits: its revision is past the last save point (export AC-09). */
+    hasUnsavedEdits: boolean
   } | null
   view(): { zoom: number; panX: number; panY: number; autoFit: boolean }
   /**
@@ -93,6 +95,7 @@ export function installTestHooks(pinia: Pinia): void {
         sourceName,
         sourceFormat,
         hasTransparency: original.hasTransparency,
+        hasUnsavedEdits: editor.hasUnsavedEdits,
       }
     },
     view: () => ({ ...editor.view }),

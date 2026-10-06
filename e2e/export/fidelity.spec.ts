@@ -25,7 +25,7 @@ test('a full-size PNG matches the Preview at 100% regardless of zoom and pan', a
   await openFile(page, 'fidelity.png', image, 'image/png')
   await waitForWork(page, 200, 150)
   await page.evaluate(() => window.__imglyTest!.applyEdit())
-  expect((await work(page))!.revision).toBe(1)
+  expect((await work(page))!).toMatchObject({ revision: 1, hasUnsavedEdits: true })
 
   // Zoom in and pan, so the visible part is not the whole Work.
   await page.keyboard.press('Shift+0')
@@ -52,7 +52,11 @@ test('a full-size PNG matches the Preview at 100% regardless of zoom and pan', a
   expect(diff.white).toBeLessThanOrEqual(2)
 
   expect(await view(page)).toEqual(before)
-  // A finished export is a save point (AC-09).
-  const after = (await work(page))!
-  expect(after.revision).toBe(1)
+  // A finished export is a save point (AC-09): no Unsaved edits, so the next open replaces the
+  // Work without asking.
+  expect((await work(page))!).toMatchObject({ revision: 1, hasUnsavedEdits: false })
+  const next = await generateImage(page, { width: 120, height: 90 })
+  await openFile(page, 'next.png', next, 'image/png')
+  await waitForWork(page, 120, 90)
+  await expect(page.getByRole('alertdialog')).toHaveCount(0)
 })

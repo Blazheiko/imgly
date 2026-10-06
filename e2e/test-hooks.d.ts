@@ -13,6 +13,7 @@ declare global {
         sourceName: string
         sourceFormat: string
         hasTransparency: boolean
+        hasUnsavedEdits: boolean
       } | null
       view(): { zoom: number; panX: number; panY: number; autoFit: boolean }
       originalPixel(x: number, y: number): number[]
