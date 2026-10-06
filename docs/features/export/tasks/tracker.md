@@ -27,6 +27,6 @@
 | T20 | Assert the AC-15 blend on partly transparent pixels (review F4) | tests | Blazheiko | S | — | done |
 | T21 | Treat any non-idle editor phase as export-unavailable (review F5) | app | Blazheiko | S | — | done |
 | T22 | Time out a worker that never answers (review F6) | infra | Blazheiko | S | — | done |
-| T23 | Re-place the Popover on window resize while open (review F7) | ui | Blazheiko | S | — | todo |
+| T23 | Re-place the Popover on window resize while open (review F7) | ui | Blazheiko | S | — | done |
 
 **Total:** 23 tasks (T17–T23 from review 2026-10-06), ~16 person-days (S ≈ ½ day, M ≈ 1 day).

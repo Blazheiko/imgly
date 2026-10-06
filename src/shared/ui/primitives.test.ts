@@ -198,6 +198,26 @@ describe('Popover', () => {
     expect(document.querySelector('[data-testid="dialog-backdrop"]')).toBeNull()
   })
 
+  it('follows its anchor when the window is resized while open, and stops once closed', async () => {
+    const { wrapper, anchor } = setup({ open: false })
+    let rect = { bottom: 40, right: 900 }
+    anchor.getBoundingClientRect = () => rect as DOMRect
+    const viewport = () => document.documentElement.clientWidth
+    await wrapper.setProps({ open: true })
+    const style = () => wrapper.get<HTMLElement>('[role="dialog"]').element.style
+    expect(style().top).toBe('40px')
+
+    rect = { bottom: 56, right: 500 }
+    window.dispatchEvent(new Event('resize'))
+    await nextTick()
+    expect(style().top).toBe('56px')
+    expect(style().right).toBe(`${viewport() - 500}px`)
+
+    const removed = vi.spyOn(window, 'removeEventListener')
+    await wrapper.setProps({ open: false })
+    expect(removed).toHaveBeenCalledWith('resize', expect.any(Function))
+  })
+
   it('moves focus into the panel on open and back to the anchor on close', async () => {
     const { wrapper, anchor } = setup({ open: false })
     anchor.focus()

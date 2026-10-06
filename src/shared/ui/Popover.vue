@@ -51,9 +51,12 @@ function listen(on: boolean) {
   if (on) {
     document.addEventListener('keydown', onKeydown)
     document.addEventListener('pointerdown', onPointerdown, true)
+    // A resize or rotation moves the anchor; the fixed panel follows it.
+    window.addEventListener('resize', place)
   } else {
     document.removeEventListener('keydown', onKeydown)
     document.removeEventListener('pointerdown', onPointerdown, true)
+    window.removeEventListener('resize', place)
   }
 }
 
