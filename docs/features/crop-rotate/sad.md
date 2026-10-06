@@ -277,6 +277,375 @@ The export panel counts every size from the Crop (AC-14). For a transparent Orig
 - Reset then Apply, or Reset then Cancel (AC-12); a proportion remembered even after Cancel (AC-08).
 - The transparency check fails: the hint shows, the safe side (ADR-0004).
 
+<!-- Flows below were added by `sequences` and use the generic participant vocabulary: <user> is the Editor or the Portfolio reviewer, <ui> is the editor view with the Crop and rotate action, the tool's controls and the crop overlay (SCR-01 to SCR-06 of ux-flows.md), <service> is the feature logic (the crop-rotate and editor stores with the core Geometry rules), <service> (render) is the Preview renderer and the export worker, <external-system> is the browser and the operating system. Nothing in these flows is written to persistent storage: every "keeps" or "remembers" note is in-memory session state, so there are no persist notes for data-model. -->
+
+### F1 — Open the tool, and the refusals to open
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant UI as <ui>
+    participant S as <service>
+    participant R as <service> (render)
+
+    alt no image is open
+        U->>UI: looks for Crop and rotate, or presses C
+        UI-->>U: action unavailable, hint says to open an image first, C shows the same hint
+    else an export is in progress
+        U->>UI: clicks Crop and rotate, or presses C
+        UI-->>U: action visibly disabled, C does nothing, the request is refused and not queued
+    else C while the export panel is open, the tool is already open, or a text field has focus
+        U->>UI: presses C
+        UI-->>U: nothing happens
+    else an image is open and no export runs
+        U->>UI: clicks Crop and rotate, Tab then Enter or Space on it, or presses C
+        UI->>S: asks to open the tool
+        S->>S: opens the tool slot, copies the Work's Geometry as the Draft and as the Geometry to return to
+        S->>S: picks the proportion: remembered for this Work, else Free
+        S->>R: draws the Draft as the whole Turned image
+        S-->>UI: View fits the whole Turned image, frame where the Crop is, outside dimmed
+        UI-->>U: tool ready, every control reachable with Tab
+    end
+    Note over U,R: Postcondition: with the tool open the Work is unchanged and Export is unavailable
+```
+
+Opening needs an image (AC-18) and no export in progress, and a refused request is not queued (AC-15). The C key is silent while the export panel is open, while the tool is open, or while a text field has focus (AC-20). On opening, the tool copies the Work's Geometry as the Draft, picks the remembered proportion or Free (AC-08), and shows the whole Turned image with the frame where the Crop is and the View fitted to it (AC-12, AC-19).
+
+### F2 — Drag, move and resize the crop frame
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant UI as <ui>
+    participant S as <service>
+    participant R as <service> (render)
+
+    Note over U,S: Precondition: the tool is open (F1)
+    alt drag an edge or a corner
+        U->>UI: drags an edge or a corner
+        UI->>S: frame moved by this many image pixels
+        UI-->>U: rule-of-thirds grid inside the frame while dragging
+    else drag inside the frame
+        U->>UI: drags inside the frame
+        UI->>S: frame moved by this many image pixels
+    else arrow keys on the focused frame, edge or corner
+        U->>UI: arrow key, with or without Shift
+        UI->>S: move or resize by 1 px of the image, 10 px with Shift
+    end
+    S->>S: applies the locked proportion, if any
+    alt past the image edge, past the opposite edge, or below 1 x 1 px
+        S->>S: stops the frame at the edge, keeps at least 1 x 1 px, never inside out
+    else inside the Turned image
+        S->>S: keeps the new frame
+    end
+    S->>S: rounds to whole pixels, left and top round down when centring leaves an odd pixel
+    S->>R: redraws with the new Draft
+    S-->>UI: frame, dimmed outside and width and height fields follow
+    UI-->>U: Preview and size fields updated
+    Note over U,S: Postcondition: the Crop lies fully inside the Turned image, in whole pixels, at least 1 x 1 px
+```
+
+Dragging an edge or a corner resizes the frame, and dragging inside it moves it. The outside stays dimmed, and a rule-of-thirds grid shows while dragging (AC-01). The arrow keys do the same by 1 px, or 10 px with Shift, and a locked proportion follows (AC-20). The frame stops at the image edge, never goes below 1×1 px and never turns inside out. It stays in whole pixels, and an odd pixel goes to the right or the bottom (AC-02). The size fields follow while dragging (AC-09).
+
+### F3 — Turn and mirror
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant UI as <ui>
+    participant S as <service>
+    participant R as <service> (render)
+
+    Note over U,S: Precondition: the tool is open (F1), with any Rotation
+    alt rotate clockwise or counter-clockwise
+        U->>UI: chooses rotate
+        UI->>S: turn a quarter in that direction
+        S->>S: turns the image and the frame together, swaps width and height
+        S->>S: turns a locked proportion with them, 4:3 becomes 3:4
+    else flip horizontal or flip vertical
+        U->>UI: chooses flip
+        UI->>S: mirror as shown on screen
+        S->>S: maps the on-screen axis to the stored Flip for the current Rotation
+        S->>S: mirrors the frame and changes the sign of the Straighten angle
+    end
+    S->>R: redraws with the new Draft
+    S-->>UI: image, frame, size fields and slider updated
+    UI-->>U: same part of the photo inside the frame
+    Note over U,S: Postcondition: four turns one way, one each way, or two equal flips give back an equal Draft, and no pixel is lost
+```
+
+Rotate turns the image and the frame together by exactly 90°, so the same part of the photo stays inside. Width and height swap, and a locked proportion turns with them (AC-03). Flip mirrors the image as it is shown on screen, whatever the Rotation, and mirrors the frame with it. The Straighten angle changes sign so a level horizon stays level, and the slider shows the new value (AC-04). Four turns, one each way or two equal flips give back an equal Draft, and nothing is resampled.
+
+### F4 — Straighten
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant UI as <ui>
+    participant S as <service>
+    participant R as <service> (render)
+
+    Note over U,S: Precondition: the tool is open (F1)
+    alt drag the slider, or arrow keys on it
+        U->>UI: moves the slider, or presses an arrow key, with or without Shift
+        UI->>S: new angle, 0.1 degree a step, 1 degree with Shift
+    else type an angle
+        U->>UI: types in the angle field
+        Note over UI: nothing is checked while typing
+        U->>UI: leaves the field or presses Enter in it
+        UI->>S: applies the typed value, Enter does not apply the tool
+        alt outside -45 to +45
+            S->>S: snaps to the nearest bound
+        else more than one decimal
+            S->>S: rounds to the nearest 0.1 degree
+        else empty or not plain decimal notation, such as 1e2
+            S-->>UI: returns to the previous angle
+        end
+    end
+    S->>S: turns the image around the frame's centre, keeping that centre on the same image content
+    S->>S: shrinks the frame around its centre, same proportion, to the largest that fits inside the turned image, rounded down
+    opt the centre itself falls outside the turned image
+        S->>S: moves the centre to the nearest point inside
+    end
+    S->>R: redraws with the new Draft, smooth sampling while the angle is not 0
+    S-->>UI: angle next to the slider with 0 marked, fine grid while the angle changes, frame and size fields
+    UI-->>U: Preview follows the slider
+    Note over U,S: Postcondition: no empty corner inside the frame, and moving back towards 0 never grows the frame by itself
+```
+
+The slider, its arrow keys (0.1° a step, 1° with Shift) or a typed angle set the Straighten angle from −45° to +45° (AC-05, AC-20). A typed value is checked only when the field is left or Enter is pressed in it. Out of range snaps to the bound, extra decimals round, and empty or non-numeric text (including `1e2`) reverts. Enter there never applies the tool (AC-07). The image turns around the frame's centre and a fine grid shows. The frame then shrinks around its centre, keeping its proportion, to the largest size that fits, so no empty corner can enter. It moves only when the centre itself would fall outside, and it never grows back by itself (AC-06).
+
+### F5 — Lock a proportion, or type an exact size
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant UI as <ui>
+    participant S as <service>
+    participant R as <service> (render)
+
+    Note over U,S: Precondition: the tool is open (F1), the proportion is Free on a first opening, else the remembered one
+    alt choose a proportion
+        U->>UI: chooses Original, 1:1, 4:3, 3:2 or 16:9, or switches landscape and portrait
+        UI->>S: lock this proportion
+        S->>S: remembers it and its orientation for this Work at once, even if the tool is cancelled later
+        S->>S: Original means the image's proportions after its current Rotation
+        S->>S: largest frame of that proportion inside the current frame, centred on it
+        S->>S: long side is the input, short side rounded to the nearest pixel, a half rounds up
+    else choose Free
+        U->>UI: chooses Free
+        UI->>S: unlock the proportion
+    else type a width or a height
+        U->>UI: types in a size field
+        Note over UI: nothing is checked while typing
+        U->>UI: leaves the field or presses Enter in it
+        UI->>S: applies the typed value, Enter does not apply the tool
+        alt empty or not plain decimal notation
+            S-->>UI: returns to the previous value
+        else zero or negative
+            S->>S: becomes 1
+        else fractional
+            S->>S: rounds to the nearest whole number
+        else larger than fits at the current Straighten angle
+            S->>S: becomes the largest size that fits, with the locked proportion if there is one
+        end
+        alt a proportion is locked
+            S->>S: the other side follows from the typed side, rounded, a half rounds up
+        else Free
+            S->>S: the other side stays as it is
+        end
+        S->>S: resizes around the frame's centre, moving it only as far as needed to stay inside
+    end
+    S->>R: redraws with the new Draft
+    S-->>UI: frame and width and height fields
+    UI-->>U: fields show exactly the size the Work will have after Apply
+    Note over U,S: Postcondition: the proportion is kept within 0.5 px until Free is chosen, and is remembered for this Work until it is replaced
+```
+
+Choosing a proportion makes the frame the largest frame of that proportion inside the current one, centred on it. The long side is the input and the short side is rounded, with a half rounding up. "Original" follows the current Rotation. The choice and its orientation are remembered for the Work at once, even if the tool is then cancelled (AC-08). A typed width or height is checked when the field is left or Enter is pressed in it. Empty or non-numeric text reverts, zero or negative becomes 1, a fraction rounds, and too large becomes the largest size that fits at the current angle (AC-10). With a proportion locked, the other side follows the typed side; with Free it stays. The frame resizes around its centre, and the fields always show exactly the size the Work and a full-size Export will have (AC-09).
+
+### F6 — Apply, Cancel, Reset and widening back
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant UI as <ui>
+    participant S as <service>
+    participant R as <service> (render)
+
+    Note over U,S: Precondition: the tool is open (F1), possibly on a Work that already has a Crop
+    opt widen the frame back
+        U->>UI: drags the frame out to the whole image
+        UI->>S: frame covers the whole Turned image
+    end
+    opt Reset
+        U->>UI: chooses Reset
+        UI->>S: reset the Draft
+        S->>S: Draft becomes no Geometry, no Rotation, no Flip, 0 degrees, Crop covering the whole image, proportion Free
+        S->>R: redraws with the new Draft
+        Note over S: the Work itself is unchanged until Apply
+    end
+    alt Apply, by the button, or Enter outside a field and not on another button
+        U->>UI: applies
+        UI->>S: apply the Draft
+        S->>S: compares the Draft with the Geometry at opening, field by field
+        alt any field differs
+            S->>S: stores the Draft as the Work's Geometry and raises the revision, the Work has Unsaved edits
+        else every field is equal
+            S->>S: stores it, Unsaved edits stay as they were
+        end
+        S->>S: closes the tool slot
+        S->>R: draws the Work cropped
+        S-->>UI: View fits the Work, status bar shows the Crop's size and, when it differs, the Original's dimensions
+        UI-->>U: Preview shows only the area inside the Crop
+    else Cancel, or Escape anywhere in the tool, including a field
+        U->>UI: cancels
+        UI->>S: cancel the tool, a value still being typed is discarded
+        S->>S: drops the Draft, the proportion stays remembered
+        S->>S: closes the tool slot
+        S->>R: draws the Work with its Geometry from before
+        S-->>UI: View fits the Work
+        UI-->>U: Work and Unsaved edits exactly as before the tool opened
+    end
+    Note over U,S: Postcondition: widening back and applying gives exactly the pixels the Work had before the Crop, because the Original is never cut
+```
+
+Widening the frame back to the whole image, or Reset, works on the Draft only. Reset clears every field and sets the proportion to Free, but takes effect only on Apply (AC-12). Apply compares the Draft with the Geometry from when the tool opened, field by field. The revision is raised, so the Work has Unsaved edits, only when something differs: four turns or an Apply with no change leave them as they were (AC-13). The tool then closes, the Preview shows only the Crop, and the View fits the Work (AC-19). The status bar shows the Crop's size, followed by the Original's dimensions whenever width or height differs in order (AC-01). Cancel or Escape, from anywhere including a field, drops the Draft and any half-typed value, and leaves the Work and its Unsaved edits exactly as they were (AC-11). Because the Original is never cut, widening back gives exactly the earlier pixels.
+
+### F7 — Export around the tool
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant UI as <ui>
+    participant S as <service>
+    participant R as <service> (render)
+    participant X as <external-system>
+
+    alt the tool is open
+        U->>UI: chooses Export, or presses Ctrl or Cmd+S
+        UI->>X: prevents the browser's own Save page
+        UI->>S: asks to export
+        S-->>UI: refused while a tool is open
+        UI-->>U: Export unavailable, hint says to apply or cancel the crop first
+    else an export is in progress
+        U->>UI: clicks Crop and rotate, or presses C
+        UI-->>U: refused and not queued, as in F1
+    else a Geometry is applied and the tool is closed
+        U->>UI: opens the export panel
+        UI->>S: sizes for this Work
+        S->>S: full size is the Crop's size, presets and long side count from it
+        S->>S: a remembered size larger than the Work snaps to it but stays remembered
+        opt JPEG selected and the Original has transparent pixels
+            S->>R: check the pixels inside the Crop for transparency
+            alt the check answers
+                R-->>S: whether any pixel inside the Crop is not opaque
+            else the check fails
+                R-->>S: failed, treated as transparent
+            end
+            S-->>UI: transparency hint only when a pixel inside the Crop is not opaque
+        end
+        U->>UI: confirms
+        UI->>S: starts the export, the exporting phase begins
+        S->>R: copy of the Original, the Geometry, size, format and quality
+        R->>X: renders only the Crop with the Preview's own shader and encodes
+        X-->>R: encoded file
+        R-->>S: verified file, then the export flows continue as in export sad.md section 6
+    end
+    Note over U,X: Postcondition: an Export never contains a Geometry that is not applied, and never a pixel from outside the Crop
+```
+
+While the tool is open, Export and Ctrl/Cmd+S never start an export and never open the browser's "Save page". They show a hint to apply or cancel the crop first (AC-16). During an export the tool can't open (AC-15, as in F1). With a Geometry applied, the export panel counts its full size, presets and long side from the Crop. A remembered larger size snaps to the Work for display but is kept, and comes back if the Crop is widened again. The transparency hint is shown only when a pixel inside the Crop is not opaque, and a failed check shows it, which is the safe side. The export worker renders only the Crop with the Preview's own shader (AC-14), and export's own flows take over from the verified file.
+
+### F8 — Open another image while the tool is open
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant UI as <ui>
+    participant S as <service>
+    participant X as <external-system>
+
+    Note over U,S: Precondition: the tool is open with changes that are not applied
+    alt Open image, and the system file dialog is cancelled
+        U->>UI: chooses Open image
+        UI->>X: shows the system file dialog
+        X-->>UI: nothing chosen
+        UI-->>U: tool unchanged, Draft kept
+    else a file is chosen in the dialog, or dropped on the window
+        U->>UI: chooses a file, or drops one
+        UI->>S: open this file
+        S->>X: reads and decodes it
+        alt cannot be opened
+            X-->>S: refused with a named reason
+            S-->>UI: reason shown, the tool stays open with its Draft
+        else read, and the Work has Unsaved edits
+            X-->>S: new image
+            S-->>UI: replace confirmation
+            alt the Editor declines
+                U->>UI: keeps the current Work
+                UI-->>U: tool stays open with its Draft
+            else the Editor replaces
+                U->>UI: replaces
+                UI->>S: replace the Work
+                S->>S: new Work replaces the old one, the tool slot closes, the Draft is discarded
+                S-->>UI: new Work shown, tool closed
+            end
+        else read, and no Unsaved edits
+            X-->>S: new image
+            S->>S: new Work replaces the old one, the tool slot closes, the Draft is discarded
+            S-->>UI: new Work shown, tool closed
+        end
+    end
+    Note over U,S: Postcondition: changes in the tool that were not applied never counted as Unsaved edits on their own
+```
+
+Opening another image or dropping a file doesn't close the tool straight away. A cancelled file dialog, or a file that can't be opened, leaves the tool exactly as it was. When the new image has been read and the Work has Unsaved edits, the replace confirmation appears: declining keeps the tool and its Draft, and replacing closes the tool and discards the Draft with the old Work. With no Unsaved edits the new Work replaces it directly, and the tool closes the same way (AC-17). The Draft alone never counts as Unsaved edits, so it never triggers the confirmation.
+
+### Coverage — user stories and acceptance criteria
+
+| Spec item | Shown by |
+|---|---|
+| US-01 Cut away what I don't want | F1, F2, F6 |
+| US-02 Turn the image upright | F3, F6 |
+| US-03 Mirror the image | F3, F6 |
+| US-04 Level a tilted horizon | F4 |
+| US-05 Crop to a set shape | F5 |
+| US-06 Crop to an exact size | F5 |
+| US-07 Change my mind without losing pixels | F6 |
+| US-08 Export what I see after cropping | F7, F8; Critical flow 2 |
+| US-09 Crop and rotate on the first try | F1 (and the keyboard branches of F2, F4, F6) |
+| AC-01 | F2 (dimmed outside, thirds grid, move by dragging inside), F6 (Apply, status bar size "from" the Original) |
+| AC-02 | F2 (stops at the edge, at least 1×1 px, whole pixels, odd pixel right or bottom) |
+| AC-03 | F3 (rotate branch) |
+| AC-04 | F3 (flip branch, sign of the Straighten angle) |
+| AC-05 | F4 (slider, turn around the frame's centre, fine grid, angle shown) |
+| AC-06 | F4 (shrink around the centre, centre moved only when outside, no growing back). The opacity half is not a runtime flow: it is the §10 QG-1b opacity check |
+| AC-07 | F4 (typed angle: snap, round, revert; Enter does not apply) |
+| AC-08 | F5 (choose a proportion, remembered at once), F1 (Free or remembered on opening), F6 (remembered after Cancel) |
+| AC-09 | F5 (fields always show the size after Apply), F2 (fields follow while dragging) |
+| AC-10 | F5 (typed size: revert, 1, round, largest that fits, other side) |
+| AC-11 | F6 (Cancel or Escape branch) |
+| AC-12 | F1 (whole Turned image, frame where the Crop is), F6 (widen back, Reset only on Apply) |
+| AC-13 | F6 (field-by-field compare, revision raised only when different) |
+| AC-14 | F7 (sizes from the Crop, transparency hint inside the Crop, only the Crop rendered); Critical flow 2. Fidelity to the Preview is the §10 QG-1 measurement, not a flow |
+| AC-15 | F1 (export in progress branch), F7 (same refusal from the export side) |
+| AC-16 | F7 (tool open branch) |
+| AC-17 | F8 (all branches) |
+| AC-18 | F1 (no image branch) |
+| AC-19 | F1 (View fits the whole Turned image on opening), F6 (View fits the Work after Apply or Cancel). Zoom and pan inside the tool reuse the editor's View flows unchanged and never touch the Draft |
+| AC-20 | F1 (C key and its guards, Tab), F2 (arrow keys on the frame, edges, corners), F4 (arrow keys on the slider), F6 (Enter applies outside a field, Escape cancels from anywhere). The "three actions" counts are a path length, F1 then F3 or F5 then F6, checked by e2e, not a separate flow |
+
+**Flags for design:** none. Every participant is in §5 (the Editor SPA as `<ui>` and `<service>`, the Preview renderer and the export worker as `<service> (render)`, the browser and operating system as `<external-system>`). No flow is async, and nothing is persisted, so data-model has no indexes to derive.
+
 ## 7. Deployment view
 
 Unchanged topology: the feature ships inside the existing static app on GitHub Pages under `/imgly/`, as part of the same Vite build, and runs entirely in one browser tab. There is no server, replica or scaling unit to add. The service worker precaches the larger app shell and the changed export worker script exactly as it does today, so the tool works offline after the first load. No new hosting configuration, header, permission or browser capability is needed: WebGL2 in the window and in workers is already a start-up requirement (open-and-view capability gate, export ADR-0003).
