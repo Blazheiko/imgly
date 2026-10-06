@@ -44,6 +44,7 @@ ADR-0002 renders every export on a WebGL2 `OffscreenCanvas` inside a worker and 
 **Negative**
 - On an engine without worker WebGL2, a large export blocks the interface while it renders and reads back, so the §6 freeze limit is not met there. Zoom and pan wait for it
 - The session check costs one more 1×1 WebGL2 context in the worker
+- On Linux WebKit a full-size PNG lands up to about 2.2/255 from the Preview over black or white (CI measured 2.16 at alpha 138), not within the spec §6 limit of 2: that engine's 2D canvas rounds semi-transparent colour more coarsely, and the export reads the Original through one. The fidelity e2e test allows 3 there and 2 everywhere else
 
 **Neutral**
 - An export confirmed before the session check settles waits for it; in practice the check starts with the first open and is done long before
