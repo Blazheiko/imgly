@@ -381,13 +381,30 @@ Each top-3 goal from §1 expanded into full scenarios. Every number is quoted fr
 
 ## 12. Glossary
 
-<!-- 🎯 Why: ⭐ the DOMAIN GLOSSARY that ends arguments a year later («checkpoint — weekly or
-     biweekly? quarter — calendar or fiscal?»).
-     📋 Write: a term / meaning table. Business + technical terms mixed.
-     📌 e.g. «Lesson | a unit inside a course made of blocks (text, video)». -->
+Terms from `CONTEXT.md` (canonical, repo root) used in this SAD:
 
 | Term | Meaning |
 |---|---|
-| <e.g. domain object A> | <its meaning in this domain> |
-| <e.g. domain object B> | <its meaning> |
-| <e.g. domain invariant name> | <the rule, in plain language> |
+| Crop | The rectangle of the image, as it stands after its Flip, Rotation and Straighten angle, that the Work keeps; always fully inside that image and at least 1×1 px; not a destructive cut |
+| Downscale limit | The maximum long side of an opened image, 4096 px; it bounds every Crop and Export |
+| Editor | The person editing an image in the app |
+| Export | An image file saved from the Work, rendered with all its edits, independent of the View |
+| Flip | Mirroring the image horizontally, vertically or both, kept as chosen |
+| Geometry | The Work's Flip, Rotation, Straighten angle and Crop, applied in that order |
+| Original | The opened image after orientation and the Downscale limit; the Geometry never changes it |
+| Portfolio reviewer | A recruiter or engineer judging the app on a first visit |
+| Preview | What the canvas shows: the Work with all its edits at the current View |
+| Rotation | The Work's turn in quarter turns, 0°, 90°, 180° or 270° clockwise; lossless |
+| Straighten angle | A small free turn between −45° and +45°, applied after the Rotation |
+| Unsaved edits | Changes to the Work since it was opened or last exported successfully |
+| View | Zoom and pan of the Preview; never part of the Work |
+| Work | One image being edited: its Original, Source name and Source format plus its Geometry and later edits |
+
+Terms this SAD uses that are not in `CONTEXT.md` (flagged for `/sdd:glossary crop-rotate`):
+
+| Term | Meaning |
+|---|---|
+| Draft | The Geometry being edited in the open tool; it reaches the Work only on Apply and never counts as Unsaved edits on its own (AC-11, AC-17) |
+| Turned image | The image as it stands after its Flip, Rotation and Straighten angle; the frame the Crop's coordinates are in (ADR-0001) |
+| Proportion | The crop frame's locked width-to-height ratio (Free, Original, 1:1, 4:3, 3:2, 16:9, landscape or portrait), remembered per Work (AC-08) |
+| Tool slot | The `editor` store's `activeTool`: which tool, if any, is open; one at a time (ADR-0003) |
