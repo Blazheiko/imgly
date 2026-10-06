@@ -361,22 +361,23 @@ Each top-3 goal from §1 expanded into full scenarios. Every number is quoted fr
 
 ## 11. Risks and technical debt
 
-<!-- 🎯 Why: ⭐ collects EVERYTHING that can break — not only the technical. Without §11 risks get
-     discussed at standups and lost; debt lives only in the head of whoever accepted it.
-     📋 Write: a risk/debt table — severity — mitigation — owner. Accepted debt in its own block.
-     📌 The first risk is often a product risk, not a technical one. That's normal. -->
-
-<!-- Severity literals: Low / Medium / High for regular risks; "Open question" for rows created by
-     a Save-as-OQ resolution during the Socratic walk (see references/socratic.md). -->
-
 | Risk / debt | Severity | Mitigation | Owner |
 |---|---|---|---|
-| <e.g. Worker lag may reach hours during a downstream outage> | Medium | <alert >10 min, on-call playbook, retry backoff> | <DevOps> |
-| <e.g. No event-schema versioning in v1> | Medium | <ADR-NNNN planned for v2, tolerate unknown fields> | <Backend> |
-| Open architectural decision: <decision-headline> | Open question | Resolve before <stage trigger or YYYY-MM-DD>; <inline rationale from the Save-as-OQ> | <owner> |
+| The ±2/255 tolerance between a straightened Export and the Preview at 100% may not hold on every engine, especially at the Crop's edge pixels (spec §8). Bilinear sampling at the same coordinates can still differ by GPU and driver, and Linux WebKit already needed 3/255 for export because it renders in the window (export ADR-0003, commit `840d4b0`) | High | Same shader, same matrix function and same filter rule in Preview and Export (ADR-0002). The QG-1b e2e runs at the four angles on all three engines from the first task, edge pixels included. A miss is decided in `plan-tests` as a recorded engine deviation, not by loosening the spec silently | Blazheiko — resolve before `/sdd:plan-tests` (spec §8) |
+| Exact pixel mapping for Rotation and Flip relies on sampling at texel centres in float32. A mapping that lands on a texel edge can pick the neighbour on one engine and fail QG-1a | Medium | `cropToOriginalUv` maps output pixel centres (p + 0.5) to texel centres. Unit tests assert it for all 16 combinations, and the 16-combination e2e catches any engine difference | Blazheiko |
+| Brownfield: code reads `original.width`/`height` as the Work's size: the status bar, the export store, fit-View and the e2e helpers. A missed call site shows the wrong size only once a Crop is applied | Medium | One task moves every reader to `workSize(work)`, guarded by a search in review. The AC-01 and AC-14 tests run with a non-identity Geometry | Blazheiko |
+| AC-06's maths (largest frame of the same proportion inside the turned image, re-anchoring around the frame's centre, whole-pixel rounding) has edge cases: ±45°, a centre that falls outside, a 1×1 Crop, very thin frames | Medium | Pure functions in `core/geometry` with property tests: the result is always inside, whole pixels, at least 1×1, with the proportion kept within 0.5 px (AC-08) | Blazheiko |
+| Scope sits at the upper bound of M (spec §1) | Medium | The Straighten angle (US-04) is the first thing cut if the budget slips. Without it, ADR-0002's bilinear rule, ADR-0004's edge cases and QG-1b fall away, and nothing else changes | Blazheiko |
+| Roadmap decision D3 is still open: whether the drawing layer (step 6) stays anchored to the Original and follows the Geometry (spec §8). The default is yes, and ADR-0002 assumes it: the layer is sampled through the same `u_geometry` | Medium | If step 6 decides otherwise, only the layer's sampling changes. The Geometry model and the shader path stay. Revisit ADR-0002's Consequences then | Blazheiko — before `/sdd:specify` of roadmap step 6 (spec §8) |
+| The crop overlay (DOM) and the Preview (WebGL) can disagree by half a pixel at high zoom (ADR-0005) | Low | Both use the same View and `core` maths. An e2e screenshot check of the frame on the image edge at 100% and 800% | Blazheiko |
+| For a transparent Original with a Geometry, the JPEG transparency hint appears a moment late, after a GPU check (ADR-0004) | Low | The hint is hidden while the check runs and shown if it fails. Opaque Originals never run it | Blazheiko |
+| The export save-point question for undo (spec §8) now only concerns undo, which this feature does not add | Low | Its due moves to roadmap step 7, as the spec's default says | Blazheiko — before `/sdd:specify` of roadmap step 7 |
+| `docs/architecture-map.md` reflects `7d26cf9`, 146 commits behind; this SAD read the code directly | Low | Run `/sdd:survey` to refresh the map before the next feature's design | Blazheiko |
 
 **Accepted debt (acceptable in v1, plan to fix later):**
-- <e.g. the entity is immutable / unversioned — OK for v1, may need audit versioning in v2>
+- No undo or redo of Geometry changes. Cancel, Reset and widening the Crop are the ways back until roadmap step 7 (spec §3).
+- The Geometry is not persisted and ends with the Work. Step 8 adds it to `WorkRecord` with a new forward migration (repo ADR 0003).
+- Above 100% zoom, a straightened image looks slightly soft instead of showing pixel blocks (ADR-0002).
 
 ## 12. Glossary
 
