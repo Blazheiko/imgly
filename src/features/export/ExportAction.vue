@@ -52,6 +52,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown, { capture
     :aria-describedby="hasWork ? undefined : hintId"
     :aria-expanded="store.panelOpen ? 'true' : 'false'"
     aria-haspopup="dialog"
+    data-keeps-space
     :class="{ 'export-action--unavailable': !hasWork }"
     @click="onActivate"
   >

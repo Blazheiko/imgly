@@ -62,7 +62,7 @@ describe('ExportAction and Ctrl/Cmd+S (AC-11, AC-17)', () => {
     return event
   }
 
-  it('is a native, enabled, focusable button, so Tab reaches it and Enter/Space activate it', async () => {
+  it('is a native, enabled, focusable button, so Tab reaches it (Space: src/app/keyboard.test.ts)', async () => {
     openWork()
     await flush()
     const button = exportButton()

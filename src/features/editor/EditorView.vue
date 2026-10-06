@@ -50,6 +50,14 @@ function isTextField(target: EventTarget | null): boolean {
   return target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)
 }
 
+/**
+ * Controls in a panel, or one that opts in with `data-keeps-space`, keep Space as their native
+ * activation (export AC-17); everywhere else Space starts space-pan.
+ */
+function keepsSpace(target: EventTarget | null): boolean {
+  return target instanceof Element && target.closest('[role="dialog"], [data-keeps-space]') !== null
+}
+
 /** SCR-02 zoom shortcuts. Ctrl/Cmd + / - / 0 stay the browser's page zoom (never intercepted). */
 const zoomShortcuts: { matches: (e: KeyboardEvent) => boolean; run: () => void }[] = [
   { matches: (e) => e.shiftKey && e.code === 'Digit1', run: () => editor.fit() },
@@ -68,6 +76,7 @@ function onKeydown(event: KeyboardEvent) {
   if (mod || event.altKey || isTextField(event.target)) return
   if (!editor.work || !interactive()) return
   if (event.code === 'Space') {
+    if (keepsSpace(event.target)) return
     event.preventDefault() // a focused button would otherwise fire on release (AC-13)
     spacePan.value = true
     return
