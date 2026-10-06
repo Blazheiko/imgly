@@ -86,12 +86,9 @@ test.describe('format honesty', () => {
     page,
     browserName,
   }) => {
-    await openFile(
-      page,
-      'clear.png',
-      await generateImage(page, { width: 64, height: 48, alpha: true }),
-      'image/png',
-    )
+    // Alpha ramps from 0 at x = 0 to 255 at x = 63.
+    const source = await generateImage(page, { width: 64, height: 48, alpha: true })
+    await openFile(page, 'clear.png', source, 'image/png')
     await waitForWork(page, 64, 48)
     await choose(page)
     const jpeg = panel(page).getByRole('radio', { name: 'JPEG', exact: true })
@@ -100,14 +97,47 @@ test.describe('format honesty', () => {
     await expect(panel(page)).toContainText('JPEG has no transparency')
 
     const file = await confirmAndCapture(page, browserName)
+    const result = await page.evaluate(
+      async ({ jpegBase64, pngBase64 }) => {
+        const pixels = async (base64: string, type: string) => {
+          const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
+          const bitmap = await createImageBitmap(new Blob([bytes], { type }), {
+            premultiplyAlpha: 'none',
+            colorSpaceConversion: 'none',
+          })
+          const ctx = new OffscreenCanvas(bitmap.width, bitmap.height).getContext('2d')!
+          ctx.drawImage(bitmap, 0, 0)
+          return ctx.getImageData(0, 0, bitmap.width, bitmap.height).data
+        }
+        const jpeg = await pixels(jpegBase64, 'image/jpeg')
+        const png = await pixels(pngBase64, 'image/png')
+        // Averages over 16×16 blocks aligned to the JPEG grid, so compression noise and chroma
+        // subsampling cancel out; the expected side applies AC-15's rule to every source pixel.
+        const block = (x0: number, y0: number) => {
+          const actual = [0, 0, 0]
+          const expected = [0, 0, 0]
+          for (let y = y0; y < y0 + 16; y++) {
+            for (let x = x0; x < x0 + 16; x++) {
+              const i = (y * 64 + x) * 4
+              const a = png[i + 3]! / 255
+              for (let c = 0; c < 3; c++) {
+                actual[c]! += jpeg[i + c]! / 256
+                expected[c]! += (a * png[i + c]! + (1 - a) * 255) / 256
+              }
+            }
+          }
+          return { actual, expected }
+        }
+        const transparent = Array.from(jpeg.slice((24 * 64 + 0) * 4, (24 * 64 + 0) * 4 + 3))
+        return { transparent, blocks: [block(16, 16), block(32, 16)] }
+      },
+      { jpegBase64: file.bytes.toString('base64'), pngBase64: source.toString('base64') },
+    )
     // Column 0 is fully transparent: it must come out white (JPEG noise allowed).
-    const firstColumn = await page.evaluate(async (base64) => {
-      const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
-      const bitmap = await createImageBitmap(new Blob([bytes], { type: 'image/jpeg' }))
-      const ctx = new OffscreenCanvas(bitmap.width, bitmap.height).getContext('2d')!
-      ctx.drawImage(bitmap, 0, 0)
-      return Array.from(ctx.getImageData(0, 24, 1, 1).data)
-    }, file.bytes.toString('base64'))
-    for (const channel of firstColumn.slice(0, 3)) expect(channel).toBeGreaterThan(240)
+    for (const channel of result.transparent) expect(channel).toBeGreaterThan(240)
+    // Partly transparent pixels blend onto white: opacity × colour + (1 − opacity) × white.
+    for (const { actual, expected } of result.blocks) {
+      for (let c = 0; c < 3; c++) expect(Math.abs(actual[c]! - expected[c]!)).toBeLessThanOrEqual(6)
+    }
   })
 })

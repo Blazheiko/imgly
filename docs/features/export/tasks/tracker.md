@@ -24,7 +24,7 @@
 | T17 | Let Space press export controls instead of starting space-pan (review F1) | wiring | Blazheiko | S | — | done |
 | T18 | Close the export panel when the Work is replaced while it is open (review F2) | app | Blazheiko | S | — | done |
 | T19 | Make the AC-09 e2e check observe Unsaved edits (review F3) | tests | Blazheiko | S | — | done |
-| T20 | Assert the AC-15 blend on partly transparent pixels (review F4) | tests | Blazheiko | S | — | todo |
+| T20 | Assert the AC-15 blend on partly transparent pixels (review F4) | tests | Blazheiko | S | — | done |
 | T21 | Treat any non-idle editor phase as export-unavailable (review F5) | app | Blazheiko | S | — | todo |
 | T22 | Time out a worker that never answers (review F6) | infra | Blazheiko | S | — | todo |
 | T23 | Re-place the Popover on window resize while open (review F7) | ui | Blazheiko | S | — | todo |
