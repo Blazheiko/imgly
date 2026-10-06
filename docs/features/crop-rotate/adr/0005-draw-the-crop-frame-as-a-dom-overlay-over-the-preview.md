@@ -36,7 +36,7 @@ While the tool is open, SCR-03 shows a crop frame over the whole turned image. T
 
 How it works:
 
-- `CropOverlay.vue` is mounted in the editor's tool slot, over the canvas area. Its positions come from the View and the draft Geometry through `core/geometry`'s overlay maths: the Crop's corners in screen pixels. They are computed with the same View and size the renderer uses, so the frame sits on the pixels the shader draws.
+- `CropOverlay.vue` is placed over the canvas area by `CropRotateTool.vue`, which the app shell mounts in the editor's tool slot. Its positions come from the View and the draft Geometry through `core/geometry`'s overlay maths: the Crop's corners in screen pixels. They are computed with the same View and size the renderer uses, so the frame sits on the pixels the shader draws.
 - Pointer drags use pointer capture on the frame or handle. Each move turns the screen delta into image pixels with the same maths, and calls the store, which applies `clampCrop` and the proportion (AC-02, AC-08).
 - Colours, line widths and the dimming opacity come from `tokens.css`. Any new primitive (for example a reusable drag handle) is registered in `docs/design-system.md`.
 

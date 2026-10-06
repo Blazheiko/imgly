@@ -40,7 +40,7 @@ How it works:
   - `activeTool: ToolId | null`, where `ToolId = 'crop-rotate'` for now.
   - `openTool(id)` refuses when there is no Work (AC-18), when the phase is `exporting` (AC-15) or when a tool is already open, and returns the refusal reason for the hint.
   - `closeTool()` clears the slot and the preview override.
-  - `previewGeometry: Geometry | null` is what the Preview draws while a tool is open, instead of `work.geometry`.
+  - `previewGeometry: Geometry | null` is what the Preview draws while a tool is open, instead of `work.geometry`. It is drawn in whole-turned-image mode (`core/geometry`'s `turnedImageToOriginalUv` and `turnedBounds`), not cropped, so the Editor sees the whole turned image and the overlay draws the Crop over it (AC-12, AC-19).
   - `applyGeometry(next)` stores the Geometry and raises the revision through `applyEdit()` only when `geometryEquals` is false (AC-13).
   - `beginExport()` also refuses while `activeTool` is set (AC-16).
   - A successful replace of the Work closes the tool (AC-17).

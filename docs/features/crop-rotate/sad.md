@@ -9,10 +9,6 @@ target_surfaces: [web-frontend]  # filled in §4 — subset of: backend-service 
 
 # Software Architecture Document — crop-rotate
 
-<!-- 12 Arc42 sections. Empty section → <!-- N/A: <one-line reason> -->. -->
-<!-- C4 Context (L1) lives inline in §3. C4 Container (L2) lives inline in §5. -->
-<!-- Numbers in §10 come VERBATIM from spec.md §6 NFR — no inventing, no rounding. -->
-
 ## 1. Introduction and goals
 
 **Intent.** crop-rotate gives the Editor one "Crop and rotate" tool that turns the open Work in quarter turns, mirrors it, levels it with a Straighten angle of up to ±45°, and sets its Crop by dragging, by a fixed proportion or by exact pixel sizes. Apply keeps the result, Cancel restores the Geometry the Work had before, and Reset returns to no Geometry (spec §1). The Geometry is non-destructive: it is a small set of parameters on the Work, never a cut of the Original, so a Crop can always be widened back and the area outside it returns exactly as it was (spec §2). The Preview and every Export show exactly the applied Geometry, in every target browser. This is the first real edit in the open, edit and save flow, so it also fixes the Geometry that the adjustments (roadmap step 5), the drawing layer (step 6) and the gallery (step 8) build on.
@@ -21,7 +17,7 @@ target_surfaces: [web-frontend]  # filled in §4 — subset of: backend-service 
 
 1. **Fidelity, Preview to Export**: what the Editor applies is exactly what every Export contains. Rotation, Flip and Crop lose no pixel, a straightened Export matches the Preview at 100%, opaque images stay opaque, and no pixel from outside the Crop ever leaves the app.
 2. **Non-destructive and exact Geometry**: the Geometry is whole-pixel parameters on the Work, compared field by field. Widening the Crop back or Reset gives back exactly the pixels from before, and Unsaved edits change only when the applied Geometry really differs.
-3. **A responsive, leak-free tool**: the Preview follows the crop frame and the straighten slider at 30 or more updates per second on a 4096×3072 Work, every button responds within 150 ms, and 50 applied changes do not grow memory.
+3. **A responsive, leak-free tool**: the Preview follows the crop frame and the straighten slider at 30 or more updates per second on a 4096×3072 Work, rotate, flip, Apply, Cancel, Reset and opening the tool each respond within 150 ms, and 50 applied changes do not grow memory.
 
 **Stakeholders.**
 
@@ -130,10 +126,10 @@ The feature follows the repo's functional core with feature folders (repo ADR 00
 - `Work` gains `geometry: Geometry` (identity at open). `src/core/geometry/` adds `workSize(work)`, and every reader of the Work's size moves to it.
 - The `editor` store gains the tool slot of ADR-0003: `activeTool`, `openTool(id)`, `closeTool()`, `previewGeometry`, `applyGeometry(next)`.
   - `beginExport()` also refuses while a tool is open.
-  - A confirmed replace closes the tool.
+  - A successful replace of the Work, confirmed or not, closes the tool.
   - fit-View uses the turned, uncropped image while a tool is open, and `workSize` otherwise (AC-19).
   - It also gains `activePanel: 'export' | null`, which the export feature sets when its panel opens and closes, so the C key can stay silent while the panel is open (AC-20) without crop-rotate importing export.
-- `PreviewCanvas` draws `previewGeometry ?? work.geometry` and hands it to the renderer with `setGeometry(g)`. `EditorView` gets a `tool` slot over the canvas area for the overlay and the tool's controls.
+- `PreviewCanvas` draws the Work with `work.geometry`, cropped, when no tool is open. While a tool is open it draws `previewGeometry` in **whole-turned-image mode**: `core/geometry`'s `turnedImageToOriginalUv(g, original)` and `turnedBounds(g)` give the same transform as the Crop's but over the bounding box of the whole turned image, so the empty corners render transparent and the overlay draws the Crop over it (AC-12, AC-19). The Crop itself never leaves the turned image, so ADR-0001's invariant holds. The renderer takes this as `setGeometry(g, mode)` with `mode` `'crop'` or `'whole'`. `EditorView` gets a `tool` slot over the canvas area for the overlay and the tool's controls.
 - `EditorStatusBar` shows `workSize` followed by "from W×H" of the Original whenever the width or the height differs, compared in order (AC-01). `DimensionsReadout` gains the optional "from" part.
 - The export store sizes from `workSize(work)`. A remembered long side that is larger than the Work snaps to it for display but stays remembered, and comes back when the Crop is widened (AC-14). The request carries `geometry`, and `transparencyHint` uses the GPU check of ADR-0004. Export and Ctrl/Cmd+S check `editor.activeTool` and show "apply or cancel the crop first" instead (AC-16).
 
@@ -146,10 +142,11 @@ src/
 │   └── geometry/                 Geometry type and identity, geometryEquals (AC-13), workSize,
 │                                 rotateQuarter (AC-03), flipOnScreen (AC-04), setStraighten + fitCropInside (AC-05/06),
 │                                 clampCrop + rounding (AC-02), proportions and sizes (AC-08/09),
-│                                 parseAngle / parseCropSize (AC-07/10), cropToOriginalUv, overlay maths (ADR-0001)
+│                                 parseAngle / parseCropSize (AC-07/10), cropToOriginalUv, turnedImageToOriginalUv + turnedBounds
+│                                 (the tool's whole-image view), overlay maths (ADR-0001)
 ├── render/
 │   ├── shaders.ts                u_geometry in the vertex shader, transparent outside the Original (ADR-0002)
-│   ├── preview-renderer.ts       setGeometry(g); LINEAR magnification while straightened; quad sized by the shown size
+│   ├── preview-renderer.ts       setGeometry(g, mode) with mode 'crop' or 'whole'; LINEAR magnification while straightened; quad sized by the shown size
 │   └── export/
 │       ├── worker-handler.ts     renders with geometry at the export size; new 'alpha' check (ADR-0004)
 │       └── client.ts             exportImage(request with geometry); checkCropTransparency(original, geometry)
@@ -159,6 +156,7 @@ src/
 ├── features/crop-rotate/
 │   ├── store.ts                  `cropRotate` store: draft, Geometry at open, proportion per Work (AC-08), field state, apply / cancel / reset
 │   ├── CropRotateAction.vue      the toolbar action with its hints (SCR-01, SCR-02; AC-15, AC-18, AC-20)
+│   ├── CropRotateTool.vue        SCR-03 wrapper mounted in the editor's tool slot: CropOverlay over the canvas, CropRotateControls beside it
 │   ├── CropRotateControls.vue    SCR-03 controls: rotate, flip, straighten slider and field, proportion, width and height, Reset, Cancel, Apply
 │   ├── CropOverlay.vue           SCR-03 frame: dimmed outside, frame, handles, rule-of-thirds and fine grids (ADR-0005)
 │   ├── shortcuts.ts              C to open; inside the tool Enter, Escape and the arrow keys (AC-20)
@@ -274,7 +272,7 @@ The export panel counts every size from the Crop (AC-14). For a transparent Orig
 - No image open: the action and C show "open an image first" (AC-18).
 - Export in progress: the action is disabled and C does nothing; the request is refused, not queued (AC-15).
 - Export or Ctrl/Cmd+S while the tool is open: the hint "apply or cancel the crop first"; the browser's "Save page" never opens (AC-16).
-- Open image or a drop while the tool is open: the tool stays open through reading and the replace confirmation. A confirmed replace closes it and drops the draft; a failed read or a declined replace keeps it as it was (AC-17).
+- Open image or a drop while the tool is open: the tool stays open through reading and the replace confirmation. A successful replace, confirmed or not, closes it and drops the draft; a failed read or a declined replace keeps it as it was (AC-17).
 - Typed angle or size out of range, fractional, empty or not a number: snapped, rounded or reverted when the field is left or Enter is pressed in it (AC-07, AC-10).
 - Reset then Apply, or Reset then Cancel (AC-12); a proportion remembered even after Cancel (AC-08).
 - The transparency check fails: the hint shows, the safe side (ADR-0004).
@@ -363,7 +361,7 @@ Each top-3 goal from §1 expanded into full scenarios. Every number is quoted fr
 
 | Risk / debt | Severity | Mitigation | Owner |
 |---|---|---|---|
-| The ±2/255 tolerance between a straightened Export and the Preview at 100% may not hold on every engine, especially at the Crop's edge pixels (spec §8). Bilinear sampling at the same coordinates can still differ by GPU and driver, and Linux WebKit already needed 3/255 for export because it renders in the window (export ADR-0003, commit `840d4b0`) | High | Same shader, same matrix function and same filter rule in Preview and Export (ADR-0002). The QG-1b e2e runs at the four angles on all three engines from the first task, edge pixels included. A miss is decided in `plan-tests` as a recorded engine deviation, not by loosening the spec silently | Blazheiko — resolve before `/sdd:plan-tests` (spec §8) |
+| The ±2/255 tolerance between a straightened Export and the Preview at 100% may not hold on every engine, especially at the Crop's edge pixels (spec §8). Bilinear sampling at the same coordinates can still differ by GPU and driver. Linux WebKit already needs 3/255 for any Export of a semi-transparent Original, with or without a Geometry, because it renders in the window (export ADR-0003, commit `840d4b0`, `e2e/export/fidelity.spec.ts`); the same deviation therefore also threatens QG-1a and QG-2 on CI when their fixtures are semi-transparent | High | Same shader, same matrix function and same filter rule in Preview and Export (ADR-0002). The QG-1b e2e runs at the four angles on all three engines from the first task, edge pixels included. `plan-tests` decides whether QG-1a, QG-1b and QG-2 reuse export's per-engine limit for semi-transparent fixtures on Linux WebKit or keep those fixtures opaque; the spec's 2/255 stays the target everywhere else. A miss is a recorded engine deviation, never a silent loosening of the spec | Blazheiko — resolve before `/sdd:plan-tests` (spec §8) |
 | Exact pixel mapping for Rotation and Flip relies on sampling at texel centres in float32. A mapping that lands on a texel edge can pick the neighbour on one engine and fail QG-1a | Medium | `cropToOriginalUv` maps output pixel centres (p + 0.5) to texel centres. Unit tests assert it for all 16 combinations, and the 16-combination e2e catches any engine difference | Blazheiko |
 | Brownfield: code reads `original.width`/`height` as the Work's size: the status bar, the export store, fit-View and the e2e helpers. A missed call site shows the wrong size only once a Crop is applied | Medium | One task moves every reader to `workSize(work)`, guarded by a search in review. The AC-01 and AC-14 tests run with a non-identity Geometry | Blazheiko |
 | AC-06's maths (largest frame of the same proportion inside the turned image, re-anchoring around the frame's centre, whole-pixel rounding) has edge cases: ±45°, a centre that falls outside, a 1×1 Crop, very thin frames | Medium | Pure functions in `core/geometry` with property tests: the result is always inside, whole pixels, at least 1×1, with the proportion kept within 0.5 px (AC-08) | Blazheiko |
