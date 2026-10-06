@@ -294,21 +294,22 @@ Unchanged topology: the feature ships inside the existing static app on GitHub P
 
 ## 8. Crosscutting concepts
 
-<!-- 🎯 Why: CROSS-CUTTING PATTERNS spanning several modules: logging, errors, authorization, ID
-     strategy, events, caching. ⭐ The second-densest section. A pattern inside one module is NOT
-     here; a project-wide convention belongs in the convention file.
-     📋 Write: a table — concept / convention / where defined. One row per concept.
-     📌 e.g. «sortable time-based IDs generated in the app layer» as a default from the convention file. -->
-
 | Concept | Convention | Where defined |
 |---|---|---|
-| Logging | <e.g. structured, fields `module=<name>`> | <convention file §X or here> |
-| Authentication | <e.g. token-based via middleware> | <convention file §X> |
-| Error handling | <e.g. domain sentinel → ports error mapping → JSON> | <convention file §X> |
-| ID strategy | <e.g. sortable time-based ID in the app layer> | <convention file §X> |
-| Internationalisation | <e.g. N/A, single language> | — |
-| Observability | <e.g. tracing on the request boundary> | — |
-| Events | <module-specific patterns, if any> | <here> |
+| Error handling | `Result<T, AppError>` in `core` and `render`; no new error codes. The field rules never fail: out-of-range values snap, fractional values round, and empty or non-numeric values revert (AC-07, AC-10). A failed transparency check stays inside export and shows the hint (ADR-0004). A failed Preview render is open-and-view's display-lost path, unchanged | repo `CLAUDE.md` §Conventions; here |
+| Edit entry point | Every change to the Work goes through the `editor` store. The tool calls `applyGeometry(next)`, which stores it and raises the revision through `applyEdit()` only when the Geometry differs field by field (AC-13). The tool never writes the Work directly | open-and-view ADR-0005; ADR-0003 |
+| Tool state | One tool at a time in `editor.activeTool`, separate from the editor's phase. The draft lives in the tool's own Pinia setup store and reaches the Preview only through `editor.previewGeometry` | ADR-0003 |
+| Coordinate spaces | Three spaces: screen pixels, the Crop's frame (the image after Flip, Rotation and Straighten angle, in whole pixels) and the Original's texture coordinates. Only `core/geometry` converts between them: the shader's `u_geometry`, the overlay's positions and drag deltas all come from it | ADR-0001, ADR-0002, ADR-0005 |
+| Units | The Straighten angle is stored in integer tenths of a degree and shown in degrees with one decimal. Crop position and size are whole pixels of the image; the overlay works in device pixels through the View | ADR-0001 |
+| Keyboard shortcuts | Each feature owns its keys. crop-rotate owns C (silent while the export panel is open, while the tool is open or while a field has focus, read from `editor.activePanel` and the focus target) and, inside the tool, Enter, Escape and the arrow keys (AC-20). export owns Ctrl/Cmd+S and turns it into the "apply or cancel the crop first" hint while `editor.activeTool` is set (AC-16). Zoom shortcuts stay with the editor and keep working in the tool (AC-19) | here; export sad.md §8 |
+| Field input | Checked only when the field is left or Enter is pressed in it, never while typing. Enter in a field never applies the tool, and Escape anywhere cancels the tool and discards a value still being typed (AC-07, AC-10, AC-20). Only plain decimal notation counts as a number | export AC-04; here |
+| Accessibility | The frame, its edges and corners, the slider and every button are focusable DOM elements with roles and labels (the slider reports its value in degrees). Hints on unavailable controls are reachable by keyboard | ADR-0005; `docs/design-system.md` |
+| Resource lifetime | The Geometry allocates nothing on the GPU. The transparency check's bitmap copy is closed in every branch, like an export's. The bitmap ledger in the leak tests covers both | open-and-view sad.md §8; ADR-0002, ADR-0004 |
+| Privacy | No pixel from outside the Crop reaches an Export. The shader samples only through the Crop's transform, and the Crop invariant keeps it inside the turned image (AC-14). Nothing about the Geometry is logged or sent anywhere | spec §6.1; ADR-0002 |
+| ID strategy | No new entities and no new IDs. The remembered proportion is keyed by the Work's existing `id` (`newId()`, UUIDv7) | repo `CLAUDE.md` §Conventions |
+| Persistence | None: the Geometry and the remembered proportion live in session memory and end with the Work (spec §3). Step 8 adds the Geometry to `WorkRecord` with a new forward migration | repo ADR 0003 |
+| Internationalisation | N/A: English microcopy in the feature's `messages.ts`, as in open-and-view and export | — |
+| Test hooks | The e2e build's `window.__imglyTest` gains a way to set a Geometry directly, so the fidelity tests reach all 16 Rotation × Flip combinations and the four angles without driving the UI | repo `CLAUDE.md` §Commands; here |
 
 ## 9. Architecture decisions
 
