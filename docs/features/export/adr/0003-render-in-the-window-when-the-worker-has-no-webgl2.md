@@ -27,13 +27,13 @@ ADR-0002 renders every export on a WebGL2 `OffscreenCanvas` inside a worker and 
 
 ## Considered options
 
-1. **Fall back to the window** — the session check also reports whether the worker can make a WebGL2 context; without it, the client runs the same `handleCheck` / `handleExport` in the window, rendering on a DOM `<canvas>` and encoding through a 2D `OffscreenCanvas` as before.
+1. **Fall back to the window** — the session check also reports whether the worker can make a WebGL2 context; without it, the client runs the same `handleCheck` / `handleExport` in the window, on an `OffscreenCanvas` there — which has WebGL2 on Linux WebKit — so the pixels match the worker's. A DOM `<canvas>` was tried first and missed the 2/255 fidelity limit: WebKit un-premultiplies it differently when copying into 2D.
 2. **Refuse honestly** — add worker WebGL2 to the check and tell the user export is unavailable in this browser.
 3. **Raise the start-up gate** — treat a browser without worker WebGL2 as unsupported (SCR-04).
 
 ## Decision outcome
 
-**Chosen:** Option 1. It keeps one code path (`worker-handler.ts` runs in both places through `ExportEnv.createRenderCanvas`) and lets these browsers save, at the cost of a freeze during their exports only. Options 2 and 3 take saving or the whole editor away from a browser that can render the Preview.
+**Chosen:** Option 1. It keeps one code path (`worker-handler.ts` runs unchanged in both places with the same `ExportEnv`) and lets these browsers save, at the cost of a freeze during their exports only. Options 2 and 3 take saving or the whole editor away from a browser that can render the Preview.
 
 ## Consequences
 
@@ -51,5 +51,5 @@ ADR-0002 renders every export on a WebGL2 `OffscreenCanvas` inside a worker and 
 
 ## Links
 
-- Code: `src/render/export/client.ts` (`InWindowExport`), `src/render/export/worker-handler.ts` (`canRender`, `createRenderCanvas`), `src/render/export/index.ts`
+- Code: `src/render/export/client.ts` (`InWindowExport`), `src/render/export/worker-handler.ts` (`canRender`), `src/render/export/index.ts`
 - Related ADR: [[0002-render-and-encode-exports-in-a-dedicated-web-worker]]

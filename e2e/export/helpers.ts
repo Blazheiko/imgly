@@ -3,6 +3,8 @@ import { fileURLToPath } from 'node:url'
 import { expect, type Page } from '@playwright/test'
 import { sniffImageHeader } from '../../src/core/image-header'
 
+import { chooserFromCtrlO } from '../open-and-view/helpers'
+
 export { gotoReady, view, waitForWork } from '../open-and-view/helpers'
 
 export type FormatLabel = 'PNG' | 'JPEG' | 'WebP'
@@ -19,9 +21,7 @@ export const work = (page: Page) => page.evaluate(() => window.__imglyTest!.work
 
 /** Opens a file through "Open image" (Ctrl+O and the file chooser), under any name. */
 export async function openFile(page: Page, name: string, buffer: Buffer, mimeType = '') {
-  const chooser = page.waitForEvent('filechooser')
-  await page.keyboard.press('Control+o')
-  await (await chooser).setFiles({ name, mimeType, buffer })
+  await (await chooserFromCtrlO(page)).setFiles({ name, mimeType, buffer })
 }
 
 /**

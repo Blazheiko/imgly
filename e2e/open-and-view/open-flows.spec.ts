@@ -1,7 +1,14 @@
 import { chmodSync, readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { expect, test, type Page } from '@playwright/test'
-import { canvasArea, dropGeneratedImage, gotoReady, view, waitForWork } from './helpers'
+import {
+  canvasArea,
+  chooserFromCtrlO,
+  dropGeneratedImage,
+  gotoReady,
+  view,
+  waitForWork,
+} from './helpers'
 
 const fixture = (name: string) =>
   readFileSync(fileURLToPath(new URL(`../fixtures/${name}`, import.meta.url)))
@@ -90,9 +97,7 @@ test.describe('a file the app may not read (AC-10)', () => {
     chmodSync(path, 0o000)
     try {
       await gotoReady(page)
-      const chooser = page.waitForEvent('filechooser')
-      await page.keyboard.press('Control+o')
-      await (await chooser).setFiles(path)
+      await (await chooserFromCtrlO(page)).setFiles(path)
 
       await expect(alertText(page)).toHaveText(
         "The app wasn't allowed to read this file. Make it available on this computer first, for example by downloading it from your cloud drive.",
@@ -109,10 +114,8 @@ test.describe('animated images (AC-11, AC-11b)', () => {
   test('keeps the first frame’s pixels (Chromium)', async ({ page, browserName }) => {
     test.skip(browserName !== 'chromium', 'WebGL pixel checks stay on Chromium only')
     await gotoReady(page)
-    const chooser = page.waitForEvent('filechooser')
-    await page.keyboard.press('Control+o')
     await (
-      await chooser
+      await chooserFromCtrlO(page)
     ).setFiles({ name: 'animated.gif', mimeType: 'image/gif', buffer: fixture('animated.gif') })
     await waitForWork(page, 64, 48)
     await expect(page.getByText('Animated image: only the first frame was kept.')).toBeVisible()

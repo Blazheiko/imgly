@@ -4,6 +4,7 @@ import { crc32 } from 'node:zlib'
 import { expect, test, type Page } from '@playwright/test'
 import {
   canvasArea,
+  chooserFromCtrlO,
   dropGeneratedImage,
   expectOneRetainedOriginal,
   gotoReady,
@@ -184,9 +185,7 @@ const REFERENCE_SET: [string, () => FilePayload, Outcome][] = [
 const work = (page: Page) => page.evaluate(() => window.__imglyTest!.work())
 
 async function openViaPicker(page: Page, payload: FilePayload) {
-  const chooser = page.waitForEvent('filechooser')
-  await page.keyboard.press('Control+o')
-  await (await chooser).setFiles(payload)
+  await (await chooserFromCtrlO(page)).setFiles(payload)
 }
 
 /** Asserts the honest outcome: a correct Preview with its readout, or the exact catalog reason. */

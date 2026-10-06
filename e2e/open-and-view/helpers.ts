@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test'
+import { expect, type FileChooser, type Page } from '@playwright/test'
 
 /**
  * Whether the app cancelled each drag event's default. A synthetic drop never navigates, so this —
@@ -90,6 +90,23 @@ export async function canvasArea(page: Page) {
       dpr: devicePixelRatio,
     }
   })
+}
+
+/**
+ * Presses Ctrl+O and returns the file chooser it opens. On a loaded CI runner Chromium now and then
+ * shows no chooser for the first press after start-up (cause unknown; a retry always works), so
+ * one more press follows after 5 s. Every press still goes through the app's own shortcut.
+ */
+export async function chooserFromCtrlO(page: Page): Promise<FileChooser> {
+  for (let attempt = 1; ; attempt++) {
+    const chooser = page.waitForEvent('filechooser', { timeout: 5_000 })
+    await page.keyboard.press('Control+o')
+    try {
+      return await chooser
+    } catch (error) {
+      if (attempt === 2) throw error
+    }
+  }
 }
 
 /** Loads the app and waits until the start-up gate has shown SCR-01. */

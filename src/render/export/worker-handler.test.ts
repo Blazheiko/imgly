@@ -340,17 +340,4 @@ describe('handleCheck (session format check, AC-12)', () => {
     expect(encodes).toEqual([])
     expect(samples).toEqual([])
   })
-
-  it('renders on createRenderCanvas when the env has one', async () => {
-    const { env, canvases } = setup()
-    const rendered: [number, number][] = []
-    const createCanvas = env.createCanvas
-    env.createRenderCanvas = (width, height) => {
-      rendered.push([width, height])
-      return createCanvas(width, height)
-    }
-    expect((await handleExport(request({ width: 64, height: 48 }), env)).ok).toBe(true)
-    expect(rendered).toEqual([[64, 48]])
-    expect(canvases.find((c) => c.kind === 'webgl2')).toMatchObject({ width: 64, height: 48 })
-  })
 })
