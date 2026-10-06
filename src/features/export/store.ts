@@ -158,6 +158,17 @@ export const useExportStore = defineStore('export', () => {
     { immediate: true },
   )
 
+  /** The editor is reading an image or waits on the replace dialog: no export can start then. */
+  const editorBusy = computed(() => editor.phase === 'reading' || editor.phase === 'confirming')
+
+  // The replace dialog is modal: the panel never stays open beneath it.
+  watch(
+    () => editor.phase,
+    (phase) => {
+      if (phase === 'confirming' && status.value === 'idle') panelOpen.value = false
+    },
+  )
+
   // A drop or Ctrl/Cmd+O can replace the Work with the panel open; its choices belong to the old
   // Work, so the panel closes and the new Work starts from its own defaults (AC-19).
   watch(
@@ -236,7 +247,7 @@ export const useExportStore = defineStore('export', () => {
   /** Opens the panel for the open Work, seeding its choices the first time (AC-19). */
   function openPanel(): boolean {
     const work = editor.work
-    if (!work) return false
+    if (!work || editorBusy.value) return false
     if (!current.value) {
       choice.value = {
         workId: work.id,
@@ -412,6 +423,7 @@ export const useExportStore = defineStore('export', () => {
   return {
     panelOpen,
     status,
+    editorBusy,
     availability,
     quality,
     format,

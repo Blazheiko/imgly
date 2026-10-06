@@ -156,7 +156,12 @@ watch(fileReady, async (ready) => {
         >
           Save…
         </BaseButton>
-        <BaseButton v-else variant="primary" :disabled="exporting" @click="store.confirm()">
+        <BaseButton
+          v-else
+          variant="primary"
+          :disabled="exporting || store.editorBusy"
+          @click="store.confirm()"
+        >
           <span v-if="exporting" class="export-panel__spinner"><Spinner label="Exporting" /></span>
           {{ exporting ? 'Exporting…' : 'Export' }}
         </BaseButton>

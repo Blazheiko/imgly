@@ -173,6 +173,23 @@ describe('ExportAction and Ctrl/Cmd+S (AC-11, AC-17)', () => {
     expect(exportButton().text()).toBe('Export')
   })
 
+  it('is disabled, and Ctrl/Cmd+S does nothing, while an image is read or the replace dialog is up', async () => {
+    openWork()
+    await flush()
+    for (const phase of ['reading', 'confirming'] as const) {
+      editor.phase = phase
+      await flush()
+      expect(exportButton().attributes('disabled')).toBeDefined()
+      expect(exportButton().text()).toBe('Export')
+      expect(pressSave().defaultPrevented).toBe(true) // never the browser's "Save page"
+      await flush()
+      expect(store.panelOpen).toBe(false)
+    }
+    editor.phase = 'idle'
+    await flush()
+    expect(exportButton().attributes('disabled')).toBeUndefined()
+  })
+
   it('removes its Ctrl/Cmd+S listener on unmount', () => {
     wrapper.unmount()
     expect(pressSave().defaultPrevented).toBe(false)

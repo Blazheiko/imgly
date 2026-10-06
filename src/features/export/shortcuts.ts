@@ -10,7 +10,10 @@ export function isSaveShortcut(event: KeyboardEvent): boolean {
 
 export interface SaveShortcutActions {
   hasWork(): boolean
-  /** An export is running, including File ready and the open "Save as…" dialog. */
+  /**
+   * An export is running (including File ready and the open "Save as…" dialog), or the editor is
+   * reading an image or showing the replace dialog.
+   */
   exporting(): boolean
   panelOpen(): boolean
   confirm(): void

@@ -211,6 +211,25 @@ describe('export store — session memory (AC-19)', () => {
     expect(store.format).toBe('png')
   })
 
+  it('refuses to open while the editor reads an image or asks to replace it', () => {
+    store.closePanel()
+    for (const phase of ['reading', 'confirming'] as const) {
+      editor.phase = phase
+      expect(store.editorBusy).toBe(true)
+      expect(store.openPanel()).toBe(false)
+      expect(store.panelOpen).toBe(false)
+    }
+    editor.phase = 'idle'
+    expect(store.editorBusy).toBe(false)
+    expect(store.openPanel()).toBe(true)
+  })
+
+  it('closes the panel when the replace dialog comes up over it', async () => {
+    editor.phase = 'confirming'
+    await flush()
+    expect(store.panelOpen).toBe(false)
+  })
+
   it('snaps a remembered long side larger than a smaller Work (AC-06)', async () => {
     store.setLongSide(4000)
     expect(store.dimensions).toEqual({ width: 4000, height: 3000 })

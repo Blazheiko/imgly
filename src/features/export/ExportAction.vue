@@ -18,6 +18,8 @@ const hintId = useId()
 const hasWork = computed(() => editor.work !== null)
 // File ready is still an export: Export stays disabled with progress (screens.md SCR-01).
 const exporting = computed(() => editor.phase === 'exporting')
+// Reading an image or the replace dialog also make Export unavailable for the moment.
+const unavailable = computed(() => exporting.value || store.editorBusy)
 
 function notifyNoImage() {
   notices.pushAll([{ kind: 'info', text: infoNoImage() }])
@@ -31,7 +33,7 @@ function onActivate() {
 
 const onKeydown = createSaveShortcut({
   hasWork: () => hasWork.value,
-  exporting: () => exporting.value,
+  exporting: () => unavailable.value,
   panelOpen: () => store.panelOpen,
   confirm: () => void store.confirm(),
   openPanel: () => store.openPanel(),
@@ -47,7 +49,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown, { capture
   <BaseButton
     ref="button"
     variant="primary"
-    :disabled="exporting"
+    :disabled="unavailable"
     :aria-disabled="hasWork ? undefined : 'true'"
     :aria-describedby="hasWork ? undefined : hintId"
     :aria-expanded="store.panelOpen ? 'true' : 'false'"

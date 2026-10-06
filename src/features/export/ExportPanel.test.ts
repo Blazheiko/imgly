@@ -221,6 +221,16 @@ describe('ExportPanel (SCR-03)', () => {
     await flush()
   })
 
+  it('disables the confirm while the editor reads an image', async () => {
+    await setup()
+    editor.phase = 'reading'
+    await flush()
+    expect(confirmButton().attributes('disabled')).toBeDefined()
+    editor.phase = 'idle'
+    await flush()
+    expect(confirmButton().attributes('disabled')).toBeUndefined()
+  })
+
   it('file ready: "Your file is ready." and a focused Save… that opens the dialog again', async () => {
     await setup()
     const pick = vi
