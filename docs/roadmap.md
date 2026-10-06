@@ -100,4 +100,4 @@ flowchart LR
 | Step | Shipped | Link |
 |---|---|---|
 | 2 — Open and view an image | 2026-10-05 (merged to main in 3020ef1) | [changelog](features/open-and-view/_ship/changelog.md) |
-| 3 — Export the current image | 2026-10-06 (PR open, not merged) | [changelog](features/export/_ship/changelog.md) · PR: pending |
+| 3 — Export the current image | 2026-10-06 (PR open, not merged) | [changelog](features/export/_ship/changelog.md) · [PR #1](https://github.com/Blazheiko/imgly/pull/1) |
