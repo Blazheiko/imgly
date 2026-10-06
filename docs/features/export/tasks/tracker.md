@@ -21,5 +21,12 @@
 | T14 | [Precache the export worker and prove export works offline after the first load](t14-offline-export-precache.md) | wiring | Blazheiko | S | T15 | done |
 | T15 | [Write the functional e2e suite: format honesty, fidelity, quality and size, naming, metadata, downloads and Save as…](t15-e2e-export-functional-suite.md) | tests | Blazheiko | M | T13 | done |
 | T16 | [Write the @perf export suite: export time p95, longest freeze and memory after 10 exports](t16-perf-export-suite.md) | tests | Blazheiko | S | T15 | done |
+| T17 | Let Space press export controls instead of starting space-pan (review F1) | wiring | Blazheiko | S | — | todo |
+| T18 | Close the export panel when the Work is replaced while it is open (review F2) | app | Blazheiko | S | — | todo |
+| T19 | Make the AC-09 e2e check observe Unsaved edits (review F3) | tests | Blazheiko | S | — | todo |
+| T20 | Assert the AC-15 blend on partly transparent pixels (review F4) | tests | Blazheiko | S | — | todo |
+| T21 | Treat any non-idle editor phase as export-unavailable (review F5) | app | Blazheiko | S | — | todo |
+| T22 | Time out a worker that never answers (review F6) | infra | Blazheiko | S | — | todo |
+| T23 | Re-place the Popover on window resize while open (review F7) | ui | Blazheiko | S | — | todo |
 
-**Total:** 16 tasks, ~12.5 person-days (S ≈ ½ day, M ≈ 1 day).
+**Total:** 23 tasks (T17–T23 from review 2026-10-06), ~16 person-days (S ≈ ½ day, M ≈ 1 day).

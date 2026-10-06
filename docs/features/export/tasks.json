@@ -335,6 +335,115 @@
         "e2e/export/perf.spec.ts"
       ],
       "file": "docs/features/export/tasks/t16-perf-export-suite.md"
+    },
+    {
+      "id": "T17",
+      "title": "Let Space press export controls instead of starting space-pan (review F1)",
+      "layer": "wiring",
+      "deps": [],
+      "acs": [
+        "AC-17"
+      ],
+      "dod": "With a Work open, Space keydown+keyup on the top-bar Export opens the panel and on the panel's confirm runs the export; space-pan still starts over the canvas; component tests press Space",
+      "files_hint": [
+        "src/features/editor/EditorView.vue",
+        "src/features/editor/EditorView.test.ts",
+        "src/features/export/ExportAction.test.ts"
+      ],
+      "source": "docs/features/export/_review/review-2026-10-06.md"
+    },
+    {
+      "id": "T18",
+      "title": "Close the export panel when the Work is replaced while it is open (review F2)",
+      "layer": "app",
+      "deps": [],
+      "acs": [
+        "AC-19",
+        "AC-01"
+      ],
+      "dod": "A store test replaces the Work with the panel open and idle: the panel closes, and reopening seeds the new Work's default format and full size",
+      "files_hint": [
+        "src/features/export/store.ts",
+        "src/features/export/store.test.ts"
+      ],
+      "source": "docs/features/export/_review/review-2026-10-06.md"
+    },
+    {
+      "id": "T19",
+      "title": "Make the AC-09 e2e check observe Unsaved edits (review F3)",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-09"
+      ],
+      "dod": "The work() test hook exposes hasUnsavedEdits; fidelity.spec asserts true before the export and false after",
+      "files_hint": [
+        "src/app/test-hooks.ts",
+        "e2e/test-hooks.d.ts",
+        "e2e/export/fidelity.spec.ts"
+      ],
+      "source": "docs/features/export/_review/review-2026-10-06.md"
+    },
+    {
+      "id": "T20",
+      "title": "Assert the AC-15 blend on partly transparent pixels (review F4)",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-15"
+      ],
+      "dod": "formats.spec samples middle columns of the alpha-ramp JPEG and compares them to a*c+(255-a) within JPEG tolerance",
+      "files_hint": [
+        "e2e/export/formats.spec.ts"
+      ],
+      "source": "docs/features/export/_review/review-2026-10-06.md"
+    },
+    {
+      "id": "T21",
+      "title": "Treat any non-idle editor phase as export-unavailable (review F5)",
+      "layer": "app",
+      "deps": [],
+      "acs": [
+        "AC-17",
+        "AC-11"
+      ],
+      "dod": "While the editor is reading or confirming, Ctrl/Cmd+S and Export do not open the panel and the panel's confirm is disabled; tests cover both phases",
+      "files_hint": [
+        "src/features/export/store.ts",
+        "src/features/export/ExportAction.vue",
+        "src/features/export/ExportPanel.vue",
+        "src/features/export/*.test.ts"
+      ],
+      "source": "docs/features/export/_review/review-2026-10-06.md"
+    },
+    {
+      "id": "T22",
+      "title": "Time out a worker that never answers (review F6)",
+      "layer": "infra",
+      "deps": [],
+      "acs": [
+        "AC-11",
+        "AC-13"
+      ],
+      "dod": "runInWorker terminates the worker and resolves the fallback after a timeout; a client test with a silent worker proves export fails with EXPORT_FAILED and the check reports unavailable",
+      "files_hint": [
+        "src/render/export/client.ts",
+        "src/render/export/client.test.ts"
+      ],
+      "source": "docs/features/export/_review/review-2026-10-06.md"
+    },
+    {
+      "id": "T23",
+      "title": "Re-place the Popover on window resize while open (review F7)",
+      "layer": "ui",
+      "deps": [],
+      "acs": [],
+      "dod": "Popover recomputes its position on resize while open and removes the listener on close; a primitives test covers it",
+      "files_hint": [
+        "src/shared/ui/Popover.vue",
+        "src/shared/ui/primitives.test.ts"
+      ],
+      "source": "docs/features/export/_review/review-2026-10-06.md"
     }
   ]
 }
