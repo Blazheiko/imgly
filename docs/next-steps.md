@@ -12,7 +12,7 @@
 
 ## Конвеєр SDD (на прикладі експорту)
 
-```
+ ```
 /sdd:specify export          → spec.md: історії, AC, NFR; тут же визначиться розмір (S) і маршрут
 /sdd:clarify export          → закриває неоднозначності, зокрема D4
 /sdd:design export           → SAD + ADR (де живе encoder: src/render/, як зберігається файл)
