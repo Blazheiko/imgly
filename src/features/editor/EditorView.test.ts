@@ -147,6 +147,7 @@ describe('EditorView — zoom shortcuts (SCR-02)', () => {
         format: 'png',
         animated: false,
         downscaled: false,
+        hasTransparency: false,
       },
     }))
     editor.setCanvasSize(1000, 1000)
@@ -258,6 +259,7 @@ describe('EditorView — SCR-03 replace dialog', () => {
         format: 'png',
         animated: false,
         downscaled: false,
+        hasTransparency: false,
       },
     }))
     editor.setCanvasSize(1000, 1000)
@@ -352,6 +354,7 @@ describe('EditorView — blocking screens', () => {
         format: 'png',
         animated: false,
         downscaled: false,
+        hasTransparency: false,
       }),
     )
     await editor.runCapabilityGate(async () => ok(undefined))
@@ -377,6 +380,7 @@ describe('EditorView — blocking screens', () => {
         format: 'png',
         animated: false,
         downscaled: false,
+        hasTransparency: false,
       }),
     )
     await editor.runCapabilityGate(async () => ok(undefined))
@@ -387,5 +391,81 @@ describe('EditorView — blocking screens', () => {
 
     expect(wrapper.find('[data-testid="restoring"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="editor-status-bar"]').exists()).toBe(true)
+  })
+})
+
+describe('EditorView — while exporting (export AC-11)', () => {
+  let wrapper: VueWrapper
+  let editor: ReturnType<typeof useEditorStore>
+  let decode: ReturnType<typeof vi.fn<(file: Blob) => Promise<DecodeOutcome>>>
+
+  beforeEach(async () => {
+    setActivePinia(createPinia())
+    editor = useEditorStore()
+    editor.setRendererFactory(createFakeRenderer().factory)
+    decode = vi.fn(async () => ({
+      ok: true as const,
+      value: {
+        bitmap: { width: 4000, height: 4000, close() {} } as unknown as ImageBitmap,
+        sourceWidth: 4000,
+        sourceHeight: 4000,
+        width: 4000,
+        height: 4000,
+        format: 'png' as const,
+        animated: false,
+        downscaled: false,
+        hasTransparency: false,
+      },
+    }))
+    editor.setDecoder(decode)
+    editor.setCanvasSize(1000, 1000)
+    await editor.openImage(new Blob())
+    await editor.runCapabilityGate(async () => ok(undefined))
+    wrapper = mount(EditorView, {
+      attachTo: document.body,
+      slots: { 'top-bar-actions': '<button data-testid="slotted">Export</button>' },
+    })
+  })
+  afterEach(() => wrapper.unmount())
+
+  const openButton = () => wrapper.findAll('button').find((b) => b.text() === 'Open image')!
+
+  it('renders the top-bar actions slot after "Open image"', () => {
+    const bar = wrapper.get('[data-testid="editor-top-bar"]')
+    const labels = bar.findAll('button').map((b) => b.text())
+    expect(labels).toEqual(['Open image', 'Export'])
+  })
+
+  it('disables "Open image" during an export and enables it after', async () => {
+    const snapshot = editor.beginExport()!
+    await nextTick()
+    expect(openButton().attributes('disabled')).toBeDefined()
+
+    editor.finishExport(snapshot, false)
+    await nextTick()
+    expect(openButton().attributes('disabled')).toBeUndefined()
+  })
+
+  it('ignores Ctrl/Cmd+O but keeps zoom keys live during an export', async () => {
+    editor.beginExport()
+    const ctrlO = new KeyboardEvent('keydown', { key: 'o', ctrlKey: true, cancelable: true })
+    window.dispatchEvent(ctrlO)
+    await flushPromises()
+    expect(decode).toHaveBeenCalledTimes(1)
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: ')', code: 'Digit0', shiftKey: true }))
+    expect(editor.view.zoom).toBe(1)
+  })
+
+  it('shows no drop overlay, and a drop raises the "wait" notice without opening', async () => {
+    editor.beginExport()
+    window.dispatchEvent(dropEvent('dragenter'))
+    await nextTick()
+    expect(wrapper.find('[data-testid="drop-overlay"]').exists()).toBe(false)
+
+    window.dispatchEvent(dropEvent('drop', [new File(['x'], 'b.png', { type: 'image/png' })]))
+    await flushPromises()
+    expect(decode).toHaveBeenCalledTimes(1)
+    expect(wrapper.text()).toContain('Wait for the export to finish, then drop the image again.')
   })
 })

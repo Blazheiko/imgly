@@ -14,6 +14,7 @@ const decoded: DecodedImage = {
   format: 'png',
   animated: false,
   downscaled: false,
+  hasTransparency: false,
 }
 
 function deps(overrides: Partial<WorkerDeps> = {}) {

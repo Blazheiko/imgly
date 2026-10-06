@@ -1,6 +1,6 @@
 ---
 status: living
-updated_at: "2026-10-03"
+updated_at: "2026-10-05"
 ---
 
 # Roadmap — imgly-editor
@@ -22,7 +22,7 @@ draw on and export an image, then reopen any recent work later and re-edit it wi
 |---|---|---|:---:|---|
 | 1 | Project skeleton: the app builds, boots, tests run, it deploys to GitHub Pages and works offline as a PWA shell ([`_scaffold`](features/_scaffold/)) | architecture-map.md §Module inventory | S | spec'd |
 | 2 | Open and view an image: pick or drop a file, downscale it to the limit, zoom and pan the preview, get a plain reason when it can't open ([`open-and-view`](features/open-and-view/)) | idea-brief.md §5 Out of scope (downscale) + §7 Recommendation | M | shipped |
-| 3 | Export the current image as PNG, JPEG or WebP with a quality setting | idea-brief.md §7 Recommendation | S | idea |
+| 3 | Export the current image as PNG, JPEG or WebP with a quality setting ([`export`](features/export/)) | idea-brief.md §7 Recommendation | S | shipped |
 | 4 | Crop and rotate the image in 90° steps | idea-brief.md §7 Recommendation | M | idea |
 | 5 | Adjust brightness, contrast, saturation, temperature/tint, grayscale and sepia with a live preview | idea-brief.md §7 Recommendation | M | idea |
 | 6 | Draw freehand with a brush and an eraser, choosing colour and width, on a separate drawing layer | idea-brief.md §7 Recommendation | M | idea |
@@ -51,7 +51,6 @@ _Nothing. Every step can be stated precisely today. What is still undecided is a
 |---|---|:---:|:---:|:---:|
 | D2 | Is the gallery capped by work count (~20) or by a storage-byte budget, and does the app call `navigator.storage.persist()`? | grilling | human | 8 |
 | D3 | When a crop is re-edited, is the drawing layer anchored to the original image coordinates or to the cropped frame? | grilling | human | 6 |
-| D4 | Desktop Safari cannot encode WebP. Its canvas returns a PNG blob ([caniuse](https://caniuse.com/mdn-api_htmlcanvaselement_toblob_type_parameter_webp)). Should the app hide the WebP option there, or keep it and warn that it falls back to PNG? | grilling | human | 3 |
 | D5 | Verify against MDN/caniuse that `file_handlers` + `launchQueue` work only in Chromium and that image clipboard write/paste works in Chrome, Firefox and Safari. The first lookup answered from memory ([MDN](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Manifest/Reference/file_handlers)) | research | agent | 10 |
 
 ## Decisions so far
@@ -61,6 +60,7 @@ _Nothing. Every step can be stated precisely today. What is still undecided is a
 - A work is stored in IndexedDB as original + params + drawing layer, with UUIDv7 IDs → [`docs/adr/0003-persist-works-in-indexeddb-as-original-plus-params-plus-layer.md`](adr/0003-persist-works-in-indexeddb-as-original-plus-params-plus-layer.md)
 - Adjustments render on WebGL2 and drawing on Canvas 2D → [`docs/adr/0004-render-adjustments-on-webgl2-and-drawing-on-canvas2d.md`](adr/0004-render-adjustments-on-webgl2-and-drawing-on-canvas2d.md)
 - Downscale limit on open is 4096 px on the long side (closes former D1) → [`docs/features/open-and-view/spec.md`](features/open-and-view/spec.md) §1
+- Formats the browser cannot encode (WebP in Safari) are shown as unavailable, never selectable and never faked (closes former D4) → [`docs/features/export/spec.md`](features/export/spec.md) §1, AC-12
 - Drag-and-drop belongs to step 2, not step 10 → [`docs/features/open-and-view/spec.md`](features/open-and-view/spec.md) §1
 - Fixed MVP feature set; OS integration is last and the first thing cut → [`docs/idea-brief.md`](idea-brief.md) §7
 
@@ -99,4 +99,5 @@ flowchart LR
 
 | Step | Shipped | Link |
 |---|---|---|
-| 2 — Open and view an image | 2026-10-05 (PR open, not merged) | [changelog](features/open-and-view/_ship/changelog.md) · PR: pending |
+| 2 — Open and view an image | 2026-10-05 (merged to main in 3020ef1) | [changelog](features/open-and-view/_ship/changelog.md) |
+| 3 — Export the current image | 2026-10-06 (PR open, not merged) | [changelog](features/export/_ship/changelog.md) · [PR #1](https://github.com/Blazheiko/imgly/pull/1) |

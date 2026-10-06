@@ -1,3 +1,5 @@
+import type { ImageFormat } from './image-header'
+
 /**
  * The Work document model: one image being edited, its Original plus everything applied on top.
  * Unsaved edits are tracked with a revision counter (feature ADR 0005): every operation that
@@ -12,11 +14,23 @@ export interface Original<TPixels = unknown> {
   width: number
   height: number
   pixels: TPixels
+  /**
+   * At least one pixel is not fully opaque (export AC-15). An edit that changes alpha must keep this
+   * true for the edited Work.
+   */
+  hasTransparency: boolean
 }
 
-export interface Work<TPixels = unknown> {
+/** Where the Work came from: names Exports and picks their default format (export AC-07, AC-19). */
+export interface WorkSource {
+  /** The opened file's name with a known image extension removed; '' for a nameless Blob. */
+  sourceName: string
+  /** The format the Work was opened from, judged by content. */
+  sourceFormat: ImageFormat
+}
+
+export interface Work<TPixels = unknown> extends WorkSource {
   id: string
-  name: string
   createdAt: number
   updatedAt: number
   original: Original<TPixels>
@@ -28,11 +42,13 @@ export interface Work<TPixels = unknown> {
 export function createWork<TPixels>(
   original: Original<TPixels>,
   id: string,
+  source: WorkSource,
   now: number = Date.now(),
 ): Work<TPixels> {
   return {
     id,
-    name: 'Untitled',
+    sourceName: source.sourceName,
+    sourceFormat: source.sourceFormat,
     createdAt: now,
     updatedAt: now,
     original,

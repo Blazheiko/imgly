@@ -33,6 +33,7 @@ describe('PreviewCanvas', () => {
         format: 'png',
         animated: false,
         downscaled: false,
+        hasTransparency: false,
       }),
     )
     editor.setCanvasSize(1000, 1000)

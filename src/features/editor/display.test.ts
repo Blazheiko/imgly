@@ -54,6 +54,7 @@ describe('editor store — display state', () => {
         format: 'png',
         animated: false,
         downscaled: false,
+        hasTransparency: false,
       }),
     )
     await editor.openImage(new Blob())

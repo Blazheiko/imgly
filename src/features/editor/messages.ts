@@ -19,6 +19,11 @@ export function infoOthersIgnored(count: number): string {
   return `The editor works with one image at a time. ${others}`
 }
 
+/** A file dropped while an export runs is refused, not queued (export AC-11). */
+export function infoExportInProgress(): string {
+  return 'Wait for the export to finish, then drop the image again.'
+}
+
 export function failureNoImageFiles(): string {
   return 'Only image files can be opened.'
 }
@@ -60,6 +65,12 @@ const FAILURES: Record<AppErrorCode, (details: Record<string, unknown>) => strin
   },
   UNSUPPORTED_BROWSER: () => BLOCKING.UNSUPPORTED_BROWSER.title,
   DISPLAY_LOST: () => BLOCKING.DISPLAY_LOST.title,
+  // Export codes are worded by the export feature's own catalog; these keep the map total.
+  EXPORT_FAILED: () => 'The export failed. Try again, or choose a smaller size.',
+  EXPORT_FORMAT_MISMATCH: () => "This browser didn't make a real file in that format.",
+  EXPORT_NOT_PERMITTED: () => "The app wasn't allowed to save there. Choose another folder.",
+  EXPORT_EXTENSION_MISMATCH: () =>
+    "The file name doesn't match the format, so nothing was written.",
 }
 
 export function failureMessage(error: AppError): string {

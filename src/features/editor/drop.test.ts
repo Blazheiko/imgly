@@ -17,6 +17,7 @@ function image(extra: Partial<DecodedImage> = {}): DecodedImage {
     format: 'png',
     animated: false,
     downscaled: false,
+    hasTransparency: false,
     ...extra,
   }
 }

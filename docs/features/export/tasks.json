@@ -1,0 +1,477 @@
+{
+  "slug": "export",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Add the export error codes and the pure file-name rules (Source name, suggested name, extension match)",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-07",
+        "AC-01b"
+      ],
+      "dod": "Vitest proves sourceNameOf/exportFileName apply all six AC-07 steps and the fallback, matchesExtension accepts exactly the AC-01b extensions in any case, and result.ts carries the four EXPORT_* codes",
+      "files_hint": [
+        "src/core/result.ts",
+        "src/core/export/naming.ts",
+        "src/core/export/index.ts",
+        "src/core/index.ts"
+      ],
+      "file": "docs/features/export/tasks/t01-core-file-name-and-error-codes.md"
+    },
+    {
+      "id": "T2",
+      "title": "Add the pure size, quality and default-format rules (presets, long side, half-up rounding, snapping)",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-04",
+        "AC-05",
+        "AC-06",
+        "AC-19"
+      ],
+      "dod": "Vitest proves normalizeQuality, exportSize/normalizeLongSide (integer half-up, 0.5 px bound, AC-06 snaps incl. 4096x10 -> 205x1) and defaultFormat against the AC-04/05/06/19 rules",
+      "files_hint": [
+        "src/core/export/size.ts",
+        "src/core/export/quality.ts",
+        "src/core/export/format.ts",
+        "src/core/export/index.ts"
+      ],
+      "file": "docs/features/export/tasks/t02-core-size-quality-default-format.md"
+    },
+    {
+      "id": "T3",
+      "title": "Carry Source name, Source format and the transparency fact on the Work from every open",
+      "layer": "domain",
+      "deps": [
+        "T1"
+      ],
+      "acs": [
+        "AC-08",
+        "AC-15"
+      ],
+      "dod": "Vitest proves every open (Open image and drop, incl. replace) sets Work.sourceName/sourceFormat from the new file and Original.hasTransparency from the worker alpha scan; open-and-view tests stay green",
+      "files_hint": [
+        "src/core/document.ts",
+        "src/infra/image-decode/",
+        "src/features/editor/store.ts",
+        "src/app/test-hooks.ts"
+      ],
+      "file": "docs/features/export/tasks/t03-work-source-name-format-transparency.md"
+    },
+    {
+      "id": "T4",
+      "title": "Add the editor store's exclusive exporting phase, beginExport/finishExport and the save point",
+      "layer": "app",
+      "deps": [
+        "T3"
+      ],
+      "acs": [
+        "AC-09",
+        "AC-10",
+        "AC-11"
+      ],
+      "dod": "Vitest proves beginExport/finishExport: only finishExport(saved=true) moves cleanRevision to the snapshot revision (AC-09/10), and opens, drops (with notice) and edits are refused during exporting while View actions work (AC-11)",
+      "files_hint": [
+        "src/features/editor/store.ts",
+        "src/features/editor/messages.ts",
+        "src/features/editor/index.ts",
+        "src/features/editor/store.test.ts"
+      ],
+      "file": "docs/features/export/tasks/t04-editor-exporting-phase-and-save-point.md"
+    },
+    {
+      "id": "T5",
+      "title": "Extract the shared shader module and build the export worker that renders, flattens, encodes and verifies one export",
+      "layer": "infra",
+      "deps": [
+        "T1"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-03",
+        "AC-13",
+        "AC-15",
+        "AC-16"
+      ],
+      "dod": "Vitest proves the export worker handler renders with the shared shaders, flattens only JPEG onto white, returns a content-verified Blob or EXPORT_FAILED / EXPORT_FORMAT_MISMATCH, and always closes the bitmap; preview-renderer tests stay green",
+      "files_hint": [
+        "src/render/shaders.ts",
+        "src/render/preview-renderer.ts",
+        "src/render/export/"
+      ],
+      "file": "docs/features/export/tasks/t05-shared-shaders-and-export-worker.md"
+    },
+    {
+      "id": "T6",
+      "title": "Add the once-per-session format check and the main-thread export client (worker spawn, transfer, terminate)",
+      "layer": "infra",
+      "deps": [
+        "T5"
+      ],
+      "acs": [
+        "AC-12"
+      ],
+      "dod": "Vitest proves checkExportFormats judges JPEG/WebP by sample content (false on any error, PNG always true) and exportImage transfers the bitmap, maps worker crashes to EXPORT_FAILED and terminates the worker every time",
+      "files_hint": [
+        "src/render/export/",
+        "src/render/index.ts"
+      ],
+      "file": "docs/features/export/tasks/t06-format-check-and-export-client.md"
+    },
+    {
+      "id": "T7",
+      "title": "Add the platform save path: Save as… dialog, verified write, empty-target removal and the download hand-off",
+      "layer": "infra",
+      "deps": [
+        "T1"
+      ],
+      "acs": [
+        "AC-01b",
+        "AC-02",
+        "AC-10",
+        "AC-14"
+      ],
+      "dod": "Vitest proves pickSaveTarget (single-type filter, cancelled/activationLapsed/picked), writeFile (EXPORT_NOT_PERMITTED + abort), discardEmptyTarget (remove where present, never throws) and downloadFile (named link, URL revoked after 60 s)",
+      "files_hint": [
+        "src/infra/platform/save-file.ts",
+        "src/infra/platform/save-file.test.ts",
+        "src/infra/platform/index.ts"
+      ],
+      "file": "docs/features/export/tasks/t07-platform-save-file.md"
+    },
+    {
+      "id": "T8",
+      "title": "Create the export store: panel state, defaults, session memory, format availability and the messages catalog",
+      "layer": "app",
+      "deps": [
+        "T2",
+        "T3",
+        "T6"
+      ],
+      "acs": [
+        "AC-04",
+        "AC-05",
+        "AC-06",
+        "AC-12",
+        "AC-15",
+        "AC-19"
+      ],
+      "dod": "Vitest proves the export store applies AC-19 defaults and session memory, starts the format check once on first open without ever switching the selected format, falls back to PNG on disableFormat, and derives dimensions, suggested name, transparency hint and path line",
+      "files_hint": [
+        "src/features/export/store.ts",
+        "src/features/export/store.test.ts",
+        "src/features/export/messages.ts",
+        "src/features/export/index.ts"
+      ],
+      "file": "docs/features/export/tasks/t08-export-store-panel-state-and-memory.md"
+    },
+    {
+      "id": "T9",
+      "title": "Orchestrate the export in the export store: snapshot, encode, Save as… or download, refusals, File ready, save point",
+      "layer": "app",
+      "deps": [
+        "T4",
+        "T7",
+        "T8"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-01b",
+        "AC-02",
+        "AC-09",
+        "AC-10",
+        "AC-12",
+        "AC-13",
+        "AC-14"
+      ],
+      "dod": "Vitest drives confirm() through save, download, cancel, File ready, EXPORT_FAILED, EXPORT_FORMAT_MISMATCH, EXPORT_EXTENSION_MISMATCH and EXPORT_NOT_PERMITTED, asserting the save point, notices, panel state and that nothing is written after a render or format failure",
+      "files_hint": [
+        "src/features/export/store.ts",
+        "src/features/export/store.test.ts"
+      ],
+      "file": "docs/features/export/tasks/t09-export-store-run-export.md"
+    },
+    {
+      "id": "T10",
+      "title": "Add the Popover and SegmentedControl shared primitives and register them in the design system",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-17"
+      ],
+      "dod": "Component tests prove Popover (non-modal, Escape/outside close unless locked, focus in and back) and SegmentedControl (radiogroup, arrow keys skip disabled, hints); both registered in docs/design-system.md",
+      "files_hint": [
+        "src/shared/ui/Popover.vue",
+        "src/shared/ui/SegmentedControl.vue",
+        "src/shared/ui/index.ts",
+        "src/shared/ui/primitives.test.ts",
+        "docs/design-system.md"
+      ],
+      "file": "docs/features/export/tasks/t10-popover-and-segmented-control.md"
+    },
+    {
+      "id": "T11",
+      "title": "Add the NumberField and SliderField shared primitives (apply on blur and Enter, apply-now) and register them",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-04",
+        "AC-05",
+        "AC-17"
+      ],
+      "dod": "Component tests prove NumberField normalizes on blur, Enter (no submit) and exposed apply(), and SliderField keeps range and number in step; both registered in docs/design-system.md",
+      "files_hint": [
+        "src/shared/ui/NumberField.vue",
+        "src/shared/ui/SliderField.vue",
+        "src/shared/ui/index.ts",
+        "src/shared/ui/primitives.test.ts",
+        "docs/design-system.md"
+      ],
+      "file": "docs/features/export/tasks/t11-number-field-and-slider-field.md"
+    },
+    {
+      "id": "T12",
+      "title": "Build the export panel (SCR-03) in every state on the export store and the new primitives",
+      "layer": "ui",
+      "deps": [
+        "T9",
+        "T10",
+        "T11"
+      ],
+      "acs": [
+        "AC-04",
+        "AC-05",
+        "AC-12",
+        "AC-15",
+        "AC-17",
+        "AC-19"
+      ],
+      "dod": "Component tests prove ExportPanel renders every SCR-03 state from screens.md, applies pending field values before confirm or close, never exports on Enter in a field, and is locked during an export except in File ready",
+      "files_hint": [
+        "src/features/export/ExportPanel.vue",
+        "src/features/export/ExportPanel.test.ts",
+        "src/features/export/index.ts"
+      ],
+      "file": "docs/features/export/tasks/t12-export-panel.md"
+    },
+    {
+      "id": "T13",
+      "title": "Mount the Export action in the editor top bar with its states, the Ctrl/Cmd+S shortcut and the exporting lock",
+      "layer": "wiring",
+      "deps": [
+        "T12"
+      ],
+      "acs": [
+        "AC-11",
+        "AC-17"
+      ],
+      "dod": "Component tests prove Export is keyboard-reachable, Ctrl/Cmd+S follows every screens.md keyboard row (never the browser Save page), and Open image/Export are disabled with progress during exporting; App mounts ExportAction through the top-bar slot",
+      "files_hint": [
+        "src/features/export/ExportAction.vue",
+        "src/features/export/shortcuts.ts",
+        "src/features/export/ExportAction.test.ts",
+        "src/features/export/index.ts",
+        "src/features/editor/components/EditorTopBar.vue",
+        "src/features/editor/EditorView.vue",
+        "src/app/App.vue",
+        "docs/design-system.md"
+      ],
+      "file": "docs/features/export/tasks/t13-export-action-shortcut-and-mount.md"
+    },
+    {
+      "id": "T14",
+      "title": "Precache the export worker and prove export works offline after the first load",
+      "layer": "wiring",
+      "deps": [
+        "T15"
+      ],
+      "acs": [
+        "AC-18"
+      ],
+      "dod": "e2e/export/offline.spec.ts passes on Chromium and Firefox: sw.js precaches the export worker, and an export after going offline and reloading produces a file whose content matches its format",
+      "files_hint": [
+        "vite.config.ts",
+        "e2e/export/offline.spec.ts"
+      ],
+      "file": "docs/features/export/tasks/t14-offline-export-precache.md"
+    },
+    {
+      "id": "T15",
+      "title": "Write the functional e2e suite: format honesty, fidelity, quality and size, naming, metadata, downloads and Save as…",
+      "layer": "tests",
+      "deps": [
+        "T13"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-02",
+        "AC-03",
+        "AC-04",
+        "AC-05",
+        "AC-07",
+        "AC-12",
+        "AC-16"
+      ],
+      "dod": "pnpm test:e2e passes e2e/export formats, fidelity, quality-size and naming-metadata specs on Chromium, Firefox and WebKit: content matches the extension, full-size PNG is within 2/255 of the Preview at 100%, sizes and dimensions follow AC-04/05, and no metadata survives",
+      "files_hint": [
+        "e2e/export/",
+        "e2e/fixtures/",
+        "src/app/test-hooks.ts",
+        "e2e/test-hooks.d.ts"
+      ],
+      "file": "docs/features/export/tasks/t15-e2e-export-functional-suite.md"
+    },
+    {
+      "id": "T16",
+      "title": "Write the @perf export suite: export time p95, longest freeze and memory after 10 exports",
+      "layer": "tests",
+      "deps": [
+        "T15"
+      ],
+      "acs": [],
+      "dod": "PERF=1 e2e/export/perf.spec.ts on the reference machine shows export p95 <= 1 s (JPEG q90) and <= 2 s (PNG) for 4096x3072, longest long task <= 200 ms, and memory after 10 exports <= 110% of after the first",
+      "files_hint": [
+        "e2e/export/perf.spec.ts"
+      ],
+      "file": "docs/features/export/tasks/t16-perf-export-suite.md"
+    },
+    {
+      "id": "T17",
+      "title": "Let Space press export controls instead of starting space-pan (review F1)",
+      "layer": "wiring",
+      "deps": [],
+      "acs": [
+        "AC-17"
+      ],
+      "dod": "With a Work open, Space keydown+keyup on the top-bar Export opens the panel and on the panel's confirm runs the export; space-pan still starts over the canvas; component tests press Space",
+      "files_hint": [
+        "src/features/editor/EditorView.vue",
+        "src/features/export/ExportAction.vue",
+        "src/app/keyboard.test.ts"
+      ],
+      "source": "docs/features/export/_review/review-2026-10-06.md"
+    },
+    {
+      "id": "T18",
+      "title": "Close the export panel when the Work is replaced while it is open (review F2)",
+      "layer": "app",
+      "deps": [],
+      "acs": [
+        "AC-19",
+        "AC-01"
+      ],
+      "dod": "A store test replaces the Work with the panel open and idle: the panel closes, and reopening seeds the new Work's default format and full size",
+      "files_hint": [
+        "src/features/export/store.ts",
+        "src/features/export/store.test.ts"
+      ],
+      "source": "docs/features/export/_review/review-2026-10-06.md"
+    },
+    {
+      "id": "T19",
+      "title": "Make the AC-09 e2e check observe Unsaved edits (review F3)",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-09"
+      ],
+      "dod": "The work() test hook exposes hasUnsavedEdits; fidelity.spec asserts true before the export and false after",
+      "files_hint": [
+        "src/app/test-hooks.ts",
+        "e2e/test-hooks.d.ts",
+        "e2e/export/fidelity.spec.ts"
+      ],
+      "source": "docs/features/export/_review/review-2026-10-06.md"
+    },
+    {
+      "id": "T20",
+      "title": "Assert the AC-15 blend on partly transparent pixels (review F4)",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-15"
+      ],
+      "dod": "formats.spec samples middle columns of the alpha-ramp JPEG and compares them to a*c+(255-a) within JPEG tolerance",
+      "files_hint": [
+        "e2e/export/formats.spec.ts"
+      ],
+      "source": "docs/features/export/_review/review-2026-10-06.md"
+    },
+    {
+      "id": "T21",
+      "title": "Treat any non-idle editor phase as export-unavailable (review F5)",
+      "layer": "app",
+      "deps": [],
+      "acs": [
+        "AC-17",
+        "AC-11"
+      ],
+      "dod": "While the editor is reading or confirming, Ctrl/Cmd+S and Export do not open the panel and the panel's confirm is disabled; tests cover both phases",
+      "files_hint": [
+        "src/features/export/store.ts",
+        "src/features/export/ExportAction.vue",
+        "src/features/export/ExportPanel.vue",
+        "src/features/export/*.test.ts"
+      ],
+      "source": "docs/features/export/_review/review-2026-10-06.md"
+    },
+    {
+      "id": "T22",
+      "title": "Time out a worker that never answers (review F6)",
+      "layer": "infra",
+      "deps": [],
+      "acs": [
+        "AC-11",
+        "AC-13"
+      ],
+      "dod": "runInWorker terminates the worker and resolves the fallback after a timeout; a client test with a silent worker proves export fails with EXPORT_FAILED and the check reports unavailable",
+      "files_hint": [
+        "src/render/export/client.ts",
+        "src/render/export/client.test.ts"
+      ],
+      "source": "docs/features/export/_review/review-2026-10-06.md"
+    },
+    {
+      "id": "T23",
+      "title": "Re-place the Popover on window resize while open (review F7)",
+      "layer": "ui",
+      "deps": [],
+      "acs": [],
+      "dod": "Popover recomputes its position on resize while open and removes the listener on close; a primitives test covers it",
+      "files_hint": [
+        "src/shared/ui/Popover.vue",
+        "src/shared/ui/primitives.test.ts"
+      ],
+      "source": "docs/features/export/_review/review-2026-10-06.md"
+    },
+    {
+      "id": "T24",
+      "title": "Keep the no-Work Export focusable while the first image is read (re-review R1)",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-17"
+      ],
+      "dod": "With no Work and the editor reading, Export has aria-disabled and no native disabled, and activating it shows the open-an-image hint; with a Work it stays disabled while reading",
+      "files_hint": [
+        "src/features/export/ExportAction.vue",
+        "src/features/export/ExportAction.test.ts"
+      ],
+      "source": "docs/features/export/_review/review-2026-10-06-r2.md"
+    },
+    {
+      "id": "T25",
+      "title": "Import the editor's fake renderer through a testing barrel (re-review R2)",
+      "layer": "tests",
+      "deps": [],
+      "acs": [],
+      "dod": "src/features/editor/testing.ts re-exports createFakeRenderer; src/app/keyboard.test.ts imports @/features/editor/testing; no deep cross-module import remains in src/app",
+      "files_hint": [
+        "src/features/editor/testing.ts",
+        "src/app/keyboard.test.ts"
+      ],
+      "source": "docs/features/export/_review/review-2026-10-06-r2.md"
+    }
+  ]
+}

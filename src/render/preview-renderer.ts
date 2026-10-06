@@ -1,24 +1,6 @@
 import { appError, err, ok, type AppError, type Result, type View } from '@/core'
+import { buildProgram, uploadTexture, type GpuProgram } from './shaders'
 import { viewToTransform } from './view-transform'
-
-const VERTEX_SHADER = `#version 300 es
-in vec2 a_position;
-uniform mat3 u_transform;
-out vec2 v_uv;
-void main() {
-  v_uv = a_position;
-  vec3 p = u_transform * vec3(a_position, 1.0);
-  gl_Position = vec4(p.xy, 0.0, 1.0);
-}`
-
-const FRAGMENT_SHADER = `#version 300 es
-precision highp float;
-uniform sampler2D u_image;
-in vec2 v_uv;
-out vec4 outColor;
-void main() {
-  outColor = texture(u_image, v_uv);
-}`
 
 /** Marked on the first frame drawn after a new Original; the @perf suite times opens to it. */
 export const FIRST_FRAME_MARK = 'imgly:first-frame'
@@ -47,13 +29,6 @@ export interface RendererDeps {
   mark?: (name: string) => void
 }
 
-interface GpuState {
-  program: WebGLProgram
-  vao: WebGLVertexArrayObject
-  buffer: WebGLBuffer
-  transform: WebGLUniformLocation | null
-}
-
 /**
  * One WebGL2 canvas showing the Original at the View (feature ADR 0003). Frames are drawn on
  * `requestAnimationFrame` only after something changed — there is no render loop.
@@ -69,7 +44,7 @@ export function createPreviewRenderer(
   const gl = canvas.getContext('webgl2', { alpha: true, antialias: false })
   if (!gl) return err(appError('UNSUPPORTED_BROWSER'))
 
-  let gpu: GpuState
+  let gpu: GpuProgram
   try {
     gpu = buildProgram(gl)
   } catch {
@@ -196,51 +171,4 @@ export function createPreviewRenderer(
       gl.deleteProgram(gpu.program)
     },
   })
-}
-
-function uploadTexture(gl: WebGL2RenderingContext, bitmap: ImageBitmap): WebGLTexture | null {
-  const texture = gl.createTexture()
-  gl.bindTexture(gl.TEXTURE_2D, texture)
-  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true)
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, bitmap)
-  gl.generateMipmap(gl.TEXTURE_2D)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-  return texture
-}
-
-function buildProgram(gl: WebGL2RenderingContext): GpuState {
-  const program = gl.createProgram()!
-  for (const [type, source] of [
-    [gl.VERTEX_SHADER, VERTEX_SHADER],
-    [gl.FRAGMENT_SHADER, FRAGMENT_SHADER],
-  ] as const) {
-    const shader = gl.createShader(type)!
-    gl.shaderSource(shader, source)
-    gl.compileShader(shader)
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-      throw new Error(`preview shader failed to compile: ${gl.getShaderInfoLog(shader)}`)
-    }
-    gl.attachShader(program, shader)
-    gl.deleteShader(shader)
-  }
-  gl.linkProgram(program)
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    throw new Error(`preview program failed to link: ${gl.getProgramInfoLog(program)}`)
-  }
-
-  const vao = gl.createVertexArray()!
-  const buffer = gl.createBuffer()!
-  gl.bindVertexArray(vao)
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW)
-  const position = gl.getAttribLocation(program, 'a_position')
-  gl.enableVertexAttribArray(position)
-  gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0)
-  gl.bindVertexArray(null)
-
-  gl.useProgram(program)
-  gl.uniform1i(gl.getUniformLocation(program, 'u_image'), 0)
-  return { program, vao, buffer, transform: gl.getUniformLocation(program, 'u_transform') }
 }
