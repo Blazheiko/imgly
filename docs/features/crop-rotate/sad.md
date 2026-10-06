@@ -325,29 +325,39 @@ ADR files live under `docs/features/crop-rotate/adr/`. Inherited and still bindi
 
 ## 10. Quality requirements
 
-<!-- 🎯 Why: the QUALITY TREE — take a goal from §1 and break it into concrete leaves: tests,
-     metrics, configs, drills. ⭐ Without §10, §1 is a manifesto. With §10 each declaration maps
-     to something PROVABLE.
-     📋 Write: per §1 goal — When / Then / How-verify. Numbers from spec §6 NFR VERBATIM (don't
-     round ≤250ms to ≤300ms — that's a critic F6 hit).
-     📌 e.g. «p95 ≤ 500 ms on a block update, verified by a 100 req/s load test». -->
+Each top-3 goal from §1 expanded into full scenarios. Every number is quoted from spec §6 or §7. The reference machine, the 4096×3072 Work and "p95 over 20 runs after 2 warm-up runs" are as spec §6 defines them.
 
-Each top-3 goal from §1 expanded into a full scenario:
+**QG-1. Fidelity, Preview to Export**
 
-**QG-1. <quality attribute>**
-- **When:** <trigger condition>
-- **Then:** <expected behaviour with numbers from spec §6 NFR>
-- **How verify:** <test / chaos drill / load test / metric>
+*QG-1a. Rotation, Flip and Crop are lossless*
+- **When:** each of the 16 Rotation × Flip combinations (4 Rotations × no Flip, horizontal, vertical, both) is applied, with and without a Crop, and exported as a full-size PNG.
+- **Then:** "each pixel of a full-size PNG Export is within 2 of 255 per channel of the Original pixel it comes from".
+- **How verify:** e2e pixel comparison on Chromium, Firefox and WebKit. A test hook sets each Geometry directly (§8). The test decodes the Export and compares every pixel with the Original pixel that `core`'s inverse mapping names, which is computed independently in the test, not by the shader.
 
-**QG-2. <quality attribute>**
-- **When:** <trigger>
-- **Then:** <expected>
-- **How verify:** <how>
+*QG-1b. A straightened Export matches the Preview*
+- **When:** a Straighten angle of −45°, −0.1°, +1° and +45° is applied and exported as a full-size PNG.
+- **Then:** "full-size PNG Export within 2 of 255 per channel of the Preview's own rendering of the Work at 100%, compared as in export §6"; and "100% of pixels fully opaque after any Straighten angle, for an Original with no transparent pixels".
+- **How verify:** e2e pixel comparison on Chromium, Firefox and WebKit at those four angles, reading back the Preview at 100% through the existing test hook (export sad.md §10). An alpha check runs on the same Exports. The Crop's edge pixels are included, not masked out (spec §8 open question, §11).
 
-**QG-3. <quality attribute>**
-- **When:** <trigger>
-- **Then:** <expected>
-- **How verify:** <how>
+*QG-1c. Nothing from outside the Crop*
+- **When:** a Work whose Original has a distinctly coloured band outside the Crop is exported, with and without a Straighten angle.
+- **Then:** the Export contains no pixel from outside the Crop (AC-14), and its size is exactly the Crop's width and height shown in the tool (AC-09).
+- **How verify:** e2e on all three engines: assert the Export's dimensions, and that no pixel has the band's colour. Unit tests of `cropToOriginalUv` assert that every Crop pixel centre maps inside the Crop's source area.
+
+*QG-1d. Export time with a Geometry*
+- **When:** a 90° Rotation, a Flip and a 10° Straighten angle are applied to the 4096×3072 Work and exported.
+- **Then:** "within export §6 targets: full-size JPEG at quality 90 p95 ≤ 1 s, full-size PNG p95 ≤ 2 s".
+- **How verify:** export's `@perf` e2e test (`e2e/export/perf.spec.ts`), repeated with that Geometry on the reference machine.
+
+**QG-2. Non-destructive and exact Geometry**
+- **When:** for each reference image, a Crop is applied, then the tool is reopened, Reset and applied. Separately, Geometries are applied that are equal field by field to the one at open (four quarter turns, two equal Flips, an Apply with no change), or that look the same but differ (a horizontal and a vertical Flip on a 180° Rotation).
+- **Then:** "for 100% of reference images, applying a Crop, then Reset and Apply, gives a full-size PNG Export within 2 of 255 per channel of the Export made before the Crop" (spec §7). Unsaved edits change only when the applied Geometry differs field by field (AC-13).
+- **How verify:** the round trip as an e2e pixel comparison on Chromium, Firefox and WebKit. AC-13 and the invariants of AC-02, AC-03, AC-04 and AC-06 as `core/geometry` unit tests, including property tests over random Geometries: the Crop is always whole pixels inside the turned image, and turning four times or flipping twice gives back an equal Geometry. AC-13 at store level with a real `editor` store.
+
+**QG-3. A responsive, leak-free tool**
+- **When:** on the reference machine with the 4096×3072 Work, the Editor drags the crop frame and the straighten slider, chooses rotate, flip, Apply, Cancel and Reset, opens the tool, and applies 50 Geometry changes (Rotations, Flips, Crops, Straighten angles).
+- **Then:** Preview update while dragging "p95 frame interval ≤ 33 ms (at least 30 updates per second)". Rotate, flip, Apply, Cancel or Reset to the updated Preview "p95 ≤ 150 ms". Choosing "Crop and rotate" to the tool being ready "p95 ≤ 150 ms". Memory after 50 applied changes "≤ 110% of memory after the first Apply".
+- **How verify:** a new `e2e/crop-rotate/perf.spec.ts` tagged `@perf` (run with `PERF=1` on the reference machine). It uses a frame-timing trace while dragging, performance marks from the action to the redrawn Preview and to the tool-ready mark (§7), and whole-page memory as export §6 measures it (`e2e/perf-memory.ts`), Chromium only.
 
 ## 11. Risks and technical debt
 
