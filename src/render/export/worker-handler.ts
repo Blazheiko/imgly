@@ -41,6 +41,8 @@ export const browserExportEnv: ExportEnv = {
 
 /** What the worker answers to the session format check; PNG is always offered. */
 export interface FormatCheck {
+  /** This context can render with WebGL2; the client falls back to the window without it. */
+  webgl2: boolean
   jpeg: boolean
   webp: boolean
 }
@@ -82,6 +84,7 @@ export async function handleExport(
  * content; any error counts as unavailable (AC-12).
  */
 export async function handleCheck(env: ExportEnv): Promise<FormatCheck> {
+  if (!canRender(env)) return { webgl2: false, jpeg: false, webp: false }
   const check = async (format: 'jpeg' | 'webp') => {
     try {
       const sample = env.createSample()
@@ -94,7 +97,18 @@ export async function handleCheck(env: ExportEnv): Promise<FormatCheck> {
       return false
     }
   }
-  return { jpeg: await check('jpeg'), webp: await check('webp') }
+  return { webgl2: true, jpeg: await check('jpeg'), webp: await check('webp') }
+}
+
+/** Whether a WebGL2 context can be made here at all (Linux WebKit has none in workers). */
+function canRender(env: ExportEnv): boolean {
+  try {
+    const gl = env.createCanvas(1, 1).getContext('webgl2')
+    gl?.getExtension('WEBGL_lose_context')?.loseContext()
+    return gl !== null && gl !== undefined
+  } catch {
+    return false
+  }
 }
 
 /**

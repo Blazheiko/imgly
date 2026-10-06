@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test'
+import { expect, type FileChooser, type Page } from '@playwright/test'
 
 /**
  * Whether the app cancelled each drag event's default. A synthetic drop never navigates, so this —
@@ -43,10 +43,26 @@ export async function dropGeneratedImage(
   }, spec)
 }
 
+/**
+ * Waits for the Work and for the Preview canvas's first measurement: until its ResizeObserver
+ * fires, the canvas keeps the default 300×150 backing size and the View ignores zoom and fit.
+ */
 export async function waitForWork(page: Page, width: number, height: number) {
   await expect
     .poll(() => page.evaluate(() => window.__imglyTest?.work()), { timeout: 15_000 })
     .toMatchObject({ width, height })
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const canvas = document.querySelector<HTMLCanvasElement>('[data-testid="preview-canvas"]')
+        if (!canvas) return false
+        const r = canvas.getBoundingClientRect()
+        const near = (backing: number, css: number) =>
+          Math.abs(backing - css * devicePixelRatio) <= 1
+        return r.width > 0 && near(canvas.width, r.width) && near(canvas.height, r.height)
+      }),
+    )
+    .toBe(true)
 }
 
 export const view = (page: Page) => page.evaluate(() => window.__imglyTest!.view())
@@ -76,8 +92,74 @@ export async function canvasArea(page: Page) {
   })
 }
 
+/**
+ * Presses Ctrl+O and returns the file chooser it opens. On a loaded CI runner Chromium now and then
+ * shows no chooser for the first press after start-up (cause unknown; a retry always works), so
+ * one more press follows after 5 s. Every press still goes through the app's own shortcut.
+ */
+export async function chooserFromCtrlO(page: Page): Promise<FileChooser> {
+  for (let attempt = 1; ; attempt++) {
+    const chooser = page.waitForEvent('filechooser', { timeout: 5_000 })
+    await page.keyboard.press('Control+o')
+    try {
+      return await chooser
+    } catch (error) {
+      if (attempt === 2) throw error
+    }
+  }
+}
+
 /** Loads the app and waits until the start-up gate has shown SCR-01. */
 export async function gotoReady(page: Page) {
   await page.goto('./')
-  await expect(page.getByRole('button', { name: 'Open image' })).toBeVisible()
+  try {
+    await expect(page.getByRole('button', { name: 'Open image' })).toBeVisible()
+  } catch (error) {
+    throw new Error(`SCR-01 never showed. ${await startupDiagnosis(page)}`, { cause: error })
+  }
+}
+
+/** Why the start-up gate did not pass: what is on screen and each capability check run again. */
+async function startupDiagnosis(page: Page): Promise<string> {
+  const unsupported = await page
+    .getByRole('heading', { name: "This browser can't display the editor." })
+    .isVisible()
+  const probe = await page.evaluate(async () => {
+    const started = performance.now()
+    const canvas = document.createElement('canvas')
+    let creationError = ''
+    canvas.addEventListener('webglcontextcreationerror', (e) => {
+      creationError = (e as WebGLContextEvent).statusMessage
+    })
+    const gl = canvas.getContext('webgl2')
+    const info = gl?.getExtension('WEBGL_debug_renderer_info')
+    const webgl2 = gl
+      ? {
+          maxTexture: gl.getParameter(gl.MAX_TEXTURE_SIZE),
+          renderer: info
+            ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL)
+            : gl.getParameter(gl.RENDERER),
+        }
+      : null
+    gl?.getExtension('WEBGL_lose_context')?.loseContext()
+    const webglMs = Math.round(performance.now() - started)
+    const workerStarted = performance.now()
+    const worker = await new Promise<string>((resolve) => {
+      const src = `self.postMessage(typeof OffscreenCanvas === 'function' && !!new OffscreenCanvas(1, 1).getContext('2d'))`
+      const url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }))
+      const w = new Worker(url)
+      const timer = setTimeout(() => resolve('timeout after 10 s'), 10_000)
+      w.onmessage = (e) => (clearTimeout(timer), w.terminate(), resolve(String(e.data)))
+      w.onerror = (e) => (clearTimeout(timer), w.terminate(), resolve(`error: ${e.message}`))
+    })
+    return {
+      webgl2,
+      creationError,
+      webglMs,
+      createImageBitmap: typeof createImageBitmap === 'function',
+      worker,
+      workerMs: Math.round(performance.now() - workerStarted),
+    }
+  })
+  return `Unsupported screen: ${unsupported}. Probe again: ${JSON.stringify(probe)}`
 }

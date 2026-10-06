@@ -47,9 +47,14 @@ test('a full-size PNG matches the Preview at 100% regardless of zoom and pan', a
   expect(headerOf(file.bytes)).toMatchObject({ format: 'png', width: 200, height: 150 })
   const diff = await compareWithPreview(page, file.bytes)
   expect(diff).toMatchObject({ width: 200, height: 150, samples: 200 * 150 })
-  expect(diff.alpha).toBeLessThanOrEqual(2)
-  expect(diff.black).toBeLessThanOrEqual(2)
-  expect(diff.white).toBeLessThanOrEqual(2)
+  const worst = JSON.stringify(diff.worstPixel)
+  // Known deviation (export ADR-0003): Linux WebKit's 2D canvas rounds semi-transparent colour
+  // more coarsely, and the export reads the Original through one (worker-handler readPixels), so
+  // it lands about 2.2 from the Preview there. Every other engine keeps the §6 limit of 2.
+  const limit = browserName === 'webkit' && process.platform === 'linux' ? 3 : 2
+  expect(diff.alpha, worst).toBeLessThanOrEqual(2)
+  expect(diff.black, worst).toBeLessThanOrEqual(limit)
+  expect(diff.white, worst).toBeLessThanOrEqual(limit)
 
   expect(await view(page)).toEqual(before)
   // A finished export is a save point (AC-09): no Unsaved edits, so the next open replaces the

@@ -9,14 +9,23 @@ export default defineConfig({
   grepInvert: process.env.PERF ? undefined : /@perf/,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  reporter: process.env.CI ? 'github' : 'list',
+  reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL: `http://localhost:${PORT}/imgly/`,
     trace: 'on-first-retry',
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+    {
+      name: 'firefox',
+      use: {
+        ...devices['Desktop Firefox'],
+        // Headless Firefox finds no GL driver on a GPU-less runner (FEATURE_FAILURE_WEBGL_EXHAUSTED_
+        // DRIVERS): CI runs it headed under xvfb-run, where it uses Mesa's software GL.
+        headless: !process.env.CI,
+        launchOptions: { firefoxUserPrefs: { 'webgl.force-enabled': true } },
+      },
+    },
     { name: 'webkit', use: { ...devices['Desktop Safari'] } },
   ],
   webServer: {
