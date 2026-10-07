@@ -47,6 +47,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
     :title="ACTION_TOOLTIP"
     :class="{ 'crop-rotate-action--unavailable': !hasWork }"
     data-testid="crop-rotate-action"
+    data-keeps-space
     @click="onActivate"
   >
     <svg class="crop-rotate-action__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">

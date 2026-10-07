@@ -37,7 +37,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <aside class="crop-rotate-tool" aria-label="Crop and rotate" data-testid="crop-rotate-tool">
+  <aside
+    class="crop-rotate-tool"
+    aria-label="Crop and rotate"
+    data-testid="crop-rotate-tool"
+    data-keeps-space
+  >
     <CropRotateControls />
   </aside>
 </template>
