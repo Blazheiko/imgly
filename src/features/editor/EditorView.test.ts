@@ -231,6 +231,18 @@ describe('EditorView — zoom shortcuts (SCR-02)', () => {
     expect(editor.view.zoom).toBe(1) // released Space did not press Zoom in
   })
 
+  it('shares space-pan on the store, so a tool overlay can step aside (crop-rotate AC-19)', async () => {
+    const canvas = wrapper.get('[data-testid="preview-canvas"]').element
+    const init = { key: ' ', code: 'Space', bubbles: true, cancelable: true }
+    canvas.dispatchEvent(new KeyboardEvent('keydown', init))
+    expect(editor.spacePan).toBe(true)
+    canvas.dispatchEvent(new KeyboardEvent('keyup', init))
+    expect(editor.spacePan).toBe(false)
+    canvas.dispatchEvent(new KeyboardEvent('keydown', init))
+    window.dispatchEvent(new Event('blur'))
+    expect(editor.spacePan).toBe(false)
+  })
+
   it('ignores shortcuts typed into a text field', () => {
     const input = document.createElement('input')
     document.body.appendChild(input)

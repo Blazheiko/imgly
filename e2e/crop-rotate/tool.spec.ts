@@ -158,6 +158,38 @@ test('AC-19: the View fits the turned image on open and the Work after Apply or 
   expect((await work(page))!.revision).toBe(0) // zoom never counts as an edit
 })
 
+test('AC-19: the wheel zooms over the crop frame, and a space-drag over it pans', async ({
+  page,
+}) => {
+  await openTool(page)
+  const opened = await view(page)
+  const box = (await frame(page).boundingBox())!
+  const centre = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+
+  await page.mouse.move(centre.x, centre.y)
+  await page.keyboard.down('Control')
+  await page.mouse.wheel(0, -200)
+  await page.keyboard.up('Control')
+  await expect.poll(async () => (await view(page)).zoom).toBeGreaterThan(opened.zoom)
+
+  await frame(page).focus()
+  for (let i = 0; i < 4; i++) await page.keyboard.press('+') // the image now overflows, so it pans
+  const zoomed = await view(page)
+  await page.keyboard.down('Space')
+  await page.mouse.move(centre.x, centre.y)
+  await page.mouse.down()
+  await page.mouse.move(centre.x + 40, centre.y + 30, { steps: 4 })
+  await page.mouse.up()
+  await page.keyboard.up('Space')
+  const panned = await view(page)
+  expect(panned.panX).not.toBe(zoomed.panX)
+  expect(panned.zoom).toBe(zoomed.zoom)
+  // Neither gesture touched the Draft: Apply keeps the whole image as the Crop.
+  await frame(page).press('Enter')
+  await expect(tool(page)).toBeHidden()
+  expect((await work(page))!.geometry.crop).toEqual({ x: 0, y: 0, ...size })
+})
+
 test.describe('the frame sits on the pixels the Preview draws (ADR-0005)', () => {
   for (const [label, keys] of [
     ['100%', ['Shift+0']],

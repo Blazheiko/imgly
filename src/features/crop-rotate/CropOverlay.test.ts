@@ -77,6 +77,19 @@ describe('CropOverlay (ADR-0005)', () => {
     expect(wrapper.find('[data-testid="thirds-grid"]').exists()).toBe(false)
   })
 
+  it('lets a space-drag through to the canvas instead of moving the frame (AC-19)', async () => {
+    const start = { ...tool.draft!.crop }
+    editor.setSpacePan(true)
+    await nextTick()
+    expect(frame().classes()).toContain('crop-overlay__frame--pan-through')
+    await frame().trigger('pointerdown', { button: 0, pointerId: 1, clientX: 100, clientY: 100 })
+    await frame().trigger('pointermove', { pointerId: 1, clientX: 140, clientY: 120 })
+    expect(tool.draft!.crop).toEqual(start)
+    editor.setSpacePan(false)
+    await nextTick()
+    expect(frame().classes()).not.toContain('crop-overlay__frame--pan-through')
+  })
+
   it('resizes by an edge or a corner, stopping at the image edge (AC-02)', async () => {
     const h = handle(HANDLE_LABELS.se)
     await h.trigger('pointerdown', { button: 0, pointerId: 2, clientX: 0, clientY: 0 })

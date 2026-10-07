@@ -13,8 +13,6 @@ import { useEditorStore } from './store'
 
 const editor = useEditorStore()
 const dragging = ref(false)
-/** Space is held: the canvas shows the grab cursor, and the focused button is never pressed. */
-const spacePan = ref(false)
 
 /** The Preview's screens (SCR-01/02) are up: not checking, not SCR-04 or SCR-05. */
 const live = computed(() => editor.display === 'ok' || editor.display === 'restoring')
@@ -78,7 +76,7 @@ function onKeydown(event: KeyboardEvent) {
   if (event.code === 'Space') {
     if (keepsSpace(event.target)) return
     event.preventDefault() // a focused button would otherwise fire on release (AC-13)
-    spacePan.value = true
+    editor.setSpacePan(true)
     return
   }
   const shortcut = zoomShortcuts.find((s) => s.matches(event))
@@ -101,13 +99,13 @@ function blockPageZoomGesture(event: Event) {
 const GESTURE_EVENTS = ['gesturestart', 'gesturechange', 'gestureend']
 
 function onKeyup(event: KeyboardEvent) {
-  if (event.code !== 'Space' || !spacePan.value) return
+  if (event.code !== 'Space' || !editor.spacePan) return
   event.preventDefault()
-  spacePan.value = false
+  editor.setSpacePan(false)
 }
 
 function endSpacePan() {
-  spacePan.value = false
+  editor.setSpacePan(false)
 }
 
 // The drop guard goes on the whole window first, so no drop ever navigates away (AC-02).

@@ -12,6 +12,8 @@ let renderer: PreviewRenderer | undefined
 let observer: ResizeObserver | undefined
 let lastPointer: { id: number; x: number; y: number } | undefined
 let pinchScale = 1
+/** Wheel and pinch are taken on the canvas area, so a tool's overlay over it zooms too (AC-12). */
+let surface: HTMLElement | undefined
 
 /**
  * What the Preview draws: the Work cropped by its Geometry, or the open tool's Draft as the whole
@@ -97,9 +99,10 @@ onMounted(() => {
   } else {
     editor.setRendererStatus('lost') // the gate passed, yet this canvas can't show the Preview
   }
-  el.addEventListener('wheel', onWheel, { passive: false })
-  el.addEventListener('gesturestart', onGestureStart)
-  el.addEventListener('gesturechange', onGestureChange)
+  surface = el.parentElement ?? el
+  surface.addEventListener('wheel', onWheel, { passive: false })
+  surface.addEventListener('gesturestart', onGestureStart)
+  surface.addEventListener('gesturechange', onGestureChange)
 
   if (typeof ResizeObserver !== 'undefined') {
     observer = new ResizeObserver(onResize)
@@ -127,9 +130,9 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   observer?.disconnect()
-  canvas.value?.removeEventListener('wheel', onWheel)
-  canvas.value?.removeEventListener('gesturestart', onGestureStart)
-  canvas.value?.removeEventListener('gesturechange', onGestureChange)
+  surface?.removeEventListener('wheel', onWheel)
+  surface?.removeEventListener('gesturestart', onGestureStart)
+  surface?.removeEventListener('gesturechange', onGestureChange)
   renderer?.dispose()
 })
 </script>

@@ -129,6 +129,8 @@ export const useEditorStore = defineStore('editor', () => {
   // What the Preview draws while a tool is open, whole and turned, instead of the Work's Geometry.
   const previewGeometry = shallowRef<Geometry | null>(null)
   const activePanel = ref<PanelId | null>(null)
+  /** Space is held for space-pan: a tool's overlay lets the drag through to the canvas. */
+  const spacePan = ref(false)
   let latestOpenId = 0
   let decode: Decoder = decodeImage
   let rendererFactory: RendererFactory = createPreviewRenderer
@@ -423,12 +425,14 @@ export const useEditorStore = defineStore('editor', () => {
     activeTool,
     previewGeometry,
     activePanel,
+    spacePan,
     hasUnsavedEdits,
     openTool,
     closeTool,
     setPreviewGeometry,
     applyGeometry,
     setActivePanel,
+    setSpacePan: (on: boolean) => (spacePan.value = on),
     setDecoder,
     setRendererFactory,
     createRenderer,

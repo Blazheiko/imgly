@@ -63,7 +63,7 @@ const dragging = ref(false)
 let drag: { pointerId: number; x: number; y: number; handle: CropHandle | null } | undefined
 
 function onPointerDown(event: PointerEvent, handle: CropHandle | null) {
-  if (event.button !== 0) return
+  if (event.button !== 0 || editor.spacePan) return // a space-drag pans the canvas instead (AC-19)
   event.stopPropagation() // the frame, not the canvas under it, takes the drag
   drag = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, handle }
   tool.beginDrag()
@@ -139,7 +139,10 @@ onBeforeUnmount(() => clearTimeout(fineTimer))
     />
     <div
       class="crop-overlay__frame"
-      :class="{ 'crop-overlay__frame--dragging': dragging }"
+      :class="{
+        'crop-overlay__frame--dragging': dragging,
+        'crop-overlay__frame--pan-through': editor.spacePan,
+      }"
       :style="frameStyle"
       data-testid="crop-frame"
       role="group"
@@ -205,6 +208,12 @@ onBeforeUnmount(() => clearTimeout(fineTimer))
 .crop-overlay__handle:focus-visible {
   outline: 2px solid var(--color-focus-ring);
   outline-offset: 2px;
+}
+
+/* While Space is held the pointer reaches the canvas under the frame, which pans (AC-19). */
+.crop-overlay__frame--pan-through,
+.crop-overlay__frame--pan-through .crop-overlay__handle {
+  pointer-events: none;
 }
 
 /* Rule-of-thirds while dragging (AC-01). */

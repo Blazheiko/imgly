@@ -7,9 +7,9 @@ import { createFakeRenderer } from '../fake-renderer'
 import PreviewCanvas from './PreviewCanvas.vue'
 import { useEditorStore } from '../store'
 
-/** happy-dom's WheelEvent drops modifier keys, so set them on the event directly. */
+/** happy-dom's WheelEvent drops modifier keys, so set them on the event directly. Wheel bubbles. */
 function wheelEvent(init: { deltaY: number; ctrlKey?: boolean }) {
-  const event = new WheelEvent('wheel', { deltaY: init.deltaY, cancelable: true })
+  const event = new WheelEvent('wheel', { deltaY: init.deltaY, cancelable: true, bubbles: true })
   Object.defineProperty(event, 'ctrlKey', { value: init.ctrlKey ?? false })
   return event
 }
@@ -140,13 +140,35 @@ describe('PreviewCanvas', () => {
       ['gesturestart', 1],
       ['gesturechange', 2],
     ] as const) {
-      const event = new Event(type, { cancelable: true })
+      const event = new Event(type, { cancelable: true, bubbles: true })
       Object.assign(event, { scale, clientX: 10, clientY: 10 })
       el.dispatchEvent(event)
       expect(event.defaultPrevented).toBe(true)
     }
     expect(zoomAt).toHaveBeenCalledTimes(1)
     expect(zoomAt.mock.calls[0]![0]).toBeCloseTo(2)
+  })
+
+  it("zooms and pinches from a sibling over the canvas, such as a tool's crop frame (crop-rotate AC-19)", () => {
+    const wrapper = mount(PreviewCanvas, { attachTo: document.body })
+    const frame = document.createElement('div')
+    // The overlay is the canvas's sibling in the canvas area, as EditorView's tool-canvas slot is.
+    wrapper.element.parentElement!.append(frame)
+    const zoomAt = vi.spyOn(editor, 'zoomAt')
+
+    const wheel = wheelEvent({ ctrlKey: true, deltaY: -100 })
+    frame.dispatchEvent(wheel)
+    expect(wheel.defaultPrevented).toBe(true)
+    for (const [type, scale] of [
+      ['gesturestart', 1],
+      ['gesturechange', 2],
+    ] as const) {
+      const event = new Event(type, { cancelable: true, bubbles: true })
+      Object.assign(event, { scale, clientX: 10, clientY: 10 })
+      frame.dispatchEvent(event)
+    }
+    expect(zoomAt).toHaveBeenCalledTimes(2)
+    wrapper.unmount()
   })
 
   it('turns a plain wheel into a pan', () => {
