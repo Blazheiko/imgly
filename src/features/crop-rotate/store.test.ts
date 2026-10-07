@@ -99,6 +99,20 @@ describe('crop-rotate store (ADR-0003)', () => {
       expect(Math.abs(height - (width * 9) / 16)).toBeLessThanOrEqual(0.5)
     })
 
+    it('keeps the frame’s own proportion when it does not match the remembered lock (AC-06)', () => {
+      tool.cancel()
+      openWork(editor, { width: 4096, height: 3072 })
+      tool.open()
+      tool.chooseProportion({ kind: '1:1', orientation: 'landscape' })
+      tool.cancel()
+      tool.open()
+      expect(tool.proportion).toEqual({ kind: '1:1', orientation: 'landscape' })
+      expect(tool.draft!.crop).toMatchObject({ width: 4096, height: 3072 })
+      tool.setAngle(5)
+      const { width, height } = tool.draft!.crop
+      expect(Math.abs(height - (width * 3) / 4)).toBeLessThanOrEqual(0.5)
+    })
+
     it('starts a new angle interaction from where a move left the frame', () => {
       tool.resizeBy('se', -2000, -1500)
       tool.setAngle(100)

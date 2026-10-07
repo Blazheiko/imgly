@@ -177,6 +177,18 @@ describe('straightenAnchor: one slider or keyboard interaction (AC-05, AC-06, AC
     expect(at.straighten).toBe(0)
   })
 
+  it('takes a locked ratio only when the frame already has it, within 0.5 px', () => {
+    const g = identityGeometry(original)
+    expect(straightenAnchor(g, original, { width: 1, height: 1 }).ratio).toEqual({
+      width: 4096,
+      height: 3072,
+    })
+    expect(straightenAnchor(g, original, { width: 4, height: 3 }).ratio).toEqual({
+      width: 4,
+      height: 3,
+    })
+  })
+
   it('still never grows the frame back towards 0°', () => {
     const g = identityGeometry(original)
     const { seen } = sweep(g, null, [0, 300, 0])

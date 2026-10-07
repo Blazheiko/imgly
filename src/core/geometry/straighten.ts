@@ -17,7 +17,10 @@ export interface StraightenAnchor {
   ratio: Size
 }
 
-/** The anchor for an interaction starting at `g`, keeping `ratio` or else the frame's own. */
+/**
+ * The anchor for an interaction starting at `g`. It keeps the locked `ratio` only when the frame
+ * already has it, within half a pixel (AC-08); otherwise the frame keeps its own (AC-06).
+ */
 export function straightenAnchor(
   g: Geometry,
   original: Size,
@@ -29,7 +32,15 @@ export function straightenAnchor(
     -g.straighten,
     turnedSize(g, original),
   )
-  return { cx: x, cy: y, ratio: ratio ?? { width: g.crop.width, height: g.crop.height } }
+  const own = { width: g.crop.width, height: g.crop.height }
+  return { cx: x, cy: y, ratio: ratio && hasRatio(own, ratio) ? ratio : own }
+}
+
+/** Whether a whole-pixel frame has `ratio`, its short side within half a pixel of exact. */
+function hasRatio(frame: Size, ratio: Size): boolean {
+  return frame.width >= frame.height
+    ? Math.abs(frame.height - (frame.width * ratio.height) / ratio.width) <= 0.5
+    : Math.abs(frame.width - (frame.height * ratio.width) / ratio.height) <= 0.5
 }
 
 /** A point of the turned image moved by `tenths` of a degree around the image's centre. */
