@@ -11,6 +11,12 @@
  */
 import { expect, test, type Page } from '@playwright/test'
 import { p95, settledKiB } from '../perf-memory'
+import {
+  flipOnScreen,
+  identityGeometry,
+  rotateQuarter,
+  setStraighten,
+} from '../../src/core/geometry'
 import { choose, gotoReady, panel, waitForWork } from './helpers'
 
 const WARM_UP = 2
@@ -112,6 +118,35 @@ for (const [label, format, target] of [
 
     expect(time, `p95 export time for ${label}`).toBeLessThanOrEqual(target)
     expect(longest, `longest main-thread task while exporting ${label}`).toBeLessThanOrEqual(200)
+  })
+}
+
+// crop-rotate spec §6: the same targets with an applied Geometry (90° Rotation, a Flip and a
+// 10° Straighten angle), which renders through the one shader pass (crop-rotate ADR-0002).
+for (const [label, format, target] of [
+  ['JPEG q90', 'JPEG', 1000],
+  ['PNG', 'PNG', 2000],
+] as const) {
+  test(`@perf export time with a Geometry, 4096×3072 ${label}: p95 ≤ ${target} ms`, async ({
+    page,
+  }) => {
+    test.setTimeout(240_000)
+    await prepare(page)
+    const size = { width: 4096, height: 3072 }
+    const turned = flipOnScreen(
+      rotateQuarter(identityGeometry(size), 'cw', size),
+      'horizontal',
+      size,
+    )
+    const geometry = setStraighten(turned, 100, size)
+    await page.evaluate((g) => window.__imglyTest!.setGeometry(g), geometry)
+    await choose(page, format === 'JPEG' ? { format, quality: 90 } : { format })
+
+    const runs: number[] = []
+    for (let i = 0; i < WARM_UP + RUNS; i++) runs.push((await timedExport(page)).ms)
+    const time = p95(runs.slice(WARM_UP))
+    results[`geometry export p95 ${label}`] = `${Math.round(time)} ms (target ≤ ${target} ms)`
+    expect(time, `p95 export time with a Geometry for ${label}`).toBeLessThanOrEqual(target)
   })
 }
 
