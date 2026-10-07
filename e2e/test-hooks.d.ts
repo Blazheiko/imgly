@@ -2,6 +2,16 @@
 // tsconfig can't import app code, which resolves '@/…' aliases and Vue types).
 export {}
 
+/** Mirrors `Geometry` in src/core/geometry/types.ts. */
+export interface Geometry {
+  flipH: boolean
+  flipV: boolean
+  rotation: 0 | 90 | 180 | 270
+  /** Integer tenths of a degree, −450…450. */
+  straighten: number
+  crop: { x: number; y: number; width: number; height: number }
+}
+
 declare global {
   interface Window {
     __imglyTest?: {
@@ -10,6 +20,9 @@ declare global {
         revision: number
         width: number
         height: number
+        originalWidth: number
+        originalHeight: number
+        geometry: Geometry
         sourceName: string
         sourceFormat: string
         hasTransparency: boolean
@@ -20,6 +33,7 @@ declare global {
       previewAt100(): number[]
       exportStatus(): string
       applyEdit(): void
+      setGeometry(geometry: Geometry): void
       bitmaps(): { received: number; closed: number; retained: number }
       holdNextOpen(): void
       releaseHeldOpen(): void

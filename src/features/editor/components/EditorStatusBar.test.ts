@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { ok } from '@/core'
+import { identityGeometry, ok } from '@/core'
 import EditorStatusBar from './EditorStatusBar.vue'
 import { useEditorStore } from '../store'
 
@@ -37,6 +37,45 @@ describe('EditorStatusBar', () => {
   })
 
   it('shows the Original’s dimensions (AC-05, AC-06)', () => {
+    const wrapper = mount(EditorStatusBar)
+    expect(wrapper.get('[data-testid="dimensions-readout"]').text()).toBe('4096 × 2731 px')
+  })
+
+  it('shows the Work’s size after a 90° Rotation, from the Original’s dimensions (AC-01)', async () => {
+    editor.applyGeometry({
+      ...identityGeometry({ width: 4096, height: 2731 }),
+      rotation: 90,
+      crop: { x: 0, y: 0, width: 2731, height: 4096 },
+    })
+    const wrapper = mount(EditorStatusBar)
+    expect(wrapper.get('[data-testid="dimensions-readout"]').text()).toBe(
+      '2731 × 4096 px, from 4096 × 2731 px',
+    )
+  })
+
+  it('shows the Crop’s size, from the Original’s dimensions (AC-14)', () => {
+    editor.applyGeometry({
+      ...identityGeometry({ width: 4096, height: 2731 }),
+      crop: { x: 10, y: 10, width: 1920, height: 1080 },
+    })
+    const wrapper = mount(EditorStatusBar)
+    expect(wrapper.get('[data-testid="dimensions-readout"]').text()).toBe(
+      '1920 × 1080 px, from 4096 × 2731 px',
+    )
+  })
+
+  it('shows no "from" part when a 180° turn keeps the size in order', () => {
+    editor.applyGeometry({ ...identityGeometry({ width: 4096, height: 2731 }), rotation: 180 })
+    const wrapper = mount(EditorStatusBar)
+    expect(wrapper.get('[data-testid="dimensions-readout"]').text()).toBe('4096 × 2731 px')
+  })
+
+  it('shows the applied Work, not the Draft, while a tool is open', () => {
+    editor.openTool('crop-rotate')
+    editor.setPreviewGeometry({
+      ...identityGeometry({ width: 4096, height: 2731 }),
+      crop: { x: 0, y: 0, width: 10, height: 10 },
+    })
     const wrapper = mount(EditorStatusBar)
     expect(wrapper.get('[data-testid="dimensions-readout"]').text()).toBe('4096 × 2731 px')
   })

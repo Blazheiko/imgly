@@ -1,14 +1,27 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { workSize } from '@/core'
 import { useEditorStore } from '../store'
 import DimensionsReadout from './DimensionsReadout.vue'
 import ZoomBar from './ZoomBar.vue'
 
 const editor = useEditorStore()
+
+/** The applied Work's size, never the open tool's Draft (screens.md §Shell changes). */
+const size = computed(() => (editor.work ? workSize(editor.work) : { width: 0, height: 0 }))
+
+/** The Original's dimensions whenever width or height differs, compared in order (AC-01). */
+const from = computed(() => {
+  const original = editor.work?.original
+  if (!original) return undefined
+  const same = original.width === size.value.width && original.height === size.value.height
+  return same ? undefined : { width: original.width, height: original.height }
+})
 </script>
 
 <template>
   <footer v-if="editor.work" class="editor-status-bar" data-testid="editor-status-bar">
-    <DimensionsReadout :width="editor.work.original.width" :height="editor.work.original.height" />
+    <DimensionsReadout :width="size.width" :height="size.height" :from="from" />
     <ZoomBar />
   </footer>
 </template>

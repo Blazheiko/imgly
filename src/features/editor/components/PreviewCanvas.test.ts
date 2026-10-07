@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { nextTick } from 'vue'
-import { appError, err, ok } from '@/core'
+import { appError, err, identityGeometry, ok } from '@/core'
 import { createFakeRenderer } from '../fake-renderer'
 import PreviewCanvas from './PreviewCanvas.vue'
 import { useEditorStore } from '../store'
@@ -52,6 +52,36 @@ describe('PreviewCanvas', () => {
     expect(fake.factory).toHaveBeenCalledWith(wrapper.get('canvas').element)
     expect(fake.renderer.setOriginal).toHaveBeenCalledWith(editor.work!.original.pixels)
     expect(fake.renderer.setView).toHaveBeenLastCalledWith(editor.view)
+  })
+
+  it('draws the Work cropped by its Geometry, and the whole turned Draft while a tool is open', async () => {
+    mount(PreviewCanvas)
+    expect(fake.renderer.setGeometry).toHaveBeenLastCalledWith(editor.work!.geometry, 'crop')
+
+    editor.openTool('crop-rotate')
+    await nextTick()
+    expect(fake.renderer.setGeometry).toHaveBeenLastCalledWith(editor.work!.geometry, 'whole')
+
+    const draft = { ...identityGeometry({ width: 4000, height: 4000 }), flipH: true }
+    editor.setPreviewGeometry(draft)
+    await nextTick()
+    expect(fake.renderer.setGeometry).toHaveBeenLastCalledWith(draft, 'whole')
+
+    editor.applyGeometry(draft)
+    editor.closeTool()
+    await nextTick()
+    expect(fake.renderer.setGeometry).toHaveBeenLastCalledWith(draft, 'crop')
+  })
+
+  it('judges pannable by the size it shows, not the Original', async () => {
+    editor.applyGeometry({
+      ...identityGeometry({ width: 4000, height: 4000 }),
+      crop: { x: 0, y: 0, width: 500, height: 500 },
+    })
+    editor.actualSize() // 500×500 at 100% fits the 1000×1000 canvas
+    const wrapper = mount(PreviewCanvas)
+    await nextTick()
+    expect(wrapper.get('canvas').classes()).not.toContain('preview-canvas--pannable')
   })
 
   it('hands each View change to the renderer without re-uploading the Original (AC-14)', async () => {

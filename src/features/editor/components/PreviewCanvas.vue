@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { turnedBounds, workSize } from '@/core'
 import type { PreviewRenderer } from '@/render'
 import { useEditorStore } from '../store'
 import { pinchGesture, wheelGesture, type PinchInput } from './gestures'
@@ -12,14 +13,27 @@ let observer: ResizeObserver | undefined
 let lastPointer: { id: number; x: number; y: number } | undefined
 let pinchScale = 1
 
-/** The image overflows the canvas area on some axis, so it can be panned (AC-13). */
+/**
+ * What the Preview draws: the Work cropped by its Geometry, or the open tool's Draft as the whole
+ * turned image (crop-rotate ADR-0003).
+ */
+const shown = computed(() => {
+  const { work, activeTool, previewGeometry } = editor
+  if (!work) return undefined
+  return activeTool && previewGeometry
+    ? { geometry: previewGeometry, mode: 'whole' as const }
+    : { geometry: work.geometry, mode: 'crop' as const }
+})
+
+/** The shown image overflows the canvas area on some axis, so it can be panned (AC-13). */
 const pannable = computed(() => {
   const { work, view, canvasSize } = editor
-  if (!work) return false
-  return (
-    work.original.width * view.zoom > canvasSize.width ||
-    work.original.height * view.zoom > canvasSize.height
-  )
+  if (!work || !shown.value) return false
+  const size =
+    shown.value.mode === 'whole'
+      ? turnedBounds(shown.value.geometry, work.original)
+      : workSize(work)
+  return size.width * view.zoom > canvasSize.width || size.height * view.zoom > canvasSize.height
 })
 
 function onWheel(event: WheelEvent) {
@@ -101,6 +115,9 @@ onMounted(() => {
     (bitmap) => bitmap && renderer?.setOriginal(bitmap),
     { immediate: true },
   )
+  watch(shown, (next) => next && renderer?.setGeometry(next.geometry, next.mode), {
+    immediate: true,
+  })
   watch(
     () => editor.view,
     (view) => renderer?.setView(view),

@@ -13,7 +13,7 @@
 | T6 | Render the Geometry in the shared shader (u_geometry) and give the Preview renderer setGeometry(g, 'crop' | 'whole') | infra | Blazheiko | M | T5 | done |
 | T7 | Export with the Geometry in the worker and add the GPU alpha check (checkCropTransparency) | infra | Blazheiko | M | T6 | done |
 | T8 | Add the editor store's tool slot: activeTool, openTool/closeTool, previewGeometry, applyGeometry, activePanel and tool-aware fit-View | app | Blazheiko | M | T1, T5 | done |
-| T9 | Make the Preview and the status bar follow the Geometry, and add the setGeometry test hook | wiring | Blazheiko | M | T6, T8 | todo |
+| T9 | Make the Preview and the status bar follow the Geometry, and add the setGeometry test hook | wiring | Blazheiko | M | T6, T8 | done |
 | T10 | Size the export from workSize, send the Geometry, and base the transparency hint on the GPU check | app | Blazheiko | M | T7, T8 | todo |
 | T11 | Refuse Export and Ctrl/Cmd+S while a tool is open with the 'apply or cancel the crop first' hint, and report the open panel | app | Blazheiko | S | T8, T10 | todo |
 | T12 | Extend SliderField (step, decimals, marks), NumberField (signed decimal input) and BaseButton (pressed), and register them | ui | Blazheiko | S | — | todo |

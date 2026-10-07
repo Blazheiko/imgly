@@ -1,6 +1,7 @@
 import type { Pinia } from 'pinia'
 import { useEditorStore } from '@/features/editor'
 import { useExportStore } from '@/features/export'
+import { cropToOriginalUv, workSize, type Geometry } from '@/core'
 import { buildProgram, uploadTexture, viewToTransform } from '@/render'
 import { bitmapLedger } from '@/shared'
 
@@ -9,8 +10,12 @@ export interface ImglyTestHooks {
   work(): {
     id: string
     revision: number
+    /** The Work's size: its Crop's (crop-rotate ADR-0001). */
     width: number
     height: number
+    originalWidth: number
+    originalHeight: number
+    geometry: Geometry
     sourceName: string
     sourceFormat: string
     hasTransparency: boolean
@@ -33,6 +38,11 @@ export interface ImglyTestHooks {
   exportStatus(): string
   /** Prepares Unsaved edits until an editing tool exists (spec Decision override on AC-15). */
   applyEdit(): void
+  /**
+   * Applies a Geometry directly, as the tool's Apply does, so the fidelity tests reach every
+   * Rotation × Flip and angle without driving the UI (crop-rotate sad.md §8 Test hooks).
+   */
+  setGeometry(geometry: Geometry): void
   /** Bitmaps received from the decode worker and closed by the app; retained should be 1. */
   bitmaps(): { received: number; closed: number; retained: number }
   /**
@@ -49,9 +59,9 @@ declare global {
   }
 }
 
-/** Renders a bitmap the way the Preview draws it at 100% and reads it back. */
-function renderAt100(bitmap: ImageBitmap): number[] {
-  const { width, height } = bitmap
+/** Renders the Work the way the Preview draws it at 100% and reads it back. */
+function renderAt100(bitmap: ImageBitmap, geometry: Geometry): number[] {
+  const { width, height } = geometry.crop
   const canvas = new OffscreenCanvas(width, height)
   const gl = canvas.getContext('webgl2', {
     alpha: true,
@@ -61,7 +71,12 @@ function renderAt100(bitmap: ImageBitmap): number[] {
   })!
   const gpu = buildProgram(gl)
   const texture = uploadTexture(gl, bitmap)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST) // the Preview at zoom ≥ 1
+  // The Preview at zoom ≥ 1: NEAREST, or LINEAR while straightened (crop-rotate ADR-0002).
+  gl.texParameteri(
+    gl.TEXTURE_2D,
+    gl.TEXTURE_MAG_FILTER,
+    geometry.straighten === 0 ? gl.NEAREST : gl.LINEAR,
+  )
   gl.viewport(0, 0, width, height)
   gl.clearColor(0, 0, 0, 0)
   gl.clear(gl.COLOR_BUFFER_BIT)
@@ -71,6 +86,8 @@ function renderAt100(bitmap: ImageBitmap): number[] {
   const size = { width, height }
   const view = { zoom: 1, panX: 0, panY: 0, autoFit: false }
   gl.uniformMatrix3fv(gpu.transform, false, viewToTransform(view, size, size))
+  const original = { width: bitmap.width, height: bitmap.height }
+  gl.uniformMatrix3fv(gpu.geometry, false, new Float32Array(cropToOriginalUv(geometry, original)))
   gl.uniform1i(gpu.flatten, 0)
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
   const ctx = new OffscreenCanvas(width, height).getContext('2d')!
@@ -86,12 +103,16 @@ export function installTestHooks(pinia: Pinia): void {
     work: () => {
       const work = editor.work
       if (!work) return null
-      const { id, revision, original, sourceName, sourceFormat } = work
+      const { id, revision, original, geometry, sourceName, sourceFormat } = work
+      const size = workSize(work)
       return {
         id,
         revision,
-        width: original.width,
-        height: original.height,
+        width: size.width,
+        height: size.height,
+        originalWidth: original.width,
+        originalHeight: original.height,
+        geometry,
         sourceName,
         sourceFormat,
         hasTransparency: original.hasTransparency,
@@ -107,11 +128,12 @@ export function installTestHooks(pinia: Pinia): void {
       return Array.from(ctx.getImageData(x, y, 1, 1).data.slice(0, 3))
     },
     previewAt100: () => {
-      const pixels = editor.work?.original.pixels
-      return pixels ? renderAt100(pixels) : []
+      const work = editor.work
+      return work ? renderAt100(work.original.pixels, work.geometry) : []
     },
     exportStatus: () => exporter.status,
     applyEdit: () => editor.applyEdit(),
+    setGeometry: (geometry) => editor.applyGeometry(geometry),
     bitmaps: () => ({
       received: bitmapLedger.received,
       closed: bitmapLedger.closed,
