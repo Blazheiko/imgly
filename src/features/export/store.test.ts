@@ -709,6 +709,22 @@ describe('export store — the applied Geometry (crop-rotate AC-14)', () => {
       await flush()
     }
 
+    it('runs only while the panel is open, and catches up when it opens (ADR-0004)', async () => {
+      await jpegPanel(true)
+      store.closePanel()
+      await flush()
+      editor.applyGeometry(cropTo(10, 10))
+      await flush()
+      editor.applyGeometry(cropTo(20, 20))
+      await flush()
+      expect(checks).toHaveLength(0)
+
+      store.openPanel()
+      await flush()
+      expect(checks).toHaveLength(1)
+      expect(checks[0]!.request.geometry).toEqual(cropTo(20, 20))
+    })
+
     it('needs no check for an opaque Original, whatever the Geometry', async () => {
       await jpegPanel(false)
       editor.applyGeometry(cropTo(10, 10))

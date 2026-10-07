@@ -250,9 +250,11 @@ export const useExportStore = defineStore('export', () => {
 
   const alphaKey = (id: string, revision: number) => `${id}@${revision}`
 
+  /** Runs only when the open panel needs the answer, never on every Apply (ADR-0004). */
   async function runCropAlphaCheck() {
     const work = editor.work
-    if (!work || format.value !== 'jpeg' || cropTransparency.value !== 'running') return
+    if (!work || !panelOpen.value || format.value !== 'jpeg') return
+    if (cropTransparency.value !== 'running') return
     const key = alphaKey(work.id, work.revision)
     if (cropAlpha.value?.key === key) return
     cropAlpha.value = { key, state: 'running' }
@@ -270,7 +272,7 @@ export const useExportStore = defineStore('export', () => {
   }
 
   watch(
-    () => [format.value, editor.work?.id, editor.work?.revision] as const,
+    () => [panelOpen.value, format.value, editor.work?.id, editor.work?.revision] as const,
     () => void runCropAlphaCheck(),
   )
 
