@@ -76,6 +76,26 @@ describe('App — Space on the export controls (export AC-17)', () => {
     }
   })
 
+  // A slider takes no typing and Space doesn't press it, so the Preview can still be panned and
+  // zoomed from it while the panel is open (export screens.md, crop-rotate AC-19).
+  it('starts space-pan and zooms from the focused Quality slider in the open panel', async () => {
+    const exporter = useExportStore()
+    exporter.openPanel()
+    exporter.selectFormat('jpeg')
+    await flushPromises()
+    const slider = document.querySelector<HTMLInputElement>('[role="dialog"] input[type="range"]')!
+    slider.focus()
+    expect(space(slider, 'keydown').defaultPrevented).toBe(true)
+    expect(editor.spacePan).toBe(true)
+    expect(space(slider, 'keyup').defaultPrevented).toBe(true)
+    expect(editor.spacePan).toBe(false)
+    const zoom = editor.view.zoom
+    const minus = new KeyboardEvent('keydown', { key: '-', bubbles: true, cancelable: true })
+    slider.dispatchEvent(minus)
+    expect(minus.defaultPrevented).toBe(true)
+    expect(editor.view.zoom).toBeLessThan(zoom)
+  })
+
   it('still enters space-pan over the canvas', () => {
     const canvas = wrapper.get('[data-testid="preview-canvas"]').element
     expect(space(canvas, 'keydown').defaultPrevented).toBe(true)
