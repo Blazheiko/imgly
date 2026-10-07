@@ -621,6 +621,91 @@
         "e2e/crop-rotate/tool.spec.ts"
       ],
       "source": "docs/features/crop-rotate/_review/review-2026-10-07.md"
+    },
+    {
+      "id": "T31",
+      "title": "Offset the pan by the Crop centre only for an angle step, so Flip and Reset at an angle keep the image in place (re-review N1)",
+      "layer": "app",
+      "deps": [],
+      "acs": [
+        "AC-04",
+        "AC-05",
+        "AC-12"
+      ],
+      "dod": "setPreviewGeometry applies the Crop-centre term only when setAngle asks for it; editor store tests show that a Flip at 10° with an off-centre frame leaves the pan unchanged and that a Reset offsets only the turned bounds; the existing off-centre straighten test stays green",
+      "files_hint": [
+        "src/features/editor/store.ts",
+        "src/features/editor/store.test.ts",
+        "src/features/crop-rotate/store.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07-2.md"
+    },
+    {
+      "id": "T32",
+      "title": "Let Space start space-pan while the Straighten slider has focus (re-review N2)",
+      "layer": "wiring",
+      "deps": [],
+      "acs": [
+        "AC-19"
+      ],
+      "dod": "EditorView isTextField and keepsSpace both exclude input[type=range]; a keyboard.test.ts case sends Space to the focused slider and expects defaultPrevented and editor.spacePan; Space on the tool buttons and radios still presses them",
+      "files_hint": [
+        "src/features/editor/EditorView.vue",
+        "src/app/keyboard.test.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07-2.md"
+    },
+    {
+      "id": "T33",
+      "title": "Straighten keeps the frame own proportion unless it already matches the locked one (re-review N3)",
+      "layer": "domain",
+      "deps": [
+        "T31"
+      ],
+      "acs": [
+        "AC-06",
+        "AC-08"
+      ],
+      "dod": "setAngle takes the locked ratio for the anchor only when the frame is within 0.5 px of it, otherwise the frame ratio; a store test covers choose 1:1, Cancel, reopen, setAngle(5) on 4096×3072 keeping about 4:3; the locked 16:9 sweep test stays green",
+      "files_hint": [
+        "src/features/crop-rotate/store.ts",
+        "src/core/geometry/straighten.ts",
+        "src/features/crop-rotate/store.test.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07-2.md"
+    },
+    {
+      "id": "T34",
+      "title": "Make the keyboard-only e2e paths real and stop the test plan overclaiming (re-review N4, N5, N6)",
+      "layer": "tests",
+      "deps": [
+        "T32"
+      ],
+      "acs": [
+        "AC-04",
+        "AC-20"
+      ],
+      "dod": "tool.spec.ts handle test sends Shift+ArrowDown and asserts the height 290 before Escape; the crop-to-square path reaches the frame by Tab or Shift+Tab instead of focus(); test-plan.md rows at AC-04 on-screen order and AC-20 Tab-to-action and Tab-order are marked narrowed on purpose and point to the tests that cover them",
+      "files_hint": [
+        "e2e/crop-rotate/tool.spec.ts",
+        "docs/features/crop-rotate/test-plan.md"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07-2.md"
+    },
+    {
+      "id": "T35",
+      "title": "Enter on an input of type button, submit or reset presses only that input (re-review N7)",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-20"
+      ],
+      "dod": "createToolKeys skips input[type=button], input[type=submit] and input[type=reset] like a button; a shortcuts.test.ts case shows Enter on one does not apply",
+      "files_hint": [
+        "src/features/crop-rotate/shortcuts.ts",
+        "src/features/crop-rotate/shortcuts.test.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07-2.md"
     }
   ]
 }
