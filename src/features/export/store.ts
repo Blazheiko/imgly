@@ -179,6 +179,10 @@ export const useExportStore = defineStore('export', () => {
   /** The editor is reading an image or waits on the replace dialog: no export can start then. */
   const editorBusy = computed(() => editor.phase === 'reading' || editor.phase === 'confirming')
 
+  // The editor knows the panel is open, so another feature's shortcut can stay silent under it
+  // without importing export (crop-rotate AC-20).
+  watch(panelOpen, (open) => editor.setActivePanel(open ? 'export' : null), { flush: 'sync' })
+
   // The replace dialog is modal: the panel never stays open beneath it.
   watch(
     () => editor.phase,
@@ -303,7 +307,7 @@ export const useExportStore = defineStore('export', () => {
   /** Opens the panel for the open Work, seeding its choices the first time (AC-19). */
   function openPanel(): boolean {
     const work = editor.work
-    if (!work || editorBusy.value) return false
+    if (!work || editorBusy.value || editor.activeTool) return false
     if (!current.value) {
       choice.value = {
         workId: work.id,

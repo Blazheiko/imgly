@@ -15,15 +15,19 @@ export interface SaveShortcutActions {
    * reading an image or showing the replace dialog.
    */
   exporting(): boolean
+  /** An editing tool is open, so its unapplied Draft must not be exported (crop-rotate AC-16). */
+  toolOpen(): boolean
   panelOpen(): boolean
   confirm(): void
   openPanel(): void
   notifyNoImage(): void
+  notifyToolOpen(): void
 }
 
 /**
  * The Ctrl/Cmd+S rows of screens.md §Keyboard (AC-17). The browser's "Save page" never opens:
- * no image → the hint notice; exporting → nothing; panel open → confirm; else open the panel.
+ * no image → the hint notice; exporting → nothing; a tool open → its hint (crop-rotate AC-16);
+ * panel open → confirm; else open the panel.
  */
 export function createSaveShortcut(actions: SaveShortcutActions): (event: KeyboardEvent) => void {
   return (event) => {
@@ -31,6 +35,7 @@ export function createSaveShortcut(actions: SaveShortcutActions): (event: Keyboa
     event.preventDefault()
     if (!actions.hasWork()) actions.notifyNoImage()
     else if (actions.exporting()) return
+    else if (actions.toolOpen()) actions.notifyToolOpen()
     else if (actions.panelOpen()) actions.confirm()
     else actions.openPanel()
   }

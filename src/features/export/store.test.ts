@@ -784,3 +784,32 @@ describe('export store — the applied Geometry (crop-rotate AC-14)', () => {
     })
   })
 })
+
+describe('export store — tools and the active panel (crop-rotate AC-16, AC-20)', () => {
+  let editor: ReturnType<typeof useEditorStore>
+  let store: ReturnType<typeof useExportStore>
+
+  beforeEach(async () => {
+    setActivePinia(createPinia())
+    editor = useEditorStore()
+    store = useExportStore()
+    store.setFormatChecker(async () => ALL)
+    store.setSaveDialogProbe(() => true)
+    openWork(editor)
+    await flush()
+  })
+
+  it('reports the open panel to the editor', () => {
+    expect(store.openPanel()).toBe(true)
+    expect(editor.activePanel).toBe('export')
+    store.closePanel()
+    expect(editor.activePanel).toBeNull()
+  })
+
+  it('refuses to open the panel while a tool is open', () => {
+    editor.openTool('crop-rotate')
+    expect(store.openPanel()).toBe(false)
+    expect(store.panelOpen).toBe(false)
+    expect(editor.activePanel).toBeNull()
+  })
+})

@@ -208,4 +208,46 @@ describe('ExportAction and Ctrl/Cmd+S (AC-11, AC-17)', () => {
     expect(pressSave().defaultPrevented).toBe(false)
     wrapper = mount(ExportAction)
   })
+
+  describe('while a tool is open (crop-rotate AC-16)', () => {
+    const hint = 'Apply or cancel the crop first, then export.'
+
+    beforeEach(async () => {
+      openWork()
+      await flush()
+      expect(editor.openTool('crop-rotate')).toEqual({ ok: true })
+      await flush()
+    })
+
+    it('is unavailable but focusable, with the hint as its description', () => {
+      const button = exportButton()
+      expect(button.attributes('aria-disabled')).toBe('true')
+      const described = button.attributes('aria-describedby')!
+      expect(document.getElementById(described)?.textContent).toBe(hint)
+    })
+
+    it('shows the hint on activation and never starts an export', async () => {
+      await exportButton().trigger('click')
+      await flush()
+      expect(store.panelOpen).toBe(false)
+      expect(editor.phase).toBe('idle')
+      expect(texts()).toContain(hint)
+    })
+
+    it('turns Ctrl/Cmd+S into the hint and never opens "Save page"', async () => {
+      const event = pressSave({ metaKey: true })
+      await flush()
+      expect(event.defaultPrevented).toBe(true)
+      expect(store.panelOpen).toBe(false)
+      expect(texts()).toContain(hint)
+    })
+
+    it('is available again once the tool closes', async () => {
+      editor.closeTool()
+      await flush()
+      expect(exportButton().attributes('aria-disabled')).toBeUndefined()
+      await exportButton().trigger('click')
+      expect(store.panelOpen).toBe(true)
+    })
+  })
 })

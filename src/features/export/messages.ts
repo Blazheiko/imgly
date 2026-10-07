@@ -47,6 +47,11 @@ export function infoNoImage(): string {
   return 'Open an image first to export it.'
 }
 
+/** Export or Ctrl/Cmd+S while an editing tool is open (crop-rotate AC-16). */
+export function infoToolOpen(): string {
+  return 'Apply or cancel the crop first, then export.'
+}
+
 const FAILURES: Partial<Record<AppError['code'], (details: Record<string, unknown>) => string>> = {
   EXPORT_FAILED: () => 'The export failed. Try again, or choose a smaller size.',
   EXPORT_FORMAT_MISMATCH: ({ asked }) =>
