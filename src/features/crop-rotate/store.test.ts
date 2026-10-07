@@ -113,7 +113,7 @@ describe('crop-rotate store (ADR-0003)', () => {
       expect(Math.abs(height - (width * 9) / 16)).toBeLessThanOrEqual(0.5)
     })
 
-    it('keeps the frame’s own proportion when it does not match the remembered lock (AC-06)', () => {
+    it('reopens with the frame fitted to a remembered lock the Crop does not have (AC-08, AC-12)', () => {
       tool.cancel()
       openWork(editor, { width: 4096, height: 3072 })
       tool.open()
@@ -121,10 +121,21 @@ describe('crop-rotate store (ADR-0003)', () => {
       tool.cancel()
       tool.open()
       expect(tool.proportion).toEqual({ kind: '1:1', orientation: 'landscape' })
-      expect(tool.draft!.crop).toMatchObject({ width: 4096, height: 3072 })
+      expect(tool.draft!.crop).toEqual({ x: 512, y: 0, width: 3072, height: 3072 })
+      expect(editor.previewGeometry).toEqual(tool.draft)
       tool.setAngle(5)
       const { width, height } = tool.draft!.crop
-      expect(Math.abs(height - (width * 3) / 4)).toBeLessThanOrEqual(0.5)
+      expect(width).toBe(height)
+
+      // A Crop that already has the lock reopens exactly where it is.
+      tool.cancel()
+      tool.open()
+      tool.chooseProportion({ kind: '4:3', orientation: 'landscape' })
+      tool.resizeBy('se', -1000, -1000)
+      const applied = tool.draft!
+      tool.apply()
+      tool.open()
+      expect(tool.draft).toEqual(applied)
     })
 
     it('keeps an off-centre frame still on screen while straightening, and a Flip at an angle leaves the View (AC-04, AC-05)', () => {

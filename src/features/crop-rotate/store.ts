@@ -74,7 +74,10 @@ export const useCropRotateStore = defineStore('crop-rotate', () => {
     editor.setPreviewGeometry(next, { angleStep })
   }
 
-  /** Opens the tool with the Work's Geometry as the Draft, or answers why it may not open. */
+  /**
+   * Opens the tool with the Work's Geometry as the Draft, its frame fitted to a remembered
+   * proportion it does not have (AC-08, AC-12), or answers why it may not open.
+   */
   function open() {
     const result = editor.openTool('crop-rotate')
     if (!result.ok) return result
@@ -82,6 +85,8 @@ export const useCropRotateStore = defineStore('crop-rotate', () => {
     draft.value = work.geometry
     proportion.value = remembered.get(work.id) ?? FREE
     pending.value = { ...NO_PENDING }
+    const fitted = applyProportion(work.geometry, proportion.value, original())
+    if (fitted !== work.geometry) update(fitted)
     return result
   }
 

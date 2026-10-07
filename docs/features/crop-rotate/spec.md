@@ -174,7 +174,7 @@ Traceability and deliberate compromises:
 
 **Given** a Crop was applied earlier to the open Work
 **When** the Editor opens the "Crop and rotate" tool again
-**Then** the tool shows the whole image with the current Rotation, Flip and Straighten angle, and the crop frame where the Crop is, so the Editor can widen it. Widening the frame back to the whole image and applying gives exactly the pixels the Work had before the Crop, because the Geometry never removes pixels from the Original. Reset in the tool returns to no Geometry (no Rotation, no Flip, a Straighten angle of 0° and the Crop covering the whole image), sets the proportion to Free, and takes effect only on Apply
+**Then** the tool shows the whole image with the current Rotation, Flip and Straighten angle, and the crop frame where the Crop is, so the Editor can widen it. With a remembered proportion (AC-08) the Crop does not have, the frame opens as the largest frame of that proportion inside the Crop, centred on it, as if it had just been chosen. Widening the frame back to the whole image and applying gives exactly the pixels the Work had before the Crop, because the Geometry never removes pixels from the Original. Reset in the tool returns to no Geometry (no Rotation, no Flip, a Straighten angle of 0° and the Crop covering the whole image), sets the proportion to Free, and takes effect only on Apply
 
 ### AC-13 (US-07) — cross-context
 
