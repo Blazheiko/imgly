@@ -106,3 +106,40 @@ export async function decodePng(page: Page, png: Buffer) {
     return { width: bitmap.width, height: bitmap.height, data }
   }, png.toString('base64'))
 }
+
+export const tool = (page: Page) => page.getByTestId('crop-rotate-tool')
+export const action = (page: Page) => page.getByTestId('crop-rotate-action')
+export const frame = (page: Page) => page.getByTestId('crop-frame')
+export const statusSize = (page: Page) => page.getByTestId('dimensions-readout')
+
+/** Opens the tool with its action and waits for the frame to take focus. */
+export async function openTool(page: Page) {
+  await action(page).click()
+  await expect(tool(page)).toBeVisible()
+  await expect(frame(page)).toBeFocused()
+}
+
+/** Drops a file built from `bytes` onto the window, as a real drag and drop would. */
+export async function dropBytes(page: Page, name: string, bytes: Buffer, type: string) {
+  await page.evaluate(
+    ({ name, base64, type }) => {
+      const data = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
+      const dt = new DataTransfer()
+      dt.items.add(new File([data], name, { type }))
+      for (const kind of ['dragenter', 'dragover', 'drop']) {
+        document.body.dispatchEvent(
+          new DragEvent(kind, { bubbles: true, cancelable: true, dataTransfer: dt }),
+        )
+      }
+    },
+    { name, base64: bytes.toString('base64'), type },
+  )
+}
+
+/** A screenshot of a small page area, decoded as straight RGBA. */
+export async function pixelsAt(
+  page: Page,
+  clip: { x: number; y: number; width: number; height: number },
+) {
+  return decodePng(page, await page.screenshot({ clip }))
+}

@@ -23,7 +23,7 @@
 | T16 | Build CropRotateControls: rotate and flip buttons, straighten slider and field, proportion, width and height, Reset / Cancel / Apply | ui | Blazheiko | M | T12, T13 | done |
 | T17 | Mount CropRotateTool in a new EditorView tool slot, with Enter to apply, Escape to cancel, focus handling and fit-View | wiring | Blazheiko | M | T9, T14, T15, T16 | done |
 | T18 | Add the e2e Geometry fidelity suite: 16 Rotation × Flip, straightened vs Preview, opacity, nothing outside the Crop, lossless round trip | tests | Blazheiko | M | T9, T10 | done |
-| T19 | Add the e2e tool-flow suite: three-action paths, export refusals, replace while open, View fit and frame alignment | tests | Blazheiko | M | T11, T17 | todo |
+| T19 | Add the e2e tool-flow suite: three-action paths, export refusals, replace while open, View fit and frame alignment | tests | Blazheiko | M | T11, T17 | done |
 | T20 | Add the @perf suite: drag and slider frame interval, action-to-Preview and tool-ready times, memory after 50 Applies, export time with a Geometry | tests | Blazheiko | S | T18, T19 | todo |
 
 **Total:** 20 tasks, ~18.5 person-days (S = ½ day, M = 1 day).

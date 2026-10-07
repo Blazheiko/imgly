@@ -76,6 +76,8 @@ function onKeydown(event: KeyboardEvent, from: number) {
 <style scoped>
 .segmented__group {
   display: flex;
+  /* Wraps rather than overflow a narrow panel (crop-rotate's six proportions). */
+  flex-wrap: wrap;
   gap: var(--space-1);
   padding: var(--space-1);
   border: 1px solid var(--color-border);
