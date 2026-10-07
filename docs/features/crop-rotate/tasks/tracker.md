@@ -39,6 +39,6 @@
 | T32 | Let Space start space-pan while the Straighten slider has focus (re-review N2) | wiring | Blazheiko | S | — | done |
 | T33 | Straighten keeps the frame's own proportion unless it already matches the locked one (re-review N3) | domain | Blazheiko | S | T31 | done |
 | T34 | Make the keyboard-only e2e paths real and stop the test plan overclaiming (re-review N4, N5, N6) | tests | Blazheiko | S | T32 | done |
-| T35 | Enter on an input of type button, submit or reset presses only that input (re-review N7) | ui | Blazheiko | S | — | todo |
+| T35 | Enter on an input of type button, submit or reset presses only that input (re-review N7) | ui | Blazheiko | S | — | done |
 
 **Total:** 35 tasks (T21–T30 from review 2026-10-07, T31–T35 from its re-review), ~26.5 person-days (S = ½ day, M = 1 day).

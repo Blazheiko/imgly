@@ -122,6 +122,16 @@ describe('Enter and Escape inside the tool (AC-20)', () => {
     expect(actions.apply).toHaveBeenCalledTimes(3)
   })
 
+  it('Enter on an input of type button, submit or reset presses only that input', () => {
+    const { actions, handle } = setup()
+    for (const type of ['button', 'submit', 'reset']) {
+      const input = document.createElement('input')
+      input.type = type
+      handle(key({ key: 'Enter', target: input }))
+    }
+    expect(actions.apply).not.toHaveBeenCalled()
+  })
+
   it('does nothing while another modal surface owns the keys', () => {
     const { actions, handle } = setup(true)
     handle(key({ key: 'Escape' }))

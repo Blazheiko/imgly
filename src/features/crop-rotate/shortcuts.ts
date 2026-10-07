@@ -58,6 +58,10 @@ export interface ToolKeyActions {
   cancel(): void
 }
 
+/** What Enter presses itself, so it must not apply the tool as well. */
+const PRESSED_BY_ENTER =
+  'button, a[href], input[type="button"], input[type="submit"], input[type="reset"]'
+
 /**
  * Enter and Escape inside the open tool (AC-20): Escape cancels from anywhere, a field included;
  * Enter applies the tool except on a button (which it presses) or in a field (which applies only
@@ -74,7 +78,7 @@ export function createToolKeys(actions: ToolKeyActions): (event: KeyboardEvent) 
     if (event.key !== 'Enter') return
     const target = event.target
     if (isTextTarget(target)) return
-    if (target instanceof Element && target.closest('button, a[href]')) return
+    if (target instanceof Element && target.closest(PRESSED_BY_ENTER)) return
     event.preventDefault()
     actions.apply()
   }
