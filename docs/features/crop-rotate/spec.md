@@ -138,7 +138,7 @@ Traceability and deliberate compromises:
 
 **Given** the "Crop and rotate" tool is open on any image
 **When** the Editor sets any Straighten angle
-**Then** the crop frame shrinks automatically around its own centre, keeping its proportions, to the largest size that lies fully inside the turned image, so no empty corner can enter the Work. Its width and height round down to whole pixels. The centre stays where it was; it moves only when the centre itself would fall outside the turned image, and then to the nearest point inside it. When the angle moves back towards 0°, the frame does not grow back by itself; the Editor can widen it again. When the Original has no transparent pixels, every pixel of the Work stays fully opaque, in the Preview and in every Export
+**Then** the crop frame shrinks automatically around its own centre, keeping its proportions, to the largest size that lies fully inside the turned image, so no empty corner can enter the Work. Its long side rounds down to whole pixels, and its short side follows AC-08's rule (the long side divided by the proportion, an exact half pixel up), which takes precedence so the proportion holds within 0.5 px; the frame still lies fully inside the turned image. The centre stays where it was; it moves only when the centre itself would fall outside the turned image, and then to the nearest point inside it. When the angle moves back towards 0°, the frame does not grow back by itself; the Editor can widen it again. When the Original has no transparent pixels, every pixel of the Work stays fully opaque, in the Preview and in every Export
 
 ### AC-07 (US-04) — error
 

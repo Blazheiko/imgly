@@ -33,7 +33,7 @@
 | T26 | Apply with Enter on the Straighten slider, and make C layout-independent and ignore repeats (review R6) | ui | Blazheiko | S | — | done |
 | T27 | Refuse to open a tool while the export panel or the replace dialog is open (review R7) | app | Blazheiko | S | T26 | done |
 | T28 | Run the GPU crop transparency check only while the export panel is open (review R9) | app | Blazheiko | S | — | done |
-| T29 | Note in AC-06 that AC-08 short-side rounding takes precedence (review R10) | docs | Blazheiko | S | — | todo |
+| T29 | Note in AC-06 that AC-08 short-side rounding takes precedence (review R10) | docs | Blazheiko | S | — | done |
 | T30 | Align the test plan with the tests that exist and add the keyboard-only AC-20 e2e test (review R11) | tests | Blazheiko | S | T21, T22, T26 | todo |
 
 **Total:** 30 tasks (T21–T30 from review 2026-10-07), ~24 person-days (S = ½ day, M = 1 day).
