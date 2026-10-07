@@ -63,6 +63,21 @@ describe('the C shortcut (AC-18, AC-20)', () => {
     }
   })
 
+  it('opens from the C key on a non-Latin layout, but not from another letter there', () => {
+    const { actions, handle } = setup()
+    handle(key({ key: 'с', code: 'KeyC' })) // Cyrillic es on the C key
+    handle(key({ key: 'j', code: 'KeyC' })) // Dvorak: the C key types j
+    expect(actions.open).toHaveBeenCalledTimes(1)
+  })
+
+  it('ignores a held key’s repeats', () => {
+    const { actions, handle } = setup({ hasWork: false })
+    handle(key())
+    handle(key({ repeat: true }))
+    handle(key({ repeat: true }))
+    expect(actions.notifyNoImage).toHaveBeenCalledTimes(1)
+  })
+
   it('ignores c with Ctrl, Cmd or Alt, and other keys', () => {
     const { actions, handle } = setup()
     handle(key({ ctrlKey: true }))
@@ -91,6 +106,16 @@ describe('Enter and Escape inside the tool (AC-20)', () => {
     handle(key({ key: 'Enter', target: document.createElement('button') }))
     handle(key({ key: 'Enter', target: document.createElement('input') }))
     expect(actions.apply).toHaveBeenCalledTimes(1)
+  })
+
+  it('Enter on the Straighten slider, a checkbox or a radio applies the tool', () => {
+    const { actions, handle } = setup()
+    for (const type of ['range', 'checkbox', 'radio']) {
+      const input = document.createElement('input')
+      input.type = type
+      handle(key({ key: 'Enter', target: input }))
+    }
+    expect(actions.apply).toHaveBeenCalledTimes(3)
   })
 
   it('does nothing while another modal surface owns the keys', () => {

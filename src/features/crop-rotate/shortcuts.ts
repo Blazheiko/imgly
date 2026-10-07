@@ -9,11 +9,14 @@ export interface OpenShortcutActions {
   notifyNoImage(): void
 }
 
+/** Inputs that take no typed text, so Enter on them still applies the tool (AC-20). */
+const NON_TEXT_INPUTS = new Set(['range', 'checkbox', 'radio', 'button', 'submit', 'reset'])
+
 /** Whether keys typed at `target` belong to a text field. */
 export function isTextTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
   return (
-    target instanceof HTMLInputElement ||
+    (target instanceof HTMLInputElement && !NON_TEXT_INPUTS.has(target.type)) ||
     target instanceof HTMLTextAreaElement ||
     target instanceof HTMLSelectElement ||
     target.isContentEditable
@@ -21,13 +24,22 @@ export function isTextTarget(target: EventTarget | null): boolean {
 }
 
 /**
+ * The C key: the letter c, or the C key itself on a layout that types no Latin letter there (a
+ * Cyrillic layout types с). A Latin layout that types another letter on that key keeps it.
+ */
+function isC(event: KeyboardEvent): boolean {
+  const key = event.key.toLowerCase()
+  return key === 'c' || (event.code === 'KeyC' && !/^[a-z]$/.test(key))
+}
+
+/**
  * The C rows of screens.md §Keyboard: C (no Ctrl, Cmd or Alt) opens the tool, or with no image
- * shows the hint (AC-18). Silent during an export, under the export panel, with the tool open or
- * while a text field has focus (AC-15, AC-20).
+ * shows the hint (AC-18). Silent for a held key's repeats, during an export, under the export
+ * panel, with the tool open or while a text field has focus (AC-15, AC-20).
  */
 export function createOpenShortcut(actions: OpenShortcutActions): (event: KeyboardEvent) => void {
   return (event) => {
-    if (event.key.toLowerCase() !== 'c' || event.ctrlKey || event.metaKey || event.altKey) return
+    if (!isC(event) || event.repeat || event.ctrlKey || event.metaKey || event.altKey) return
     if (isTextTarget(event.target)) return
     if (actions.exporting() || actions.panelOpen() || actions.toolOpen()) return
     if (!actions.hasWork()) actions.notifyNoImage()
