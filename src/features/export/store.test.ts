@@ -1,10 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { nextTick } from 'vue'
-import { appError, createWork, err, ok, type AppError, type ImageFormat, type Result } from '@/core'
+import {
+  appError,
+  createWork,
+  err,
+  identityGeometry,
+  ok,
+  type AppError,
+  type Geometry,
+  type ImageFormat,
+  type Result,
+} from '@/core'
 import { useEditorStore } from '@/features/editor'
 import type { SaveFileHandle } from '@/infra/platform'
-import type { ExportRequest, FormatAvailabilityCheck } from '@/render'
+import type { AlphaRequest, ExportRequest, FormatAvailabilityCheck } from '@/render'
 import { bitmapLedger, useNotices } from '@/shared'
 import { useExportStore, type SavePlatform } from './store'
 
@@ -233,11 +243,11 @@ describe('export store — session memory (AC-19)', () => {
   it('snaps a remembered long side larger than a smaller Work (AC-06)', async () => {
     store.setLongSide(4000)
     expect(store.dimensions).toEqual({ width: 4000, height: 3000 })
-    // Same Work id, smaller Original (e.g. after a later crop): the choice snaps to full size.
-    editor.work = {
-      ...editor.work!,
-      original: { ...editor.work!.original, width: 2000, height: 1500 },
-    }
+    // Same Work, a smaller size after a Crop (crop-rotate AC-14): the choice snaps to full size.
+    editor.applyGeometry({
+      ...editor.work!.geometry,
+      crop: { x: 0, y: 0, width: 2000, height: 1500 },
+    })
     expect(store.dimensions).toEqual({ width: 2000, height: 1500 })
   })
 
@@ -618,5 +628,159 @@ describe('export store — running an export (AC-01, AC-01b, AC-02, AC-09–AC-1
     await store.confirm()
     expect(copies[0]!.close).toHaveBeenCalled()
     expect(bitmapLedger.received - before.received).toBe(bitmapLedger.closed - before.closed)
+  })
+})
+
+describe('export store — the applied Geometry (crop-rotate AC-14)', () => {
+  let editor: ReturnType<typeof useEditorStore>
+  let store: ReturnType<typeof useExportStore>
+  const original = { width: 4096, height: 3072 }
+  const cropTo = (width: number, height: number, over: Partial<Geometry> = {}): Geometry => ({
+    ...identityGeometry(original),
+    ...over,
+    crop: { x: 0, y: 0, width, height },
+  })
+
+  beforeEach(async () => {
+    setActivePinia(createPinia())
+    editor = useEditorStore()
+    store = useExportStore()
+    store.setFormatChecker(async () => ALL)
+    store.setSaveDialogProbe(() => true)
+    store.setBitmapCopier(async (source) => ({ ...source, close: vi.fn() }) as ImageBitmap)
+  })
+
+  it('counts the full size and the presets from the Crop', async () => {
+    openWork(editor)
+    await flush()
+    editor.applyGeometry(cropTo(1000, 800))
+    store.openPanel()
+    expect(store.dimensions).toEqual({ width: 1000, height: 800 })
+    store.selectPreset(50)
+    expect(store.dimensions).toEqual({ width: 500, height: 400 })
+  })
+
+  it('snaps a remembered long side to a tighter Crop and brings it back when widened', async () => {
+    openWork(editor)
+    await flush()
+    store.openPanel()
+    store.setLongSide(3000)
+    editor.applyGeometry(cropTo(1000, 800))
+    expect(store.longSide).toBe(1000)
+    editor.applyGeometry(cropTo(4000, 2000))
+    expect(store.longSide).toBe(3000)
+  })
+
+  it('sends the Work’s Geometry with the export request', async () => {
+    const exporter = vi.fn<(r: ExportRequest) => Promise<Result<Blob, AppError>>>(async () =>
+      ok(new Blob()),
+    )
+    store.setExporter(exporter)
+    store.setSavePlatform({
+      pickSaveTarget: vi.fn(async () => ok({ kind: 'cancelled' as const })),
+    })
+    openWork(editor)
+    await flush()
+    const g = cropTo(3072, 4096, { rotation: 90 })
+    editor.applyGeometry(g)
+    store.openPanel()
+    await store.confirm()
+    expect(exporter.mock.calls[0]![0]).toMatchObject({ width: 3072, height: 4096, geometry: g })
+  })
+
+  describe('transparency hint (crop-rotate ADR-0004)', () => {
+    let checks: { request: AlphaRequest; answer: (r: Result<boolean, AppError>) => void }[]
+
+    beforeEach(() => {
+      checks = []
+      store.setTransparencyChecker(
+        (request) =>
+          new Promise((resolve) => {
+            checks.push({ request, answer: resolve })
+          }),
+      )
+    })
+
+    async function jpegPanel(hasTransparency: boolean) {
+      openWork(editor, { hasTransparency })
+      await flush()
+      store.openPanel()
+      store.selectFormat('jpeg')
+      await flush()
+    }
+
+    it('needs no check for an opaque Original, whatever the Geometry', async () => {
+      await jpegPanel(false)
+      editor.applyGeometry(cropTo(10, 10))
+      await flush()
+      expect(checks).toHaveLength(0)
+      expect(store.transparencyHint).toBeNull()
+    })
+
+    it('needs no check for the identity Geometry: the Original decides', async () => {
+      await jpegPanel(true)
+      expect(checks).toHaveLength(0)
+      expect(store.transparencyHint).not.toBeNull()
+    })
+
+    it('is hidden while the check runs and follows its answer', async () => {
+      await jpegPanel(true)
+      const g = cropTo(10, 10)
+      editor.applyGeometry(g)
+      await flush()
+      expect(checks).toHaveLength(1)
+      expect(checks[0]!.request.geometry).toEqual(g)
+      expect(store.transparencyHint).toBeNull()
+
+      checks[0]!.answer(ok(false))
+      await flush()
+      expect(store.transparencyHint).toBeNull()
+
+      editor.applyGeometry(cropTo(20, 20))
+      await flush()
+      checks[1]!.answer(ok(true))
+      await flush()
+      expect(store.transparencyHint).not.toBeNull()
+    })
+
+    it('shows the hint when the check fails (the safe side)', async () => {
+      await jpegPanel(true)
+      editor.applyGeometry(cropTo(10, 10))
+      await flush()
+      checks[0]!.answer(err(appError('EXPORT_FAILED')))
+      await flush()
+      expect(store.transparencyHint).not.toBeNull()
+    })
+
+    it('caches by Work and revision, and ignores a stale answer', async () => {
+      await jpegPanel(true)
+      editor.applyGeometry(cropTo(10, 10))
+      await flush()
+      editor.applyGeometry(cropTo(20, 20))
+      await flush()
+      expect(checks).toHaveLength(2)
+      checks[0]!.answer(ok(true)) // stale: for the previous revision
+      await flush()
+      expect(store.transparencyHint).toBeNull()
+      checks[1]!.answer(ok(false))
+      await flush()
+      expect(store.transparencyHint).toBeNull()
+
+      store.selectFormat('png')
+      await flush()
+      store.selectFormat('jpeg')
+      await flush()
+      expect(checks).toHaveLength(2) // answered for this revision already
+    })
+
+    it('runs no check while PNG is chosen', async () => {
+      openWork(editor, { hasTransparency: true })
+      await flush()
+      store.openPanel()
+      store.selectFormat('png')
+      editor.applyGeometry(cropTo(10, 10))
+      await flush()
+      expect(checks).toHaveLength(0)
+    })
   })
 })

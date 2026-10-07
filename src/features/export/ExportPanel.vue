@@ -6,6 +6,7 @@ import {
   SIZE_PRESETS,
   type ExportFormat,
   type Size,
+  workSize as workSizeOf,
 } from '@/core'
 import { useEditorStore } from '@/features/editor'
 import {
@@ -45,10 +46,9 @@ const presetOptions = computed(() =>
   SIZE_PRESETS.map((percent) => ({ value: percent, label: `${percent}%`, disabled: busy.value })),
 )
 
-const workSize = computed<Size>(() => {
-  const original = editor.work?.original
-  return { width: original?.width ?? 1, height: original?.height ?? 1 }
-})
+const workSize = computed<Size>(() =>
+  editor.work ? workSizeOf(editor.work) : { width: 1, height: 1 },
+)
 
 const normalizeSide = (raw: string, previous: number) =>
   normalizeLongSide(raw, previous, workSize.value)
