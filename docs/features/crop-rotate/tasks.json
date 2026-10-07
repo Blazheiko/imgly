@@ -769,6 +769,24 @@
         "src/features/crop-rotate/store.test.ts"
       ],
       "source": "docs/features/crop-rotate/_review/review-2026-10-07-5.md"
+    },
+    {
+      "id": "T40",
+      "title": "Close the AC-12 test gaps: Reset clears flipV, a cancelled Reset keeps the remembered proportion, Reset ends the angle interaction, reopening shows Flip and Straighten (re-review-5 J1-J4)",
+      "layer": "tests",
+      "deps": [
+        "T39"
+      ],
+      "acs": [
+        "AC-12",
+        "AC-05",
+        "AC-08"
+      ],
+      "dod": "(J1) the Reset test starts from a Work Geometry with rotation 90, flipH, flipV, a valid straighten and a Crop, and its toEqual(identityGeometry) fails when reset() keeps flipV; (J2) after 16:9, Reset, Cancel and reopen, tool.proportion is 16:9 landscape, failing when reset() remembers Free; (J3) after Reset at an angle, setAngle(50) gives the same Draft as a fresh open plus setAngle(50), failing when reset() skips update() and keeps the anchor; (J4) the open test's applied Geometry has flipH, flipV and a valid straighten, failing when open() or openTool drops either",
+      "files_hint": [
+        "src/features/crop-rotate/store.test.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07-6.md"
     }
   ]
 }

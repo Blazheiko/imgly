@@ -44,5 +44,6 @@
 | T37 | Pin the global slider exemption: Space pans and the zoom keys zoom from the export Quality slider (re-review-2 F2) | tests | Blazheiko | S | — | done |
 | T38 | Pin that Reset at an angle offsets only the turned bounds through the crop-rotate store (re-review-3 G1) | tests | Blazheiko | S | T36 | done |
 | T39 | Pin that Reset at an angle returns the Draft to no Geometry, Straighten 0° included (re-review-4 H1) | tests | Blazheiko | S | T38 | done |
+| T40 | Close the AC-12 test gaps: Reset clears flipV, a cancelled Reset keeps the remembered proportion, Reset ends the angle interaction, reopening shows Flip and Straighten (re-review-5 J1–J4) | tests | Blazheiko | S | T39 | todo |
 
-**Total:** 39 tasks (T21–T30 from review 2026-10-07, T31–T35 from its re-review, T36–T37 from the round-3 re-review, T38 from round 4, T39 from round 5), ~28.5 person-days (S = ½ day, M = 1 day).
+**Total:** 40 tasks (T21–T30 from review 2026-10-07, T31–T35 from its re-review, T36–T37 from the round-3 re-review, T38 from round 4, T39 from round 5, T40 from round 6), ~29 person-days (S = ½ day, M = 1 day).
