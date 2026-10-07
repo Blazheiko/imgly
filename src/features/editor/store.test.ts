@@ -592,6 +592,16 @@ describe('editor store — tool slot (crop-rotate ADR-0003)', () => {
     expect(editor.activeTool).toBeNull()
   })
 
+  it('refuses while another feature’s panel or the replace dialog is open (AC-16, AC-20)', async () => {
+    await open()
+    editor.setActivePanel('export')
+    expect(editor.openTool('crop-rotate')).toEqual({ ok: false, reason: 'panel-open' })
+    editor.setActivePanel(null)
+    editor.phase = 'confirming'
+    expect(editor.openTool('crop-rotate')).toEqual({ ok: false, reason: 'confirming' })
+    expect(editor.activeTool).toBeNull()
+  })
+
   it('refuses a second tool while one is open', async () => {
     await open()
     expect(editor.openTool('crop-rotate')).toEqual({ ok: true })

@@ -2,13 +2,16 @@ import { describe, expect, it, vi } from 'vitest'
 import { createOpenShortcut, createToolKeys, type OpenShortcutActions } from './shortcuts'
 
 function setup(
-  state: Partial<Record<'hasWork' | 'exporting' | 'panelOpen' | 'toolOpen', boolean>> = {},
+  state: Partial<
+    Record<'hasWork' | 'exporting' | 'panelOpen' | 'toolOpen' | 'confirming', boolean>
+  > = {},
 ) {
   const actions: OpenShortcutActions = {
     hasWork: () => state.hasWork ?? true,
     exporting: () => state.exporting ?? false,
     panelOpen: () => state.panelOpen ?? false,
     toolOpen: () => state.toolOpen ?? false,
+    confirming: () => state.confirming ?? false,
     open: vi.fn(),
     notifyNoImage: vi.fn(),
   }
@@ -40,6 +43,7 @@ describe('the C shortcut (AC-18, AC-20)', () => {
     ['an export is running (AC-15)', { exporting: true }],
     ['the export panel is open', { panelOpen: true }],
     ['the tool is already open', { toolOpen: true }],
+    ['the replace dialog is open', { confirming: true }],
   ])('does nothing while %s', (_why, state) => {
     const { actions, handle } = setup(state)
     const event = key()

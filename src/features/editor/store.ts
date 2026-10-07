@@ -70,7 +70,7 @@ export type EditorPhase = 'idle' | 'reading' | 'confirming' | 'exporting'
 export type ToolId = 'crop-rotate'
 
 /** Why a tool may not open: no image (AC-18), an export running (AC-15), or one already open. */
-export type ToolRefusal = 'no-work' | 'exporting' | 'tool-open'
+export type ToolRefusal = 'no-work' | 'exporting' | 'tool-open' | 'panel-open' | 'confirming'
 
 /** A panel another feature has open, so a shortcut can stay silent under it (crop-rotate AC-20). */
 export type PanelId = 'export'
@@ -182,12 +182,15 @@ export const useEditorStore = defineStore('editor', () => {
 
   /**
    * Opens a tool over the Work: the Preview then shows the whole turned image, fitted (AC-19).
-   * Refused, not queued, with no Work, during an export or while a tool is open (AC-15, AC-18).
+   * Refused, not queued, with no Work, during an export, while a tool is open, or under another
+   * feature's panel or the replace dialog (AC-15, AC-16, AC-18, AC-20).
    */
   function openTool(id: ToolId): { ok: true } | { ok: false; reason: ToolRefusal } {
     if (!work.value) return { ok: false, reason: 'no-work' }
     if (phase.value === 'exporting') return { ok: false, reason: 'exporting' }
     if (activeTool.value) return { ok: false, reason: 'tool-open' }
+    if (activePanel.value) return { ok: false, reason: 'panel-open' }
+    if (phase.value === 'confirming') return { ok: false, reason: 'confirming' }
     activeTool.value = id
     previewGeometry.value = work.value.geometry
     fitIfSized()

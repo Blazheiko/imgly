@@ -30,6 +30,7 @@ const onKeydown = createOpenShortcut({
   exporting: () => exporting.value,
   panelOpen: () => editor.activePanel !== null,
   toolOpen: () => editor.activeTool !== null,
+  confirming: () => editor.phase === 'confirming',
   open: () => void tool.open(),
   notifyNoImage,
 })

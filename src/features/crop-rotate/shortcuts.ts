@@ -5,6 +5,8 @@ export interface OpenShortcutActions {
   /** Another feature's panel is open (`editor.activePanel`). */
   panelOpen(): boolean
   toolOpen(): boolean
+  /** The replace dialog is open over the Work. */
+  confirming(): boolean
   open(): void
   notifyNoImage(): void
 }
@@ -35,13 +37,15 @@ function isC(event: KeyboardEvent): boolean {
 /**
  * The C rows of screens.md §Keyboard: C (no Ctrl, Cmd or Alt) opens the tool, or with no image
  * shows the hint (AC-18). Silent for a held key's repeats, during an export, under the export
- * panel, with the tool open or while a text field has focus (AC-15, AC-20).
+ * panel or the replace dialog, with the tool open or while a text field has focus (AC-15, AC-20).
  */
 export function createOpenShortcut(actions: OpenShortcutActions): (event: KeyboardEvent) => void {
   return (event) => {
     if (!isC(event) || event.repeat || event.ctrlKey || event.metaKey || event.altKey) return
     if (isTextTarget(event.target)) return
-    if (actions.exporting() || actions.panelOpen() || actions.toolOpen()) return
+    if (actions.exporting() || actions.panelOpen() || actions.toolOpen() || actions.confirming()) {
+      return
+    }
     if (!actions.hasWork()) actions.notifyNoImage()
     else actions.open()
   }
