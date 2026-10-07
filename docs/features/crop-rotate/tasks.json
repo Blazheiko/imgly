@@ -706,6 +706,37 @@
         "src/features/crop-rotate/shortcuts.test.ts"
       ],
       "source": "docs/features/crop-rotate/_review/review-2026-10-07-2.md"
+    },
+    {
+      "id": "T36",
+      "title": "Pin that straightening passes angleStep to the View, and fix the NON_TEXT_INPUTS comment (re-review-2 F1, F3)",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-04",
+        "AC-05",
+        "AC-12"
+      ],
+      "dod": "A crop-rotate/store.test.ts case with an off-centre frame (e.g. 4000x2000, resizeBy('se',-2800,-1200), moveBy(1500,300)) shows the frame's on-screen centre stays put across setAngle and editor.view stays put across a Flip at an angle; the case fails when update() stops passing { angleStep }; the shortcuts.ts:14 comment no longer claims Enter applies on button/submit/reset",
+      "files_hint": [
+        "src/features/crop-rotate/store.test.ts",
+        "src/features/crop-rotate/shortcuts.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07-3.md"
+    },
+    {
+      "id": "T37",
+      "title": "Pin the global slider exemption: Space pans and the zoom keys zoom from the export Quality slider (re-review-2 F2)",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-19"
+      ],
+      "dod": "keyboard.test.ts cases show that with the export panel's Quality slider (input[type=range] inside role=dialog) focused, Space starts space-pan and '-' zooms out, consistent with export screens.md:26; existing text-field and button cases still pass",
+      "files_hint": [
+        "src/app/keyboard.test.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07-3.md"
     }
   ]
 }
