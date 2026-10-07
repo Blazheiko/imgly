@@ -97,14 +97,32 @@ function maxShift(moving: Point[], axis: 'x' | 'y', delta: number, f: TurnedFram
   return sign * Math.max(0, Math.floor(limit + EPS))
 }
 
-/** A `width`×`height` rect centred on (cx, cy); an odd pixel goes right and down (AC-02). */
+/** Rounds to the nearest integer, an exact half down: the left/top edge rule of AC-02. */
+const roundHalfDown = (v: number) => Math.ceil(v - 0.5 - EPS)
+
+/** `value × num / den` rounded to the nearest whole number, an exact half up (AC-08, AC-09). */
+export function scaleHalfUp(value: number, num: number, den: number): number {
+  return Math.floor((2 * value * num + den) / (2 * den))
+}
+
+/**
+ * A `width`×`height` rect centred on (cx, cy) in whole pixels; when that leaves an odd pixel the
+ * left and top edges round down, so it goes right and down (AC-02).
+ */
 export function centreRect(cx: number, cy: number, width: number, height: number): CropRect {
-  return {
-    x: Math.floor(cx - width / 2 + EPS),
-    y: Math.floor(cy - height / 2 + EPS),
-    width,
-    height,
-  }
+  return { x: roundHalfDown(cx - width / 2), y: roundHalfDown(cy - height / 2), width, height }
+}
+
+/**
+ * Whole-pixel positions of a `w`×`h` rect centred on (cx, cy): the AC-02 one first, then the
+ * neighbouring pixel on each axis where the centre falls between pixels.
+ */
+function placements(cx: number, cy: number, w: number, h: number): CropRect[] {
+  const first = centreRect(cx, cy, w, h)
+  const other = (at: number, exact: number) => (exact === at ? at : exact > at ? at + 1 : at - 1)
+  const x1 = other(first.x, cx - w / 2)
+  const y1 = other(first.y, cy - h / 2)
+  return [first, { ...first, y: y1 }, { ...first, x: x1 }, { ...first, x: x1, y: y1 }]
 }
 
 /**
@@ -118,8 +136,8 @@ export function fitRectInside(rect: CropRect, g: Geometry, original: Size): Crop
   const b = rect.height / 2
   const ac = Math.abs(f.u.x)
   const as = Math.abs(f.u.y)
-  // Room a 1×1 frame needs around its centre, along each image axis.
-  const margin = 0.5 * (ac + as)
+  // Room a 1×1 frame needs around its centre along each image axis, after whole-pixel placement.
+  const margin = ac + as
   const d = { x: rect.x + a - f.c.x, y: rect.y + b - f.c.y }
   const clampAxis = (t: number, half: number) => {
     const room = Math.max(0, half - margin)
@@ -130,19 +148,23 @@ export function fitRectInside(rect: CropRect, g: Geometry, original: Size): Crop
   const cx = f.c.x + du * f.u.x + dv * f.v.x
   const cy = f.c.y + du * f.u.y + dv * f.v.y
 
-  let k = Math.min(
+  const k = Math.min(
     1,
     (f.hw - Math.abs(du)) / (a * ac + b * as),
     (f.hh - Math.abs(dv)) / (a * as + b * ac),
   )
-  // Whole-pixel placement can shift the frame by up to half a pixel; shrink by a pixel until it fits.
-  const step = 1 / Math.max(rect.width, rect.height)
-  for (;;) {
-    const w = Math.max(1, Math.floor(rect.width * k + EPS))
-    const h = Math.max(1, Math.floor(rect.height * k + EPS))
-    const r = centreRect(cx, cy, w, h)
-    if (isInsideTurned(r, g, original) || (w === 1 && h === 1)) return r
-    k -= step
+  // The long side rounds down and is the input; the short side follows it, half up, so the
+  // proportion holds within 0.5 px (AC-06, AC-08). Whole-pixel placement can shift the frame by up
+  // to half a pixel, so shrink a pixel at a time until it fits.
+  const landscape = rect.width >= rect.height
+  const longIn = landscape ? rect.width : rect.height
+  const shortIn = landscape ? rect.height : rect.width
+  for (let long = Math.max(1, Math.floor(longIn * k + EPS)); ; long--) {
+    const short = Math.max(1, scaleHalfUp(long, shortIn, longIn))
+    const [w, h] = landscape ? [long, short] : [short, long]
+    const fit = placements(cx, cy, w, h).find((r) => isInsideTurned(r, g, original))
+    if (fit) return fit
+    if (long === 1) return centreRect(cx, cy, w, h)
   }
 }
 

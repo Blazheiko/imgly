@@ -2,3 +2,4 @@ export { identityGeometry, turnedSize, type CropRect, type Geometry, type Rotati
 export * from './equality'
 export * from './turn'
 export * from './crop'
+export * from './straighten'
