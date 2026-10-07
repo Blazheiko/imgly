@@ -10,6 +10,8 @@ export const ACTION_LABEL = 'Crop and rotate'
 export const ACTION_TOOLTIP = 'Crop and rotate (C)'
 
 export const LABELS = {
+  rotateAndFlip: 'Rotate and flip',
+  size: 'Size',
   rotateLeft: 'Rotate left',
   rotateRight: 'Rotate right',
   flipHorizontal: 'Flip horizontal',
