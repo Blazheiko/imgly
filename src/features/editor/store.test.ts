@@ -4,6 +4,7 @@ import { nextTick, watch } from 'vue'
 import {
   appError,
   err,
+  flipOnScreen,
   identityGeometry,
   ok,
   turnedBounds,
@@ -780,10 +781,41 @@ describe('editor store — tool slot (crop-rotate ADR-0003)', () => {
         straighten: 100,
         crop: { x: 380, y: -60, width: 900, height: 540 },
       })
-      editor.setPreviewGeometry(turned)
+      editor.setPreviewGeometry(turned, { angleStep: true })
       const after = screenCentre(turned)
       expect(after.x).toBeCloseTo(before.x, 6)
       expect(after.y).toBeCloseTo(before.y, 6)
+    })
+
+    it('leaves the pan alone when a Flip at an angle mirrors an off-centre frame (AC-04)', async () => {
+      await open(4000, 2000)
+      editor.openTool('crop-rotate')
+      const angled = geometry({
+        straighten: 100,
+        crop: { x: 380, y: -60, width: 900, height: 540 },
+      })
+      editor.setPreviewGeometry(angled, { angleStep: true })
+      const before = { ...editor.view }
+      editor.setPreviewGeometry(flipOnScreen(angled, 'horizontal', { width: 4000, height: 2000 }))
+      expect(editor.view).toEqual(before)
+    })
+
+    it('offsets only the turned bounds when a Reset leaves an angle (AC-12)', async () => {
+      await open(4000, 2000)
+      editor.openTool('crop-rotate')
+      const angled = geometry({
+        straighten: 100,
+        crop: { x: 380, y: -60, width: 900, height: 540 },
+      })
+      editor.setPreviewGeometry(angled, { angleStep: true })
+      const before = { ...editor.view }
+      const reset = identityGeometry({ width: 4000, height: 2000 })
+      editor.setPreviewGeometry(reset)
+      const from = turnedBounds(angled, { width: 4000, height: 2000 })
+      const to = turnedBounds(reset, { width: 4000, height: 2000 })
+      expect(editor.view.zoom).toBe(before.zoom)
+      expect(editor.view.panX).toBeCloseTo(before.panX + (to.x - from.x) * before.zoom, 9)
+      expect(editor.view.panY).toBeCloseTo(before.panY + (to.y - from.y) * before.zoom, 9)
     })
 
     it('zoom and pan in the tool never change the Geometry or count as an edit', async () => {

@@ -35,7 +35,7 @@
 | T28 | Run the GPU crop transparency check only while the export panel is open (review R9) | app | Blazheiko | S | — | done |
 | T29 | Note in AC-06 that AC-08 short-side rounding takes precedence (review R10) | docs | Blazheiko | S | — | done |
 | T30 | Align the test plan with the tests that exist and add the keyboard-only AC-20 e2e test (review R11) | tests | Blazheiko | S | T21, T22, T26 | done |
-| T31 | Offset the pan by the Crop centre only for an angle step, so Flip and Reset at an angle keep the image in place (re-review N1) | app | Blazheiko | S | — | todo |
+| T31 | Offset the pan by the Crop centre only for an angle step, so Flip and Reset at an angle keep the image in place (re-review N1) | app | Blazheiko | S | — | done |
 | T32 | Let Space start space-pan while the Straighten slider has focus (re-review N2) | wiring | Blazheiko | S | — | todo |
 | T33 | Straighten keeps the frame's own proportion unless it already matches the locked one (re-review N3) | domain | Blazheiko | S | T31 | todo |
 | T34 | Make the keyboard-only e2e paths real and stop the test plan overclaiming (re-review N4, N5, N6) | tests | Blazheiko | S | T32 | todo |

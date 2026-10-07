@@ -68,10 +68,10 @@ export const useCropRotateStore = defineStore('crop-rotate', () => {
   const original = () => editor.work!.original
 
   /** Any change but the angle's ends the angle interaction, so the next one starts afresh. */
-  function update(next: Geometry, keepAnchor = false) {
+  function update(next: Geometry, angleStep = false) {
     draft.value = next
-    if (!keepAnchor) angleAnchor = null
-    editor.setPreviewGeometry(next)
+    if (!angleStep) angleAnchor = null
+    editor.setPreviewGeometry(next, { angleStep })
   }
 
   /** Opens the tool with the Work's Geometry as the Draft, or answers why it may not open. */
