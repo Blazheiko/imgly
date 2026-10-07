@@ -29,7 +29,7 @@
 | T22 | Stop swallowing Escape, Enter and zoom keys on the crop handles (review R2) | ui | Blazheiko | S | — | done |
 | T23 | Keep wheel and pinch zoom and space-pan working over the crop frame (review R3) | wiring | Blazheiko | S | T22 | done |
 | T24 | Straighten from an unrounded anchor so the locked proportion and the frame centre hold, and keep an off-centre frame still on screen (review R4, R8) | domain | Blazheiko | M | — | done |
-| T25 | Remember the turned proportion after a Rotate and Free after a Reset (review R5) | app | Blazheiko | S | T24 | todo |
+| T25 | Remember the proportion the tool applies with, so a Rotate or a Reset carries over (review R5) | app | Blazheiko | S | T24 | done |
 | T26 | Apply with Enter on the Straighten slider, and make C layout-independent and ignore repeats (review R6) | ui | Blazheiko | S | — | todo |
 | T27 | Refuse to open a tool while the export panel or the replace dialog is open (review R7) | app | Blazheiko | S | T26 | todo |
 | T28 | Run the GPU crop transparency check only while the export panel is open (review R9) | app | Blazheiko | S | — | todo |

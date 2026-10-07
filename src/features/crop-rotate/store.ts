@@ -169,10 +169,15 @@ export const useCropRotateStore = defineStore('crop-rotate', () => {
     update(identityGeometry(original()))
   }
 
-  /** Stores the Draft (an edit only when it differs, AC-13) and closes the tool. */
+  /**
+   * Stores the Draft (an edit only when it differs, AC-13) and closes the tool. The proportion it
+   * closes with is remembered, so a Rotate (4:3 → 3:4) or a Reset (Free) carries over (AC-08).
+   */
   function apply() {
     const g = draft.value
-    if (!g) return
+    const work = editor.work
+    if (!g || !work) return
+    remembered.set(work.id, proportion.value)
     editor.applyGeometry(g)
     editor.closeTool()
   }

@@ -218,6 +218,33 @@ describe('crop-rotate store (ADR-0003)', () => {
       expect(tool.proportion).toEqual({ kind: '4:3', orientation: 'portrait' })
     })
 
+    it('follows a quarter turn once applied: 4:3 reopens as 3:4 (AC-03)', () => {
+      tool.open()
+      tool.chooseProportion({ kind: '4:3', orientation: 'landscape' })
+      tool.rotate('cw')
+      tool.apply()
+      tool.open()
+      expect(tool.proportion).toEqual({ kind: '4:3', orientation: 'portrait' })
+    })
+
+    it('keeps the chosen orientation when a quarter turn is cancelled', () => {
+      tool.open()
+      tool.chooseProportion({ kind: '4:3', orientation: 'landscape' })
+      tool.rotate('cw')
+      tool.cancel()
+      tool.open()
+      expect(tool.proportion).toEqual({ kind: '4:3', orientation: 'landscape' })
+    })
+
+    it('is Free after Reset and Apply (AC-12)', () => {
+      tool.open()
+      tool.chooseProportion({ kind: '16:9', orientation: 'landscape' })
+      tool.reset()
+      tool.apply()
+      tool.open()
+      expect(tool.proportion.kind).toBe('free')
+    })
+
     it('starts at Free for a new Work', async () => {
       tool.open()
       tool.chooseProportion({ kind: '1:1', orientation: 'landscape' })

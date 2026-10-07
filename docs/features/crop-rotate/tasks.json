@@ -520,7 +520,7 @@
     },
     {
       "id": "T25",
-      "title": "Remember the turned proportion after a Rotate and Free after a Reset (review R5)",
+      "title": "Remember the proportion the tool applies with, so a Rotate or a Reset carries over (review R5)",
       "layer": "app",
       "deps": [
         "T24"
@@ -530,7 +530,7 @@
         "AC-08",
         "AC-12"
       ],
-      "dod": "rotate() swaps the remembered proportion (4:3 → 3:4) and reset() remembers Free; store tests reopen after Rotate and after Reset → Apply",
+      "dod": "apply() remembers the proportion the tool closes with, so Rotate → Apply reopens 4:3 as 3:4 and Reset → Apply reopens Free, while Rotate → Cancel keeps the chosen orientation; chooseProportion still remembers at once; store tests cover all three",
       "files_hint": [
         "src/features/crop-rotate/store.ts",
         "src/features/crop-rotate/store.test.ts"
