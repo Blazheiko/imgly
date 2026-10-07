@@ -1,9 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { View } from '@/core'
+import {
+  cropToOriginalUv,
+  identityGeometry,
+  turnedBounds,
+  turnedImageToOriginalUv,
+  type Geometry,
+  type View,
+} from '@/core'
+import { viewToTransform } from './view-transform'
 import { createPreviewRenderer, type PreviewRenderer } from './preview-renderer'
 import { createFakeCanvas, createFakeFrames, createFakeGl, type FakeGl } from './fake-gl'
 
 const bitmap = (width: number, height: number) => ({ width, height }) as unknown as ImageBitmap
+const uniformCalls = (fake: FakeGl, name: string) =>
+  fake.calls.filter(
+    ([method, location]) =>
+      method.startsWith('uniform') && (location as { uniform?: string })?.uniform === name,
+  )
 const view = (zoom: number): View => ({ zoom, panX: 0, panY: 0, autoFit: false })
 
 describe('createPreviewRenderer', () => {
@@ -123,5 +136,106 @@ describe('createPreviewRenderer', () => {
     expect(frames.pending).toBe(0)
     expect(fake.names()).toContain('deleteTexture')
     expect(fake.names()).toContain('deleteProgram')
+  })
+})
+
+describe('PreviewRenderer.setGeometry (crop-rotate ADR-0002)', () => {
+  const original = { width: 4096, height: 2731 }
+  let fake: FakeGl
+  let frames: ReturnType<typeof createFakeFrames>
+  let renderer: PreviewRenderer
+  let canvas: ReturnType<typeof createFakeCanvas>
+
+  beforeEach(() => {
+    fake = createFakeGl()
+    frames = createFakeFrames()
+    canvas = createFakeCanvas(fake.gl)
+    const result = createPreviewRenderer(canvas as unknown as HTMLCanvasElement, frames)
+    if (!result.ok) throw new Error('renderer failed')
+    renderer = result.value
+    renderer.resize(800, 600)
+    renderer.setOriginal(bitmap(original.width, original.height))
+    renderer.setView(view(2))
+    frames.flush()
+    fake.calls.length = 0
+  })
+
+  const lastMatrix = (name: string) => uniformCalls(fake, name).at(-1)?.[3]
+  const lastFilter = () =>
+    fake.calls.filter(([n, , p]) => n === 'texParameteri' && p === 'TEXTURE_MAG_FILTER').at(-1)?.[3]
+
+  it('draws the identity Geometry exactly as before when none is set', () => {
+    renderer.setView(view(0.5))
+    frames.flush()
+    expect(lastMatrix('u_geometry')).toEqual(new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]))
+    expect(lastMatrix('u_transform')).toEqual(
+      viewToTransform(view(0.5), original, { width: 800, height: 600 }),
+    )
+  })
+
+  it("'crop' maps the quad over the Crop and sizes it by the Work's size", () => {
+    const g: Geometry = {
+      ...identityGeometry(original),
+      rotation: 90,
+      flipH: true,
+      crop: { x: 10, y: 20, width: 300, height: 200 },
+    }
+    renderer.setGeometry(g, 'crop')
+    expect(frames.pending).toBe(1)
+    frames.flush()
+
+    expect(lastMatrix('u_geometry')).toEqual(new Float32Array(cropToOriginalUv(g, original)))
+    expect(lastMatrix('u_transform')).toEqual(
+      viewToTransform(view(2), { width: 300, height: 200 }, { width: 800, height: 600 }),
+    )
+  })
+
+  it("'whole' maps the quad over the whole turned image and sizes it by its bounds", () => {
+    const g: Geometry = { ...identityGeometry(original), straighten: 200 }
+    renderer.setGeometry(g, 'whole')
+    frames.flush()
+
+    const b = turnedBounds(g, original)
+    expect(lastMatrix('u_geometry')).toEqual(new Float32Array(turnedImageToOriginalUv(g, original)))
+    expect(lastMatrix('u_transform')).toEqual(
+      viewToTransform(view(2), { width: b.width, height: b.height }, { width: 800, height: 600 }),
+    )
+  })
+
+  it('magnifies LINEAR while straightened and NEAREST again at 0° (zoom ≥ 1)', () => {
+    const at = (straighten: number) => {
+      renderer.setGeometry({ ...identityGeometry(original), straighten }, 'whole')
+      frames.flush()
+      return lastFilter()
+    }
+    expect(at(0)).toBe('NEAREST')
+    expect(at(50)).toBe('LINEAR')
+    expect(at(0)).toBe('NEAREST')
+  })
+
+  it('allocates no texture or buffer per call while dragging', () => {
+    for (let i = 1; i <= 20; i++) {
+      renderer.setGeometry({ ...identityGeometry(original), straighten: i }, 'whole')
+      frames.flush()
+    }
+    const names = fake.names()
+    for (const n of ['createTexture', 'createBuffer', 'texImage2D', 'bufferData']) {
+      expect(names).not.toContain(n)
+    }
+  })
+
+  it('re-applies the last Geometry and mode after the context comes back', () => {
+    const g: Geometry = {
+      ...identityGeometry(original),
+      crop: { x: 0, y: 0, width: 50, height: 40 },
+    }
+    renderer.setGeometry(g, 'crop')
+    frames.flush()
+    canvas.dispatch('webglcontextlost')
+    canvas.dispatch('webglcontextrestored')
+    fake.calls.length = 0
+    frames.flush()
+
+    expect(lastMatrix('u_geometry')).toEqual(new Float32Array(cropToOriginalUv(g, original)))
   })
 })

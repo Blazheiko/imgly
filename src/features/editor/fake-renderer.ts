@@ -1,6 +1,7 @@
 import { vi } from 'vitest'
 import { ok } from '@/core'
-import type { PreviewRenderer, RendererStatus } from '@/render'
+import type { GeometryMode, PreviewRenderer, RendererStatus } from '@/render'
+import type { Geometry } from '@/core'
 import type { RendererFactory } from './store'
 
 /**
@@ -13,6 +14,7 @@ export function createFakeRenderer() {
     status: 'ready' as RendererStatus,
     setOriginal: vi.fn<(bitmap: ImageBitmap) => void>(),
     setView: vi.fn(),
+    setGeometry: vi.fn<(g: Geometry, mode: GeometryMode) => void>(),
     resize: vi.fn<(width: number, height: number) => void>(),
     dispose: vi.fn(),
     onStatus(listener: (status: RendererStatus) => void) {

@@ -10,7 +10,7 @@
 | T3 | Add the Straighten angle rules: setStraighten around the frame's centre and fitCropInside with no empty corner | domain | Blazheiko | M | T2 | done |
 | T4 | Add proportions, typed crop sizes and the field input rules (parseAngle, parseCropSize, plain decimal only) | domain | Blazheiko | M | T2, T3 | done |
 | T5 | Derive the one transform: cropToOriginalUv, turnedImageToOriginalUv, turnedBounds and the overlay's screen maths | domain | Blazheiko | M | T1 | done |
-| T6 | Render the Geometry in the shared shader (u_geometry) and give the Preview renderer setGeometry(g, 'crop' | 'whole') | infra | Blazheiko | M | T5 | todo |
+| T6 | Render the Geometry in the shared shader (u_geometry) and give the Preview renderer setGeometry(g, 'crop' | 'whole') | infra | Blazheiko | M | T5 | done |
 | T7 | Export with the Geometry in the worker and add the GPU alpha check (checkCropTransparency) | infra | Blazheiko | M | T6 | todo |
 | T8 | Add the editor store's tool slot: activeTool, openTool/closeTool, previewGeometry, applyGeometry, activePanel and tool-aware fit-View | app | Blazheiko | M | T1, T5 | todo |
 | T9 | Make the Preview and the status bar follow the Geometry, and add the setGeometry test hook | wiring | Blazheiko | M | T6, T8 | todo |
