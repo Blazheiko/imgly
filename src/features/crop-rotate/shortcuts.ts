@@ -11,7 +11,7 @@ export interface OpenShortcutActions {
   notifyNoImage(): void
 }
 
-/** Inputs that take no typed text, so Enter on them still applies the tool (AC-20). */
+/** Inputs that take no typed text (AC-20); `PRESSED_BY_ENTER` says which of them Enter presses itself. */
 const NON_TEXT_INPUTS = new Set(['range', 'checkbox', 'radio', 'button', 'submit', 'reset'])
 
 /** Whether keys typed at `target` belong to a text field. */

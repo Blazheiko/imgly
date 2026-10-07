@@ -1,7 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { nextTick } from 'vue'
-import { createWork, geometryEquals, identityGeometry, ok, type Geometry } from '@/core'
+import {
+  createWork,
+  geometryEquals,
+  identityGeometry,
+  ok,
+  turnedBounds,
+  type Geometry,
+} from '@/core'
 import { useEditorStore } from '@/features/editor'
 import { useCropRotateStore } from './store'
 
@@ -111,6 +118,32 @@ describe('crop-rotate store (ADR-0003)', () => {
       tool.setAngle(5)
       const { width, height } = tool.draft!.crop
       expect(Math.abs(height - (width * 3) / 4)).toBeLessThanOrEqual(0.5)
+    })
+
+    it('keeps an off-centre frame still on screen while straightening, and a Flip at an angle leaves the View (AC-04, AC-05)', () => {
+      tool.cancel()
+      openWork(editor, { width: 4000, height: 2000 })
+      tool.open()
+      tool.resizeBy('se', -2800, -1200)
+      tool.moveBy(1500, 300)
+      const screenCentre = () => {
+        const g = tool.draft!
+        const b = turnedBounds(g, editor.work!.original)
+        const { zoom, panX, panY } = editor.view
+        return {
+          x: panX + (g.crop.x + g.crop.width / 2 - b.x) * zoom,
+          y: panY + (g.crop.y + g.crop.height / 2 - b.y) * zoom,
+        }
+      }
+      const before = screenCentre()
+      for (let t = 1; t <= 100; t++) {
+        tool.setAngle(t)
+        expect(screenCentre().x).toBeCloseTo(before.x, 6)
+        expect(screenCentre().y).toBeCloseTo(before.y, 6)
+      }
+      const view = { ...editor.view }
+      tool.flip('horizontal')
+      expect(editor.view).toEqual(view)
     })
 
     it('starts a new angle interaction from where a move left the frame', () => {
