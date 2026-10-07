@@ -442,6 +442,7 @@ describe('editor store — exporting phase and save point (export AC-09, AC-10, 
       workId: work.id,
       revision: 1,
       original: work.original,
+      geometry: work.geometry,
       sourceName: 'IMG_4021',
       sourceFormat: 'jpeg',
     })

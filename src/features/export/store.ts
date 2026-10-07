@@ -313,6 +313,7 @@ export const useExportStore = defineStore('export', () => {
       height,
       format: job.format,
       quality: lossyQuality,
+      geometry: snapshot.geometry,
     })
     closeBitmap(copy) // already transferred and closed in the worker; this records it
     if (!result.ok) {

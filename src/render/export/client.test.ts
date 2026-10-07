@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { CHECK_TIMEOUT_MS, createExportClient, EXPORT_TIMEOUT_MS } from './client'
+import { identityGeometry } from '@/core'
+import { ALPHA_TIMEOUT_MS, CHECK_TIMEOUT_MS, createExportClient, EXPORT_TIMEOUT_MS } from './client'
 import type { ExportRequest } from './worker-handler'
 
 class FakeWorker {
@@ -41,6 +42,7 @@ const request = (): ExportRequest => ({
   height: 3072,
   format: 'jpeg',
   quality: 90,
+  geometry: identityGeometry({ width: 4096, height: 3072 }),
 })
 
 describe('exportImage (export client)', () => {
@@ -274,5 +276,71 @@ describe('a worker that never answers (AC-11, AC-13)', () => {
     workers[0]!.reply({ jpeg: true, webp: true })
     await expect(pending).resolves.toEqual({ png: true, jpeg: true, webp: true })
     expect(vi.getTimerCount()).toBe(0)
+  })
+})
+
+describe('checkCropTransparency (crop-rotate ADR-0004)', () => {
+  afterEach(() => vi.useRealTimers())
+
+  const alphaRequest = () => ({
+    bitmap: { width: 40, height: 30, close: vi.fn() } as unknown as ImageBitmap,
+    geometry: identityGeometry({ width: 40, height: 30 }),
+  })
+
+  it('transfers the bitmap to a fresh worker and answers its boolean', async () => {
+    const { client, workers } = setup()
+    const req = alphaRequest()
+    const pending = client.checkCropTransparency(req)
+
+    expect(workers[0]!.posted).toEqual([
+      { message: { kind: 'alpha', request: req }, transfer: [req.bitmap] },
+    ])
+    workers[0]!.reply({ ok: true, value: true })
+    await expect(pending).resolves.toEqual({ ok: true, value: true })
+    expect(workers[0]!.terminated).toBe(1)
+  })
+
+  it('fails on a malformed reply, a crash or no worker, closing an unposted bitmap', async () => {
+    const { client, workers } = setup()
+    const malformed = client.checkCropTransparency(alphaRequest())
+    workers[0]!.reply({ ok: true, value: 'yes' })
+    await expect(malformed).resolves.toMatchObject({ ok: false })
+
+    const crashed = client.checkCropTransparency(alphaRequest())
+    workers[1]!.crash()
+    await expect(crashed).resolves.toMatchObject({ ok: false })
+
+    const req = alphaRequest()
+    const none = createExportClient(() => {
+      throw new Error('no worker')
+    })
+    await expect(none.checkCropTransparency(req)).resolves.toMatchObject({ ok: false })
+    expect(req.bitmap.close).toHaveBeenCalledTimes(1)
+  })
+
+  it('fails after the check timeout and terminates the worker', async () => {
+    vi.useFakeTimers()
+    const { client, workers } = setup()
+    const pending = client.checkCropTransparency(alphaRequest())
+    await vi.advanceTimersByTimeAsync(ALPHA_TIMEOUT_MS)
+    await expect(pending).resolves.toMatchObject({ ok: false })
+    expect(workers[0]!.terminated).toBe(1)
+  })
+
+  it('runs in the window when the worker has no WebGL2', async () => {
+    FakeWorker.created = []
+    const inWindow = {
+      exportImage: vi.fn(),
+      check: vi.fn(async () => ({ webgl2: true, jpeg: true, webp: true })),
+      checkAlpha: vi.fn(async () => ({ ok: true as const, value: false })),
+    }
+    const client = createExportClient(() => new FakeWorker() as unknown as Worker, inWindow)
+    const checked = client.checkExportFormats()
+    FakeWorker.created[0]!.reply({ webgl2: false, jpeg: false, webp: false })
+    await checked
+    const req = alphaRequest()
+    await expect(client.checkCropTransparency(req)).resolves.toEqual({ ok: true, value: false })
+    expect(inWindow.checkAlpha).toHaveBeenCalledWith(req)
+    expect(FakeWorker.created).toHaveLength(1)
   })
 })

@@ -13,6 +13,7 @@ import {
   withEdit,
   zoomAt as zoomView,
   type AppError,
+  type Geometry,
   type ImageFormat,
   type Original,
   type Point,
@@ -67,6 +68,8 @@ export interface ExportSnapshot {
   workId: string
   revision: number
   original: Original<ImageBitmap>
+  /** The Work's Geometry when the export was confirmed (crop-rotate AC-14, AC-15). */
+  geometry: Geometry
   sourceName: string
   sourceFormat: ImageFormat
 }
@@ -298,6 +301,7 @@ export const useEditorStore = defineStore('editor', () => {
       workId: current.id,
       revision: current.revision,
       original: current.original,
+      geometry: current.geometry,
       sourceName: current.sourceName,
       sourceFormat: current.sourceFormat,
     }
