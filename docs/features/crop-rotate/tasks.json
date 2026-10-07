@@ -737,6 +737,22 @@
         "src/app/keyboard.test.ts"
       ],
       "source": "docs/features/crop-rotate/_review/review-2026-10-07-3.md"
+    },
+    {
+      "id": "T38",
+      "title": "Pin that Reset at an angle offsets only the turned bounds through the crop-rotate store (re-review-3 G1)",
+      "layer": "tests",
+      "deps": [
+        "T36"
+      ],
+      "acs": [
+        "AC-12"
+      ],
+      "dod": "The T36 crop-rotate store test (or a sibling) sets an angle on the off-centre frame, calls tool.reset(), and asserts editor.view keeps its zoom and moves its pan by exactly the change in turnedBounds times zoom (as editor/store.test.ts:813-818 does); the case fails when reset() passes the angle-step flag to update()",
+      "files_hint": [
+        "src/features/crop-rotate/store.test.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07-4.md"
     }
   ]
 }
