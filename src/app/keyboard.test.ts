@@ -148,6 +148,18 @@ describe('App — Space on the crop-rotate controls (crop-rotate AC-20)', () => 
     }
   })
 
+  it('starts space-pan when Space is pressed on the focused Straighten slider (AC-19)', async () => {
+    await wrapper.get('[data-testid="crop-rotate-action"]').trigger('click')
+    await flushPromises()
+    const slider = wrapper.get('[data-testid="crop-rotate-tool"] input[type="range"]')
+      .element as HTMLInputElement
+    slider.focus()
+    expect(space(slider, 'keydown').defaultPrevented).toBe(true)
+    expect(editor.spacePan).toBe(true)
+    expect(space(slider, 'keyup').defaultPrevented).toBe(true)
+    expect(editor.spacePan).toBe(false)
+  })
+
   it('still enters space-pan over the canvas while the tool is open', async () => {
     await wrapper.get('[data-testid="crop-rotate-action"]').trigger('click')
     await flushPromises()

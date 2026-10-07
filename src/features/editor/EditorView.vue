@@ -43,17 +43,26 @@ async function openPicked() {
   if (file) await editor.openFile(file)
 }
 
+/** A slider takes no typing and Space doesn't press it, so Space still pans (crop-rotate AC-19). */
+function isSlider(target: EventTarget | null): boolean {
+  return target instanceof HTMLInputElement && target.type === 'range'
+}
+
 function isTextField(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false
+  if (!(target instanceof HTMLElement) || isSlider(target)) return false
   return target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)
 }
 
 /**
  * Controls in a panel, or one that opts in with `data-keeps-space`, keep Space as their native
- * activation (export AC-17); everywhere else Space starts space-pan.
+ * activation (export AC-17); everywhere else, and on a slider, Space starts space-pan.
  */
 function keepsSpace(target: EventTarget | null): boolean {
-  return target instanceof Element && target.closest('[role="dialog"], [data-keeps-space]') !== null
+  return (
+    target instanceof Element &&
+    !isSlider(target) &&
+    target.closest('[role="dialog"], [data-keeps-space]') !== null
+  )
 }
 
 /** SCR-02 zoom shortcuts. Ctrl/Cmd + / - / 0 stay the browser's page zoom (never intercepted). */
