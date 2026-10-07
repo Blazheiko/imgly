@@ -753,6 +753,22 @@
         "src/features/crop-rotate/store.test.ts"
       ],
       "source": "docs/features/crop-rotate/_review/review-2026-10-07-4.md"
+    },
+    {
+      "id": "T39",
+      "title": "Pin that Reset at an angle returns the Draft to no Geometry, Straighten 0° included (re-review-4 H1)",
+      "layer": "tests",
+      "deps": [
+        "T38"
+      ],
+      "acs": [
+        "AC-12"
+      ],
+      "dod": "The T38 test asserts tool.draft equals identityGeometry(original) after tool.reset() and takes the expected turned bounds from identityGeometry, not from tool.draft; the case fails when reset() keeps draft.straighten",
+      "files_hint": [
+        "src/features/crop-rotate/store.test.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07-5.md"
     }
   ]
 }

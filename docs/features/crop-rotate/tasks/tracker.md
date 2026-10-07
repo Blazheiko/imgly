@@ -43,5 +43,6 @@
 | T36 | Pin that straightening passes angleStep to the View, and fix the NON_TEXT_INPUTS comment (re-review-2 F1, F3) | tests | Blazheiko | S | — | done |
 | T37 | Pin the global slider exemption: Space pans and the zoom keys zoom from the export Quality slider (re-review-2 F2) | tests | Blazheiko | S | — | done |
 | T38 | Pin that Reset at an angle offsets only the turned bounds through the crop-rotate store (re-review-3 G1) | tests | Blazheiko | S | T36 | done |
+| T39 | Pin that Reset at an angle returns the Draft to no Geometry, Straighten 0° included (re-review-4 H1) | tests | Blazheiko | S | T38 | todo |
 
-**Total:** 38 tasks (T21–T30 from review 2026-10-07, T31–T35 from its re-review, T36–T37 from the round-3 re-review, T38 from round 4), ~28 person-days (S = ½ day, M = 1 day).
+**Total:** 39 tasks (T21–T30 from review 2026-10-07, T31–T35 from its re-review, T36–T37 from the round-3 re-review, T38 from round 4, T39 from round 5), ~28.5 person-days (S = ½ day, M = 1 day).
