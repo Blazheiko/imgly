@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 import { fixture, view } from '../export/helpers'
 import { canvasArea, dropGeneratedImage } from '../open-and-view/helpers'
 import {
@@ -51,6 +51,66 @@ test.describe('three-action paths (AC-20, KPI 2)', () => {
     await page.getByRole('radio', { name: '1:1', exact: true }).click()
     await page.getByRole('button', { name: 'Apply' }).click()
     expect((await work(page))!).toMatchObject({ width: 300, height: 300 })
+  })
+})
+
+test.describe('by keyboard alone (AC-20)', () => {
+  /**
+   * Presses Tab until `target` has focus, as a keyboard user would. WebKit, like Safari by
+   * default, tabs only to text fields; Option+Tab reaches every control.
+   */
+  async function tabTo(page: Page, target: Locator) {
+    const tab = test.info().project.name === 'webkit' ? 'Alt+Tab' : 'Tab'
+    for (let i = 0; i < 40; i++) {
+      if (await target.evaluate((el) => el === document.activeElement)) return
+      await page.keyboard.press(tab)
+    }
+    throw new Error('Tab never reached the control')
+  }
+
+  test('rotate once and keep it: C, Space on Rotate right, Space on Apply', async ({ page }) => {
+    await page.keyboard.press('c')
+    await expect(frame(page)).toBeFocused()
+    await tabTo(page, page.getByRole('button', { name: 'Rotate right' }))
+    await page.keyboard.press('Space')
+    await expect(tool(page)).toBeVisible() // Space pressed the button, not space-pan
+    await tabTo(page, page.getByRole('button', { name: 'Apply' }))
+    await page.keyboard.press('Space')
+    await expect(tool(page)).toBeHidden()
+    expect((await work(page))!).toMatchObject({ width: 300, height: 400 })
+  })
+
+  test('crop to a square: C, arrows to 1:1, Enter on the frame', async ({ page }) => {
+    await page.keyboard.press('c')
+    await tabTo(page, page.getByRole('radio', { name: 'Free', exact: true }))
+    await page.keyboard.press('ArrowRight')
+    await page.keyboard.press('ArrowRight')
+    await expect(page.getByRole('radio', { name: '1:1', exact: true })).toBeChecked()
+    await frame(page).focus()
+    await page.keyboard.press('Enter')
+    await expect(tool(page)).toBeHidden()
+    expect((await work(page))!).toMatchObject({ width: 300, height: 300 })
+  })
+
+  test('a focused handle resizes with arrows, and Escape there cancels', async ({ page }) => {
+    await page.keyboard.press('c')
+    // From the frame to its first handle (Option+Tab in WebKit, as tabTo explains).
+    await page.keyboard.press(test.info().project.name === 'webkit' ? 'Alt+Tab' : 'Tab')
+    const handle = page.locator('.crop-overlay__handle:focus')
+    await expect(handle).toHaveCount(1)
+    await page.keyboard.press('Shift+ArrowLeft')
+    await page.keyboard.press('Escape')
+    await expect(tool(page)).toBeHidden()
+    expect((await work(page))!).toMatchObject({ width: 400, height: 300, revision: 0 })
+  })
+
+  test('Enter on the focused Straighten slider applies the tool', async ({ page }) => {
+    await page.keyboard.press('c')
+    await tabTo(page, page.getByRole('slider'))
+    await page.keyboard.press('ArrowRight')
+    await page.keyboard.press('Enter')
+    await expect(tool(page)).toBeHidden()
+    expect((await work(page))!.geometry.straighten).toBe(1)
   })
 })
 
