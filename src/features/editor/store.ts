@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 import {
   createWork,
   fitView,
+  geometryEquals,
   hasUnsavedEdits as workHasUnsavedEdits,
   isImageRefusal,
   panBy as panView,
@@ -10,7 +11,9 @@ import {
   setActualSize,
   sourceNameOf,
   stepZoom as stepView,
+  turnedBounds,
   withEdit,
+  workSize,
   zoomAt as zoomView,
   type AppError,
   type Geometry,
@@ -63,6 +66,15 @@ export type OpenOutcome =
 
 export type EditorPhase = 'idle' | 'reading' | 'confirming' | 'exporting'
 
+/** A tool that edits the Work in the tool slot; one at a time (crop-rotate ADR-0003). */
+export type ToolId = 'crop-rotate'
+
+/** Why a tool may not open: no image (AC-18), an export running (AC-15), or one already open. */
+export type ToolRefusal = 'no-work' | 'exporting' | 'tool-open'
+
+/** A panel another feature has open, so a shortcut can stay silent under it (crop-rotate AC-20). */
+export type PanelId = 'export'
+
 /** The Work as it was at confirm; the export renders it and the save point is its revision. */
 export interface ExportSnapshot {
   workId: string
@@ -113,6 +125,10 @@ export const useEditorStore = defineStore('editor', () => {
   const canvasSize = ref<Size>({ width: 0, height: 0 })
   const phase = ref<EditorPhase>('idle')
   const display = ref<DisplayState>('checking')
+  const activeTool = ref<ToolId | null>(null)
+  // What the Preview draws while a tool is open, whole and turned, instead of the Work's Geometry.
+  const previewGeometry = shallowRef<Geometry | null>(null)
+  const activePanel = ref<PanelId | null>(null)
   let latestOpenId = 0
   let decode: Decoder = decodeImage
   let rendererFactory: RendererFactory = createPreviewRenderer
@@ -155,8 +171,78 @@ export const useEditorStore = defineStore('editor', () => {
   function context(): ViewContext | undefined {
     const { width, height } = canvasSize.value
     if (!work.value || width === 0 || height === 0) return undefined
-    const { original } = work.value
-    return { image: { width: original.width, height: original.height }, canvas: { width, height } }
+    const image =
+      activeTool.value && previewGeometry.value
+        ? turnedBounds(previewGeometry.value, work.value.original)
+        : workSize(work.value)
+    return { image: { width: image.width, height: image.height }, canvas: { width, height } }
+  }
+
+  /**
+   * Opens a tool over the Work: the Preview then shows the whole turned image, fitted (AC-19).
+   * Refused, not queued, with no Work, during an export or while a tool is open (AC-15, AC-18).
+   */
+  function openTool(id: ToolId): { ok: true } | { ok: false; reason: ToolRefusal } {
+    if (!work.value) return { ok: false, reason: 'no-work' }
+    if (phase.value === 'exporting') return { ok: false, reason: 'exporting' }
+    if (activeTool.value) return { ok: false, reason: 'tool-open' }
+    activeTool.value = id
+    previewGeometry.value = work.value.geometry
+    fitIfSized()
+    return { ok: true }
+  }
+
+  /** Closes the tool slot and fits the View to the Work (AC-19). */
+  function closeTool() {
+    if (!activeTool.value) return
+    activeTool.value = null
+    previewGeometry.value = null
+    fitIfSized()
+  }
+
+  /**
+   * The open tool's Draft, for the Preview. A quarter turn re-fits the View; any other change keeps
+   * the frame still on screen while the turned image's bounds move.
+   */
+  function setPreviewGeometry(next: Geometry) {
+    const current = work.value
+    const previous = previewGeometry.value
+    if (!activeTool.value || !current || !previous) return
+    previewGeometry.value = next
+    if (next.rotation !== previous.rotation) {
+      fitIfSized()
+      return
+    }
+    const before = turnedBounds(previous, current.original)
+    const after = turnedBounds(next, current.original)
+    const { zoom, panX, panY } = view.value
+    if (before.x !== after.x || before.y !== after.y) {
+      view.value = {
+        ...view.value,
+        panX: panX + (after.x - before.x) * zoom,
+        panY: panY + (after.y - before.y) * zoom,
+      }
+    }
+  }
+
+  /**
+   * Applies a Geometry to the Work (AC-13). It counts as an edit only when it differs field by
+   * field from the Work's Geometry, which the open tool never changes before Apply.
+   */
+  function applyGeometry(next: Geometry) {
+    const current = work.value
+    if (!current || phase.value === 'exporting') return
+    const changed = !geometryEquals(next, current.geometry)
+    work.value = changed ? withEdit({ ...current, geometry: next }) : { ...current, geometry: next }
+  }
+
+  function setActivePanel(panel: PanelId | null) {
+    activePanel.value = panel
+  }
+
+  function fitIfSized() {
+    const ctx = context()
+    if (ctx) view.value = fitView(ctx)
   }
 
   async function openImage(file: Blob): Promise<OpenOutcome> {
@@ -264,6 +350,9 @@ export const useEditorStore = defineStore('editor', () => {
    */
   function replace(image: DecodedImage, fileName: string): OpenOutcome {
     const old = work.value?.original.pixels
+    // The open tool's Draft is discarded with the old Work (AC-17).
+    activeTool.value = null
+    previewGeometry.value = null
     const { bitmap, ...facts } = image
     work.value = createWork(
       {
@@ -295,7 +384,7 @@ export const useEditorStore = defineStore('editor', () => {
    */
   function beginExport(): ExportSnapshot | null {
     const current = work.value
-    if (!current || phase.value !== 'idle') return null
+    if (!current || phase.value !== 'idle' || activeTool.value) return null
     phase.value = 'exporting'
     return {
       workId: current.id,
@@ -331,7 +420,15 @@ export const useEditorStore = defineStore('editor', () => {
     canvasSize,
     phase,
     display,
+    activeTool,
+    previewGeometry,
+    activePanel,
     hasUnsavedEdits,
+    openTool,
+    closeTool,
+    setPreviewGeometry,
+    applyGeometry,
+    setActivePanel,
     setDecoder,
     setRendererFactory,
     createRenderer,
