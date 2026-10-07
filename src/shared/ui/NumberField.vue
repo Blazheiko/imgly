@@ -11,19 +11,25 @@ const props = withDefaults(
     disabled?: boolean
     /** Hide the visible label, keeping it as the input's accessible name. */
     hideLabel?: boolean
+    /** Signed decimal input (a sign, a point or a comma) instead of whole numbers. */
+    decimal?: boolean
+    /** Decimals the value is shown with. */
+    decimals?: number
   }>(),
-  { unit: undefined, disabled: false, hideLabel: false },
+  { unit: undefined, disabled: false, hideLabel: false, decimal: false, decimals: 0 },
 )
 const emit = defineEmits<{ 'update:modelValue': [value: number] }>()
 
 const id = useId()
-const text = ref(String(props.modelValue))
+const shown = (value: number) =>
+  props.decimals > 0 ? value.toFixed(props.decimals) : String(value)
+const text = ref(shown(props.modelValue))
 let pending = false
 
 watch(
   () => props.modelValue,
   (value) => {
-    if (!pending) text.value = String(value)
+    if (!pending) text.value = shown(value)
   },
 )
 
@@ -37,11 +43,17 @@ function apply() {
   if (!pending) return
   pending = false
   const value = props.normalize(text.value, props.modelValue)
-  text.value = String(value)
+  text.value = shown(value)
   if (value !== props.modelValue) emit('update:modelValue', value)
 }
 
 function onKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') {
+    // Drops a value still being typed; Escape still reaches whatever it closes (crop-rotate AC-20).
+    pending = false
+    text.value = shown(props.modelValue)
+    return
+  }
   if (event.key !== 'Enter') return
   // Enter only applies the value: it never submits a form or confirms the surrounding panel.
   event.preventDefault()
@@ -61,7 +73,7 @@ defineExpose({ apply })
       :id="id"
       class="number-field__input"
       type="text"
-      inputmode="numeric"
+      :inputmode="decimal ? 'decimal' : 'numeric'"
       autocomplete="off"
       :value="text"
       :disabled="disabled"

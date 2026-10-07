@@ -16,7 +16,7 @@
 | T9 | Make the Preview and the status bar follow the Geometry, and add the setGeometry test hook | wiring | Blazheiko | M | T6, T8 | done |
 | T10 | Size the export from workSize, send the Geometry, and base the transparency hint on the GPU check | app | Blazheiko | M | T7, T8 | done |
 | T11 | Refuse Export and Ctrl/Cmd+S while a tool is open with the 'apply or cancel the crop first' hint, and report the open panel | app | Blazheiko | S | T8, T10 | done |
-| T12 | Extend SliderField (step, decimals, marks), NumberField (signed decimal input) and BaseButton (pressed), and register them | ui | Blazheiko | S | — | todo |
+| T12 | Extend SliderField (step, decimals, marks), NumberField (signed decimal input) and BaseButton (pressed), and register them | ui | Blazheiko | S | — | done |
 | T13 | Add the crop-rotate store: Draft, Geometry at open, remembered proportion per Work, field state, apply / cancel / reset | app | Blazheiko | M | T4, T8 | todo |
 | T14 | Add the 'Crop and rotate' toolbar action, its hints, the C shortcut and the tool's message catalog | ui | Blazheiko | M | T12, T13 | todo |
 | T15 | Build CropOverlay: dimmed outside, frame with 8 focusable handles, both grids, pointer drags and arrow keys | ui | Blazheiko | M | T5, T13 | todo |

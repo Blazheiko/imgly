@@ -4,13 +4,21 @@ withDefaults(
     variant?: 'primary' | 'secondary' | 'ghost'
     type?: 'button' | 'submit' | 'reset'
     disabled?: boolean
+    /** A toggle's state, as `aria-pressed`; left out for ordinary buttons. */
+    pressed?: boolean
   }>(),
-  { variant: 'secondary', type: 'button', disabled: false },
+  { variant: 'secondary', type: 'button', disabled: false, pressed: undefined },
 )
 </script>
 
 <template>
-  <button :type="type" :disabled="disabled" class="base-button" :class="`base-button--${variant}`">
+  <button
+    :type="type"
+    :disabled="disabled"
+    :aria-pressed="pressed === undefined ? undefined : pressed ? 'true' : 'false'"
+    class="base-button"
+    :class="[`base-button--${variant}`, { 'base-button--pressed': pressed }]"
+  >
     <slot />
   </button>
 </template>
@@ -82,5 +90,11 @@ withDefaults(
 
 .base-button--ghost:active:not(:disabled) {
   background: var(--color-surface);
+}
+.base-button--pressed,
+.base-button--pressed:hover:not(:disabled) {
+  background: var(--color-surface);
+  border-color: var(--color-accent);
+  color: var(--color-text);
 }
 </style>

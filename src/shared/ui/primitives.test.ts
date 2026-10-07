@@ -3,6 +3,7 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { defineComponent, h, nextTick } from 'vue'
 import {
+  BaseButton,
   CanvasMessage,
   Dialog,
   NumberField,
@@ -514,5 +515,119 @@ describe('SliderField', () => {
     await wrapper.get('input:not([type="range"])').setValue('12')
     ;(wrapper.vm as unknown as { apply(): void }).apply()
     expect(wrapper.emitted('update:modelValue')).toEqual([[12]])
+  })
+})
+
+describe('SliderField options (crop-rotate AC-05, AC-20)', () => {
+  const normalize = (raw: string, previous: number) => {
+    const v = Number(raw)
+    return Number.isNaN(v) ? previous : v
+  }
+
+  function angle(modelValue = 0) {
+    return mount(SliderField, {
+      props: {
+        modelValue,
+        label: 'Straighten',
+        min: -45,
+        max: 45,
+        step: 0.1,
+        decimals: 1,
+        marks: [0],
+        unit: '°',
+        normalize,
+      },
+      attachTo: document.body,
+    })
+  }
+
+  afterEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  it('keeps step 1, whole numbers and no marks by default', () => {
+    const wrapper = mount(SliderField, {
+      props: { modelValue: 5, label: 'Q', min: 1, max: 9, normalize },
+    })
+    expect(wrapper.get('input[type="range"]').attributes('step')).toBe('1')
+    expect(wrapper.get('input[type="range"]').attributes('list')).toBeUndefined()
+    expect((wrapper.get('input:not([type="range"])').element as HTMLInputElement).value).toBe('5')
+  })
+
+  it('steps by 0.1, shows one decimal and marks 0', () => {
+    const wrapper = angle(2)
+    const range = wrapper.get('input[type="range"]')
+    expect(range.attributes('step')).toBe('0.1')
+    expect((wrapper.get('input:not([type="range"])').element as HTMLInputElement).value).toBe('2.0')
+    const list = document.getElementById(range.attributes('list')!)!
+    expect([...list.querySelectorAll('option')].map((o) => o.getAttribute('value'))).toEqual(['0'])
+  })
+
+  it('moves by a step on the arrow keys and ten with Shift, without float drift', async () => {
+    const wrapper = angle(0.2)
+    const range = wrapper.get('input[type="range"]')
+    await range.trigger('keydown', { key: 'ArrowRight' })
+    await range.trigger('keydown', { key: 'ArrowLeft', shiftKey: true })
+    expect(wrapper.emitted('update:modelValue')).toEqual([[0.3], [-0.8]])
+  })
+
+  it('clamps an arrow step at the ends', async () => {
+    const wrapper = angle(44.95)
+    await wrapper.get('input[type="range"]').trigger('keydown', { key: 'ArrowUp', shiftKey: true })
+    expect(wrapper.emitted('update:modelValue')).toEqual([[45]])
+  })
+
+  it('rounds a dragged value to its decimals', async () => {
+    const wrapper = angle(0)
+    await wrapper.get('input[type="range"]').setValue('0.30000000000000004')
+    expect(wrapper.emitted('update:modelValue')).toEqual([[0.3]])
+  })
+})
+
+describe('NumberField options (crop-rotate AC-07, AC-20)', () => {
+  afterEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  it('asks for a signed decimal keyboard when decimal, numeric otherwise', () => {
+    const normalize = (_r: string, p: number) => p
+    const plain = mount(NumberField, { props: { modelValue: 1, label: 'W', normalize } })
+    expect(plain.get('input').attributes('inputmode')).toBe('numeric')
+    const dec = mount(NumberField, {
+      props: { modelValue: 1, label: 'A', normalize, decimal: true },
+    })
+    expect(dec.get('input').attributes('inputmode')).toBe('decimal')
+  })
+
+  it('discards text still being typed on Escape and lets Escape reach the tool', async () => {
+    const onEscape = vi.fn()
+    document.addEventListener('keydown', (e) => e.key === 'Escape' && onEscape())
+    const normalize = vi.fn((raw: string) => Number(raw))
+    const wrapper = mount(NumberField, {
+      props: { modelValue: 7, label: 'A', normalize },
+      attachTo: document.body,
+    })
+    const input = wrapper.get('input')
+    await input.setValue('99')
+    input.element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await nextTick()
+    await input.trigger('blur')
+    expect(onEscape).toHaveBeenCalledTimes(1)
+    expect(normalize).not.toHaveBeenCalled()
+    expect((input.element as HTMLInputElement).value).toBe('7')
+  })
+})
+
+describe('BaseButton pressed (crop-rotate SCR-03)', () => {
+  it('has no aria-pressed unless pressed is given', () => {
+    expect(mount(BaseButton).get('button').attributes('aria-pressed')).toBeUndefined()
+    expect(
+      mount(BaseButton, { props: { pressed: true } })
+        .get('button')
+        .attributes('aria-pressed'),
+    ).toBe('true')
+    const off = mount(BaseButton, { props: { pressed: false } }).get('button')
+    expect(off.attributes('aria-pressed')).toBe('false')
+    expect(off.classes()).not.toContain('base-button--pressed')
   })
 })
