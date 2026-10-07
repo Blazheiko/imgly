@@ -6,8 +6,8 @@ import {
   geometryEquals,
   identityGeometry,
   ok,
+  setStraighten,
   turnedBounds,
-  type Geometry,
 } from '@/core'
 import { useEditorStore } from '@/features/editor'
 import { useCropRotateStore } from './store'
@@ -46,11 +46,18 @@ describe('crop-rotate store (ADR-0003)', () => {
 
     it('copies the Work’s Geometry as the Draft, with the frame where the Crop is (AC-12)', () => {
       openWork(editor)
-      const applied: Geometry = {
-        ...identityGeometry(original),
-        rotation: 90,
-        crop: { x: 10, y: 20, width: 300, height: 400 },
-      }
+      const applied = setStraighten(
+        {
+          ...identityGeometry(original),
+          rotation: 90,
+          flipH: true,
+          flipV: true,
+          crop: { x: 10, y: 20, width: 300, height: 400 },
+        },
+        50,
+        original,
+      )
+      expect(applied.straighten).toBe(50)
       editor.applyGeometry(applied)
       expect(tool.open()).toEqual({ ok: true })
       expect(tool.draft).toEqual(applied)
@@ -163,6 +170,14 @@ describe('crop-rotate store (ADR-0003)', () => {
       expect(editor.view.zoom).toBe(before.zoom)
       expect(editor.view.panX).toBeCloseTo(before.panX + (to.x - from.x) * before.zoom, 9)
       expect(editor.view.panY).toBeCloseTo(before.panY + (to.y - from.y) * before.zoom, 9)
+
+      // Reset ends the angle interaction: the next angle starts from no Geometry, not the old frame.
+      tool.setAngle(50)
+      const afterReset = tool.draft
+      tool.cancel()
+      tool.open()
+      tool.setAngle(50)
+      expect(afterReset).toEqual(tool.draft)
     })
 
     it('starts a new angle interaction from where a move left the frame', () => {
@@ -251,11 +266,21 @@ describe('crop-rotate store (ADR-0003)', () => {
     })
 
     it('Reset changes only the Draft, to no Geometry and Free; Apply makes it count (AC-12)', () => {
-      editor.applyGeometry({
-        ...identityGeometry(original),
-        flipH: true,
-        crop: { x: 100, y: 100, width: 500, height: 500 },
-      })
+      // Every field away from no Geometry, so the one toEqual below pins each of them.
+      editor.applyGeometry(
+        setStraighten(
+          {
+            ...identityGeometry(original),
+            rotation: 90,
+            flipH: true,
+            flipV: true,
+            crop: { x: 100, y: 100, width: 500, height: 500 },
+          },
+          50,
+          original,
+        ),
+      )
+      expect(editor.work!.geometry.straighten).toBe(50)
       tool.open()
       tool.chooseProportion({ kind: '16:9', orientation: 'landscape' })
       tool.reset()
@@ -267,6 +292,8 @@ describe('crop-rotate store (ADR-0003)', () => {
       expect(editor.work!.geometry.flipH).toBe(true)
 
       tool.open()
+      // A cancelled Reset leaves the remembered proportion as it was (AC-08).
+      expect(tool.proportion).toEqual({ kind: '16:9', orientation: 'landscape' })
       tool.reset()
       tool.apply()
       expect(editor.work!.geometry).toEqual(identityGeometry(original))
