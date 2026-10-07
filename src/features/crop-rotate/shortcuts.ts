@@ -34,3 +34,32 @@ export function createOpenShortcut(actions: OpenShortcutActions): (event: Keyboa
     else actions.open()
   }
 }
+
+export interface ToolKeyActions {
+  /** Another modal surface (the replace dialog) owns Enter and Escape. */
+  blocked(): boolean
+  apply(): void
+  cancel(): void
+}
+
+/**
+ * Enter and Escape inside the open tool (AC-20): Escape cancels from anywhere, a field included;
+ * Enter applies the tool except on a button (which it presses) or in a field (which applies only
+ * its value, AC-07, AC-10).
+ */
+export function createToolKeys(actions: ToolKeyActions): (event: KeyboardEvent) => void {
+  return (event) => {
+    if (event.ctrlKey || event.metaKey || event.altKey || actions.blocked()) return
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      actions.cancel()
+      return
+    }
+    if (event.key !== 'Enter') return
+    const target = event.target
+    if (isTextTarget(target)) return
+    if (target instanceof Element && target.closest('button, a[href]')) return
+    event.preventDefault()
+    actions.apply()
+  }
+}

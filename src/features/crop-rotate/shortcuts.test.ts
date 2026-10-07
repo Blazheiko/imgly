@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createOpenShortcut, type OpenShortcutActions } from './shortcuts'
+import { createOpenShortcut, createToolKeys, type OpenShortcutActions } from './shortcuts'
 
 function setup(
   state: Partial<Record<'hasWork' | 'exporting' | 'panelOpen' | 'toolOpen', boolean>> = {},
@@ -70,5 +70,34 @@ describe('the C shortcut (AC-18, AC-20)', () => {
     handle(key({ altKey: true }))
     handle(key({ key: 'x' }))
     expect(actions.open).not.toHaveBeenCalled()
+  })
+})
+
+describe('Enter and Escape inside the tool (AC-20)', () => {
+  function setup(blocked = false) {
+    const actions = { blocked: () => blocked, apply: vi.fn(), cancel: vi.fn() }
+    return { actions, handle: createToolKeys(actions) }
+  }
+
+  it('Escape cancels from anywhere, a field included', () => {
+    const { actions, handle } = setup()
+    handle(key({ key: 'Escape', target: document.createElement('input') }))
+    expect(actions.cancel).toHaveBeenCalledTimes(1)
+  })
+
+  it('Enter applies, except on a button or in a field', () => {
+    const { actions, handle } = setup()
+    handle(key({ key: 'Enter', target: document.createElement('div') }))
+    handle(key({ key: 'Enter', target: document.createElement('button') }))
+    handle(key({ key: 'Enter', target: document.createElement('input') }))
+    expect(actions.apply).toHaveBeenCalledTimes(1)
+  })
+
+  it('does nothing while another modal surface owns the keys', () => {
+    const { actions, handle } = setup(true)
+    handle(key({ key: 'Escape' }))
+    handle(key({ key: 'Enter' }))
+    expect(actions.cancel).not.toHaveBeenCalled()
+    expect(actions.apply).not.toHaveBeenCalled()
   })
 })

@@ -1,3 +1,5 @@
 export { default as CropRotateAction } from './CropRotateAction.vue'
+export { default as CropOverlay } from './CropOverlay.vue'
+export { default as CropRotateTool, TOOL_READY_MARK } from './CropRotateTool.vue'
 export { useCropRotateStore } from './store'
 export type { CropField } from './store'
