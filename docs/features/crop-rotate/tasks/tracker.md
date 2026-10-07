@@ -8,7 +8,7 @@
 | T1 | Add the Geometry to the Work: type, identity, geometryEquals, workSize, rotateQuarter and flipOnScreen | domain | Blazheiko | M | — | done |
 | T2 | Keep the Crop inside the turned image: clampCrop, whole-pixel rounding, move and resize by edge or corner | domain | Blazheiko | M | T1 | done |
 | T3 | Add the Straighten angle rules: setStraighten around the frame's centre and fitCropInside with no empty corner | domain | Blazheiko | M | T2 | done |
-| T4 | Add proportions, typed crop sizes and the field input rules (parseAngle, parseCropSize, plain decimal only) | domain | Blazheiko | M | T2, T3 | todo |
+| T4 | Add proportions, typed crop sizes and the field input rules (parseAngle, parseCropSize, plain decimal only) | domain | Blazheiko | M | T2, T3 | done |
 | T5 | Derive the one transform: cropToOriginalUv, turnedImageToOriginalUv, turnedBounds and the overlay's screen maths | domain | Blazheiko | M | T1 | todo |
 | T6 | Render the Geometry in the shared shader (u_geometry) and give the Preview renderer setGeometry(g, 'crop' | 'whole') | infra | Blazheiko | M | T5 | todo |
 | T7 | Export with the Geometry in the worker and add the GPU alpha check (checkCropTransparency) | infra | Blazheiko | M | T6 | todo |

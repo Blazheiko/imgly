@@ -98,7 +98,7 @@ function maxShift(moving: Point[], axis: 'x' | 'y', delta: number, f: TurnedFram
 }
 
 /** Rounds to the nearest integer, an exact half down: the left/top edge rule of AC-02. */
-const roundHalfDown = (v: number) => Math.ceil(v - 0.5 - EPS)
+const roundHalfDown = (v: number) => Math.ceil(v - 0.5 - EPS) + 0 // + 0 turns −0 into 0
 
 /** `value × num / den` rounded to the nearest whole number, an exact half up (AC-08, AC-09). */
 export function scaleHalfUp(value: number, num: number, den: number): number {
@@ -123,6 +123,34 @@ function placements(cx: number, cy: number, w: number, h: number): CropRect[] {
   const x1 = other(first.x, cx - w / 2)
   const y1 = other(first.y, cy - h / 2)
   return [first, { ...first, y: y1 }, { ...first, x: x1 }, { ...first, x: x1, y: y1 }]
+}
+
+/**
+ * A whole-pixel `w`×`h` rect inside the turned image, centred on (cx, cy) or, when it does not
+ * fit there, on the nearest centre where it does (AC-09); null when it fits nowhere.
+ */
+export function placeNear(
+  cx: number,
+  cy: number,
+  w: number,
+  h: number,
+  g: Geometry,
+  original: Size,
+): CropRect | null {
+  const f = turnedFrame(g, original)
+  const ac = Math.abs(f.u.x)
+  const as = Math.abs(f.u.y)
+  // The centres where the rect fits form a box along the image's own axes.
+  const roomU = f.hw - (w / 2) * ac - (h / 2) * as
+  const roomV = f.hh - (w / 2) * as - (h / 2) * ac
+  if (roomU < -EPS || roomV < -EPS) return null
+  const clamp = (t: number, room: number) => Math.min(room, Math.max(-room, t))
+  const d = { x: cx - f.c.x, y: cy - f.c.y }
+  const du = clamp(dot(d, f.u), Math.max(0, roomU))
+  const dv = clamp(dot(d, f.v), Math.max(0, roomV))
+  const px = f.c.x + du * f.u.x + dv * f.v.x
+  const py = f.c.y + du * f.u.y + dv * f.v.y
+  return placements(px, py, w, h).find((r) => isInsideTurned(r, g, original)) ?? null
 }
 
 /**
