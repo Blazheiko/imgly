@@ -751,6 +751,31 @@ describe('editor store — tool slot (crop-rotate ADR-0003)', () => {
       expect(editor.view.panY).toBeCloseTo(before.panY + b.y * before.zoom, 9)
     })
 
+    it('keeps an off-centre frame still on screen while the angle changes (AC-05)', async () => {
+      await open(4000, 2000)
+      editor.openTool('crop-rotate')
+      const offCentre = geometry({ crop: { x: 200, y: 200, width: 1000, height: 600 } })
+      editor.setPreviewGeometry(offCentre)
+      const screenCentre = (g: Geometry) => {
+        const b = turnedBounds(g, { width: 4000, height: 2000 })
+        const { zoom, panX, panY } = editor.view
+        return {
+          x: panX + (g.crop.x + g.crop.width / 2 - b.x) * zoom,
+          y: panY + (g.crop.y + g.crop.height / 2 - b.y) * zoom,
+        }
+      }
+      const before = screenCentre(offCentre)
+      // The image turns around the frame's centre, so the centre moves in turned coordinates.
+      const turned = geometry({
+        straighten: 100,
+        crop: { x: 380, y: -60, width: 900, height: 540 },
+      })
+      editor.setPreviewGeometry(turned)
+      const after = screenCentre(turned)
+      expect(after.x).toBeCloseTo(before.x, 6)
+      expect(after.y).toBeCloseTo(before.y, 6)
+    })
+
     it('zoom and pan in the tool never change the Geometry or count as an edit', async () => {
       await open()
       editor.openTool('crop-rotate')

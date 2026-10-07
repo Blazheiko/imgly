@@ -1,31 +1,79 @@
-import { fitRectInside, centreRect } from './crop'
+import { fitRectInside } from './crop'
 import { turnedSize, type Geometry, type Size } from './types'
 
 /** The Straighten angle's range in tenths of a degree (AC-05). */
 export const STRAIGHTEN_LIMIT = 450
 
 /**
- * Sets the Straighten angle (AC-05). The image turns around the frame's centre: the stored angle
- * turns the image around its own centre, so the frame's centre is moved to where the same image
- * content lands under the new angle. Then the frame shrinks to fit (AC-06).
+ * What one slider or keyboard interaction with the angle keeps (AC-05, AC-06, AC-08): the frame's
+ * centre on the image, unturned and unrounded, and the proportion the frame keeps. Every step is
+ * derived from it, so whole-pixel rounding never builds up over many small steps.
  */
-export function setStraighten(g: Geometry, tenths: number, original: Size): Geometry {
+export interface StraightenAnchor {
+  /** The frame's centre on the turned image before any Straighten angle, unrounded. */
+  cx: number
+  cy: number
+  /** The width:height the frame keeps: a locked proportion, or the frame's own at the start. */
+  ratio: Size
+}
+
+/** The anchor for an interaction starting at `g`, keeping `ratio` or else the frame's own. */
+export function straightenAnchor(
+  g: Geometry,
+  original: Size,
+  ratio: Size | null = null,
+): StraightenAnchor {
+  const { x, y } = turnAroundImageCentre(
+    g.crop.x + g.crop.width / 2,
+    g.crop.y + g.crop.height / 2,
+    -g.straighten,
+    turnedSize(g, original),
+  )
+  return { cx: x, cy: y, ratio: ratio ?? { width: g.crop.width, height: g.crop.height } }
+}
+
+/** A point of the turned image moved by `tenths` of a degree around the image's centre. */
+function turnAroundImageCentre(x: number, y: number, tenths: number, size: Size) {
+  const a = (tenths / 10) * (Math.PI / 180)
+  const dx = x - size.width / 2
+  const dy = y - size.height / 2
+  return {
+    x: size.width / 2 + dx * Math.cos(a) - dy * Math.sin(a),
+    y: size.height / 2 + dx * Math.sin(a) + dy * Math.cos(a),
+  }
+}
+
+/**
+ * Sets the Straighten angle (AC-05). The image turns around the frame's centre: the stored angle
+ * turns the image around its own centre, so the frame's centre is moved to where the anchor's
+ * image content lands under the new angle. Then the frame shrinks to fit, keeping the anchor's
+ * proportion (AC-06, AC-08). Without an anchor the step starts from `g` alone.
+ */
+export function setStraighten(
+  g: Geometry,
+  tenths: number,
+  original: Size,
+  anchor: StraightenAnchor = straightenAnchor(g, original),
+): Geometry {
   const angle = Math.min(STRAIGHTEN_LIMIT, Math.max(-STRAIGHTEN_LIMIT, Math.round(tenths))) || 0
   if (angle === g.straighten) return g
 
-  const { width, height } = turnedSize(g, original)
-  const turn = ((angle - g.straighten) / 10) * (Math.PI / 180)
-  const cos = Math.cos(turn)
-  const sin = Math.sin(turn)
-  const dx = g.crop.x + g.crop.width / 2 - width / 2
-  const dy = g.crop.y + g.crop.height / 2 - height / 2
-  const cx = width / 2 + dx * cos - dy * sin
-  const cy = height / 2 + dx * sin + dy * cos
-
-  return fitCropInside(
-    { ...g, straighten: angle, crop: centreRect(cx, cy, g.crop.width, g.crop.height) },
-    original,
+  const { x: cx, y: cy } = turnAroundImageCentre(
+    anchor.cx,
+    anchor.cy,
+    angle,
+    turnedSize(g, original),
   )
+  // The frame's long side, with its short side at the anchor's exact proportion, unrounded:
+  // fitRectInside rounds only the result and never grows it.
+  const { ratio } = anchor
+  const landscape = ratio.width >= ratio.height
+  const long = Math.max(g.crop.width, g.crop.height)
+  const width = landscape ? long : (long * ratio.width) / ratio.height
+  const height = landscape ? (long * ratio.height) / ratio.width : long
+  const rect = { x: cx - width / 2, y: cy - height / 2, width, height }
+  const next = { ...g, straighten: angle }
+  return { ...next, crop: fitRectInside(rect, next, original) }
 }
 
 /**

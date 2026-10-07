@@ -28,7 +28,7 @@
 | T21 | Let Space press the Crop and rotate action and the tool panel buttons instead of starting space-pan (review R1) | wiring | Blazheiko | S | — | done |
 | T22 | Stop swallowing Escape, Enter and zoom keys on the crop handles (review R2) | ui | Blazheiko | S | — | done |
 | T23 | Keep wheel and pinch zoom and space-pan working over the crop frame (review R3) | wiring | Blazheiko | S | T22 | done |
-| T24 | Straighten from an unrounded anchor so the locked proportion and the frame centre hold, and keep an off-centre frame still on screen (review R4, R8) | domain | Blazheiko | M | — | todo |
+| T24 | Straighten from an unrounded anchor so the locked proportion and the frame centre hold, and keep an off-centre frame still on screen (review R4, R8) | domain | Blazheiko | M | — | done |
 | T25 | Remember the turned proportion after a Rotate and Free after a Reset (review R5) | app | Blazheiko | S | T24 | todo |
 | T26 | Apply with Enter on the Straighten slider, and make C layout-independent and ignore repeats (review R6) | ui | Blazheiko | S | — | todo |
 | T27 | Refuse to open a tool while the export panel or the replace dialog is open (review R7) | app | Blazheiko | S | T26 | todo |

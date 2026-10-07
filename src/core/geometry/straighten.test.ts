@@ -4,6 +4,7 @@ import {
   identityGeometry,
   isInsideTurned,
   setStraighten,
+  straightenAnchor,
   turnedSize,
   type CropRect,
   type Geometry,
@@ -133,6 +134,55 @@ describe('fitCropInside (AC-06)', () => {
     expect(at2.crop.width).toBeLessThanOrEqual(at10.crop.width)
     expect(at2.crop.height).toBeLessThanOrEqual(at10.crop.height)
     expect(at0.crop.width).toBeLessThanOrEqual(at10.crop.width)
+  })
+})
+
+describe('straightenAnchor: one slider or keyboard interaction (AC-05, AC-06, AC-08)', () => {
+  /** Steps the angle one tenth at a time, from `from` to `to`, all from one anchor. */
+  function sweep(g: Geometry, ratio: Size | null, path: number[]) {
+    const anchor = straightenAnchor(g, original, ratio)
+    let at = g
+    const seen: Geometry[] = []
+    for (let i = 1; i < path.length; i++) {
+      const [from, to] = [path[i - 1]!, path[i]!]
+      for (let t = from; t !== to;) {
+        t += Math.sign(to - from)
+        at = setStraighten(at, t, original, anchor)
+        seen.push(at)
+      }
+    }
+    return { at, seen }
+  }
+
+  it('keeps a locked 16:9 within 0.5 px at every 0.1° step from 0° to 45°', () => {
+    const g = { ...identityGeometry(original), crop: { x: 0, y: 228, width: 4096, height: 2304 } }
+    const { at, seen } = sweep(g, { width: 16, height: 9 }, [0, 450])
+    for (const step of seen) {
+      expectValid(step, original)
+      expect(Math.abs(step.crop.height - (step.crop.width * 9) / 16)).toBeLessThanOrEqual(0.5)
+    }
+    expect(Math.abs(at.crop.height - (at.crop.width * 9) / 16)).toBeLessThanOrEqual(0.5)
+  })
+
+  it('keeps an off-centre Free frame’s proportion and image content centre over 0°→45°→0°', () => {
+    const g = { ...identityGeometry(original), crop: { x: 900, y: 700, width: 1000, height: 800 } }
+    const content = toUnturned(centre(g.crop), g, original)
+    const { at, seen } = sweep(g, null, [0, 450, 0])
+    for (const step of seen) {
+      expectValid(step, original)
+      expectSameProportion(step.crop, g.crop)
+      const c = toUnturned(centre(step.crop), step, original)
+      expect(Math.hypot(c.x - content.x, c.y - content.y)).toBeLessThanOrEqual(1)
+    }
+    expect(at.straighten).toBe(0)
+  })
+
+  it('still never grows the frame back towards 0°', () => {
+    const g = identityGeometry(original)
+    const { seen } = sweep(g, null, [0, 300, 0])
+    for (let i = 1; i < seen.length; i++) {
+      expect(seen[i]!.crop.width).toBeLessThanOrEqual(seen[i - 1]!.crop.width)
+    }
   })
 })
 

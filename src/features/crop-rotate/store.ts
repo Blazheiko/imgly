@@ -8,15 +8,18 @@ import {
   moveCrop,
   parseAngle,
   parseCropSize,
+  ratioOf,
   resizeCropLocked,
   rotateQuarter,
   setCropSize,
   setStraighten,
+  straightenAnchor,
   turnProportion,
   type CropHandle,
   type Geometry,
   type Proportion,
   type ScreenAxis,
+  type StraightenAnchor,
   type TurnDirection,
 } from '@/core'
 import { useEditorStore } from '@/features/editor'
@@ -39,6 +42,8 @@ export const useCropRotateStore = defineStore('crop-rotate', () => {
   // Remembered for the open Work only, as soon as chosen, until it is replaced (AC-08).
   const remembered = new Map<string, Proportion>()
   let dragStart: Geometry | null = null
+  // Kept while only the angle changes, so its steps never drift (AC-05, AC-06, AC-08).
+  let angleAnchor: StraightenAnchor | null = null
 
   // The editor closes the slot on Apply, Cancel and a confirmed replace: the Draft goes with it.
   watch(
@@ -47,6 +52,7 @@ export const useCropRotateStore = defineStore('crop-rotate', () => {
       if (tool === 'crop-rotate') return
       draft.value = null
       dragStart = null
+      angleAnchor = null
       pending.value = { ...NO_PENDING }
     },
     { flush: 'sync' },
@@ -61,8 +67,10 @@ export const useCropRotateStore = defineStore('crop-rotate', () => {
 
   const original = () => editor.work!.original
 
-  function update(next: Geometry) {
+  /** Any change but the angle's ends the angle interaction, so the next one starts afresh. */
+  function update(next: Geometry, keepAnchor = false) {
     draft.value = next
+    if (!keepAnchor) angleAnchor = null
     editor.setPreviewGeometry(next)
   }
 
@@ -89,7 +97,10 @@ export const useCropRotateStore = defineStore('crop-rotate', () => {
 
   /** The Straighten angle in tenths of a degree (AC-05, AC-06). */
   function setAngle(tenths: number) {
-    if (draft.value) update(setStraighten(draft.value, tenths, original()))
+    const g = draft.value
+    if (!g) return
+    angleAnchor ??= straightenAnchor(g, original(), ratioOf(proportion.value, g, original()))
+    update(setStraighten(g, tenths, original(), angleAnchor), true)
   }
 
   /** Moves the frame by image pixels, from where it is now (arrow keys). */
@@ -143,7 +154,7 @@ export const useCropRotateStore = defineStore('crop-rotate', () => {
     const g = draft.value
     if (text === null || !g) return
     if (field === 'angle') {
-      update(setStraighten(g, parseAngle(text, g.straighten), original()))
+      setAngle(parseAngle(text, g.straighten))
       return
     }
     const previous = field === 'width' ? g.crop.width : g.crop.height

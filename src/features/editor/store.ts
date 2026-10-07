@@ -204,7 +204,8 @@ export const useEditorStore = defineStore('editor', () => {
 
   /**
    * The open tool's Draft, for the Preview. A quarter turn re-fits the View; any other change keeps
-   * the frame still on screen while the turned image's bounds move.
+   * the frame still on screen while the turned image's bounds move. A new angle also moves the
+   * frame's centre on the turned image (the image turns around it), so that is offset too (AC-05).
    */
   function setPreviewGeometry(next: Geometry) {
     const current = work.value
@@ -217,13 +218,15 @@ export const useEditorStore = defineStore('editor', () => {
     }
     const before = turnedBounds(previous, current.original)
     const after = turnedBounds(next, current.original)
+    let dx = after.x - before.x
+    let dy = after.y - before.y
+    if (next.straighten !== previous.straighten) {
+      dx -= next.crop.x + next.crop.width / 2 - (previous.crop.x + previous.crop.width / 2)
+      dy -= next.crop.y + next.crop.height / 2 - (previous.crop.y + previous.crop.height / 2)
+    }
     const { zoom, panX, panY } = view.value
-    if (before.x !== after.x || before.y !== after.y) {
-      view.value = {
-        ...view.value,
-        panX: panX + (after.x - before.x) * zoom,
-        panY: panY + (after.y - before.y) * zoom,
-      }
+    if (dx !== 0 || dy !== 0) {
+      view.value = { ...view.value, panX: panX + dx * zoom, panY: panY + dy * zoom }
     }
   }
 

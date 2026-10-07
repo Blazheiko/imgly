@@ -92,6 +92,26 @@ describe('crop-rotate store (ADR-0003)', () => {
       expect(tool.proportion).toEqual({ kind: '4:3', orientation: 'portrait' })
     })
 
+    it('holds a locked 16:9 while the angle steps by 0.1° up to 45° (AC-05, AC-08)', () => {
+      tool.chooseProportion({ kind: '16:9', orientation: 'landscape' })
+      for (let t = 1; t <= 450; t++) tool.setAngle(t)
+      const { width, height } = tool.draft!.crop
+      expect(Math.abs(height - (width * 9) / 16)).toBeLessThanOrEqual(0.5)
+    })
+
+    it('starts a new angle interaction from where a move left the frame', () => {
+      tool.resizeBy('se', -2000, -1500)
+      tool.setAngle(100)
+      tool.setAngle(0)
+      tool.moveBy(500, 400)
+      const moved = tool.draft!.crop
+      tool.setAngle(1)
+      const c = tool.draft!.crop
+      // A tenth of a degree turns the frame's centre by well under a pixel from where it was.
+      expect(Math.abs(c.x + c.width / 2 - (moved.x + moved.width / 2))).toBeLessThanOrEqual(2)
+      expect(Math.abs(c.y + c.height / 2 - (moved.y + moved.height / 2))).toBeLessThanOrEqual(2)
+    })
+
     it('keeps a locked proportion while resizing (AC-08)', () => {
       tool.chooseProportion({ kind: '1:1', orientation: 'landscape' })
       expect(tool.draft!.crop).toMatchObject({ width: 3000, height: 3000 })
