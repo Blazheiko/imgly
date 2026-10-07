@@ -103,6 +103,9 @@ function onKeydown(event: KeyboardEvent, handle: CropHandle | null) {
   const arrow = ARROWS[event.key]
   if (!arrow) return
   event.preventDefault()
+  // A handled arrow stays on its handle, so the frame under it doesn't move too. Every other
+  // key bubbles on: Enter and Escape to the tool, the zoom keys to EditorView (AC-19, AC-20).
+  if (handle) event.stopPropagation()
   const step = event.shiftKey ? 10 : 1
   if (handle) tool.resizeBy(handle, arrow[0] * step, arrow[1] * step)
   else tool.moveBy(arrow[0] * step, arrow[1] * step)
@@ -163,7 +166,7 @@ onBeforeUnmount(() => clearTimeout(fineTimer))
         @pointerup="onPointerUp"
         @pointercancel="onPointerUp"
         @lostpointercapture="onPointerUp"
-        @keydown.stop="onKeydown($event, h)"
+        @keydown="onKeydown($event, h)"
       />
     </div>
   </div>

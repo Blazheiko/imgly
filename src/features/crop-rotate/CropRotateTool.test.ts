@@ -116,6 +116,39 @@ describe('CropRotateTool (SCR-03)', () => {
     expect(editor.work!.revision).toBe(0)
   })
 
+  const handleEl = (h: string) =>
+    document.querySelector(`.crop-overlay__handle--${h}`) as HTMLElement
+
+  it('Escape on a focused handle cancels the tool (AC-11, AC-20)', async () => {
+    await openTool()
+    tool.rotate('cw')
+    handleEl('se').focus()
+    press('Escape')
+    expect(editor.activeTool).toBeNull()
+    expect(editor.work!.geometry.rotation).toBe(0)
+  })
+
+  it('Enter on a focused handle applies the tool (AC-20)', async () => {
+    await openTool()
+    tool.rotate('cw')
+    handleEl('nw').focus()
+    press('Enter')
+    expect(editor.activeTool).toBeNull()
+    expect(editor.work!.geometry.rotation).toBe(90)
+  })
+
+  it('lets the zoom keys reach the window from a focused handle (AC-19)', async () => {
+    await openTool()
+    const seen: string[] = []
+    const listen = (e: KeyboardEvent) => seen.push(e.key)
+    window.addEventListener('keydown', listen)
+    handleEl('n').focus()
+    press('+')
+    press('-')
+    window.removeEventListener('keydown', listen)
+    expect(seen).toEqual(['+', '-'])
+  })
+
   it('leaves Escape to the replace dialog while it is open', async () => {
     await openTool()
     editor.phase = 'confirming'

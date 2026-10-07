@@ -101,6 +101,17 @@ describe('CropOverlay (ADR-0005)', () => {
     expect(tool.draft!.crop.height).toBe(before.height + 10)
   })
 
+  it('keeps a handled arrow on the handle, so the frame does not also move (AC-20)', async () => {
+    const before = tool.draft!.crop
+    const seen: string[] = []
+    const listen = (e: KeyboardEvent) => seen.push(e.key)
+    window.addEventListener('keydown', listen)
+    await handle(HANDLE_LABELS.e).trigger('keydown', { key: 'ArrowRight' })
+    window.removeEventListener('keydown', listen)
+    expect(tool.draft!.crop).toMatchObject({ x: before.x, width: before.width + 1 })
+    expect(seen).toEqual([])
+  })
+
   it('shows the fine grid only while the angle changes (AC-05)', async () => {
     vi.useFakeTimers()
     expect(wrapper.find('[data-testid="fine-grid"]').exists()).toBe(false)
