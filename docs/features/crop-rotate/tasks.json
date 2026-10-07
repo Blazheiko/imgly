@@ -442,6 +442,185 @@
         "e2e/export/perf.spec.ts"
       ],
       "file": "docs/features/crop-rotate/tasks/t20-perf-suite.md"
+    },
+    {
+      "id": "T21",
+      "title": "Let Space press the Crop and rotate action and the tool panel buttons instead of starting space-pan (review R1)",
+      "layer": "wiring",
+      "deps": [],
+      "acs": [
+        "AC-20"
+      ],
+      "dod": "With a Work open, Space keydown+keyup on the \"Crop and rotate\" action opens the tool and on Rotate turns the Draft; space-pan still starts over the canvas; EditorView-level component tests press Space",
+      "files_hint": [
+        "src/features/crop-rotate/CropRotateAction.vue",
+        "src/features/crop-rotate/CropRotateTool.vue",
+        "src/features/editor/EditorView.test.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07.md"
+    },
+    {
+      "id": "T22",
+      "title": "Stop swallowing Escape, Enter and zoom keys on the crop handles (review R2)",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-11",
+        "AC-19",
+        "AC-20"
+      ],
+      "dod": "A handle stops propagation only for an arrow key it handles; Escape on a focused handle cancels the tool, Enter applies it, and + zooms; tests in CropRotateTool.test.ts and CropOverlay.test.ts",
+      "files_hint": [
+        "src/features/crop-rotate/CropOverlay.vue",
+        "src/features/crop-rotate/CropOverlay.test.ts",
+        "src/features/crop-rotate/CropRotateTool.test.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07.md"
+    },
+    {
+      "id": "T23",
+      "title": "Keep wheel and pinch zoom and space-pan working over the crop frame (review R3)",
+      "layer": "wiring",
+      "deps": [
+        "T22"
+      ],
+      "acs": [
+        "AC-19"
+      ],
+      "dod": "Wheel and gesture listeners sit on the canvas section so they fire over the overlay; the overlay ignores pointerdown while space-pan is active; component tests cover both and an e2e test zooms with the wheel over the frame",
+      "files_hint": [
+        "src/features/editor/components/PreviewCanvas.vue",
+        "src/features/editor/components/PreviewCanvas.test.ts",
+        "src/features/crop-rotate/CropOverlay.vue",
+        "e2e/crop-rotate/tool.spec.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07.md"
+    },
+    {
+      "id": "T24",
+      "title": "Straighten from an unrounded anchor so the locked proportion and the frame centre hold, and keep an off-centre frame still on screen (review R4, R8)",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-05",
+        "AC-06",
+        "AC-08"
+      ],
+      "dod": "setStraighten derives every step from an anchor (centre in Original coordinates plus the locked or starting proportion) and rounds only the result; the fit uses the locked ratio; a property test steps the angle 0°→45°→0° in 0.1° steps and keeps 16:9 within 0.5 px and the centre within 1 px; the editor store pan correction also offsets the Crop centre change, tested with an off-centre Crop",
+      "files_hint": [
+        "src/core/geometry/straighten.ts",
+        "src/core/geometry/straighten.test.ts",
+        "src/core/geometry/crop.ts",
+        "src/features/crop-rotate/store.ts",
+        "src/features/crop-rotate/store.test.ts",
+        "src/features/editor/store.ts",
+        "src/features/editor/store.test.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07.md"
+    },
+    {
+      "id": "T25",
+      "title": "Remember the turned proportion after a Rotate and Free after a Reset (review R5)",
+      "layer": "app",
+      "deps": [
+        "T24"
+      ],
+      "acs": [
+        "AC-03",
+        "AC-08",
+        "AC-12"
+      ],
+      "dod": "rotate() swaps the remembered proportion (4:3 → 3:4) and reset() remembers Free; store tests reopen after Rotate and after Reset → Apply",
+      "files_hint": [
+        "src/features/crop-rotate/store.ts",
+        "src/features/crop-rotate/store.test.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07.md"
+    },
+    {
+      "id": "T26",
+      "title": "Apply with Enter on the Straighten slider, and make C layout-independent and ignore repeats (review R6)",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-18",
+        "AC-20"
+      ],
+      "dod": "isTextTarget excludes range, checkbox and radio inputs; the C shortcut also matches event.code KeyC and ignores event.repeat; shortcut tests cover each case",
+      "files_hint": [
+        "src/features/crop-rotate/shortcuts.ts",
+        "src/features/crop-rotate/shortcuts.test.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07.md"
+    },
+    {
+      "id": "T27",
+      "title": "Refuse to open a tool while the export panel or the replace dialog is open (review R7)",
+      "layer": "app",
+      "deps": [
+        "T26"
+      ],
+      "acs": [
+        "AC-16",
+        "AC-20"
+      ],
+      "dod": "openTool refuses when activePanel is not null or phase is confirming; the C shortcut stays silent while confirming; store and shortcut tests cover both",
+      "files_hint": [
+        "src/features/editor/store.ts",
+        "src/features/editor/store.test.ts",
+        "src/features/crop-rotate/shortcuts.ts",
+        "src/features/crop-rotate/shortcuts.test.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07.md"
+    },
+    {
+      "id": "T28",
+      "title": "Run the GPU crop transparency check only while the export panel is open (review R9)",
+      "layer": "app",
+      "deps": [],
+      "acs": [
+        "AC-14"
+      ],
+      "dod": "The transparency watch includes panelOpen in its source and guard; a store test applies a Geometry with the panel closed and checkTransparency is not called, then opening the panel runs it",
+      "files_hint": [
+        "src/features/export/store.ts",
+        "src/features/export/store.test.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07.md"
+    },
+    {
+      "id": "T29",
+      "title": "Note in AC-06 that AC-08 short-side rounding takes precedence (review R10)",
+      "layer": "docs",
+      "deps": [],
+      "acs": [
+        "AC-06",
+        "AC-08"
+      ],
+      "dod": "spec.md AC-06 carries a note that the fitted short side rounds per AC-08 and still stays inside the image; no code change",
+      "files_hint": [
+        "docs/features/crop-rotate/spec.md"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07.md"
+    },
+    {
+      "id": "T30",
+      "title": "Align the test plan with the tests that exist and add the keyboard-only AC-20 e2e test (review R11)",
+      "layer": "tests",
+      "deps": [
+        "T21",
+        "T22",
+        "T26"
+      ],
+      "acs": [
+        "AC-20"
+      ],
+      "dod": "test-plan.md rows match the written tests and mark the ones narrowed on purpose; tool.spec.ts proves rotate-once and crop-to-square by keyboard only (Tab, Space/Enter, arrows, Escape on a handle)",
+      "files_hint": [
+        "docs/features/crop-rotate/test-plan.md",
+        "e2e/crop-rotate/tool.spec.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07.md"
     }
   ]
 }
