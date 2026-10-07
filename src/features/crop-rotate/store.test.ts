@@ -146,6 +146,23 @@ describe('crop-rotate store (ADR-0003)', () => {
       expect(editor.view).toEqual(view)
     })
 
+    it('offsets the pan only by the turned bounds when Reset leaves an angle (AC-12)', () => {
+      tool.cancel()
+      openWork(editor, { width: 4000, height: 2000 })
+      tool.open()
+      tool.resizeBy('se', -2800, -1200)
+      tool.moveBy(1500, 300)
+      tool.setAngle(100)
+      const angled = tool.draft!
+      const before = { ...editor.view }
+      tool.reset()
+      const from = turnedBounds(angled, editor.work!.original)
+      const to = turnedBounds(tool.draft!, editor.work!.original)
+      expect(editor.view.zoom).toBe(before.zoom)
+      expect(editor.view.panX).toBeCloseTo(before.panX + (to.x - from.x) * before.zoom, 9)
+      expect(editor.view.panY).toBeCloseTo(before.panY + (to.y - from.y) * before.zoom, 9)
+    })
+
     it('starts a new angle interaction from where a move left the frame', () => {
       tool.resizeBy('se', -2000, -1500)
       tool.setAngle(100)
