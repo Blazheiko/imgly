@@ -18,7 +18,7 @@
 | T11 | Refuse Export and Ctrl/Cmd+S while a tool is open with the 'apply or cancel the crop first' hint, and report the open panel | app | Blazheiko | S | T8, T10 | done |
 | T12 | Extend SliderField (step, decimals, marks), NumberField (signed decimal input) and BaseButton (pressed), and register them | ui | Blazheiko | S | — | done |
 | T13 | Add the crop-rotate store: Draft, Geometry at open, remembered proportion per Work, field state, apply / cancel / reset | app | Blazheiko | M | T4, T8 | done |
-| T14 | Add the 'Crop and rotate' toolbar action, its hints, the C shortcut and the tool's message catalog | ui | Blazheiko | M | T12, T13 | todo |
+| T14 | Add the 'Crop and rotate' toolbar action, its hints, the C shortcut and the tool's message catalog | ui | Blazheiko | M | T12, T13 | done |
 | T15 | Build CropOverlay: dimmed outside, frame with 8 focusable handles, both grids, pointer drags and arrow keys | ui | Blazheiko | M | T5, T13 | todo |
 | T16 | Build CropRotateControls: rotate and flip buttons, straighten slider and field, proportion, width and height, Reset / Cancel / Apply | ui | Blazheiko | M | T12, T13 | todo |
 | T17 | Mount CropRotateTool in a new EditorView tool slot, with Enter to apply, Escape to cancel, focus handling and fit-View | wiring | Blazheiko | M | T9, T14, T15, T16 | todo |
