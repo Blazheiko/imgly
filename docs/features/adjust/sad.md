@@ -132,50 +132,84 @@ Each tactical decision in later sections traces to one of these seeds. A tactica
 
 ## 5. Building block view
 
-<!-- 🎯 Why: INTERNAL DECOMPOSITION — modules, containers, datastores. The static topology: who
-     may talk to whom. Without §5, §6 (the flows) has no vocabulary of participants.
-     📋 Write: 1 ¶ on the style (layered / hexagonal / clean / event-driven) + a folder tree + a
-     C4Container block.
-     📌 Draw ONE Container per declared `target_surface` (frontmatter): a fullstack
-     [backend-service, web-frontend] = a backend-API container + a web/SPA container; a
-     [backend-service, mobile-app] = the API + the mobile app. The Container(web, …) line below is
-     just one surface's container — swap/add per what was declared in §4. → _shared/surfaces.md
-     📌 e.g. «web app, content API, media worker, datastore, object store, CDN». -->
+The feature follows the repo's functional core with feature folders (repo ADR 0002), on the crop-rotate model. Every rule about the values is pure TypeScript in the new `src/core/adjust/` and is unit-tested without a browser (ADR-0001). That covers the ranges, neutral values, field-by-field equality, the field input rules, the uniform packing, the CPU reference of the formulas (ADR-0003) and Auto adjust's computation (ADR-0004). Rendering the Adjustments is a change to the one shared shader in `src/render/`, used by the Preview and the export worker alike (ADR-0002). adjust is a **new feature folder**, `src/features/adjust/`, holding the toolbar action, the tool panel, the Compare label, its keyboard handling and its store. Like crop-rotate, its only cross-feature import is `useEditorStore` from `@/features/editor` (repo `CLAUDE.md` §Module boundaries). Through it the tool opens and closes the editor's tool slot, previews its Draft, applies the result and asks for Auto's sample. The app shell places the action in the top bar next to "Crop and rotate" and mounts the tool into the editor's existing tool slot.
 
-<One paragraph: layered / hexagonal / clean / event-driven, and why.>
+**A smaller Export is reduced after the Adjustments, in two passes** (decided inline: it touches only the export render and is reversible in a day). AC-14 requires a smaller Export to be the full-size adjusted Export reduced to that size. When the size is smaller than the Work and the Adjustments are not neutral, the export render first draws the Crop at full size with the Adjustments into a texture of the same context. It then builds that texture's mipmaps and draws it at the export size through the existing mipmapped minification, flattening onto white for JPEG in that second pass. A full-size Export, and any Export with neutral Adjustments, keeps today's single pass, so neutral Exports stay identical at every size. The window fallback (export ADR-0003) runs the same code.
+
+**Cross-feature changes (open-and-view, export and crop-rotate):**
+- `Work` gains `adjustments: Adjustments`, neutral at open (ADR-0001). `ExportSnapshot` and `ExportRequest` gain `adjustments`. The crop-rotate transparency check (crop-rotate ADR-0004) is unchanged, because Adjustments never change alpha (AC-06), so its cached answer stays valid across Adjustment changes.
+- The `editor` store gains:
+  - `ToolId` `'adjust'` next to `'crop-rotate'`. `openTool` already refuses during an export, under the export panel, during the replace confirmation and while another tool is open (AC-15, AC-18, AC-21)
+  - `previewAdjustments` (the Draft, or neutral while Compare is held; null when the adjust tool is closed) and `applyAdjustments(next)`, which raises the revision only when the values differ (AC-11)
+  - `sampleWork()`, which asks the renderer it created for Auto's sample (ADR-0004)
+  - `closeTool()` already runs on a successful replace of the Work, so the Draft is dropped with the old Work (AC-17)
+- `PreviewCanvas` passes `previewAdjustments ?? work.adjustments` to `renderer.setAdjustments`. Because of that, "Crop and rotate" shows the applied Adjustments over the whole turned image with no new code there (AC-18). `PreviewRenderer` gains `setAdjustments(a)` and `sampleCrop(geometry, maxSide)`.
+- export: the hint for Export and Ctrl/Cmd+S while a tool is open names the open tool. "Apply or cancel the adjustments first" is shown for adjust (AC-16), and the crop text is kept for crop-rotate. The export store sends `adjustments` with the request, and the worker sets the uniforms and uses the two-pass reduction above.
+- crop-rotate: while the adjust tool is open, its action shows "apply or cancel the open tool first" and the C key shows the same hint, but stays silent while a text field has focus (AC-18). The adjust action mirrors this while "Crop and rotate" is open.
 
 **Internal decomposition:**
 
 ```
-<e.g. modules/<feature>/>
-├── domain/       <entities + sentinel errors>
-├── app/          <use cases / services>
-├── infra/        <repository + integration impl>
-├── ports/        <handlers, DTOs, error mapping>
-└── wiring        <self-wiring entry point>
+src/
+├── core/
+│   ├── document.ts               Work + adjustments (neutral at open)
+│   └── adjust/                   Adjustments type, keys in the fixed order, ranges, NEUTRAL_ADJUSTMENTS, isNeutral,
+│                                 adjustmentsEquals (AC-11), parseAdjustmentField (AC-05), toUniforms,
+│                                 applyAdjustmentsToPixel (CPU reference of ADR-0003), autoAdjust (ADR-0004)
+├── render/
+│   ├── shaders.ts                u_adjust and the seven-step colour block after sampling (ADR-0002)
+│   ├── preview-renderer.ts       setAdjustments(a); sampleCrop(geometry, maxSide) into a small framebuffer (ADR-0004)
+│   └── export/
+│       ├── worker-handler.ts     sets the Adjustment uniforms; two-pass reduction for smaller adjusted sizes
+│       └── client.ts             exportImage(request with adjustments)
+├── features/editor/              store: ToolId 'adjust', previewAdjustments, applyAdjustments, sampleWork;
+│                                 PreviewCanvas passes the Adjustments to the renderer
+├── features/export/              sends adjustments; the tool-open hint names the open tool (AC-16)
+├── features/crop-rotate/         action and C key: "apply or cancel the open tool first" while adjust is open (AC-18)
+├── features/adjust/
+│   ├── store.ts                  `adjust` store: Draft, Adjustments at open, Compare held, field state,
+│   │                             apply / cancel / reset / reset one / auto
+│   ├── AdjustAction.vue          the toolbar action with its hints (SCR-01, SCR-02; AC-15, AC-18, AC-19, AC-21)
+│   ├── AdjustTool.vue            SCR-03, mounted in the editor's tool slot: the panel beside the canvas and the "Before" label over it
+│   ├── AdjustControls.vue        seven SliderFields with number fields and neutral marks, Compare, Auto, Reset, Cancel, Apply
+│   ├── shortcuts.ts              A to open; inside the tool Enter, Escape and the held \ key (by key code, AC-08, AC-21)
+│   ├── messages.ts               the tool's hint catalog ("nothing to correct automatically", refusals)
+│   └── index.ts                  public surface: AdjustAction, AdjustTool, useAdjustStore
+└── app/App.vue                   mounts AdjustAction next to CropRotateAction, and AdjustTool into the editor's tool slot
 ```
 
-**C4 Container (L2):** <!-- syntax → references/c4-mermaid-syntax.md. Real names, no <placeholder> stubs. ONE Container per declared target_surface (frontmatter); the web container below is one example surface. -->
+Dependency direction stays `features → core | infra | render | shared`. `render` imports `core` for the `Adjustments` type and `toUniforms`, as repo `CLAUDE.md` §Module boundaries allows. No new `AppError` code: the field rules never fail (they snap, round or revert), "nothing to correct" is a result, not an error, and a failed sample is the existing `DISPLAY_LOST`.
+
+**C4 Container (L2):**
 
 ```mermaid
 C4Container
-    title <feature> — Containers
+    title adjust — Containers
 
-    Person(actor, "<Actor>")
+    Person(editor, "Editor", "Fixes the light and colour of the Work")
+    Person(reviewer, "Portfolio reviewer", "Adjusts a photo on a first visit")
 
-    Container_Boundary(app, "<Our system>") {
-        Container(web, "<Web/UI>", "<technology>", "<purpose>")
-        Container(api, "<API/handler>", "<technology>", "<purpose>")
-        ContainerDb(db, "<Datastore>", "<technology>", "<purpose>")
+    System_Ext(browser, "Browser platform", "WebGL2 in window and workers, input events")
+    System_Ext(pages, "GitHub Pages", "Serves the static app shell over HTTPS")
+
+    Container_Boundary(app, "imgly-editor (browser tab)") {
+        Container(spa, "Editor SPA", "Vue 3, Pinia, TypeScript, WebGL2", "Adjust tool and store, editor store with the tool slot, Preview renderer with the colour steps and Auto's sample, export panel")
+        Container(core, "Editing core", "Pure TypeScript", "Adjustments rules, field rules, field-by-field equality, uniform packing, formula reference and Auto's computation")
+        Container(exporter, "Export worker", "Web Worker, OffscreenCanvas, WebGL2", "Renders the Work with its Geometry and Adjustments, reduces smaller sizes after adjusting, encodes")
+        Container(sw, "Service worker", "Workbox via vite-plugin-pwa", "Precaches the app shell and worker scripts for offline use")
     }
 
-    System_Ext(ext, "<External>", "<purpose>")
-
-    Rel(actor, web, "<interaction>", "<protocol>")
-    Rel(web, api, "<calls>")
-    Rel(api, db, "<reads/writes>", "<driver>")
-    Rel(api, ext, "<emits>", "<protocol>")
+    Rel(editor, spa, "Moves sliders, holds Compare, chooses Auto, applies or cancels", "mouse, keyboard")
+    Rel(reviewer, spa, "Uses the tool on a first visit", "desktop browser")
+    Rel(spa, core, "Applies every rule, packs the uniforms, computes Auto's values", "function calls")
+    Rel(spa, browser, "Draws the Preview with the Adjustments and samples the Crop", "WebGL2")
+    Rel(spa, exporter, "Sends a copy of the Original, the Geometry and the Adjustments, receives the file", "postMessage with transfer")
+    Rel(exporter, core, "Gets the same transform and uniforms", "function calls")
+    Rel(exporter, browser, "Renders with the shared shader", "WebGL2, OffscreenCanvas")
+    Rel(sw, pages, "Fetches the app shell on install and update", "HTTPS")
 ```
+
+The Editor SPA does all the interactive work. It applies every Adjustment rule through the editing core, draws the Preview with the Draft's uniforms through WebGL2, and samples the Crop there for Auto. For an Export it sends a copy of the Original with the Geometry and the Adjustments to the export worker, which gets the same transform and uniforms from the core and renders with the same shader. The decode worker is unchanged and out of this view.
 
 ## 6. Runtime view
 
