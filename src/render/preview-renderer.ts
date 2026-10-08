@@ -1,16 +1,25 @@
 import {
+  adjustmentsEquals,
   appError,
+  NEUTRAL_ADJUSTMENTS,
   cropToOriginalUv,
   err,
   ok,
   turnedBounds,
   turnedImageToOriginalUv,
+  type Adjustments,
   type AppError,
   type Geometry,
   type Result,
   type View,
 } from '@/core'
-import { buildProgram, IDENTITY_GEOMETRY, uploadTexture, type GpuProgram } from './shaders'
+import {
+  buildProgram,
+  IDENTITY_GEOMETRY,
+  setAdjustmentUniforms,
+  uploadTexture,
+  type GpuProgram,
+} from './shaders'
 import { viewToTransform } from './view-transform'
 
 /** Marked on the first frame drawn after a new Original; the @perf suite times opens to it. */
@@ -34,6 +43,11 @@ export interface PreviewRenderer {
    * (`crop`) or the whole turned image's bounds (`whole`). Until called, the identity is drawn.
    */
   setGeometry(g: Geometry, mode: GeometryMode): void
+  /**
+   * Colours the Preview with `a` (adjust ADR-0002): sets uniforms and requests one frame, with no
+   * texture upload. Until called, neutral values are drawn.
+   */
+  setAdjustments(a: Adjustments): void
   /** Sets the backing store size in device pixels. */
   resize(width: number, height: number): void
   readonly status: RendererStatus
@@ -76,6 +90,7 @@ export function createPreviewRenderer(
   let texture: WebGLTexture | null = null
   let view: View | undefined
   let shown: { geometry: Geometry; mode: GeometryMode } | undefined
+  let adjustments: Adjustments = NEUTRAL_ADJUSTMENTS
   let frame: number | undefined
   let firstFramePending = false
 
@@ -149,6 +164,7 @@ export function createPreviewRenderer(
     )
     gl!.uniformMatrix3fv(gpu.geometry, false, uvMatrix)
     gl!.uniformMatrix3fv(gpu.transform, false, viewToTransform(view, image, size))
+    setAdjustmentUniforms(gl!, gpu, adjustments)
     gl!.drawArrays(gl!.TRIANGLE_STRIP, 0, 4)
 
     if (firstFramePending) {
@@ -178,6 +194,11 @@ export function createPreviewRenderer(
     },
     setGeometry(geometry, mode) {
       shown = { geometry, mode }
+      invalidate()
+    },
+    setAdjustments(next) {
+      if (adjustmentsEquals(next, adjustments)) return
+      adjustments = { ...next }
       invalidate()
     },
     resize(width, height) {

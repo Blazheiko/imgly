@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   cropToOriginalUv,
   identityGeometry,
+  NEUTRAL_ADJUSTMENTS,
   turnedBounds,
   turnedImageToOriginalUv,
   type Geometry,
@@ -237,5 +238,57 @@ describe('PreviewRenderer.setGeometry (crop-rotate ADR-0002)', () => {
     frames.flush()
 
     expect(lastMatrix('u_geometry')).toEqual(new Float32Array(cropToOriginalUv(g, original)))
+  })
+
+  describe('setAdjustments (adjust ADR-0002)', () => {
+    const adjusted = { ...NEUTRAL_ADJUSTMENTS, contrast: 40 }
+
+    it('requests exactly one frame per change and uploads no texture', () => {
+      renderer.setAdjustments(adjusted)
+      renderer.setAdjustments({ ...adjusted, contrast: 41 })
+      expect(frames.pending).toBe(1)
+      frames.flush()
+      expect(fake.names().filter((n) => n === 'drawArrays')).toHaveLength(1)
+      expect(fake.names()).not.toContain('texImage2D')
+      expect(fake.names()).not.toContain('createTexture')
+    })
+
+    it('draws with the latest values', () => {
+      renderer.setAdjustments(adjusted)
+      renderer.setAdjustments({ ...adjusted, contrast: 41 })
+      frames.flush()
+      expect(uniformCalls(fake, 'u_adjust').at(-1)).toEqual([
+        'uniform1i',
+        { uniform: 'u_adjust' },
+        1,
+      ])
+      expect(uniformCalls(fake, 'u_contrast').at(-1)?.[2]).toBeCloseTo(1 / (1 - 0.75 * 0.41), 10)
+    })
+
+    it('requests no frame when the values did not change', () => {
+      renderer.setAdjustments(adjusted)
+      frames.flush()
+      renderer.setAdjustments({ ...adjusted })
+      expect(frames.pending).toBe(0)
+    })
+
+    it('draws neutral values with u_adjust false, also before any call', () => {
+      renderer.setView(view(0.5))
+      frames.flush()
+      expect(uniformCalls(fake, 'u_adjust').at(-1)).toEqual([
+        'uniform1i',
+        { uniform: 'u_adjust' },
+        0,
+      ])
+      renderer.setAdjustments(adjusted)
+      frames.flush()
+      renderer.setAdjustments(NEUTRAL_ADJUSTMENTS)
+      frames.flush()
+      expect(uniformCalls(fake, 'u_adjust').at(-1)).toEqual([
+        'uniform1i',
+        { uniform: 'u_adjust' },
+        0,
+      ])
+    })
   })
 })
