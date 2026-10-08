@@ -72,3 +72,6 @@ for o, ops in inverse.items():
         rest = rest[2 + n:]
     open(stored, 'wb').write(b'\xff\xd8' + exif(o) + rest)
 PY
+
+# The adjust fixtures: exact anchor patches and alpha patches (adjust test-plan §Test data).
+python3 adjust-fixtures.py

@@ -6,20 +6,22 @@ heif-enc output, so each is our own work, released under **CC0**. No third-party
 is committed. Run `./generate.sh` to rebuild them; the outputs are deterministic for a given tool
 version.
 
-| File                                                   | What it is                                                                                   | Expected outcome                                             |
-| ------------------------------------------------------ | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| `photo.jpg` / `.png` / `.webp` / `.avif`               | 320×240 gradient in each Supported format                                                    | Preview, `320 × 240 px`                                      |
-| `large-lossless.webp`                                  | 720×540 noise, lossless simple-format WebP, about 1.1 MiB (one chunk past the header window) | Preview, `720 × 540 px`                                      |
-| `animated.gif`                                         | 2-frame 64×48 GIF (red, then blue)                                                           | Preview + "only the first frame was kept"                    |
-| `big-animated.gif`                                     | 2-frame 6000×4000 GIF (red, then blue)                                                       | Preview at 4096 × 2731 + downscale and first-frame notices   |
-| `photo.heic`                                           | 320×240 HEIC (heif-enc)                                                                      | AC-07 HEIC message on Chromium/Firefox; WebKit may decode it |
-| `png-named.jpg`                                        | the PNG with a `.jpg` name                                                                   | Preview — judged by content (AC-08)                          |
-| `text-named.png`                                       | plain text with a `.png` name                                                                | "This file couldn't be read as an image."                    |
-| `truncated.jpg`                                        | `photo.jpg` cut before its SOF marker                                                        | AC-08 message                                                |
-| `corrupt.png`                                          | valid header, IDAT bytes replaced (CRC no longer matches)                                    | AC-08 message                                                |
-| `drawing.svg`, `bitmap.bmp`, `image.tiff`, `image.psd` | refused formats, 64×48                                                                       | AC-07 message naming the format                              |
-| `ref.png`                                              | 48×32, four coloured quadrants                                                               | baseline Work for the "over a Work" runs                     |
-| `orientation-1.jpg` … `orientation-8.jpg`              | `ref.png` stored pre-transformed and tagged with EXIF orientation 1–8                        | all display upright as `ref.png` (48 × 32 px, red top-left)  |
+| File                                                   | What it is                                                                                      | Expected outcome                                             |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `photo.jpg` / `.png` / `.webp` / `.avif`               | 320×240 gradient in each Supported format                                                       | Preview, `320 × 240 px`                                      |
+| `large-lossless.webp`                                  | 720×540 noise, lossless simple-format WebP, about 1.1 MiB (one chunk past the header window)    | Preview, `720 × 540 px`                                      |
+| `animated.gif`                                         | 2-frame 64×48 GIF (red, then blue)                                                              | Preview + "only the first frame was kept"                    |
+| `big-animated.gif`                                     | 2-frame 6000×4000 GIF (red, then blue)                                                          | Preview at 4096 × 2731 + downscale and first-frame notices   |
+| `photo.heic`                                           | 320×240 HEIC (heif-enc)                                                                         | AC-07 HEIC message on Chromium/Firefox; WebKit may decode it |
+| `png-named.jpg`                                        | the PNG with a `.jpg` name                                                                      | Preview — judged by content (AC-08)                          |
+| `text-named.png`                                       | plain text with a `.png` name                                                                   | "This file couldn't be read as an image."                    |
+| `truncated.jpg`                                        | `photo.jpg` cut before its SOF marker                                                           | AC-08 message                                                |
+| `corrupt.png`                                          | valid header, IDAT bytes replaced (CRC no longer matches)                                       | AC-08 message                                                |
+| `drawing.svg`, `bitmap.bmp`, `image.tiff`, `image.psd` | refused formats, 64×48                                                                          | AC-07 message naming the format                              |
+| `ref.png`                                              | 48×32, four coloured quadrants                                                                  | baseline Work for the "over a Work" runs                     |
+| `orientation-1.jpg` … `orientation-8.jpg`              | `ref.png` stored pre-transformed and tagged with EXIF orientation 1–8                           | all display upright as `ref.png` (48 × 32 px, red top-left)  |
+| `anchors.png`                                          | 56×8, 8×8 patches: mid-grey 128, black, white, red, green, blue, yellow (`adjust-fixtures.py`)  | adjust: the shader gives ADR-0003's anchor table (QG-1d)     |
+| `alpha-patches.png`                                    | 24×16 RGBA, 4×4 patches: alpha 0, 1, 64, 128, 254, 255 over four colours (`adjust-fixtures.py`) | adjust: alpha kept exactly at every setting (QG-1c)          |
 
 Built by the spec at run time instead of committed (size): the 12 MP 4032×3024 and 48 MP
 8064×6048 JPEGs (OffscreenCanvas in the page), the JPEG with more than 1 MiB of metadata, and the

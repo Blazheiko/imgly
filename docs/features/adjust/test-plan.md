@@ -31,6 +31,11 @@ Inputs: `spec.md` §5 (AC-01 to AC-21), §6 and §7; `sad.md` §6 (F1 to F7), §
     alpha 64 is held by the CPU reference unit test (`sad.md` §11, Medium risk on unpremultiplying).
   - An engine that misses 2/255 on an opaque fixture is recorded as an engine deviation with its own
     ADR, as export ADR-0003 does.
+  - **Recorded deviation (T17, [adr/0005](adr/0005-record-the-semi-transparent-colour-deviation-on-firefox-and-webkit.md)).**
+    On Firefox and WebKit the Export already differs from the Preview at alpha 64 by 4/255 with
+    neutral values, and Adjustments scale that gap up to 16/255 (4/255 even at alpha 254). QG-1c
+    therefore checks colour on opaque pixels only on those two engines, and from alpha 64 on Chromium.
+    Alpha stays exact everywhere.
 - **Anchor tolerance (confirms `sad.md` QG-1d).** The CPU reference (`applyAdjustmentsToPixel`)
   must give ADR-0003's anchor table **exactly** after rounding to whole numbers: the table is its
   output, so changing a formula means changing the table on purpose. The real shader on each engine
