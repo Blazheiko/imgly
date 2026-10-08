@@ -441,13 +441,19 @@ Each top-3 goal from §1 expanded into full scenarios. Every number is quoted fr
 
 ## 12. Glossary
 
-<!-- 🎯 Why: ⭐ the DOMAIN GLOSSARY that ends arguments a year later («checkpoint — weekly or
-     biweekly? quarter — calendar or fiscal?»).
-     📋 Write: a term / meaning table. Business + technical terms mixed.
-     📌 e.g. «Lesson | a unit inside a course made of blocks (text, video)». -->
+Domain terms come from the glossaries ([root CONTEXT](../../../CONTEXT.md) and [adjust CONTEXT](./CONTEXT.md)), which stay canonical. Technical terms are this document's.
 
 | Term | Meaning |
 |---|---|
-| <e.g. domain object A> | <its meaning in this domain> |
-| <e.g. domain object B> | <its meaning> |
-| <e.g. domain invariant name> | <the rule, in plain language> |
+| Adjustments | The Work's seven colour values: brightness, contrast, saturation, temperature and tint from −100 to +100, and grayscale and sepia from 0% to 100%. Each has a neutral value at which it changes no pixel, and together they change only colour, never transparency, size or position (root CONTEXT) |
+| Draft | The Adjustments being changed in the open "Adjust" tool. They reach the Work only on Apply and never count as Unsaved edits on their own (adjust CONTEXT) |
+| Compare | Holding a control in the tool to see the Preview with the Work's Geometry and no Adjustments, labelled "Before". It never changes the Work or the Draft (adjust CONTEXT) |
+| Auto adjust | The action that sets the Draft's brightness, contrast, temperature and tint from the pixels inside the Crop, the same values for the same Work and Geometry (adjust CONTEXT) |
+| Neutral value | 0 for the first five Adjustments and 0% for grayscale and sepia. All seven neutral is `NEUTRAL_ADJUSTMENTS`, which the shader skips entirely (ADR-0001, ADR-0002) |
+| Work, Original, Geometry, Crop, Preview, Export, View, Unsaved edits | As in the root CONTEXT |
+| Stored sRGB value | A pixel's channel as the 0–255 number the image holds, not linear light. Every rule of AC-02 to AC-04 and every formula of ADR-0003 works on these values (ADR-0002) |
+| Premultiplied | Colour stored already multiplied by its opacity, as the Original's texture holds it. The shader divides it out before the steps and multiplies it back after them (ADR-0002) |
+| Rec. 709 lightness | `0.2126 R + 0.7152 G + 0.0722 B`, the weighting that grayscale, saturation and Auto use for perceived lightness (ADR-0003) |
+| Uniform | A value passed to the shader for a whole draw. The seven Adjustments and `u_adjust` reach the GPU as uniforms, so a slider move is a uniform change and one frame (ADR-0002) |
+| Sample | The pixels of the Crop that Auto measures: at most 512 px on the long side, rendered with the Geometry and without Adjustments, one exact texel per pixel (ADR-0004) |
+| Two-pass reduction | A smaller adjusted Export: the Crop is rendered at full size with the Adjustments, then reduced through mipmaps to the chosen size (§5) |
