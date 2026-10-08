@@ -213,31 +213,117 @@ The Editor SPA does all the interactive work. It applies every Adjustment rule t
 
 ## 6. Runtime view
 
-<!-- 🎯 Why: the RUNTIME FLOW of 1–2 critical scenarios — who talks to whom, when, in what order.
-     Without §6, §5 is just boxes with no life.
-     📋 Write: a Mermaid sequenceDiagram. Participants are names from §5 (don't invent new ones).
-     Messages are semantic («saves a draft»), NO HTTP verbs / paths / status codes — endpoint-level
-     sequences arrive at the `api` stage.
-     📌 e.g. «author → web: composes draft → web → content API: save». Seed the primary flow(s) here;
-     the `sequences` stage then covers every §5 AC (no cap). Never N/A for M+; XS/S keeps ≥1 happy-path flow. -->
-
-**Critical flow 1: <flow name>**
+**Critical flow 1: open the tool, drag a slider, hold Compare, then Apply or Cancel**
 
 ```mermaid
 sequenceDiagram
-    actor Actor
-    participant Web
-    participant Service
-    participant Store
-    Actor->>Web: <action>
-    Web->>Service: <call>
-    Service->>Store: <write>
-    Store-->>Service: ok
-    Service-->>Web: result
-    Web-->>Actor: confirmation
+    actor Editor
+    participant SPA as Editor SPA
+    participant Core as Editing core
+    participant Browser as Browser platform
+
+    Editor->>SPA: chooses Adjust, or presses A
+    SPA->>SPA: editor store opens the tool slot if a Work is open, no export runs and no other tool is open
+    SPA->>SPA: adjust store copies the Work's Adjustments as the Draft and as the values to return to
+    SPA-->>Editor: seven sliders at the Work's values, View unchanged
+    loop each slider move, typed value, reset or Reset
+        Editor->>SPA: drags a slider, leaves a field, double-clicks a slider or chooses Reset
+        SPA->>Core: checks the value, snaps, rounds or reverts it
+        Core-->>SPA: new Draft, whole numbers in range
+        SPA->>Core: packs the Draft into uniforms
+        SPA->>Browser: sets the uniforms and draws one frame
+        SPA-->>Editor: Preview follows the slider
+    end
+    opt Compare held, by the button, Space or Enter on it, or the backslash key
+        Editor->>SPA: holds Compare
+        SPA->>Browser: draws with neutral uniforms
+        SPA-->>Editor: Work with its Geometry and no Adjustments, labelled Before
+        Editor->>SPA: releases it, or the window loses focus
+        SPA->>Browser: draws the Draft again
+    end
+    alt Apply, by the button or Enter outside a field and a button
+        Editor->>SPA: applies
+        SPA->>Core: compares the Draft with the values at open, one by one
+        Core-->>SPA: equal or different
+        SPA->>SPA: editor store stores the Adjustments and raises the revision only if different
+        SPA->>SPA: closes the tool slot
+        SPA-->>Editor: Preview keeps the Draft's look, Unsaved edits only if a value changed
+    else Cancel or Escape
+        Editor->>SPA: cancels
+        SPA->>SPA: closes the tool slot and drops the Draft
+        SPA->>Browser: draws the Work's own Adjustments
+        SPA-->>Editor: Work and Unsaved edits as before
+    end
 ```
 
-**Critical flow 2: <e.g. async event propagation>** — <if applicable, otherwise N/A>.
+Opening needs a Work, no export in progress and no other tool open (AC-15, AC-18, AC-19). The tool starts from the Work's values, which are neutral for a new Work, and leaves the View alone (AC-01, AC-20). Every change goes through the core rules, so the Draft holds whole numbers in range (AC-05). A slider move only changes uniforms and draws one frame, and a fast drag may skip values but always shows the last one (AC-01, ADR-0002). Compare draws neutral uniforms without touching the Draft, and ends on release, on window blur or when the tool closes (AC-08). Apply stores the Draft and raises the revision only when a value differs (AC-11). Cancel drops it (AC-09).
+
+**Critical flow 2: Auto adjust**
+
+```mermaid
+sequenceDiagram
+    actor Editor
+    participant SPA as Editor SPA
+    participant Core as Editing core
+    participant Browser as Browser platform
+
+    Editor->>SPA: chooses Auto in the open tool
+    SPA->>SPA: editor store asks its renderer for a sample of the Work
+    SPA->>Browser: renders the Crop with its Geometry and no Adjustments, at most 512 px, exact texels
+    Browser-->>SPA: sample pixels
+    SPA->>Core: computes Auto's values from the sample
+    alt no pixel that is not fully transparent, or all one colour
+        Core-->>SPA: nothing to measure
+        SPA-->>Editor: sliders unchanged, hint says there is nothing to correct automatically
+    else enough to measure
+        Core-->>SPA: brightness, contrast, temperature, tint, whole numbers within 50 either way
+        SPA->>SPA: adjust store replaces those four values in the Draft
+        SPA->>Browser: draws the new Draft
+        SPA-->>Editor: four sliders and the Preview show Auto's values, the rest unchanged
+    end
+    opt the display is lost or restoring
+        SPA-->>Editor: Auto is unavailable, as the canvas already shows
+    end
+```
+
+Auto measures the Work with its Geometry and without Adjustments, so choosing it twice gives the same values (AC-12). The sample is at most 512 px on the long side and samples exact texels, so it is deterministic. The values are computed in `core` by inverting ADR-0003's formulas, rounded half up and kept within ±50 (AC-13, ADR-0004). A single colour, or nothing but transparency, gives the "nothing to correct" hint (AC-13). The four values replace the Draft's, reach the Work only on Apply, and saturation, grayscale and sepia stay as they were (AC-12).
+
+**Critical flow 3: export an adjusted Work at a smaller size**
+
+```mermaid
+sequenceDiagram
+    actor Editor
+    participant SPA as Editor SPA
+    participant Exporter as Export worker
+    participant Core as Editing core
+    participant Browser as Browser platform
+
+    Editor->>SPA: confirms an Export at a size smaller than the Work
+    SPA->>Exporter: copy of the Original, the Geometry, the Adjustments, size, format, quality
+    Exporter->>Core: transform for the Geometry and uniforms for the Adjustments
+    alt Adjustments not neutral
+        Exporter->>Browser: renders the Crop at full size with the Adjustments into a texture
+        Exporter->>Browser: builds its mipmaps and draws it at the chosen size, onto white for JPEG
+    else all neutral
+        Exporter->>Browser: renders the Crop at the chosen size in one pass, as today
+    end
+    Exporter->>Browser: encodes
+    Exporter-->>SPA: verified file, then export flows as before
+```
+
+A smaller Export is the full-size adjusted Export reduced to that size (AC-14): with non-neutral Adjustments the worker adjusts at full size first, then reduces through mipmaps. A full-size Export, or one with neutral values, is the single pass of today. The transparency hint is unchanged, because Adjustments never change alpha (AC-06). From the verified file on, export's own flows are unchanged (export sad.md §6).
+
+**Branches the `sequences` stage draws:**
+- No image open: the action and A show "open an image first" (AC-19).
+- Export in progress: the action is disabled and A does nothing; the request is refused, not queued (AC-15).
+- A while the export panel is open, while the tool is open or while a text field has focus: nothing happens (AC-21).
+- Export or Ctrl/Cmd+S while the tool is open: "apply or cancel the adjustments first"; the browser's "Save page" never opens (AC-16).
+- One tool open, the other's button or shortcut: "apply or cancel the open tool first", or nothing while a text field has focus (AC-18).
+- Typed value out of range, fractional, empty or not a number, with or without a trailing "%": snapped, rounded half up or reverted when the field is left or Enter is pressed in it. Enter there never applies the tool (AC-05).
+- Draft changed while Compare is held: the Draft changes, and "Before" stays until release (AC-08).
+- Open image or a drop while the tool is open: the tool stays through reading and the replace confirmation. A successful replace closes it and drops the Draft, and the new Work starts neutral. A failed read or a declined replace keeps it (AC-17).
+- Zoom and pan inside the tool change neither the Draft nor the Work (AC-20).
+- "Crop and rotate" opened on an adjusted Work: the whole turned image is shown with the applied Adjustments, and applying a Geometry keeps them (AC-18).
 
 ## 7. Deployment view
 
