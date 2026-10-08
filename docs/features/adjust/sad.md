@@ -341,21 +341,22 @@ The topology is unchanged. The feature ships inside the existing static app on G
 
 ## 8. Crosscutting concepts
 
-<!-- 🎯 Why: CROSS-CUTTING PATTERNS spanning several modules: logging, errors, authorization, ID
-     strategy, events, caching. ⭐ The second-densest section. A pattern inside one module is NOT
-     here; a project-wide convention belongs in the convention file.
-     📋 Write: a table — concept / convention / where defined. One row per concept.
-     📌 e.g. «sortable time-based IDs generated in the app layer» as a default from the convention file. -->
-
 | Concept | Convention | Where defined |
 |---|---|---|
-| Logging | <e.g. structured, fields `module=<name>`> | <convention file §X or here> |
-| Authentication | <e.g. token-based via middleware> | <convention file §X> |
-| Error handling | <e.g. domain sentinel → ports error mapping → JSON> | <convention file §X> |
-| ID strategy | <e.g. sortable time-based ID in the app layer> | <convention file §X> |
-| Internationalisation | <e.g. N/A, single language> | — |
-| Observability | <e.g. tracing on the request boundary> | — |
-| Events | <module-specific patterns, if any> | <here> |
+| Error handling | `Result<T, AppError>` in `core` and `render`, with no new error codes. The field rules never fail: out-of-range values snap, fractional values round half up, and empty or non-numeric values revert (AC-05). "Nothing to correct" is a result of `autoAdjust`, shown as a hint in the tool, not a notice (AC-13). A failed sample is the existing `DISPLAY_LOST`, and a failed Preview render is open-and-view's display-lost path, unchanged | repo `CLAUDE.md` §Conventions; here |
+| Edit entry point | Every change to the Work goes through the `editor` store. The tool calls `applyAdjustments(next)`, which stores it and raises the revision through `withEdit()` only when the values differ one by one (AC-11). The tool never writes the Work directly | open-and-view ADR-0005; crop-rotate ADR-0003 |
+| Tool state | One tool at a time in `editor.activeTool`, separate from the editor's phase. The Draft and the Compare flag live in the `adjust` Pinia setup store and reach the Preview only through `editor.previewAdjustments`. The Draft never counts as Unsaved edits (AC-17) | crop-rotate ADR-0003; §4 |
+| Colour pipeline | The Original is sampled through the Geometry, then the seven steps run on unpremultiplied stored sRGB values in the fixed order brightness, contrast, saturation, temperature, tint, grayscale, sepia, with a clamp after each, then JPEG's flatten onto white. Alpha is never changed. The drawing layer (step 6) composites after the steps and is never adjusted | ADR-0002, ADR-0003; root CONTEXT "Adjustments" |
+| Units and rounding | Every value is a whole number: −100 to 100 for the first five, 0 to 100 (shown with a "%" label) for grayscale and sepia. Typed and computed values round half up (2.5 → 3, −2.5 → −2), the same rule for the fields (AC-05) and for Auto (AC-13) | ADR-0001, ADR-0004 |
+| Keyboard shortcuts | Each feature owns its keys. adjust owns A, which is silent while the export panel is open, while the tool is open or while a field has focus. Inside the tool it owns Enter (apply, except in a field or on a focused button), Escape (cancel from anywhere, discarding a value being typed) and the held \ key for Compare, matched by `KeyboardEvent.code === 'Backslash'` so it works on any layout (AC-08, AC-21). The sliders' arrow keys (±1, ±10 with Shift) come from `SliderField`. export turns Ctrl/Cmd+S into the "apply or cancel the adjustments first" hint while adjust is open (AC-16). crop-rotate's C shows "apply or cancel the open tool first" (AC-18). Zoom and pan keys stay with the editor and keep working in the tool (AC-20) | here; crop-rotate sad.md §8; export sad.md §8 |
+| Field input | Checked only when the field is left or Enter is pressed in it, never while typing, and Enter in a field never applies the tool. Only plain decimal notation, with one decimal point or comma, counts as a number, and a trailing "%" is accepted in the grayscale and sepia fields (AC-05). A double-click on a slider or typing 0 sets it to neutral (AC-10) | crop-rotate AC-07; export AC-04; here |
+| Accessibility | Every slider, field and button is a focusable DOM control with a role and label from the shared primitives. Each slider reports its value, with "%" for grayscale and sepia. Compare is a button that reports itself pressed while held, and the "Before" label is announced when Compare starts. Hints on unavailable controls are reachable by keyboard | `docs/design-system.md`; `src/shared/ui/` |
+| Resource lifetime | A Preview Adjustment change allocates nothing on the GPU. Auto's framebuffer and its texture are deleted before `sampleCrop` returns, in every branch. The export worker's full-size pass texture is deleted with the export's context, as the bitmap copy is closed today. The bitmap ledger and the memory test cover all three | open-and-view sad.md §8; ADR-0002, ADR-0004 |
+| Privacy | An Export holds only the applied Adjustments: Export is unavailable while the tool is open (AC-16), and Compare changes only what the Preview draws (AC-08). Auto reads only the Work's own pixels on the device. Nothing about the Adjustments is logged or sent anywhere | spec §6.1 |
+| ID strategy | No new entities and no new IDs | repo `CLAUDE.md` §Conventions |
+| Persistence | None: the Adjustments live in session memory and end with the Work (spec §3). Step 8 adds them to `WorkRecord` with a new forward migration step | repo ADR 0003; ADR-0001 |
+| Internationalisation | N/A: English microcopy in the feature's `messages.ts`, as in the shipped features | — |
+| Test hooks | The e2e build's `window.__imglyTest` gains a way to set Adjustments directly, so the fidelity tests reach every slider at −100, −50, +50 and +100 (0%, 50% and 100%), with and without a Geometry, without driving the UI. The existing `previewAt100()` hook (the Preview's own rendering at 100%, `src/app/test-hooks.ts`) renders with the Work's Adjustments too, so the fidelity comparison stays Preview against Export | repo `CLAUDE.md` §Commands; here |
 
 ## 9. Architecture decisions
 
