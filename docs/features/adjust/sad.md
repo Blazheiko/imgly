@@ -323,6 +323,346 @@ A smaller Export is the full-size adjusted Export reduced to that size (AC-14): 
 - The \ key while a text field has focus: nothing happens, and Compare does not start (AC-08).
 - "Crop and rotate" opened on an adjusted Work: the whole turned image is shown with the applied Adjustments, and applying a Geometry keeps them (AC-18).
 
+<!-- Flows below were added by `sequences` and use the generic participant vocabulary: <user> is the Editor or the Portfolio reviewer, <ui> is the editor view with the Adjust action, the tool's controls and the "Before" label (SCR-01 to SCR-07 of ux-flows.md), <service> is the feature logic (the adjust and editor stores with the core Adjustments rules), <service> (render) is the Preview renderer and the export worker, <external-system> is the browser and the operating system (the file dialog and decoding). Nothing in these flows is written to persistent storage: the Draft, the values at open and the applied Adjustments are in-memory session state, so there are no persist notes for data-model. -->
+
+### F1 — Open the tool, and the refusals to open
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant UI as <ui>
+    participant S as <service>
+    participant R as <service> (render)
+
+    alt no image is open
+        U->>UI: looks for Adjust, or presses A
+        UI-->>U: action unavailable, hint says to open an image first, A shows the same hint
+    else an export is in progress
+        U->>UI: clicks Adjust, or presses A
+        UI-->>U: action visibly disabled, A does nothing, the request is refused and not queued
+    else Crop and rotate is open
+        U->>UI: clicks Adjust, or presses A
+        UI-->>U: hint says to apply or cancel the open tool first, A is silent while a text field has focus
+    else A while the export panel is open, the tool is already open, or a text field has focus
+        U->>UI: presses A
+        UI-->>U: nothing happens
+    else an image is open, no export runs and no other tool is open
+        U->>UI: clicks Adjust, Tab then Enter or Space on it, or presses A
+        UI->>S: asks to open the tool
+        S->>S: opens the tool slot as adjust, leaves the View and the Preview's Crop as they are
+        S->>S: copies the Work's Adjustments as the Draft and as the values to return to
+        S->>R: draws the Draft, unchanged from the Work
+        S-->>UI: seven sliders at the Work's values, neutral for a new Work, neutral marks shown
+        UI-->>U: tool ready, every control reachable with Tab
+    end
+    Note over U,R: Postcondition: with the tool open the Work is unchanged, the View is as before, and Export is unavailable
+```
+
+Opening needs an image (AC-19) and no export in progress, and a refused request is not queued (AC-15). While "Crop and rotate" is open, Adjust and A show "apply or cancel the open tool first", and A stays silent in a text field (AC-18). A is also silent while the export panel is open or the tool is already open (AC-21). On opening, the tool copies the Work's Adjustments as the Draft and as the values Cancel returns to, shows the seven sliders with their values and neutral marks (AC-01), and leaves the View and the Preview's Crop as they are (AC-20).
+
+### F2 — Move a slider, type a value, or reset one slider
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant UI as <ui>
+    participant S as <service>
+    participant R as <service> (render)
+
+    Note over U,S: Precondition: the tool is open (F1)
+    alt drag a slider
+        U->>UI: drags a slider
+        UI->>S: the slider's latest whole value
+    else arrow keys on a focused slider
+        U->>UI: arrow key, with or without Shift
+        UI->>S: value changed by 1, or by 10 with Shift, kept in range
+    else double-click a slider
+        U->>UI: double-clicks a slider
+        UI->>S: that slider to its neutral value
+    else type in a number field
+        U->>UI: types, then leaves the field or presses Enter in it
+        Note over UI,S: nothing is checked while typing, and Enter here never applies the tool
+        UI->>S: the typed text
+        alt plain decimal number, with a trailing percent sign allowed for grayscale and sepia
+            S->>S: snaps a value out of range to the nearest bound, rounds a fraction half up
+        else empty, scientific notation or not a number
+            S->>S: returns to the previous value
+        end
+        S-->>UI: the field shows the checked value, typing 0 gives the neutral value
+    end
+    S->>S: stores the value in the Draft only, the Work and Unsaved edits are untouched
+    S->>R: packs the Draft into uniforms and asks for a frame
+    Note over S,R: one frame per display refresh shows the latest Draft, skipped values are fine, the last one is always drawn
+    R->>R: applies the seven steps in the fixed order, with a clamp after each
+    R-->>UI: Preview with the Draft, unless Compare is held (F3)
+    UI-->>U: slider, field and Preview show the value
+    Note over U,R: Postcondition: the Draft holds seven whole numbers in range, and the same values always give the same pixels
+```
+
+Every change, whether a drag, an arrow key (±1, ±10 with Shift, AC-21), a double-click or a typed value, ends as a whole number in range in the Draft only (AC-01). A typed value is checked only when the field is left or Enter is pressed in it. It snaps to the nearest bound, rounds half up, or returns to the previous value, and a trailing "%" is accepted for grayscale and sepia (AC-05). A double-click or typing 0 sets one slider to neutral (AC-10). The Preview draws the latest Draft at most once per refresh, so a fast drag may skip values but always shows the last one (AC-01). The shader applies the steps in one fixed order with a clamp after each, so the path to the values never matters and a channel never wraps round (AC-07). What each step does to the pixels (AC-02 to AC-04, AC-06) is the formula of ADR-0003, checked by §10 QG-1, not a runtime flow.
+
+### F3 — Compare, before and after
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant UI as <ui>
+    participant S as <service>
+    participant R as <service> (render)
+
+    Note over U,S: Precondition: the tool is open with any Draft (F1)
+    alt the backslash key while a text field has focus
+        U->>UI: presses the backslash key
+        UI-->>U: nothing happens, Compare does not start
+    else Compare pressed with the mouse, Space or Enter on the button, or the backslash key held, matched by key position on any layout
+        U->>UI: holds Compare
+        UI->>S: Compare starts
+        S->>S: marks Compare as held, the Draft and the Work stay as they are
+        S->>R: draws with neutral uniforms
+        R-->>UI: Work with its Geometry and no Adjustments
+        UI-->>U: Before label over the Preview, Compare button reported as pressed
+        opt the Draft changes while Compare is held
+            U->>UI: moves a slider, types a value, Auto, Reset or a per-slider reset
+            UI->>S: the change
+            S->>S: changes the Draft (F2, F4, F5)
+            S-->>UI: sliders and fields show the new Draft
+            UI-->>U: Preview still shows Before
+        end
+        alt released
+            U->>UI: releases Compare
+        else the window loses focus
+            UI->>S: window blur
+        else the tool closes
+            S->>S: Apply, Cancel, Escape or a replaced Work closes the tool (F5, F7)
+        end
+        S->>S: marks Compare as released
+        S->>R: draws the current Draft, or the Work if the tool closed
+        UI-->>U: Before label gone, Preview shows the Draft again
+    end
+    Note over U,R: Postcondition: Compare changed only what the Preview drew, never the Work, the Draft or the Unsaved edits
+```
+
+Compare starts from the button (mouse, or Space or Enter while it has focus) or from the held \ key, matched by its position on a US keyboard whatever the layout, and the \ key does nothing in a text field (AC-08). While it is held, the Preview draws the Work with its Geometry and neutral uniforms under a "Before" label. Changes to the Draft still happen and show on the sliders, but the Preview stays on "Before" until Compare ends. It ends on release, on window blur or when the tool closes, and then the Preview shows the current Draft, or the Work if the tool has closed. Compare never touches the Work, the Draft or the Unsaved edits (AC-08).
+
+### F4 — Auto adjust
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant UI as <ui>
+    participant S as <service>
+    participant R as <service> (render)
+
+    Note over U,S: Precondition: the tool is open (F1)
+    alt the display is lost or being restored
+        UI-->>U: Auto unavailable, as the canvas already shows
+    else the display is ready
+        U->>UI: chooses Auto
+        UI->>S: asks for Auto
+        S->>R: asks for a sample of the Crop with the Work's Geometry and no Adjustments
+        R->>R: renders at most 512 px on the long side, one exact texel per pixel, reads it back, frees it
+        R-->>S: sample pixels
+        S->>S: ignores fully transparent pixels, unpremultiplies the rest, measures lightness and channel balance
+        alt no pixel left, or all one colour
+            S-->>UI: nothing to measure, the Draft is unchanged
+            UI-->>U: sliders unchanged, hint says there is nothing to correct automatically
+        else enough to measure
+            S->>S: computes brightness, contrast, temperature and tint, rounded half up, within 50 either way
+            S->>S: replaces those four values in the Draft, saturation, grayscale and sepia stay
+            S->>R: draws the new Draft, unless Compare is held (F3)
+            S-->>UI: four sliders and fields show Auto's values
+            UI-->>U: Preview with Auto's values, ready to fine-tune (F2) or Apply (F5)
+        end
+    end
+    Note over U,R: Postcondition: Auto changed only the Draft, and the same Work with the same Geometry always gets the same values
+```
+
+Auto measures the pixels inside the Crop with the Geometry and without any Adjustments, so choosing it again gives the same values (AC-12). Fully transparent pixels are ignored. When nothing is left, or everything left is one colour, the sliders stay and a hint says there is nothing to correct (AC-13). Otherwise the four values are whole numbers within ±50. They replace brightness, contrast, temperature and tint in the Draft, leave saturation, grayscale and sepia alone, and reach the Work only on Apply (AC-12, AC-13, ADR-0004). The sample's framebuffer is freed before it returns. While the display is lost, Auto is unavailable, the same as the rest of the canvas. Cross-engine agreement within 1 is the §10 QG-3 check, not a flow.
+
+### F5 — Reset, Apply and Cancel
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant UI as <ui>
+    participant S as <service>
+    participant R as <service> (render)
+
+    Note over U,S: Precondition: the tool is open, showing the Work's applied values (F1)
+    opt Reset
+        U->>UI: chooses Reset
+        UI->>S: all seven to neutral
+        S->>S: sets the Draft to the neutral values, the Work is untouched until Apply
+        S->>R: draws the neutral Draft, unless Compare is held (F3)
+        UI-->>U: all sliders at their neutral marks
+    end
+    opt zoom or pan inside the tool
+        U->>UI: zooms or pans
+        UI->>S: changes the View only, never the Draft, never an edit
+    end
+    alt Apply, by the button, Enter or Space on it, or Enter outside a field and a button
+        U->>UI: applies
+        UI->>S: asks to apply the Draft
+        S->>S: compares the Draft with the values at open, one by one
+        alt any value differs
+            S->>S: stores the Draft as the Work's Adjustments and raises the revision
+            Note over S: Unsaved edits now, also when a value went back to one from before an earlier Export
+        else all seven equal, including values changed and changed back in this tool
+            S->>S: stores nothing new, the revision stays
+            Note over S: Unsaved edits as they were
+        end
+        S->>S: closes the tool slot, ends Compare, leaves the View as it is
+        S->>R: draws the Work with its Adjustments
+        UI-->>U: tool closed, Preview keeps the applied look
+    else Cancel, or Escape from anywhere in the tool, including a field
+        U->>UI: cancels
+        UI->>S: asks to cancel, a value still being typed is discarded
+        S->>S: drops the Draft, closes the tool slot, ends Compare, leaves the View as it is
+        S->>R: draws the Work with the Adjustments it had before the tool opened
+        UI-->>U: tool closed, Work and Unsaved edits as before
+    end
+    Note over U,R: Postcondition: the Work holds only applied values, and after Reset and Apply its pixels are exactly those from before any Adjustment
+```
+
+Reset sets all seven to neutral in the Draft only, and it takes effect on Apply. Then the Work's pixels are exactly those from before any Adjustment, because the Original is never changed (AC-10). Zoom and pan inside the tool change only the View and never count as an edit (AC-20). Apply compares the Draft with the values from when the tool opened, one by one. It raises the revision only when a value differs, so an Apply with no change, or with a change undone by hand, leaves the Unsaved edits as they were. A change made after an Export and undone in a later Apply still counts (AC-11). Cancel or Escape, from anywhere including a field, drops the Draft and any value being typed, and the Work and Unsaved edits are as before (AC-09, AC-21). Either way the tool closes, Compare ends and the View stays as it was (AC-20). Enter applies only outside a field and a button, and Enter or Space on a focused button presses that button (AC-21).
+
+### F6 — Export and Crop and rotate around the tool
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant UI as <ui>
+    participant S as <service>
+    participant R as <service> (render)
+
+    alt the Adjust tool is open, Export or Ctrl or Cmd+S
+        U->>UI: chooses Export, or presses Ctrl or Cmd+S
+        UI-->>U: export does not start, hint says to apply or cancel the adjustments first, the browser's Save page never opens
+    else the Adjust tool is open, Crop and rotate or C
+        U->>UI: chooses Crop and rotate, or presses C
+        UI-->>U: hint says to apply or cancel the open tool first, C does nothing while a text field has focus
+    else an export is in progress, Adjust or A
+        U->>UI: chooses Adjust, or presses A
+        UI-->>U: action disabled, A does nothing, the request is refused and not queued
+    else no tool is open, the Editor exports an adjusted Work
+        U->>UI: confirms an Export
+        UI->>S: starts the export
+        S->>S: snapshots the Original, the Geometry and the applied Adjustments, never a Draft
+        S->>R: export request with the applied Adjustments
+        alt full size, or all values neutral
+            R->>R: renders the Crop with the Adjustments in one pass
+        else smaller than the Work with Adjustments
+            R->>R: adjusts at full size, then reduces to the chosen size (Critical flow 3)
+        end
+        R-->>S: verified file, transparency hint as it would be without Adjustments
+        S-->>UI: export flows as before
+        UI-->>U: file matching the Preview
+    else no tool is open, the Editor opens Crop and rotate on an adjusted Work
+        U->>UI: chooses Crop and rotate, or presses C
+        UI->>S: opens the crop-rotate tool
+        S->>R: draws the whole turned image with the applied Adjustments, outside the frame too
+        UI-->>U: crop tool with the adjusted image, no seam when the frame widens
+        U->>UI: applies a Geometry
+        UI->>S: stores the Geometry, the Adjustments stay as they are
+        S->>R: draws the new Crop with the same Adjustments
+        UI-->>U: cropped Work, still adjusted
+    end
+    Note over U,R: Postcondition: an Export holds only applied Adjustments, and only one of the two tools is ever open
+```
+
+While the tool is open, Export and Ctrl/Cmd+S show "apply or cancel the adjustments first" and never open the browser's "Save page" (AC-16). "Crop and rotate" and C show "apply or cancel the open tool first", and C stays silent in a text field (AC-18). During an export, Adjust and A are refused, not queued (AC-15, also F1). An Export snapshots only the applied Adjustments, never a Draft. It renders them in one pass at full size or with neutral values, and through Critical flow 3's two passes when smaller. The transparency hint is exactly as it would be without Adjustments (AC-14, AC-06). "Crop and rotate" on an adjusted Work shows the whole turned image with the applied Adjustments, and a new Geometry keeps them (AC-18). Pixel fidelity to the Preview is the §10 QG-1a measurement, not a flow.
+
+### F7 — Open another image while the tool is open
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant UI as <ui>
+    participant S as <service>
+    participant X as <external-system>
+
+    Note over U,S: Precondition: the tool is open with a Draft that is not applied
+    alt Open image, and the system file dialog is cancelled
+        U->>UI: chooses Open image
+        UI->>X: shows the system file dialog
+        X-->>UI: nothing chosen
+        UI-->>U: tool unchanged, Draft kept
+    else a file is chosen in the dialog, or dropped on the window
+        U->>UI: chooses a file, or drops one
+        UI->>S: open this file
+        S->>X: reads and decodes it, the tool stays open meanwhile
+        alt cannot be opened
+            X-->>S: refused with a named reason
+            S-->>UI: reason shown, the tool stays open with its Draft
+        else read, and the Work has Unsaved edits from an earlier Apply
+            X-->>S: new image
+            S-->>UI: replace confirmation
+            alt the Editor declines
+                U->>UI: keeps the current Work
+                UI-->>U: tool stays open with its Draft
+            else the Editor replaces
+                U->>UI: replaces
+                UI->>S: replace the Work
+                S->>S: new Work with neutral Adjustments replaces the old one, the tool slot closes, Compare ends, the Draft is discarded
+                S-->>UI: new Work shown, tool closed
+            end
+        else read, and no Unsaved edits
+            X-->>S: new image
+            S->>S: new Work with neutral Adjustments replaces the old one, the tool slot closes, Compare ends, the Draft is discarded
+            S-->>UI: new Work shown, tool closed
+        end
+    end
+    Note over U,S: Postcondition: a Draft that was not applied never counted as Unsaved edits on its own
+```
+
+Opening another image or dropping a file doesn't close the tool straight away. A cancelled file dialog, or a file that can't be opened, leaves the tool and its Draft exactly as they were. When the new image has been read and the Work has Unsaved edits, the replace confirmation appears. Declining keeps the tool and its Draft. Replacing closes the tool, ends Compare and discards the Draft with the old Work, and the new Work starts with neutral Adjustments. With no Unsaved edits, the new Work replaces the old one directly and the tool closes the same way (AC-17). The Draft alone never counts as Unsaved edits, so it never triggers the confirmation.
+
+### Coverage — user stories and acceptance criteria
+
+| Spec item | Shown by |
+|---|---|
+| US-01 Make a dull photo lighter or punchier | F1, F2, F5; Critical flow 1 |
+| US-02 Fix the colours | F2, F5 |
+| US-03 Give the photo a black-and-white or vintage look | F2, F5 |
+| US-04 See before and after | F3; Critical flow 1 |
+| US-05 Change my mind without losing anything | F2 (per-slider reset), F5, F7 |
+| US-06 Fix a photo in one click | F4; Critical flow 2 |
+| US-07 Export what I see after adjusting | F6, F7; Critical flow 3 |
+| US-08 Adjust on the first try | F1 (and the keyboard branches of F2, F3, F5) |
+| AC-01 | F1 (tool opens with the Work's values, seven sliders with neutral marks), F2 (the latest value drawn, whole numbers), F5 (Apply keeps the look). The rate of 30 or more updates per second is the §10 QG-3 measurement |
+| AC-02 | Not a runtime flow: the brightness and contrast formulas of ADR-0003, checked by §10 QG-1d. F2 shows where they run |
+| AC-03 | Not a runtime flow: the saturation, temperature and tint formulas of ADR-0003, checked by §10 QG-1d |
+| AC-04 | Not a runtime flow: the grayscale and sepia formulas, applied last in the fixed order (ADR-0003), checked by §10 QG-1d |
+| AC-05 | F2 (typed value: snap, round half up, revert, trailing "%"; Enter in a field never applies) |
+| AC-06 | Not a runtime flow: the shader never touches alpha and skips neutral values (ADR-0002), checked by §10 QG-1b and QG-1c. F6 shows the unchanged transparency hint |
+| AC-07 | F2 (fixed order with a clamp after each step, the same values give the same pixels) |
+| AC-08 | F3 (all branches) |
+| AC-09 | F5 (Cancel or Escape branch) |
+| AC-10 | F2 (double-click or typing 0 resets one slider), F5 (Reset, then Apply gives the pixels from before) |
+| AC-11 | F5 (one-by-one comparison with the values at open, revision raised only when one differs) |
+| AC-12 | F4 (sample of the Crop without Adjustments, four values replaced, the other three kept) |
+| AC-13 | F4 (whole numbers within ±50, "nothing to correct" branch). Cross-engine agreement within 1 is the §10 QG-3 check |
+| AC-14 | F6 (only applied Adjustments exported, transparency hint unchanged); Critical flow 3 (reduced after adjusting). Fidelity to the Preview is the §10 QG-1a measurement |
+| AC-15 | F1 (export in progress branch), F6 (same refusal from the export side) |
+| AC-16 | F6 (tool open, Export or Ctrl/Cmd+S branch) |
+| AC-17 | F7 (all branches) |
+| AC-18 | F1 (Adjust while Crop and rotate is open), F6 (Crop and rotate while Adjust is open, and Crop and rotate on an adjusted Work) |
+| AC-19 | F1 (no image branch) |
+| AC-20 | F1 (View and Crop untouched on opening), F5 (zoom and pan inside the tool, View kept after Apply or Cancel) |
+| AC-21 | F1 (A and its guards, Tab and Enter or Space on the action), F2 (arrow keys), F5 (Enter applies outside a field and a button, Escape cancels from anywhere). The "three actions" counts are a path length, F1 then F2 or F4 then F5, checked by e2e, not a separate flow |
+
+**Flags for design:** none for participants. Every participant is in §5: the Editor SPA as `<ui>` and `<service>`, the Preview renderer and the export worker as `<service> (render)`, and the browser and operating system as `<external-system>`. No flow is async, and nothing is persisted, so data-model has no indexes to derive.
+
+**Open question from this stage:**
+- [ ] F4 (Auto adjust) is kept as drawn, but the owner marked it for review instead of accepting it (2026-10-08), without a reason recorded. Points to check: the "display lost" branch, which the spec does not name, the 512 px sample, and the order of "ignore fully transparent pixels, then unpremultiply" (ADR-0004). — owner: Blazheiko, due: before `/sdd:plan-tests adjust`
+
 ## 7. Deployment view
 
 The topology is unchanged. The feature ships inside the existing static app on GitHub Pages under `/imgly/`, as part of the same Vite build, and runs entirely in one browser tab. There is no server, replica or scaling unit to add. The service worker precaches the larger app shell and the changed export worker script exactly as it does today, so the tool works offline after the first load. No new hosting configuration, header, permission or browser capability is needed: WebGL2 in the window and in workers is already a start-up requirement (open-and-view capability gate, export ADR-0003).
