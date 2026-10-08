@@ -56,3 +56,59 @@ export function createOpenShortcut(actions: OpenShortcutActions): (event: Keyboa
     else actions.open()
   }
 }
+
+export interface ToolKeyActions {
+  /** Another modal surface (the replace dialog) owns Enter and Escape. */
+  blocked(): boolean
+  apply(): void
+  cancel(): void
+}
+
+/** What Enter presses itself, so it must not apply the tool as well. */
+const PRESSED_BY_ENTER =
+  'button, a[href], input[type="button"], input[type="submit"], input[type="reset"]'
+
+/**
+ * Enter and Escape inside the open tool (screens.md §Keyboard): Escape cancels from anywhere, a
+ * field included (AC-09); Enter applies the tool (AC-21) except on a button, which it presses, or
+ * in a number field, which applies only its value (AC-05).
+ */
+export function createToolKeys(actions: ToolKeyActions): (event: KeyboardEvent) => void {
+  return (event) => {
+    if (event.ctrlKey || event.metaKey || event.altKey || actions.blocked()) return
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      actions.cancel()
+      return
+    }
+    if (event.key !== 'Enter') return
+    const target = event.target
+    if (isTextTarget(target)) return
+    if (target instanceof Element && target.closest(PRESSED_BY_ENTER)) return
+    event.preventDefault()
+    actions.apply()
+  }
+}
+
+export interface CompareKeyActions {
+  start(): void
+  end(): void
+}
+
+/**
+ * The held \ key holds Compare (AC-08): matched by its position (`code`), so it works on any
+ * layout, and silent in a text field. Releasing it ends Compare wherever focus is.
+ */
+export function createCompareKey(actions: CompareKeyActions) {
+  return {
+    keydown(event: KeyboardEvent) {
+      if (event.code !== 'Backslash' || event.repeat || isTextTarget(event.target)) return
+      if (event.ctrlKey || event.metaKey || event.altKey) return
+      event.preventDefault()
+      actions.start()
+    },
+    keyup(event: KeyboardEvent) {
+      if (event.code === 'Backslash') actions.end()
+    },
+  }
+}

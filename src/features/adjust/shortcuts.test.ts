@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createOpenShortcut, type OpenShortcutActions } from './shortcuts'
+import {
+  createCompareKey,
+  createOpenShortcut,
+  createToolKeys,
+  type OpenShortcutActions,
+} from './shortcuts'
 
 type State = Record<
   'hasWork' | 'exporting' | 'panelOpen' | 'toolOpen' | 'otherToolOpen' | 'confirming',
@@ -109,5 +114,95 @@ describe('the A shortcut (screens.md §Keyboard, AC-15, AC-18, AC-19, AC-21)', (
     handle(key({ target: range }))
     handle(key({ target: document.createElement('button') }))
     expect(actions.open).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('Enter and Escape in the open tool (screens.md §Keyboard, AC-05, AC-09, AC-21)', () => {
+  function setup(blocked = false) {
+    const actions = { blocked: () => blocked, apply: vi.fn(), cancel: vi.fn() }
+    return { actions, handle: createToolKeys(actions) }
+  }
+
+  const press = (key: string, target?: EventTarget) => {
+    const event = new KeyboardEvent('keydown', { key, cancelable: true })
+    if (target) Object.defineProperty(event, 'target', { value: target })
+    return event
+  }
+
+  it('applies on Enter from a slider or the panel', () => {
+    const { actions, handle } = setup()
+    const range = Object.assign(document.createElement('input'), { type: 'range' })
+    handle(press('Enter', range))
+    handle(press('Enter', document.createElement('section')))
+    expect(actions.apply).toHaveBeenCalledTimes(2)
+  })
+
+  it('leaves Enter to a number field (it applies only the value) and to a button', () => {
+    const { actions, handle } = setup()
+    handle(press('Enter', document.createElement('input')))
+    handle(press('Enter', document.createElement('button')))
+    expect(actions.apply).not.toHaveBeenCalled()
+  })
+
+  it('cancels on Escape from anywhere, a field included', () => {
+    const { actions, handle } = setup()
+    const event = press('Escape', document.createElement('input'))
+    handle(event)
+    expect(actions.cancel).toHaveBeenCalledTimes(1)
+    expect(event.defaultPrevented).toBe(true)
+  })
+
+  it('leaves Enter and Escape to the replace dialog, and modified keys alone', () => {
+    const blocked = setup(true)
+    blocked.handle(press('Enter'))
+    blocked.handle(press('Escape'))
+    expect(blocked.actions.apply).not.toHaveBeenCalled()
+    expect(blocked.actions.cancel).not.toHaveBeenCalled()
+    const free = setup()
+    free.handle(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true }))
+    expect(free.actions.apply).not.toHaveBeenCalled()
+  })
+})
+
+describe('the held \\ key (AC-08)', () => {
+  function setup() {
+    const actions = { start: vi.fn(), end: vi.fn() }
+    return { actions, ...createCompareKey(actions) }
+  }
+
+  const backslash = (
+    type: 'keydown' | 'keyup',
+    init: KeyboardEventInit = {},
+    target?: EventTarget,
+  ) => {
+    const event = new KeyboardEvent(type, {
+      key: '\\',
+      code: 'Backslash',
+      cancelable: true,
+      ...init,
+    })
+    if (target) Object.defineProperty(event, 'target', { value: target })
+    return event
+  }
+
+  it('holds Compare while held, by key position on any layout', () => {
+    const { actions, keydown, keyup } = setup()
+    keydown(backslash('keydown', { key: 'ё' }))
+    keydown(backslash('keydown', { repeat: true }))
+    expect(actions.start).toHaveBeenCalledTimes(1)
+    keyup(backslash('keyup', { key: 'ё' }))
+    expect(actions.end).toHaveBeenCalledTimes(1)
+  })
+
+  it('does nothing in a text field', () => {
+    const { actions, keydown } = setup()
+    keydown(backslash('keydown', {}, document.createElement('input')))
+    expect(actions.start).not.toHaveBeenCalled()
+  })
+
+  it('ignores the backslash character typed by another key', () => {
+    const { actions, keydown } = setup()
+    keydown(new KeyboardEvent('keydown', { key: '\\', code: 'IntlBackslash' }))
+    expect(actions.start).not.toHaveBeenCalled()
   })
 })
