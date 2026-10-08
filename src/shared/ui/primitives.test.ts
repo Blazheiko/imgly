@@ -584,6 +584,44 @@ describe('SliderField options (crop-rotate AC-05, AC-20)', () => {
   })
 })
 
+describe('SliderField neutral (adjust AC-10)', () => {
+  const normalize = (_raw: string, previous: number) => previous
+
+  function slider(props: Record<string, unknown> = {}) {
+    return mount(SliderField, {
+      props: { modelValue: 40, label: 'Contrast', min: -100, max: 100, normalize, ...props },
+    })
+  }
+
+  it('sets the neutral value on a double-click of the range', async () => {
+    const wrapper = slider({ neutral: 0 })
+    await wrapper.get('input[type="range"]').trigger('dblclick')
+    expect(wrapper.emitted('update:modelValue')).toEqual([[0]])
+  })
+
+  it('does nothing on a double-click without a neutral value', async () => {
+    const wrapper = slider()
+    await wrapper.get('input[type="range"]').trigger('dblclick')
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+  })
+
+  it('does nothing on a double-click when disabled or already neutral', async () => {
+    const disabled = slider({ neutral: 0, disabled: true })
+    await disabled.get('input[type="range"]').trigger('dblclick')
+    expect(disabled.emitted('update:modelValue')).toBeUndefined()
+
+    const atNeutral = slider({ neutral: 0, modelValue: 0 })
+    await atNeutral.get('input[type="range"]').trigger('dblclick')
+    expect(atNeutral.emitted('update:modelValue')).toBeUndefined()
+  })
+
+  it("shows the caller's tooltip on the range", () => {
+    const wrapper = slider({ neutral: 0, rangeTitle: 'Double-click to reset' })
+    expect(wrapper.get('input[type="range"]').attributes('title')).toBe('Double-click to reset')
+    expect(slider().get('input[type="range"]').attributes('title')).toBeUndefined()
+  })
+})
+
 describe('NumberField options (crop-rotate AC-07, AC-20)', () => {
   afterEach(() => {
     document.body.innerHTML = ''

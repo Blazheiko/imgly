@@ -18,8 +18,20 @@ const props = withDefaults(
     decimals?: number
     /** Values marked on the range, such as 0 on the straighten slider. */
     marks?: number[]
+    /** The value a double-click on the range sets, such as 0 on an adjustment (adjust AC-10). */
+    neutral?: number
+    /** The range's tooltip, such as "Double-click to reset". */
+    rangeTitle?: string
   }>(),
-  { unit: undefined, disabled: false, step: 1, decimals: 0, marks: () => [] },
+  {
+    unit: undefined,
+    disabled: false,
+    step: 1,
+    decimals: 0,
+    marks: () => [],
+    neutral: undefined,
+    rangeTitle: undefined,
+  },
 )
 const emit = defineEmits<{ 'update:modelValue': [value: number] }>()
 
@@ -48,6 +60,11 @@ function onRangeKeydown(event: KeyboardEvent) {
   if (next !== props.modelValue) emit('update:modelValue', next)
 }
 
+function onRangeDblclick() {
+  if (props.neutral === undefined || props.disabled || props.modelValue === props.neutral) return
+  emit('update:modelValue', props.neutral)
+}
+
 /** Applies a value still being typed in the number field. */
 function apply() {
   field.value?.apply()
@@ -67,9 +84,11 @@ defineExpose({ apply })
       :max="max"
       :value="modelValue"
       :aria-label="label"
+      :title="rangeTitle"
       :disabled="disabled"
       @input="onRange"
       @keydown="onRangeKeydown"
+      @dblclick="onRangeDblclick"
     />
     <datalist v-if="marks.length > 0" :id="marksId">
       <option v-for="mark in marks" :key="mark" :value="mark" />

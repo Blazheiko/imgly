@@ -277,7 +277,7 @@ The seed for `src/features/adjust/messages.ts` (`sad.md` §5), plus the two chan
 
 | Component | Why no existing primitive fits | Registered in design-system |
 |---|---|---|
-| `SliderField` (extended: `neutral`) | Double-clicking a slider sets it to its neutral value (AC-10). `SliderField` has no double-click behaviour. An optional `neutral` prop (double-click emits it) keeps one slider primitive, and later sliders such as brush width can leave it out | pending (update its row) |
+| `SliderField` (extended: `neutral`) | Double-clicking a slider sets it to its neutral value (AC-10). `SliderField` has no double-click behaviour. An optional `neutral` prop (double-click emits it) keeps one slider primitive, and later sliders such as brush width can leave it out | yes (row updated, T11) |
 | `AdjustAction` (feature composite) | `BaseButton` secondary "Adjust" with its pressed, disabled-during-export and unavailable (`aria-disabled` + hint) states and the `A` shortcut, mounted in the top-bar slot by `App.vue`, as `CropRotateAction` | n/a (feature-local) |
 | `AdjustTool` (feature composite) | SCR-03's layout: the tool panel beside the canvas and the "Before" label over it, mounted in the editor's tool slot (`sad.md` §5) | n/a (feature-local) |
 | `AdjustControls` (feature composite) | SCR-03's panel, composed from `SliderField` ×7 and `BaseButton` ×5. It holds Compare's press-and-hold handling (pointer, `Space` / `Enter`) and the inline hint line, which is plain text with `role="status"` | n/a (feature-local) |
