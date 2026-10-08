@@ -421,22 +421,23 @@ Each top-3 goal from §1 expanded into full scenarios. Every number is quoted fr
 
 ## 11. Risks and technical debt
 
-<!-- 🎯 Why: ⭐ collects EVERYTHING that can break — not only the technical. Without §11 risks get
-     discussed at standups and lost; debt lives only in the head of whoever accepted it.
-     📋 Write: a risk/debt table — severity — mitigation — owner. Accepted debt in its own block.
-     📌 The first risk is often a product risk, not a technical one. That's normal. -->
-
-<!-- Severity literals: Low / Medium / High for regular risks; "Open question" for rows created by
-     a Save-as-OQ resolution during the Socratic walk (see references/socratic.md). -->
-
 | Risk / debt | Severity | Mitigation | Owner |
 |---|---|---|---|
-| <e.g. Worker lag may reach hours during a downstream outage> | Medium | <alert >10 min, on-call playbook, retry backoff> | <DevOps> |
-| <e.g. No event-schema versioning in v1> | Medium | <ADR-NNNN planned for v2, tolerate unknown fields> | <Backend> |
-| Open architectural decision: <decision-headline> | Open question | Resolve before <stage trigger or YYYY-MM-DD>; <inline rationale from the Save-as-OQ> | <owner> |
+| The ±2/255 tolerance between an adjusted Export and the Preview at 100% may not hold on every engine. The steps use `pow` and divisions in float, which GPUs and drivers round differently. Linux WebKit already needs 3/255 for any Export of a semi-transparent Original, because it renders in the window (export ADR-0003, `e2e/export/fidelity.spec.ts`) | High | Same shader source, same uniforms from the same `core` function, and the same texel sampling at 100% in the Preview and the Export (ADR-0002). QG-1a runs on all three engines from the first shader task. `plan-tests` decides whether semi-transparent fixtures reuse export's per-engine limit on Linux WebKit or stay opaque. The spec's 2/255 stays the target everywhere else, and a miss is a recorded engine deviation, never a silent loosening | Blazheiko — resolve before `/sdd:plan-tests` |
+| Unpremultiplying an 8-bit premultiplied texel is coarse for very transparent pixels, so AC-06's "a partly transparent pixel changes colour exactly as the same opaque pixel would" can be off by a few levels of colour at alpha below about 16 | Medium | The error is in colour that is almost invisible at that opacity. QG-1c asserts alpha exactly and checks colour at alpha 64 and above. The texture format is open-and-view's and stays | Blazheiko |
+| Auto's cross-engine "at most 1" (AC-13) depends on every engine decoding the Original to the same sRGB values. Colour management differs between engines for some files (ICC profiles), and the sampled texels then differ | Medium | The sampled texels are the same, so only decoding can differ (ADR-0004). The AC-13 e2e uses sRGB fixtures without embedded profiles, and a differing engine is a recorded deviation in the test plan | Blazheiko |
+| ADR-0003's formulas become a stored-data contract once the gallery (step 8) saves Works: changing a formula after that changes the look of every saved Work | Medium | Tuning is free until step 8 ships. Step 8 stores a formula version with the Adjustments, so a later change can keep old Works as they were | Blazheiko — before `/sdd:design` of roadmap step 8 |
+| The `editor` store keeps growing (466 lines before this feature) with a second tool, `previewAdjustments`, `applyAdjustments` and `sampleWork` | Medium | Tools only add small, tested actions to it. Extract the tool slot and its previews into a `src/features/editor/tool-slot.ts` module before the drawing layer (step 6) adds a third tool, or as soon as the store passes 600 lines | Blazheiko — before `/sdd:tasks` of roadmap step 6 |
+| Scope sits at the upper bound of M (spec §1) | Medium | Auto adjust is cut first, then Compare. Without Auto, ADR-0004, `sampleCrop` and QG-3's 300 ms row fall away. Without Compare, only the adjust store's flag and the "Before" label go | Blazheiko |
+| Brownfield: crop-rotate's C key and action are silent or generic while any tool is open, and export's tool-open hint says "the crop" (`src/features/export/messages.ts`, `CropRotateAction.vue`). With a second tool both are wrong for adjust (AC-16, AC-18) | Low | One task makes both hints name the open tool, and AC-16 and AC-18 e2e tests run with each tool open | Blazheiko |
+| Auto's sample of at most 512 px can judge a photo that is one colour except for a few pixels as one colour and show "nothing to correct" (ADR-0004) | Low | AC-13's fixtures are truly one colour. A photo with so few differing pixels has nothing useful to correct anyway. Raise `maxSide` if a real photo shows it | Blazheiko |
+| A smaller adjusted Export holds an extra full-size texture with mipmaps (up to about 85 MB) in the export worker while it renders (§5) | Low | Freed with the export's context. The memory row of QG-3 measures applied changes, and export's own memory test is repeated with Adjustments | Blazheiko |
 
 **Accepted debt (acceptable in v1, plan to fix later):**
-- <e.g. the entity is immutable / unversioned — OK for v1, may need audit versioning in v2>
+- Below 100% zoom the Preview applies the steps to the mipmapped sample, so it can differ slightly from a reduced Export at the same scale. Only the Preview at 100% is held to the Export, as spec §6 measures.
+- There is no formula version on the Work until step 8 (see the risk above).
+- Auto is a statistic of a sample, not of every pixel (ADR-0004).
+- Spec §8's first open question (the strength of each slider) is answered by ADR-0003's formulas and anchor table. The spec's checkbox is left for the owner to tick. The second open question (a KPI for Auto's look) stays with the spec, due before `/sdd:plan-tests`.
 
 ## 12. Glossary
 
