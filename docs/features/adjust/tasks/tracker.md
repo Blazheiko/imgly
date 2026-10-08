@@ -6,7 +6,7 @@
 | # | Task | Layer | Owner | Estimate | Blocked by | Status |
 |---|---|---|---|---|---|---|
 | T1 | Add the Adjustments to the Work: type, fixed key order, ranges, NEUTRAL_ADJUSTMENTS, isNeutral and adjustmentsEquals | domain | Blazheiko | S | — | done |
-| T2 | Add parseAdjustmentField: plain decimal only, trailing % for grayscale and sepia, snap to range, round half up, revert on empty or non-numeric | domain | Blazheiko | S | T1 | todo |
+| T2 | Add parseAdjustmentField: plain decimal only, trailing % for grayscale and sepia, snap to range, round half up, revert on empty or non-numeric | domain | Blazheiko | S | T1 | done |
 | T3 | Write the CPU reference of the seven formulas (applyAdjustmentsToPixel) and toUniforms, pinned to ADR-0003's anchor table | domain | Blazheiko | M | T1 | todo |
 | T4 | Add autoAdjust(sample): unpremultiply, median and percentiles of Rec. 709 lightness, grey-world gains, rounded half up within ±50, or nothing | domain | Blazheiko | M | T3 | todo |
 | T5 | Add the seven-step colour block to the shared shader (u_adjust) and PreviewRenderer.setAdjustments | infra | Blazheiko | M | T3 | todo |

@@ -7,3 +7,4 @@ export {
   type Adjustments,
 } from './types'
 export * from './equality'
+export * from './parse'
