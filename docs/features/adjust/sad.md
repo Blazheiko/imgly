@@ -360,17 +360,14 @@ The topology is unchanged. The feature ships inside the existing static app on G
 
 ## 9. Architecture decisions
 
-<!-- 🎯 Why: the REVERSE INDEX onto the adr/ folder. `ls adr/` gives the files; §9 gives the
-     semantics — why they exist, which SAD section they attach to, what status.
-     📋 Write: a 4-column table, one row per ADR. Mixed status is fine.
-     📌 e.g. «0001 | Store content as a table of typed blocks | Accepted | §4». -->
-
 | # | Title | Status | Section |
 |---|---|---|---|
-| <NNNN> | <imperative — e.g. "Use a sliding-window counter for rate limiting"> | Accepted | §<N> |
-| <NNNN> | <imperative — e.g. "Co-locate the worker in the API process"> | Accepted | §<N> |
+| [0001](adr/0001-model-the-adjustments-as-seven-integer-fields-on-the-work.md) | Model the Adjustments as seven integer fields on the Work, with their rules in core | Accepted | §4 |
+| [0002](adr/0002-apply-the-adjustments-in-the-shared-fragment-shader-on-stored-srgb-values.md) | Apply the Adjustments in the shared fragment shader, in one pass, on unpremultiplied stored sRGB values | Accepted | §4 |
+| [0003](adr/0003-define-each-adjustment-by-a-fixed-formula-that-keeps-black-in-place.md) | Define each Adjustment by a fixed formula that keeps black in place, in one fixed order | Accepted | §4 |
+| [0004](adr/0004-measure-auto-adjust-on-a-bounded-sample-in-the-preview-context.md) | Measure Auto adjust on a bounded sample of the Crop in the Preview's WebGL2 context, and compute the values in core | Accepted | §4 |
 
-ADR files live under `docs/features/<slug>/adr/NNNN-<title>.md`.
+ADR files live under `docs/features/adjust/adr/`. Four ADRs sit just below the 5–12 expected for size M. That is deliberate: the tool mechanism, the Draft store and the shared shader path are already decided by crop-rotate ADR-0002 and ADR-0003, and the two-pass reduction for smaller Exports (§5) stayed inline because it touches only the export render. Inherited and still binding: repo ADRs 0002, 0003 and 0004; open-and-view ADR-0003 (WebGL2 Preview) and ADR-0005 (revision counter); export ADR-0002 (export worker) and ADR-0003 (window fallback); crop-rotate ADR-0001 (Geometry and its transform), ADR-0002 (one-pass shader) and ADR-0003 (tool slot and Draft store).
 
 ## 10. Quality requirements
 
