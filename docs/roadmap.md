@@ -1,6 +1,6 @@
 ---
 status: living
-updated_at: "2026-10-07"
+updated_at: "2026-10-08"
 ---
 
 # Roadmap — imgly-editor
@@ -24,7 +24,7 @@ draw on and export an image, then reopen any recent work later and re-edit it wi
 | 2 | Open and view an image: pick or drop a file, downscale it to the limit, zoom and pan the preview, get a plain reason when it can't open ([`open-and-view`](features/open-and-view/)) | idea-brief.md §5 Out of scope (downscale) + §7 Recommendation | M | shipped |
 | 3 | Export the current image as PNG, JPEG or WebP with a quality setting ([`export`](features/export/)) | idea-brief.md §7 Recommendation | S | shipped |
 | 4 | Crop and rotate: 90° turns, flip, straighten, crop by frame, proportion or pixel size ([`crop-rotate`](features/crop-rotate/)) | idea-brief.md §7 Recommendation | M | shipped |
-| 5 | Adjust brightness, contrast, saturation, temperature/tint, grayscale and sepia with a live preview | idea-brief.md §7 Recommendation | M | idea |
+| 5 | Adjust brightness, contrast, saturation, temperature/tint, grayscale and sepia with a live preview, plus Compare and Auto adjust ([`adjust`](features/adjust/)) | idea-brief.md §7 Recommendation | M | spec'd |
 | 6 | Draw freehand with a brush and an eraser, choosing colour and width, on a separate drawing layer | idea-brief.md §7 Recommendation | M | idea |
 | 7 | Undo and redo every crop, adjust and draw action while the image is open | idea-brief.md §7 Recommendation | S | idea |
 | 8 | Gallery of recent works: autosave, reopen and re-edit without loss, about 20 works with the oldest evicted, an honest notice that browser storage can be evicted | idea-brief.md §7 Recommendation + §6 Risks | M | idea |
