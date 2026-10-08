@@ -8,3 +8,5 @@ export {
 } from './types'
 export * from './equality'
 export * from './parse'
+export * from './uniforms'
+export * from './formula'
