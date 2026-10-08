@@ -24,6 +24,6 @@
 | T17 | Add the e2e fidelity suite: each slider at its anchors vs Preview, all seven combined, with and without a Geometry, neutral = 0 difference, exact alpha, lossless round trip, smaller sizes | tests | Blazheiko | M | T7, T9 | done |
 | T18 | Add the e2e tool-flow suite: three-action paths, live Preview on drag, Compare by mouse, keys and backslash, Cancel and Reset, Auto values and the nothing hint, keyboard-only use | tests | Blazheiko | M | T16 | done |
 | T19 | Add the e2e cross-feature suite: Unsaved edits, export and crop refusals in both directions, replace while open, no-image hint, View untouched, Crop and rotate shows the adjusted image | tests | Blazheiko | M | T10, T16 | done |
-| T20 | Add the @perf suite: drag frame interval, Apply / Cancel / Reset / Compare-release and tool-ready times, Auto time, memory after 50 Applies, and export time with all seven set | tests | Blazheiko | S | T17, T18, T19 | todo |
+| T20 | Add the @perf suite: drag frame interval, Apply / Cancel / Reset / Compare-release and tool-ready times, Auto time, memory after 50 Applies, and export time with all seven set | tests | Blazheiko | S | T17, T18, T19 | done |
 
 **Total:** 20 tasks, ~16.5 person-days (S ≈ ½ day, M ≈ 1 day).

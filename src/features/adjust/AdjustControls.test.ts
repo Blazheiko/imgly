@@ -1,11 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { nextTick } from 'vue'
 import { createWork, NEUTRAL_ADJUSTMENTS, ok, type Adjustments } from '@/core'
 import { useEditorStore } from '@/features/editor'
 import { createFakeRenderer } from '@/features/editor/testing'
-import AdjustControls from './AdjustControls.vue'
+import AdjustControls, { AUTO_SHOWN_MARK } from './AdjustControls.vue'
 import { BUTTONS, GROUPS, hintNothingToCorrect, SLIDER_LABELS, SLIDER_TOOLTIP } from './messages'
 import { useAdjustStore } from './store'
 
@@ -181,6 +181,18 @@ describe('AdjustControls (SCR-03)', () => {
       editor.setRendererStatus('ready')
       await nextTick()
       expect(auto().attributes('disabled')).toBeUndefined()
+    })
+
+    it('marks the frame after its values are shown, for the @perf suite (sad.md §7)', async () => {
+      const mark = vi.spyOn(performance, 'mark')
+      const frames: FrameRequestCallback[] = []
+      vi.spyOn(window, 'requestAnimationFrame').mockImplementation((fn) => frames.push(fn))
+      await auto().trigger('click')
+      expect(mark).not.toHaveBeenCalledWith(AUTO_SHOWN_MARK)
+      frames.shift()!(0)
+      frames.shift()!(0)
+      expect(mark).toHaveBeenCalledWith(AUTO_SHOWN_MARK)
+      vi.restoreAllMocks()
     })
 
     it('shows the nothing-to-correct hint, and clears it on the next change', async () => {

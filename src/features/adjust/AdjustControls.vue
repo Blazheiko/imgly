@@ -1,3 +1,8 @@
+<script lang="ts">
+/** Marked on the frame after Auto's values reach the sliders and the Preview (sad.md §7). */
+export const AUTO_SHOWN_MARK = 'imgly:adjust-auto-shown'
+</script>
+
 <script setup lang="ts">
 import { computed } from 'vue'
 import { ADJUSTMENT_RANGES, type AdjustmentKey } from '@/core'
@@ -38,6 +43,15 @@ function commit(key: AdjustmentKey) {
     tool.commitField(key)
     return tool.draft?.[key] ?? ADJUSTMENT_RANGES[key].neutral
   }
+}
+
+/**
+ * Auto, then the performance mark the @perf suite times: two frames, because the Preview draws in
+ * the first frame after the Draft changes.
+ */
+function onAuto() {
+  tool.auto()
+  requestAnimationFrame(() => requestAnimationFrame(() => performance.mark(AUTO_SHOWN_MARK)))
 }
 
 function onCompareDown(event: PointerEvent) {
@@ -102,7 +116,7 @@ function onCompareKeyup(event: KeyboardEvent) {
         >
           {{ BUTTONS.compare }}
         </BaseButton>
-        <BaseButton :disabled="!autoAvailable" data-testid="adjust-auto" @click="tool.auto()">
+        <BaseButton :disabled="!autoAvailable" data-testid="adjust-auto" @click="onAuto">
           {{ BUTTONS.auto }}
         </BaseButton>
       </div>
