@@ -1,5 +1,6 @@
 import type { ImageFormat } from './image-header'
 import { identityGeometry, type Geometry } from './geometry'
+import { NEUTRAL_ADJUSTMENTS, type Adjustments } from './adjust'
 
 /**
  * The Work document model: one image being edited, its Original plus everything applied on top.
@@ -37,6 +38,8 @@ export interface Work<TPixels = unknown> extends WorkSource {
   original: Original<TPixels>
   /** Flip, Rotation, Straighten angle and Crop over the Original (crop-rotate ADR-0001). */
   geometry: Geometry
+  /** The seven colour values (adjust ADR-0001); neutral on every new Work. */
+  adjustments: Adjustments
   revision: number
   /** The revision at open (later also at save). */
   cleanRevision: number
@@ -56,6 +59,7 @@ export function createWork<TPixels>(
     updatedAt: now,
     original,
     geometry: identityGeometry(original),
+    adjustments: NEUTRAL_ADJUSTMENTS,
     revision: 0,
     cleanRevision: 0,
   }
