@@ -1,6 +1,7 @@
 import { computed, nextTick, ref, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
 import {
+  adjustmentsEquals,
   createWork,
   fitView,
   geometryEquals,
@@ -15,6 +16,7 @@ import {
   withEdit,
   workSize,
   zoomAt as zoomView,
+  type Adjustments,
   type AppError,
   type Geometry,
   type ImageFormat,
@@ -67,7 +69,7 @@ export type OpenOutcome =
 export type EditorPhase = 'idle' | 'reading' | 'confirming' | 'exporting'
 
 /** A tool that edits the Work in the tool slot; one at a time (crop-rotate ADR-0003). */
-export type ToolId = 'crop-rotate'
+export type ToolId = 'crop-rotate' | 'adjust'
 
 /** Why a tool may not open: no image (AC-18), an export running (AC-15), or one already open. */
 export type ToolRefusal = 'no-work' | 'exporting' | 'tool-open' | 'panel-open' | 'confirming'
@@ -82,6 +84,8 @@ export interface ExportSnapshot {
   original: Original<ImageBitmap>
   /** The Work's Geometry when the export was confirmed (crop-rotate AC-14, AC-15). */
   geometry: Geometry
+  /** The Work's applied Adjustments when the export was confirmed (adjust AC-14). */
+  adjustments: Adjustments
   sourceName: string
   sourceFormat: ImageFormat
 }
@@ -128,6 +132,9 @@ export const useEditorStore = defineStore('editor', () => {
   const activeTool = ref<ToolId | null>(null)
   // What the Preview draws while a tool is open, whole and turned, instead of the Work's Geometry.
   const previewGeometry = shallowRef<Geometry | null>(null)
+  // What the Preview colours with while the adjust tool is open: its Draft, or neutral values while
+  // Compare is held. Null otherwise, so the Preview uses the Work's Adjustments.
+  const previewAdjustments = shallowRef<Adjustments | null>(null)
   const activePanel = ref<PanelId | null>(null)
   /** Space is held for space-pan: a tool's overlay lets the drag through to the canvas. */
   const spacePan = ref(false)
@@ -181,8 +188,8 @@ export const useEditorStore = defineStore('editor', () => {
   }
 
   /**
-   * Opens a tool over the Work: the Preview then shows the whole turned image, fitted (AC-19).
-   * Refused, not queued, with no Work, during an export, while a tool is open, or under another
+   * Opens a tool over the Work. Crop and rotate shows the whole turned image, fitted (crop-rotate
+   * AC-19); Adjust keeps the Work's Crop and the View as they are (adjust AC-20). Refused, not queued, with no Work, during an export, while a tool is open, or under another
    * feature's panel or the replace dialog (AC-15, AC-16, AC-18, AC-20).
    */
   function openTool(id: ToolId): { ok: true } | { ok: false; reason: ToolRefusal } {
@@ -192,17 +199,38 @@ export const useEditorStore = defineStore('editor', () => {
     if (activePanel.value) return { ok: false, reason: 'panel-open' }
     if (phase.value === 'confirming') return { ok: false, reason: 'confirming' }
     activeTool.value = id
-    previewGeometry.value = work.value.geometry
-    fitIfSized()
+    if (id === 'crop-rotate') {
+      previewGeometry.value = work.value.geometry
+      fitIfSized()
+    }
     return { ok: true }
   }
 
-  /** Closes the tool slot and fits the View to the Work (AC-19). */
+  /** Closes the tool slot; after Crop and rotate the View fits the Work again (AC-19). */
   function closeTool() {
-    if (!activeTool.value) return
+    const closing = activeTool.value
+    if (!closing) return
     activeTool.value = null
     previewGeometry.value = null
-    fitIfSized()
+    previewAdjustments.value = null
+    if (closing === 'crop-rotate') fitIfSized()
+  }
+
+  /** The adjust tool's Draft (or neutral values while comparing) for the Preview; never an edit. */
+  function setPreviewAdjustments(next: Adjustments | null) {
+    if (activeTool.value !== 'adjust') return
+    previewAdjustments.value = next && { ...next }
+  }
+
+  /**
+   * Applies Adjustments to the Work (adjust AC-11). It counts as an edit only when a value differs
+   * from the Work's, which the open tool never changes before Apply. Refused while exporting.
+   */
+  function applyAdjustments(next: Adjustments) {
+    const current = work.value
+    if (!current || phase.value === 'exporting') return
+    const updated = { ...current, adjustments: { ...next } }
+    work.value = adjustmentsEquals(next, current.adjustments) ? updated : withEdit(updated)
   }
 
   /**
@@ -362,6 +390,7 @@ export const useEditorStore = defineStore('editor', () => {
     // The open tool's Draft is discarded with the old Work (AC-17).
     activeTool.value = null
     previewGeometry.value = null
+    previewAdjustments.value = null
     const { bitmap, ...facts } = image
     work.value = createWork(
       {
@@ -400,6 +429,7 @@ export const useEditorStore = defineStore('editor', () => {
       revision: current.revision,
       original: current.original,
       geometry: current.geometry,
+      adjustments: current.adjustments,
       sourceName: current.sourceName,
       sourceFormat: current.sourceFormat,
     }
@@ -431,6 +461,7 @@ export const useEditorStore = defineStore('editor', () => {
     display,
     activeTool,
     previewGeometry,
+    previewAdjustments,
     activePanel,
     spacePan,
     hasUnsavedEdits,
@@ -438,6 +469,8 @@ export const useEditorStore = defineStore('editor', () => {
     closeTool,
     setPreviewGeometry,
     applyGeometry,
+    setPreviewAdjustments,
+    applyAdjustments,
     setActivePanel,
     setSpacePan: (on: boolean) => (spacePan.value = on),
     setDecoder,

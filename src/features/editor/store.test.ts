@@ -6,8 +6,10 @@ import {
   err,
   flipOnScreen,
   identityGeometry,
+  NEUTRAL_ADJUSTMENTS,
   ok,
   turnedBounds,
+  type Adjustments,
   type AppError,
   type Geometry,
   type Result,
@@ -453,6 +455,7 @@ describe('editor store — exporting phase and save point (export AC-09, AC-10, 
       revision: 1,
       original: work.original,
       geometry: work.geometry,
+      adjustments: work.adjustments,
       sourceName: 'IMG_4021',
       sourceFormat: 'jpeg',
     })
@@ -834,5 +837,188 @@ describe('editor store — tool slot (crop-rotate ADR-0003)', () => {
     expect(editor.activePanel).toBe('export')
     editor.setActivePanel(null)
     expect(editor.activePanel).toBeNull()
+  })
+})
+
+describe('editor store — the adjust tool in the slot (adjust AC-11, AC-17, AC-20)', () => {
+  let decoder: ReturnType<typeof fakeDecoder>
+  let editor: ReturnType<typeof useEditorStore>
+
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    decoder = fakeDecoder()
+    editor = useEditorStore()
+    editor.setDecoder(decoder.decode)
+    editor.setCanvasSize(1000, 800)
+  })
+
+  async function open(width = 4000, height = 2000) {
+    const pending = editor.openImage(file())
+    decoder.answer(decoder.decode.mock.calls.length - 1, ok(decoded(width, height)))
+    return pending
+  }
+
+  const adjusted = (over: Partial<Adjustments> = {}): Adjustments => ({
+    ...NEUTRAL_ADJUSTMENTS,
+    ...over,
+  })
+
+  async function zoomedAndPanned() {
+    await open()
+    editor.zoomAt(2, { x: 300, y: 200 })
+    editor.panBy(40, -25)
+    return { ...editor.view }
+  }
+
+  describe('opening and closing leaves the View alone (AC-20)', () => {
+    it('opens without a preview Geometry and without fitting the View', async () => {
+      const view = await zoomedAndPanned()
+      expect(editor.openTool('adjust')).toEqual({ ok: true })
+      expect(editor.activeTool).toBe('adjust')
+      expect(editor.previewGeometry).toBeNull()
+      expect(editor.view).toEqual(view)
+    })
+
+    it('closes without fitting the View and clears the preview Adjustments', async () => {
+      await open()
+      editor.openTool('adjust')
+      editor.setPreviewAdjustments(adjusted({ contrast: 30 }))
+      editor.zoomAt(2, { x: 300, y: 200 })
+      const view = { ...editor.view }
+      editor.closeTool()
+      expect(editor.activeTool).toBeNull()
+      expect(editor.previewAdjustments).toBeNull()
+      expect(editor.view).toEqual(view)
+    })
+
+    it('still fits the whole turned image for crop-rotate (crop-rotate AC-19)', async () => {
+      const view = await zoomedAndPanned()
+      editor.openTool('crop-rotate')
+      expect(editor.previewGeometry).toEqual(editor.work!.geometry)
+      expect(editor.view).not.toEqual(view)
+    })
+
+    it('zooms and pans inside the tool without counting as an edit', async () => {
+      await open()
+      editor.openTool('adjust')
+      editor.zoomAt(2, { x: 300, y: 200 })
+      editor.panBy(10, 10)
+      expect(editor.hasUnsavedEdits).toBe(false)
+      expect(editor.work!.revision).toBe(0)
+    })
+
+    it('refuses crop-rotate while adjust is open, and the reverse', async () => {
+      await open()
+      editor.openTool('adjust')
+      expect(editor.openTool('crop-rotate')).toEqual({ ok: false, reason: 'tool-open' })
+      editor.closeTool()
+      editor.openTool('crop-rotate')
+      expect(editor.openTool('adjust')).toEqual({ ok: false, reason: 'tool-open' })
+    })
+  })
+
+  describe('previewAdjustments', () => {
+    it('is null until the adjust tool sets it, and never counts as an edit (AC-17)', async () => {
+      await open()
+      expect(editor.previewAdjustments).toBeNull()
+      editor.openTool('adjust')
+      editor.setPreviewAdjustments(adjusted({ brightness: 20 }))
+      expect(editor.previewAdjustments).toEqual(adjusted({ brightness: 20 }))
+      expect(editor.work!.adjustments).toEqual(NEUTRAL_ADJUSTMENTS)
+      expect(editor.hasUnsavedEdits).toBe(false)
+    })
+
+    it('is ignored with no tool or with crop-rotate open', async () => {
+      await open()
+      editor.setPreviewAdjustments(adjusted({ brightness: 20 }))
+      expect(editor.previewAdjustments).toBeNull()
+      editor.openTool('crop-rotate')
+      editor.setPreviewAdjustments(adjusted({ brightness: 20 }))
+      expect(editor.previewAdjustments).toBeNull()
+    })
+  })
+
+  describe('applyAdjustments (AC-11)', () => {
+    it('stores different values and raises the revision', async () => {
+      await open()
+      editor.openTool('adjust')
+      editor.applyAdjustments(adjusted({ saturation: -40 }))
+      expect(editor.work!.adjustments).toEqual(adjusted({ saturation: -40 }))
+      expect(editor.work!.revision).toBe(1)
+      expect(editor.hasUnsavedEdits).toBe(true)
+    })
+
+    it('leaves the revision alone for the values from open', async () => {
+      await open()
+      editor.applyAdjustments(adjusted({ tint: 5 }))
+      editor.openTool('adjust')
+      editor.applyAdjustments(adjusted({ tint: 5 }))
+      expect(editor.work!.revision).toBe(1)
+    })
+
+    it('after an Export, changing a value back in a later Apply is still an edit', async () => {
+      await open()
+      editor.applyAdjustments(adjusted({ sepia: 30 }))
+      editor.finishExport(editor.beginExport()!, true)
+      expect(editor.hasUnsavedEdits).toBe(false)
+      editor.applyAdjustments(NEUTRAL_ADJUSTMENTS)
+      expect(editor.hasUnsavedEdits).toBe(true)
+    })
+
+    it('is refused while exporting', async () => {
+      await open()
+      editor.beginExport()
+      editor.applyAdjustments(adjusted({ sepia: 30 }))
+      expect(editor.work!.adjustments).toEqual(NEUTRAL_ADJUSTMENTS)
+    })
+
+    it('stores a copy, so the caller changing its object later changes nothing', async () => {
+      await open()
+      const next = adjusted({ contrast: 10 })
+      editor.applyAdjustments(next)
+      next.contrast = 99
+      expect(editor.work!.adjustments.contrast).toBe(10)
+    })
+
+    it('keeps the Adjustments when a Geometry is applied (AC-18)', async () => {
+      await open()
+      editor.applyAdjustments(adjusted({ contrast: 10 }))
+      editor.applyGeometry({ ...identityGeometry({ width: 4000, height: 2000 }), flipH: true })
+      expect(editor.work!.adjustments).toEqual(adjusted({ contrast: 10 }))
+    })
+  })
+
+  describe('replace while adjust is open (AC-17)', () => {
+    it('closes the tool, drops the preview and starts the new Work neutral', async () => {
+      await open()
+      editor.applyAdjustments(adjusted({ grayscale: 100 }))
+      editor.finishExport(editor.beginExport()!, true)
+      editor.openTool('adjust')
+      editor.setPreviewAdjustments(adjusted({ grayscale: 50 }))
+      await open(300, 200)
+      expect(editor.activeTool).toBeNull()
+      expect(editor.previewAdjustments).toBeNull()
+      expect(editor.work!.adjustments).toEqual(NEUTRAL_ADJUSTMENTS)
+    })
+
+    it('keeps the tool and its preview when the read fails or the replace is declined', async () => {
+      await open()
+      editor.applyAdjustments(adjusted({ tint: 5 }))
+      editor.openTool('adjust')
+      editor.setPreviewAdjustments(adjusted({ tint: 9 }))
+      const failing = editor.openImage(file())
+      decoder.answer(decoder.decode.mock.calls.length - 1, err(appError('DECODE_FAILED')))
+      await failing
+      expect((await open(300, 200)).kind).toBe('confirming')
+      editor.cancelReplace()
+      expect(editor.activeTool).toBe('adjust')
+      expect(editor.previewAdjustments).toEqual(adjusted({ tint: 9 }))
+    })
+  })
+
+  it('snapshots the applied Adjustments for the export', async () => {
+    await open()
+    editor.applyAdjustments(adjusted({ brightness: 12 }))
+    expect(editor.beginExport()!.adjustments).toEqual(adjusted({ brightness: 12 }))
   })
 })
