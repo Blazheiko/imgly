@@ -256,7 +256,7 @@ test.describe('the frame sits on the pixels the Preview draws (ADR-0005)', () =>
     ['100%', ['Shift+0']],
     ['800%', ['Shift+0', '+', '+', '+', '+', '+', '+', '+']],
   ] as const) {
-    test(`at ${label}`, async ({ page }) => {
+    test(`at ${label}`, async ({ page, browserName }) => {
       await openTool(page)
       for (const key of keys) await page.keyboard.press(key)
       await frame(page).focus()
@@ -268,6 +268,10 @@ test.describe('the frame sits on the pixels the Preview draws (ADR-0005)', () =>
       // The frame is drawn where core's maths puts the image's top-left corner (if on screen).
       if (expectedLeft >= area.left) expect(box.x).toBeCloseTo(expectedLeft, 1)
       if (expectedTop >= area.top) expect(box.y).toBeCloseTo(expectedTop, 1)
+
+      // WebGL pixel checks stay on Chromium only, as in open-and-view's view.spec.ts: a
+      // screenshot of the WebGL canvas is not faithful on Linux WebKit in CI.
+      if (browserName !== 'chromium') return
 
       // A point inside the frame and the canvas shows exactly the image pixel core's maths puts
       // there (identity Geometry, so the Crop's frame is the image): Preview and overlay agree.

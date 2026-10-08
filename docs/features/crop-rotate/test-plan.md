@@ -34,7 +34,9 @@ Inputs: `spec.md` §5 (AC-01 to AC-20), §6 and §7; `sad.md` §6 (F1 to F8) and
     has a pure mapping rule (turn around the frame's centre; `cropToOriginalUv`).
 - **No visual-regression.** The DOM frame's alignment with the WebGL Preview (`sad.md` §11, ADR-0005)
   is checked geometrically in e2e-through-UI: the frame's on-screen box against the image's known
-  on-screen edges. No baseline images are used.
+  on-screen edges. No baseline images are used. The same test's extra check, that the Preview
+  shows the expected image pixel inside the frame, runs on Chromium only, like open-and-view's
+  WebGL pixel checks, because a screenshot of the WebGL canvas is not faithful on Linux WebKit in CI.
 
 ## Levels
 
