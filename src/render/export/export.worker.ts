@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 import {
   browserExportEnv,
+  handleAlpha,
   handleCheck,
   handleExport,
   type ExportWorkerMessage,
@@ -12,6 +13,10 @@ scope.onmessage = async (event: MessageEvent<ExportWorkerMessage>) => {
   const message = event.data
   if (message.kind === 'check') {
     scope.postMessage(await handleCheck(browserExportEnv))
+    return
+  }
+  if (message.kind === 'alpha') {
+    scope.postMessage(await handleAlpha(message.request, browserExportEnv))
     return
   }
   const started = performance.now()

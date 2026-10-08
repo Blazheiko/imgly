@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { turnedBounds, workSize } from '@/core'
 import type { PreviewRenderer } from '@/render'
 import { useEditorStore } from '../store'
 import { pinchGesture, wheelGesture, type PinchInput } from './gestures'
@@ -11,15 +12,30 @@ let renderer: PreviewRenderer | undefined
 let observer: ResizeObserver | undefined
 let lastPointer: { id: number; x: number; y: number } | undefined
 let pinchScale = 1
+/** Wheel and pinch are taken on the canvas area, so a tool's overlay over it zooms too (AC-12). */
+let surface: HTMLElement | undefined
 
-/** The image overflows the canvas area on some axis, so it can be panned (AC-13). */
+/**
+ * What the Preview draws: the Work cropped by its Geometry, or the open tool's Draft as the whole
+ * turned image (crop-rotate ADR-0003).
+ */
+const shown = computed(() => {
+  const { work, activeTool, previewGeometry } = editor
+  if (!work) return undefined
+  return activeTool && previewGeometry
+    ? { geometry: previewGeometry, mode: 'whole' as const }
+    : { geometry: work.geometry, mode: 'crop' as const }
+})
+
+/** The shown image overflows the canvas area on some axis, so it can be panned (AC-13). */
 const pannable = computed(() => {
   const { work, view, canvasSize } = editor
-  if (!work) return false
-  return (
-    work.original.width * view.zoom > canvasSize.width ||
-    work.original.height * view.zoom > canvasSize.height
-  )
+  if (!work || !shown.value) return false
+  const size =
+    shown.value.mode === 'whole'
+      ? turnedBounds(shown.value.geometry, work.original)
+      : workSize(work)
+  return size.width * view.zoom > canvasSize.width || size.height * view.zoom > canvasSize.height
 })
 
 function onWheel(event: WheelEvent) {
@@ -83,9 +99,10 @@ onMounted(() => {
   } else {
     editor.setRendererStatus('lost') // the gate passed, yet this canvas can't show the Preview
   }
-  el.addEventListener('wheel', onWheel, { passive: false })
-  el.addEventListener('gesturestart', onGestureStart)
-  el.addEventListener('gesturechange', onGestureChange)
+  surface = el.parentElement ?? el
+  surface.addEventListener('wheel', onWheel, { passive: false })
+  surface.addEventListener('gesturestart', onGestureStart)
+  surface.addEventListener('gesturechange', onGestureChange)
 
   if (typeof ResizeObserver !== 'undefined') {
     observer = new ResizeObserver(onResize)
@@ -101,6 +118,9 @@ onMounted(() => {
     (bitmap) => bitmap && renderer?.setOriginal(bitmap),
     { immediate: true },
   )
+  watch(shown, (next) => next && renderer?.setGeometry(next.geometry, next.mode), {
+    immediate: true,
+  })
   watch(
     () => editor.view,
     (view) => renderer?.setView(view),
@@ -110,9 +130,9 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   observer?.disconnect()
-  canvas.value?.removeEventListener('wheel', onWheel)
-  canvas.value?.removeEventListener('gesturestart', onGestureStart)
-  canvas.value?.removeEventListener('gesturechange', onGestureChange)
+  surface?.removeEventListener('wheel', onWheel)
+  surface?.removeEventListener('gesturestart', onGestureStart)
+  surface?.removeEventListener('gesturechange', onGestureChange)
   renderer?.dispose()
 })
 </script>

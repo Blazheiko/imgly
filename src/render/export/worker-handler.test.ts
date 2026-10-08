@@ -1,7 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
 import { jpeg, png, webpLossy } from '@/core/image-header/test-fixtures'
 import { createFakeCanvas, createFakeGl, type FakeGl } from '../fake-gl'
-import { handleCheck, handleExport, type ExportEnv, type ExportRequest } from './worker-handler'
+import { cropToOriginalUv, identityGeometry, type Geometry } from '@/core'
+import {
+  handleAlpha,
+  handleCheck,
+  handleExport,
+  type ExportEnv,
+  type ExportRequest,
+} from './worker-handler'
 
 type FakeBitmap = ImageBitmap & { close: ReturnType<typeof vi.fn> }
 const bitmap = (width: number, height: number) =>
@@ -89,6 +96,7 @@ const request = (overrides: Partial<ExportRequest> = {}): ExportRequest => ({
   height: 3072,
   format: 'png',
   quality: 90,
+  geometry: identityGeometry({ width: 4096, height: 3072 }),
   ...overrides,
 })
 
@@ -339,5 +347,106 @@ describe('handleCheck (session format check, AC-12)', () => {
     expect(await handleCheck(env)).toEqual({ webgl2: false, jpeg: false, webp: false })
     expect(encodes).toEqual([])
     expect(samples).toEqual([])
+  })
+})
+
+describe('handleExport with a Geometry (crop-rotate ADR-0002)', () => {
+  const lastMatrix = (fake: FakeGl, name: string) => uniformCalls(fake, name).at(-1)?.[3]
+  const lastFilter = (fake: FakeGl, name: string) =>
+    fake.calls.filter(([m, , p]) => m === 'texParameteri' && p === name).at(-1)?.[3]
+
+  it('maps the quad through the identity when the Work has no Geometry', async () => {
+    const { fake, env } = setup()
+    await handleExport(request(), env)
+    expect(lastMatrix(fake!, 'u_geometry')).toEqual(new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]))
+  })
+
+  it('renders only the Crop, turned, at its size, sampling texel centres 1:1 at full size', async () => {
+    const { fake, env, canvases } = setup()
+    const geometry: Geometry = {
+      ...identityGeometry({ width: 4096, height: 3072 }),
+      rotation: 90,
+      flipH: true,
+      crop: { x: 100, y: 200, width: 3000, height: 1000 },
+    }
+    const result = await handleExport(request({ width: 3000, height: 1000, geometry }), env)
+
+    expect(result.ok).toBe(true)
+    expect(canvases[0]).toMatchObject({ width: 3000, height: 1000, kind: 'webgl2' })
+    expect(lastMatrix(fake!, 'u_geometry')).toEqual(
+      new Float32Array(cropToOriginalUv(geometry, { width: 4096, height: 3072 })),
+    )
+    expect(lastFilter(fake!, 'TEXTURE_MIN_FILTER')).toBe('NEAREST')
+    expect(lastFilter(fake!, 'TEXTURE_MAG_FILTER')).toBe('NEAREST')
+  })
+
+  it('magnifies LINEAR at full size while straightened, as the Preview does', async () => {
+    const { fake, env } = setup()
+    const geometry: Geometry = {
+      ...identityGeometry({ width: 4096, height: 3072 }),
+      straighten: 100,
+      crop: { x: 400, y: 300, width: 3200, height: 2400 },
+    }
+    await handleExport(request({ width: 3200, height: 2400, geometry }), env)
+    expect(lastFilter(fake!, 'TEXTURE_MAG_FILTER')).toBe('LINEAR')
+  })
+})
+
+describe('handleAlpha (crop transparency check, crop-rotate ADR-0004)', () => {
+  const geometry: Geometry = {
+    ...identityGeometry({ width: 40, height: 30 }),
+    crop: { x: 5, y: 5, width: 10, height: 8 },
+  }
+
+  function withPixels(alphaAt: number | null) {
+    const ctx = setup()
+    ctx.fake!.returns.readPixels = (...args: unknown[]) => {
+      const out = args[6] as Uint8Array
+      out.fill(255)
+      if (alphaAt !== null) out[alphaAt * 4 + 3] = 254
+    }
+    return ctx
+  }
+
+  it('renders the Crop at its size without flattening and answers false when every pixel is opaque', async () => {
+    const { fake, env, canvases } = withPixels(null)
+    const bmp = bitmap(40, 30)
+    await expect(handleAlpha({ bitmap: bmp, geometry }, env)).resolves.toEqual({
+      ok: true,
+      value: false,
+    })
+    expect(canvases[0]).toMatchObject({ width: 10, height: 8, kind: 'webgl2' })
+    expect(uniformCalls(fake!, 'u_flatten').at(-1)?.[2]).toBe(0)
+    expect(uniformCalls(fake!, 'u_geometry').at(-1)?.[3]).toEqual(
+      new Float32Array(cropToOriginalUv(geometry, { width: 40, height: 30 })),
+    )
+    expect(bmp.close).toHaveBeenCalledTimes(1)
+  })
+
+  it('answers true when any pixel inside the Crop is not fully opaque', async () => {
+    const { env } = withPixels(79)
+    const bmp = bitmap(40, 30)
+    await expect(handleAlpha({ bitmap: bmp, geometry }, env)).resolves.toEqual({
+      ok: true,
+      value: true,
+    })
+    expect(bmp.close).toHaveBeenCalledTimes(1)
+  })
+
+  it('fails and still closes the bitmap without WebGL2 or after a lost context', async () => {
+    const none = setup({ gl: null })
+    const a = bitmap(40, 30)
+    await expect(handleAlpha({ bitmap: a, geometry }, none.env)).resolves.toMatchObject({
+      ok: false,
+    })
+    expect(a.close).toHaveBeenCalledTimes(1)
+
+    const lost = withPixels(null)
+    lost.fake!.returns.isContextLost = () => true
+    const b = bitmap(40, 30)
+    await expect(handleAlpha({ bitmap: b, geometry }, lost.env)).resolves.toMatchObject({
+      ok: false,
+    })
+    expect(b.close).toHaveBeenCalledTimes(1)
   })
 })

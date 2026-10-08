@@ -1,5 +1,16 @@
-import { appError, err, ok, type AppError, type Result, type View } from '@/core'
-import { buildProgram, uploadTexture, type GpuProgram } from './shaders'
+import {
+  appError,
+  cropToOriginalUv,
+  err,
+  ok,
+  turnedBounds,
+  turnedImageToOriginalUv,
+  type AppError,
+  type Geometry,
+  type Result,
+  type View,
+} from '@/core'
+import { buildProgram, IDENTITY_GEOMETRY, uploadTexture, type GpuProgram } from './shaders'
 import { viewToTransform } from './view-transform'
 
 /** Marked on the first frame drawn after a new Original; the @perf suite times opens to it. */
@@ -11,10 +22,18 @@ export const RESTORE_DEADLINE_MS = 5000
 /** `restoring` while a lost context may still come back; `lost` once it can't (SCR-05). */
 export type RendererStatus = 'ready' | 'restoring' | 'lost'
 
+/** `crop` draws the Work (only the Crop); `whole` draws the whole turned image for a tool. */
+export type GeometryMode = 'crop' | 'whole'
+
 export interface PreviewRenderer {
   /** Uploads a new Original. The caller keeps ownership of the bitmap and closes it. */
   setOriginal(bitmap: ImageBitmap): void
   setView(view: View): void
+  /**
+   * Draws the Original through `g` (crop-rotate ADR-0002). The View's image is then the Crop
+   * (`crop`) or the whole turned image's bounds (`whole`). Until called, the identity is drawn.
+   */
+  setGeometry(g: Geometry, mode: GeometryMode): void
   /** Sets the backing store size in device pixels. */
   resize(width: number, height: number): void
   readonly status: RendererStatus
@@ -56,6 +75,7 @@ export function createPreviewRenderer(
   let bitmap: ImageBitmap | undefined
   let texture: WebGLTexture | null = null
   let view: View | undefined
+  let shown: { geometry: Geometry; mode: GeometryMode } | undefined
   let frame: number | undefined
   let firstFramePending = false
 
@@ -100,8 +120,20 @@ export function createPreviewRenderer(
     frame = undefined
     if (status !== 'ready') return
     if (!bitmap || !texture || !view || canvas.width === 0 || canvas.height === 0) return
-    const image = { width: bitmap.width, height: bitmap.height }
+    const original = { width: bitmap.width, height: bitmap.height }
     const size = { width: canvas.width, height: canvas.height }
+    let image = original
+    let uvMatrix = IDENTITY_GEOMETRY
+    if (shown) {
+      const { geometry: g, mode } = shown
+      const box = mode === 'crop' ? g.crop : turnedBounds(g, original)
+      image = { width: box.width, height: box.height }
+      uvMatrix = new Float32Array(
+        mode === 'crop' ? cropToOriginalUv(g, original) : turnedImageToOriginalUv(g, original),
+      )
+    }
+    // A Straighten angle maps pixel centres between texels: magnify bilinearly, as the Export does.
+    const straightened = shown !== undefined && shown.geometry.straighten !== 0
 
     gl!.viewport(0, 0, size.width, size.height)
     gl!.clearColor(0, 0, 0, 0)
@@ -113,8 +145,9 @@ export function createPreviewRenderer(
     gl!.texParameteri(
       gl!.TEXTURE_2D,
       gl!.TEXTURE_MAG_FILTER,
-      view.zoom >= 1 ? gl!.NEAREST : gl!.LINEAR,
+      view.zoom >= 1 && !straightened ? gl!.NEAREST : gl!.LINEAR,
     )
+    gl!.uniformMatrix3fv(gpu.geometry, false, uvMatrix)
     gl!.uniformMatrix3fv(gpu.transform, false, viewToTransform(view, image, size))
     gl!.drawArrays(gl!.TRIANGLE_STRIP, 0, 4)
 
@@ -141,6 +174,10 @@ export function createPreviewRenderer(
         return
       }
       view = next
+      invalidate()
+    },
+    setGeometry(geometry, mode) {
+      shown = { geometry, mode }
       invalidate()
     },
     resize(width, height) {

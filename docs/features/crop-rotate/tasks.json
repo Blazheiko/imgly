@@ -1,0 +1,792 @@
+{
+  "slug": "crop-rotate",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Add the Geometry to the Work: type, identity, geometryEquals, workSize, rotateQuarter and flipOnScreen",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-03",
+        "AC-04",
+        "AC-13"
+      ],
+      "dod": "Vitest proves identityGeometry, geometryEquals field by field (incl. H+V Flip on 180° ≠ equal), workSize, rotateQuarter (frame turns with the image, 4 turns / one each way give back an equal Geometry) and flipOnScreen (screen axis at 90°/270°, Crop mirrored, straighten sign flipped, two flips equal), and createWork sets the identity Geometry",
+      "files_hint": [
+        "src/core/geometry/types.ts",
+        "src/core/geometry/equality.ts",
+        "src/core/geometry/turn.ts",
+        "src/core/geometry/geometry.test.ts",
+        "src/core/geometry/index.ts",
+        "src/core/document.ts",
+        "src/core/document.test.ts",
+        "src/core/index.ts"
+      ],
+      "file": "docs/features/crop-rotate/tasks/t01-core-geometry-model-turn-and-flip.md"
+    },
+    {
+      "id": "T2",
+      "title": "Keep the Crop inside the turned image: clampCrop, whole-pixel rounding, move and resize by edge or corner",
+      "layer": "domain",
+      "deps": [
+        "T1"
+      ],
+      "acs": [
+        "AC-02"
+      ],
+      "dod": "Vitest property tests prove moveCrop and resizeCrop (any edge or corner, any delta) always return a Crop in whole pixels, fully inside the turned image, at least 1×1 and never inside out, with odd centring pixels going right/bottom (AC-02)",
+      "files_hint": [
+        "src/core/geometry/crop.ts",
+        "src/core/geometry/crop.test.ts",
+        "src/core/geometry/index.ts"
+      ],
+      "file": "docs/features/crop-rotate/tasks/t02-core-crop-clamp-move-resize.md"
+    },
+    {
+      "id": "T3",
+      "title": "Add the Straighten angle rules: setStraighten around the frame's centre and fitCropInside with no empty corner",
+      "layer": "domain",
+      "deps": [
+        "T2"
+      ],
+      "acs": [
+        "AC-05",
+        "AC-06"
+      ],
+      "dod": "Vitest property tests prove setStraighten clamps to −450…450 tenths and keeps the frame's centre on the same image content, and fitCropInside returns the largest same-proportion integer Crop inside the turned image around that centre (moved only when the centre is outside), never growing back towards 0° (AC-05, AC-06)",
+      "files_hint": [
+        "src/core/geometry/straighten.ts",
+        "src/core/geometry/straighten.test.ts",
+        "src/core/geometry/index.ts"
+      ],
+      "file": "docs/features/crop-rotate/tasks/t03-core-straighten-and-fit-inside.md"
+    },
+    {
+      "id": "T4",
+      "title": "Add proportions, typed crop sizes and the field input rules (parseAngle, parseCropSize, plain decimal only)",
+      "layer": "domain",
+      "deps": [
+        "T2",
+        "T3"
+      ],
+      "acs": [
+        "AC-07",
+        "AC-08",
+        "AC-09",
+        "AC-10"
+      ],
+      "dod": "Vitest proves applyProportion (largest centred frame, long side input, half-up short side, 0.5 px tolerance, Original follows Rotation, orientation turns), setCropSize (typed side is input, resize around centre, minimal move) and parseAngle/parseCropSize (snap, round, revert, 1e2 not a number, decimal comma) against AC-07 to AC-10",
+      "files_hint": [
+        "src/core/geometry/proportion.ts",
+        "src/core/geometry/size.ts",
+        "src/core/geometry/parse.ts",
+        "src/core/geometry/proportion.test.ts",
+        "src/core/geometry/parse.test.ts",
+        "src/core/geometry/index.ts"
+      ],
+      "file": "docs/features/crop-rotate/tasks/t04-core-proportions-sizes-and-field-rules.md"
+    },
+    {
+      "id": "T5",
+      "title": "Derive the one transform: cropToOriginalUv, turnedImageToOriginalUv, turnedBounds and the overlay's screen maths",
+      "layer": "domain",
+      "deps": [
+        "T1"
+      ],
+      "acs": [
+        "AC-12",
+        "AC-14",
+        "AC-19"
+      ],
+      "dod": "Vitest proves cropToOriginalUv maps every Crop pixel centre (p + 0.5) to the right Original texel centre for all 16 Rotation × Flip combinations (with and without a Crop) and inside the Crop's source area under a Straighten angle, turnedBounds/turnedImageToOriginalUv cover the whole turned image, and the overlay maths round-trips screen ↔ image pixels through the View",
+      "files_hint": [
+        "src/core/geometry/transform.ts",
+        "src/core/geometry/overlay.ts",
+        "src/core/geometry/transform.test.ts",
+        "src/core/geometry/index.ts"
+      ],
+      "file": "docs/features/crop-rotate/tasks/t05-core-transforms-and-overlay-maths.md"
+    },
+    {
+      "id": "T6",
+      "title": "Render the Geometry in the shared shader (u_geometry) and give the Preview renderer setGeometry(g, 'crop' | 'whole')",
+      "layer": "infra",
+      "deps": [
+        "T5"
+      ],
+      "acs": [
+        "AC-05",
+        "AC-12"
+      ],
+      "dod": "Vitest on the fake GL proves the vertex shader declares u_geometry, the fragment shader returns transparent outside the Original, setGeometry(g, 'crop'|'whole') uploads cropToOriginalUv or turnedImageToOriginalUv with the quad sized by the shown size, magnification is LINEAR iff straighten ≠ 0, and the identity Geometry draws exactly as before",
+      "files_hint": [
+        "src/render/shaders.ts",
+        "src/render/shaders.test.ts",
+        "src/render/preview-renderer.ts",
+        "src/render/preview-renderer.test.ts",
+        "src/render/fake-gl.ts",
+        "src/render/index.ts"
+      ],
+      "file": "docs/features/crop-rotate/tasks/t06-render-shader-geometry-and-preview-modes.md"
+    },
+    {
+      "id": "T7",
+      "title": "Export with the Geometry in the worker and add the GPU alpha check (checkCropTransparency)",
+      "layer": "infra",
+      "deps": [
+        "T6"
+      ],
+      "acs": [
+        "AC-14"
+      ],
+      "dod": "Vitest (fake GL) proves the worker computes u_geometry with cropToOriginalUv at an export size counted from workSize, applies the LINEAR-when-straightened rule, and answers { kind: 'alpha' } with Result<boolean> from a full-size alpha readback, closing the bitmap copy in every branch, through both the worker and the in-window fallback",
+      "files_hint": [
+        "src/render/export/worker-handler.ts",
+        "src/render/export/worker-handler.test.ts",
+        "src/render/export/client.ts",
+        "src/render/export/client.test.ts",
+        "src/render/export/index.ts"
+      ],
+      "file": "docs/features/crop-rotate/tasks/t07-render-export-with-geometry-and-alpha-check.md"
+    },
+    {
+      "id": "T8",
+      "title": "Add the editor store's tool slot: activeTool, openTool/closeTool, previewGeometry, applyGeometry, activePanel and tool-aware fit-View",
+      "layer": "app",
+      "deps": [
+        "T1",
+        "T5"
+      ],
+      "acs": [
+        "AC-13",
+        "AC-15",
+        "AC-17",
+        "AC-18",
+        "AC-19"
+      ],
+      "dod": "Vitest on a real editor store proves openTool refuses with a reason with no Work, while exporting or with a tool open; applyGeometry raises the revision only when geometryEquals is false; beginExport refuses while a tool is open; a successful replace (confirmed or not) closes the tool while a failed read or a declined replace keeps it; and fit-View measures turnedBounds while a tool is open and workSize otherwise",
+      "files_hint": [
+        "src/features/editor/store.ts",
+        "src/features/editor/store.test.ts",
+        "src/features/editor/index.ts"
+      ],
+      "file": "docs/features/crop-rotate/tasks/t08-editor-store-tool-slot.md"
+    },
+    {
+      "id": "T9",
+      "title": "Make the Preview and the status bar follow the Geometry, and add the setGeometry test hook",
+      "layer": "wiring",
+      "deps": [
+        "T6",
+        "T8"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-14"
+      ],
+      "dod": "Component tests prove the status bar shows workSize followed by \", from W × H px\" exactly when width or height differs in order (incl. a 90° Rotation alone) and still shows the applied Work while a tool is open, PreviewCanvas calls setGeometry(work.geometry, 'crop') with no tool and setGeometry(previewGeometry, 'whole') with one, no component reads original.width/height as the Work's size, and window.__imglyTest.setGeometry applies a Geometry through applyGeometry",
+      "files_hint": [
+        "src/features/editor/components/PreviewCanvas.vue",
+        "src/features/editor/components/PreviewCanvas.test.ts",
+        "src/features/editor/components/EditorStatusBar.vue",
+        "src/features/editor/components/EditorStatusBar.test.ts",
+        "src/features/editor/components/DimensionsReadout.vue",
+        "src/app/test-hooks.ts",
+        "e2e/test-hooks.d.ts"
+      ],
+      "file": "docs/features/crop-rotate/tasks/t09-preview-and-status-bar-follow-geometry.md"
+    },
+    {
+      "id": "T10",
+      "title": "Size the export from workSize, send the Geometry, and base the transparency hint on the GPU check",
+      "layer": "app",
+      "deps": [
+        "T7",
+        "T8"
+      ],
+      "acs": [
+        "AC-14"
+      ],
+      "dod": "Store tests prove full size, presets and the long side count from workSize; a remembered long side larger than the Work snaps for display and comes back when the Crop widens; the export request carries the Geometry; and transparencyHint uses original.hasTransparency when false or identity, else the alpha check cached by (work id, revision), hidden while running and shown on failure",
+      "files_hint": [
+        "src/features/export/store.ts",
+        "src/features/export/store.test.ts",
+        "src/features/export/ExportPanel.vue",
+        "src/features/export/ExportPanel.test.ts"
+      ],
+      "file": "docs/features/crop-rotate/tasks/t10-export-store-sizes-geometry-transparency.md"
+    },
+    {
+      "id": "T11",
+      "title": "Refuse Export and Ctrl/Cmd+S while a tool is open with the 'apply or cancel the crop first' hint, and report the open panel",
+      "layer": "app",
+      "deps": [
+        "T8",
+        "T10"
+      ],
+      "acs": [
+        "AC-16"
+      ],
+      "dod": "Tests prove that while editor.activeTool is set the Export action is unavailable with the hint, the save shortcut calls preventDefault and raises \"Apply or cancel the crop first, then export.\" instead of opening the panel, and that opening and closing the panel sets editor.activePanel to 'export' and null",
+      "files_hint": [
+        "src/features/export/store.ts",
+        "src/features/export/store.test.ts",
+        "src/features/export/shortcuts.ts",
+        "src/features/export/ExportAction.vue",
+        "src/features/export/ExportAction.test.ts",
+        "src/features/export/messages.ts",
+        "src/features/export/messages.test.ts"
+      ],
+      "file": "docs/features/crop-rotate/tasks/t11-export-refuses-while-tool-open.md"
+    },
+    {
+      "id": "T12",
+      "title": "Extend SliderField (step, decimals, marks), NumberField (signed decimal input) and BaseButton (pressed), and register them",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-05",
+        "AC-07"
+      ],
+      "dod": "primitives.test.ts proves SliderField with step 0.1, decimals 1 and a mark at 0 emits one-decimal values and arrow-key steps (Shift ×10), NumberField with a decimal option accepts sign, point and comma text and commits only on blur or Enter, BaseButton pressed sets aria-pressed, existing uses are unchanged, and docs/design-system.md rows for the three primitives describe the new options",
+      "files_hint": [
+        "src/shared/ui/SliderField.vue",
+        "src/shared/ui/NumberField.vue",
+        "src/shared/ui/BaseButton.vue",
+        "src/shared/ui/primitives.test.ts",
+        "docs/design-system.md"
+      ],
+      "file": "docs/features/crop-rotate/tasks/t12-shared-primitive-options.md"
+    },
+    {
+      "id": "T13",
+      "title": "Add the crop-rotate store: Draft, Geometry at open, remembered proportion per Work, field state, apply / cancel / reset",
+      "layer": "app",
+      "deps": [
+        "T4",
+        "T8"
+      ],
+      "acs": [
+        "AC-08",
+        "AC-11",
+        "AC-12",
+        "AC-17"
+      ],
+      "dod": "Vitest with a real editor store proves open copies work.geometry as Draft and Geometry-at-open and pushes it to previewGeometry; each action (rotate, flip, straighten, move/resize, proportion, typed size/angle) goes through core and updates previewGeometry; apply calls applyGeometry then closeTool; cancel only closes; reset changes only the Draft and sets Free; the proportion is remembered per Work id at once (even after cancel) until the Work is replaced; and the Draft is dropped when the editor closes the tool on a replace",
+      "files_hint": [
+        "src/features/crop-rotate/store.ts",
+        "src/features/crop-rotate/store.test.ts",
+        "src/features/crop-rotate/index.ts"
+      ],
+      "file": "docs/features/crop-rotate/tasks/t13-crop-rotate-store.md"
+    },
+    {
+      "id": "T14",
+      "title": "Add the 'Crop and rotate' toolbar action, its hints, the C shortcut and the tool's message catalog",
+      "layer": "ui",
+      "deps": [
+        "T12",
+        "T13"
+      ],
+      "acs": [
+        "AC-15",
+        "AC-18",
+        "AC-20"
+      ],
+      "dod": "Component and unit tests prove the action is visible next to Export, reachable by Tab and activated by Enter/Space; with no Work it is aria-disabled and raises \"Open an image first to crop or rotate it.\" (also on C); during an export it is disabled and C does nothing; C does nothing while the export panel is open, the tool is open or a text field has focus; pressed while the tool is open; and App.vue mounts it before ExportAction",
+      "files_hint": [
+        "src/features/crop-rotate/CropRotateAction.vue",
+        "src/features/crop-rotate/CropRotateAction.test.ts",
+        "src/features/crop-rotate/shortcuts.ts",
+        "src/features/crop-rotate/shortcuts.test.ts",
+        "src/features/crop-rotate/messages.ts",
+        "src/features/crop-rotate/index.ts",
+        "src/app/App.vue"
+      ],
+      "file": "docs/features/crop-rotate/tasks/t14-crop-rotate-action-and-c-key.md"
+    },
+    {
+      "id": "T15",
+      "title": "Build CropOverlay: dimmed outside, frame with 8 focusable handles, both grids, pointer drags and arrow keys",
+      "layer": "ui",
+      "deps": [
+        "T5",
+        "T13"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-02",
+        "AC-20"
+      ],
+      "dod": "Component tests on happy-dom prove the overlay places four dimming panels, the frame and 8 labelled focusable handles from the overlay maths, a pointer drag on an edge/corner resizes and inside the frame moves via the store (stopping at the image edge), arrow keys move the focused frame or resize the focused handle by 1 px (10 with Shift), the thirds grid shows only while dragging and the fine grid only while the angle changes, and positions are written with transform only",
+      "files_hint": [
+        "src/features/crop-rotate/CropOverlay.vue",
+        "src/features/crop-rotate/CropOverlay.test.ts"
+      ],
+      "file": "docs/features/crop-rotate/tasks/t15-crop-overlay.md"
+    },
+    {
+      "id": "T16",
+      "title": "Build CropRotateControls: rotate and flip buttons, straighten slider and field, proportion, width and height, Reset / Cancel / Apply",
+      "layer": "ui",
+      "deps": [
+        "T12",
+        "T13"
+      ],
+      "acs": [
+        "AC-03",
+        "AC-04",
+        "AC-05",
+        "AC-07",
+        "AC-08",
+        "AC-09",
+        "AC-10"
+      ],
+      "dod": "Component tests prove the panel renders the five groups in order with the catalog labels, rotate/flip buttons call the store, the slider (−45…45, step 0.1, 0 mark) and angle field show one signed decimal, the proportion controls select and disable orientation for Free and 1:1, width/height show the Draft's size live and commit only on blur or Enter (Enter not applying the tool), and Reset/Cancel/Apply call the store",
+      "files_hint": [
+        "src/features/crop-rotate/CropRotateControls.vue",
+        "src/features/crop-rotate/CropRotateControls.test.ts"
+      ],
+      "file": "docs/features/crop-rotate/tasks/t16-crop-rotate-controls.md"
+    },
+    {
+      "id": "T17",
+      "title": "Mount CropRotateTool in a new EditorView tool slot, with Enter to apply, Escape to cancel, focus handling and fit-View",
+      "layer": "wiring",
+      "deps": [
+        "T9",
+        "T14",
+        "T15",
+        "T16"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-11",
+        "AC-19",
+        "AC-20"
+      ],
+      "dod": "Component tests prove EditorView renders the tool slot over the canvas area only while editor.activeTool is set, CropRotateTool lays out CropOverlay over the canvas and the panel at --panel-width (under the canvas below 1024 px), Enter applies outside a field and a focused button, Escape cancels from anywhere including a field (discarding pending text), focus moves to the frame on open and back to the action on close, and zoom and pan keep working without changing the Draft",
+      "files_hint": [
+        "src/features/crop-rotate/CropRotateTool.vue",
+        "src/features/crop-rotate/CropRotateTool.test.ts",
+        "src/features/crop-rotate/shortcuts.ts",
+        "src/features/crop-rotate/shortcuts.test.ts",
+        "src/features/crop-rotate/index.ts",
+        "src/features/editor/EditorView.vue",
+        "src/features/editor/EditorView.test.ts",
+        "src/app/App.vue"
+      ],
+      "file": "docs/features/crop-rotate/tasks/t17-crop-rotate-tool-mount-and-keys.md"
+    },
+    {
+      "id": "T18",
+      "title": "Add the e2e Geometry fidelity suite: 16 Rotation × Flip, straightened vs Preview, opacity, nothing outside the Crop, lossless round trip",
+      "layer": "tests",
+      "deps": [
+        "T9",
+        "T10"
+      ],
+      "acs": [
+        "AC-03",
+        "AC-04",
+        "AC-06",
+        "AC-12",
+        "AC-14"
+      ],
+      "dod": "Playwright on Chromium, Firefox and WebKit proves all 16 Rotation × Flip combinations (with and without a Crop) export within 2/255 of the Original pixel named by an independent inverse mapping, straightened Exports at −45°, −0.1°, +1°, +45° match the Preview at 100% within 2/255 and stay 100% opaque for an opaque Original, a band outside the Crop never appears and the Export is exactly the Crop's size, and Crop → Reset → Apply gives an Export within 2/255 of the one before",
+      "files_hint": [
+        "e2e/crop-rotate/fidelity.spec.ts",
+        "e2e/crop-rotate/helpers.ts",
+        "e2e/fixtures/"
+      ],
+      "file": "docs/features/crop-rotate/tasks/t18-e2e-geometry-fidelity.md"
+    },
+    {
+      "id": "T19",
+      "title": "Add the e2e tool-flow suite: three-action paths, export refusals, replace while open, View fit and frame alignment",
+      "layer": "tests",
+      "deps": [
+        "T11",
+        "T17"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-16",
+        "AC-17",
+        "AC-19",
+        "AC-20"
+      ],
+      "dod": "Playwright on Chromium, Firefox and WebKit proves rotate-once and crop-to-square each take three actions by mouse and by keyboard, Apply shows the Crop's size \"from\" the Original's, Ctrl/Cmd+S and Export while the tool is open show the hint without \"Save page\", a drop while open keeps the tool until the replace is confirmed and keeps it when declined, the View fits the whole turned image on open and the Work after Apply/Cancel, and the frame sits on the image edge within one device pixel at 100% and 800%",
+      "files_hint": [
+        "e2e/crop-rotate/tool.spec.ts",
+        "e2e/crop-rotate/helpers.ts"
+      ],
+      "file": "docs/features/crop-rotate/tasks/t19-e2e-tool-flows.md"
+    },
+    {
+      "id": "T20",
+      "title": "Add the @perf suite: drag and slider frame interval, action-to-Preview and tool-ready times, memory after 50 Applies, export time with a Geometry",
+      "layer": "tests",
+      "deps": [
+        "T18",
+        "T19"
+      ],
+      "acs": [
+        "AC-05",
+        "AC-14"
+      ],
+      "dod": "PERF=1 pnpm test:e2e runs e2e/crop-rotate/perf.spec.ts (Chromium) reporting p95 over 20 runs after 2 warm-ups for the drag/slider frame interval (≤33 ms), rotate/flip/Apply/Cancel/Reset to updated Preview (≤150 ms), choosing the tool to tool-ready (≤150 ms) and memory after 50 Applies (≤110% of first), and export's perf spec repeats JPEG/PNG with a 90° Rotation, a Flip and a 10° angle; without PERF=1 they are skipped",
+      "files_hint": [
+        "e2e/crop-rotate/perf.spec.ts",
+        "e2e/crop-rotate/helpers.ts",
+        "e2e/export/perf.spec.ts"
+      ],
+      "file": "docs/features/crop-rotate/tasks/t20-perf-suite.md"
+    },
+    {
+      "id": "T21",
+      "title": "Let Space press the Crop and rotate action and the tool panel buttons instead of starting space-pan (review R1)",
+      "layer": "wiring",
+      "deps": [],
+      "acs": [
+        "AC-20"
+      ],
+      "dod": "With a Work open, Space keydown+keyup on the \"Crop and rotate\" action opens the tool and on Rotate turns the Draft; space-pan still starts over the canvas; EditorView-level component tests press Space",
+      "files_hint": [
+        "src/features/crop-rotate/CropRotateAction.vue",
+        "src/features/crop-rotate/CropRotateTool.vue",
+        "src/features/editor/EditorView.test.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07.md"
+    },
+    {
+      "id": "T22",
+      "title": "Stop swallowing Escape, Enter and zoom keys on the crop handles (review R2)",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-11",
+        "AC-19",
+        "AC-20"
+      ],
+      "dod": "A handle stops propagation only for an arrow key it handles; Escape on a focused handle cancels the tool, Enter applies it, and + zooms; tests in CropRotateTool.test.ts and CropOverlay.test.ts",
+      "files_hint": [
+        "src/features/crop-rotate/CropOverlay.vue",
+        "src/features/crop-rotate/CropOverlay.test.ts",
+        "src/features/crop-rotate/CropRotateTool.test.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07.md"
+    },
+    {
+      "id": "T23",
+      "title": "Keep wheel and pinch zoom and space-pan working over the crop frame (review R3)",
+      "layer": "wiring",
+      "deps": [
+        "T22"
+      ],
+      "acs": [
+        "AC-19"
+      ],
+      "dod": "Wheel and gesture listeners sit on the canvas section so they fire over the overlay; the overlay ignores pointerdown while space-pan is active; component tests cover both and an e2e test zooms with the wheel over the frame",
+      "files_hint": [
+        "src/features/editor/components/PreviewCanvas.vue",
+        "src/features/editor/components/PreviewCanvas.test.ts",
+        "src/features/crop-rotate/CropOverlay.vue",
+        "e2e/crop-rotate/tool.spec.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07.md"
+    },
+    {
+      "id": "T24",
+      "title": "Straighten from an unrounded anchor so the locked proportion and the frame centre hold, and keep an off-centre frame still on screen (review R4, R8)",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-05",
+        "AC-06",
+        "AC-08"
+      ],
+      "dod": "setStraighten derives every step from an anchor (centre in Original coordinates plus the locked or starting proportion) and rounds only the result; the fit uses the locked ratio; a property test steps the angle 0°→45°→0° in 0.1° steps and keeps 16:9 within 0.5 px and the centre within 1 px; the editor store pan correction also offsets the Crop centre change, tested with an off-centre Crop",
+      "files_hint": [
+        "src/core/geometry/straighten.ts",
+        "src/core/geometry/straighten.test.ts",
+        "src/core/geometry/crop.ts",
+        "src/features/crop-rotate/store.ts",
+        "src/features/crop-rotate/store.test.ts",
+        "src/features/editor/store.ts",
+        "src/features/editor/store.test.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07.md"
+    },
+    {
+      "id": "T25",
+      "title": "Remember the proportion the tool applies with, so a Rotate or a Reset carries over (review R5)",
+      "layer": "app",
+      "deps": [
+        "T24"
+      ],
+      "acs": [
+        "AC-03",
+        "AC-08",
+        "AC-12"
+      ],
+      "dod": "apply() remembers the proportion the tool closes with, so Rotate → Apply reopens 4:3 as 3:4 and Reset → Apply reopens Free, while Rotate → Cancel keeps the chosen orientation; chooseProportion still remembers at once; store tests cover all three",
+      "files_hint": [
+        "src/features/crop-rotate/store.ts",
+        "src/features/crop-rotate/store.test.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07.md"
+    },
+    {
+      "id": "T26",
+      "title": "Apply with Enter on the Straighten slider, and make C layout-independent and ignore repeats (review R6)",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-18",
+        "AC-20"
+      ],
+      "dod": "isTextTarget excludes range, checkbox and radio inputs; the C shortcut also matches event.code KeyC and ignores event.repeat; shortcut tests cover each case",
+      "files_hint": [
+        "src/features/crop-rotate/shortcuts.ts",
+        "src/features/crop-rotate/shortcuts.test.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07.md"
+    },
+    {
+      "id": "T27",
+      "title": "Refuse to open a tool while the export panel or the replace dialog is open (review R7)",
+      "layer": "app",
+      "deps": [
+        "T26"
+      ],
+      "acs": [
+        "AC-16",
+        "AC-20"
+      ],
+      "dod": "openTool refuses when activePanel is not null or phase is confirming; the C shortcut stays silent while confirming; store and shortcut tests cover both",
+      "files_hint": [
+        "src/features/editor/store.ts",
+        "src/features/editor/store.test.ts",
+        "src/features/crop-rotate/shortcuts.ts",
+        "src/features/crop-rotate/shortcuts.test.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07.md"
+    },
+    {
+      "id": "T28",
+      "title": "Run the GPU crop transparency check only while the export panel is open (review R9)",
+      "layer": "app",
+      "deps": [],
+      "acs": [
+        "AC-14"
+      ],
+      "dod": "The transparency watch includes panelOpen in its source and guard; a store test applies a Geometry with the panel closed and checkTransparency is not called, then opening the panel runs it",
+      "files_hint": [
+        "src/features/export/store.ts",
+        "src/features/export/store.test.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07.md"
+    },
+    {
+      "id": "T29",
+      "title": "Note in AC-06 that AC-08 short-side rounding takes precedence (review R10)",
+      "layer": "docs",
+      "deps": [],
+      "acs": [
+        "AC-06",
+        "AC-08"
+      ],
+      "dod": "spec.md AC-06 carries a note that the fitted short side rounds per AC-08 and still stays inside the image; no code change",
+      "files_hint": [
+        "docs/features/crop-rotate/spec.md"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07.md"
+    },
+    {
+      "id": "T30",
+      "title": "Align the test plan with the tests that exist and add the keyboard-only AC-20 e2e test (review R11)",
+      "layer": "tests",
+      "deps": [
+        "T21",
+        "T22",
+        "T26"
+      ],
+      "acs": [
+        "AC-20"
+      ],
+      "dod": "test-plan.md rows match the written tests and mark the ones narrowed on purpose; tool.spec.ts proves rotate-once and crop-to-square by keyboard only (Tab, Space/Enter, arrows, Escape on a handle)",
+      "files_hint": [
+        "docs/features/crop-rotate/test-plan.md",
+        "e2e/crop-rotate/tool.spec.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07.md"
+    },
+    {
+      "id": "T31",
+      "title": "Offset the pan by the Crop centre only for an angle step, so Flip and Reset at an angle keep the image in place (re-review N1)",
+      "layer": "app",
+      "deps": [],
+      "acs": [
+        "AC-04",
+        "AC-05",
+        "AC-12"
+      ],
+      "dod": "setPreviewGeometry applies the Crop-centre term only when setAngle asks for it; editor store tests show that a Flip at 10° with an off-centre frame leaves the pan unchanged and that a Reset offsets only the turned bounds; the existing off-centre straighten test stays green",
+      "files_hint": [
+        "src/features/editor/store.ts",
+        "src/features/editor/store.test.ts",
+        "src/features/crop-rotate/store.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07-2.md"
+    },
+    {
+      "id": "T32",
+      "title": "Let Space start space-pan while the Straighten slider has focus (re-review N2)",
+      "layer": "wiring",
+      "deps": [],
+      "acs": [
+        "AC-19"
+      ],
+      "dod": "EditorView isTextField and keepsSpace both exclude input[type=range]; a keyboard.test.ts case sends Space to the focused slider and expects defaultPrevented and editor.spacePan; Space on the tool buttons and radios still presses them",
+      "files_hint": [
+        "src/features/editor/EditorView.vue",
+        "src/app/keyboard.test.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07-2.md"
+    },
+    {
+      "id": "T33",
+      "title": "Straighten keeps the frame own proportion unless it already matches the locked one (re-review N3)",
+      "layer": "domain",
+      "deps": [
+        "T31"
+      ],
+      "acs": [
+        "AC-06",
+        "AC-08"
+      ],
+      "dod": "setAngle takes the locked ratio for the anchor only when the frame is within 0.5 px of it, otherwise the frame ratio; a store test covers choose 1:1, Cancel, reopen, setAngle(5) on 4096×3072 keeping about 4:3; the locked 16:9 sweep test stays green",
+      "files_hint": [
+        "src/features/crop-rotate/store.ts",
+        "src/core/geometry/straighten.ts",
+        "src/features/crop-rotate/store.test.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07-2.md"
+    },
+    {
+      "id": "T34",
+      "title": "Make the keyboard-only e2e paths real and stop the test plan overclaiming (re-review N4, N5, N6)",
+      "layer": "tests",
+      "deps": [
+        "T32"
+      ],
+      "acs": [
+        "AC-04",
+        "AC-20"
+      ],
+      "dod": "tool.spec.ts handle test sends Shift+ArrowDown and asserts the height 290 before Escape; the crop-to-square path reaches the frame by Tab or Shift+Tab instead of focus(); test-plan.md rows at AC-04 on-screen order and AC-20 Tab-to-action and Tab-order are marked narrowed on purpose and point to the tests that cover them",
+      "files_hint": [
+        "e2e/crop-rotate/tool.spec.ts",
+        "docs/features/crop-rotate/test-plan.md"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07-2.md"
+    },
+    {
+      "id": "T35",
+      "title": "Enter on an input of type button, submit or reset presses only that input (re-review N7)",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-20"
+      ],
+      "dod": "createToolKeys skips input[type=button], input[type=submit] and input[type=reset] like a button; a shortcuts.test.ts case shows Enter on one does not apply",
+      "files_hint": [
+        "src/features/crop-rotate/shortcuts.ts",
+        "src/features/crop-rotate/shortcuts.test.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07-2.md"
+    },
+    {
+      "id": "T36",
+      "title": "Pin that straightening passes angleStep to the View, and fix the NON_TEXT_INPUTS comment (re-review-2 F1, F3)",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-04",
+        "AC-05",
+        "AC-12"
+      ],
+      "dod": "A crop-rotate/store.test.ts case with an off-centre frame (e.g. 4000x2000, resizeBy('se',-2800,-1200), moveBy(1500,300)) shows the frame's on-screen centre stays put across setAngle and editor.view stays put across a Flip at an angle; the case fails when update() stops passing { angleStep }; the shortcuts.ts:14 comment no longer claims Enter applies on button/submit/reset",
+      "files_hint": [
+        "src/features/crop-rotate/store.test.ts",
+        "src/features/crop-rotate/shortcuts.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07-3.md"
+    },
+    {
+      "id": "T37",
+      "title": "Pin the global slider exemption: Space pans and the zoom keys zoom from the export Quality slider (re-review-2 F2)",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-19"
+      ],
+      "dod": "keyboard.test.ts cases show that with the export panel's Quality slider (input[type=range] inside role=dialog) focused, Space starts space-pan and '-' zooms out, consistent with export screens.md:26; existing text-field and button cases still pass",
+      "files_hint": [
+        "src/app/keyboard.test.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07-3.md"
+    },
+    {
+      "id": "T38",
+      "title": "Pin that Reset at an angle offsets only the turned bounds through the crop-rotate store (re-review-3 G1)",
+      "layer": "tests",
+      "deps": [
+        "T36"
+      ],
+      "acs": [
+        "AC-12"
+      ],
+      "dod": "The T36 crop-rotate store test (or a sibling) sets an angle on the off-centre frame, calls tool.reset(), and asserts editor.view keeps its zoom and moves its pan by exactly the change in turnedBounds times zoom (as editor/store.test.ts:813-818 does); the case fails when reset() passes the angle-step flag to update()",
+      "files_hint": [
+        "src/features/crop-rotate/store.test.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07-4.md"
+    },
+    {
+      "id": "T39",
+      "title": "Pin that Reset at an angle returns the Draft to no Geometry, Straighten 0° included (re-review-4 H1)",
+      "layer": "tests",
+      "deps": [
+        "T38"
+      ],
+      "acs": [
+        "AC-12"
+      ],
+      "dod": "The T38 test asserts tool.draft equals identityGeometry(original) after tool.reset() and takes the expected turned bounds from identityGeometry, not from tool.draft; the case fails when reset() keeps draft.straighten",
+      "files_hint": [
+        "src/features/crop-rotate/store.test.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07-5.md"
+    },
+    {
+      "id": "T40",
+      "title": "Close the AC-12 test gaps: Reset clears flipV, a cancelled Reset keeps the remembered proportion, Reset ends the angle interaction, reopening shows Flip and Straighten (re-review-5 J1-J4)",
+      "layer": "tests",
+      "deps": [
+        "T39"
+      ],
+      "acs": [
+        "AC-12",
+        "AC-05",
+        "AC-08"
+      ],
+      "dod": "(J1) the Reset test starts from a Work Geometry with rotation 90, flipH, flipV, a valid straighten and a Crop, and its toEqual(identityGeometry) fails when reset() keeps flipV; (J2) after 16:9, Reset, Cancel and reopen, tool.proportion is 16:9 landscape, failing when reset() remembers Free; (J3) after Reset at an angle, setAngle(50) gives the same Draft as a fresh open plus setAngle(50), failing when reset() skips update() and keeps the anchor; (J4) the open test's applied Geometry has flipH, flipV and a valid straighten, failing when open() or openTool drops either",
+      "files_hint": [
+        "src/features/crop-rotate/store.test.ts"
+      ],
+      "source": "docs/features/crop-rotate/_review/review-2026-10-07-6.md"
+    }
+  ]
+}

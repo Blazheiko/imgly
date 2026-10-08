@@ -1,10 +1,15 @@
 <script setup lang="ts">
-defineProps<{ width: number; height: number }>()
+import type { Size } from '@/core'
+
+/** The Work's size; `from` is the Original's when the Geometry changed it (crop-rotate AC-01). */
+defineProps<{ width: number; height: number; from?: Size }>()
 </script>
 
 <template>
   <span class="dimensions-readout" data-testid="dimensions-readout"
-    >{{ width }} × {{ height }} px</span
+    >{{ width }} × {{ height }} px<span v-if="from"
+      >, from {{ from.width }} × {{ from.height }} px</span
+    ></span
   >
 </template>
 

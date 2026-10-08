@@ -6,6 +6,8 @@ import {
   defaultFormat,
   exportFileName,
   exportSize,
+  geometryEquals,
+  identityGeometry,
   longSideFor,
   matchesExtension,
   normalizeLongSide,
@@ -17,6 +19,7 @@ import {
   type Result,
   type Size,
   type SizeChoice,
+  workSize as workSizeOf,
 } from '@/core'
 import { useEditorStore, type ExportSnapshot } from '@/features/editor'
 import {
@@ -27,8 +30,10 @@ import {
   writeFile,
 } from '@/infra/platform'
 import {
+  checkCropTransparency,
   checkExportFormats,
   exportImage,
+  type AlphaRequest,
   type ExportRequest,
   type FormatAvailabilityCheck,
 } from '@/render'
@@ -47,6 +52,13 @@ import {
 export type FormatChecker = () => Promise<FormatAvailabilityCheck>
 export type Exporter = (request: ExportRequest) => Promise<Result<Blob, AppError>>
 export type BitmapCopier = (source: ImageBitmap) => Promise<ImageBitmap>
+export type TransparencyChecker = (request: AlphaRequest) => Promise<Result<boolean, AppError>>
+
+/** The GPU check's answer for one revision of one Work; `running` hides the hint meanwhile. */
+interface CropAlpha {
+  key: string
+  state: 'running' | boolean
+}
 
 /** The platform save functions, injectable so tests can drive every branch. */
 export interface SavePlatform {
@@ -106,6 +118,8 @@ export const useExportStore = defineStore('export', () => {
   const notices = useNotices()
   let exporter: Exporter = exportImage
   let copyBitmap: BitmapCopier = (source) => createImageBitmap(source)
+  let checkTransparency: TransparencyChecker = checkCropTransparency
+  const cropAlpha = ref<CropAlpha | null>(null)
   let platform: SavePlatform = { pickSaveTarget, writeFile, discardEmptyTarget, downloadFile }
   // The verified file waiting for "Save…" in the File-ready state.
   let ready: { job: ExportJob; blob: Blob } | null = null
@@ -127,6 +141,10 @@ export const useExportStore = defineStore('export', () => {
 
   function setBitmapCopier(next: BitmapCopier) {
     copyBitmap = next
+  }
+
+  function setTransparencyChecker(next: TransparencyChecker) {
+    checkTransparency = next
   }
 
   function setSavePlatform(next: Partial<SavePlatform>) {
@@ -161,6 +179,10 @@ export const useExportStore = defineStore('export', () => {
   /** The editor is reading an image or waits on the replace dialog: no export can start then. */
   const editorBusy = computed(() => editor.phase === 'reading' || editor.phase === 'confirming')
 
+  // The editor knows the panel is open, so another feature's shortcut can stay silent under it
+  // without importing export (crop-rotate AC-20).
+  watch(panelOpen, (open) => editor.setActivePanel(open ? 'export' : null), { flush: 'sync' })
+
   // The replace dialog is modal: the panel never stays open beneath it.
   watch(
     () => editor.phase,
@@ -178,10 +200,8 @@ export const useExportStore = defineStore('export', () => {
     },
   )
 
-  const workSize = computed<Size | null>(() => {
-    const original = editor.work?.original
-    return original ? { width: original.width, height: original.height } : null
-  })
+  /** The Work's full size: its Crop's (crop-rotate AC-14). */
+  const workSize = computed<Size | null>(() => (editor.work ? workSizeOf(editor.work) : null))
 
   /** The open Work's remembered choice, or null before its panel was first opened. */
   const current = computed(() =>
@@ -214,8 +234,50 @@ export const useExportStore = defineStore('export', () => {
 
   const suggestedName = computed(() => exportFileName(editor.work?.sourceName ?? '', format.value))
   const showsQuality = computed(() => format.value !== 'png')
+
+  /**
+   * Whether the JPEG hint has a pixel to warn about: the Original's flag when it is opaque or the
+   * Geometry is the identity, else the GPU check over the Crop (crop-rotate ADR-0004), `running`
+   * until it answers.
+   */
+  const cropTransparency = computed<'running' | boolean>(() => {
+    const work = editor.work
+    if (!work || !work.original.hasTransparency) return false
+    if (geometryEquals(work.geometry, identityGeometry(work.original))) return true
+    const answer = cropAlpha.value
+    return answer && answer.key === alphaKey(work.id, work.revision) ? answer.state : 'running'
+  })
+
+  const alphaKey = (id: string, revision: number) => `${id}@${revision}`
+
+  /** Runs only when the open panel needs the answer, never on every Apply (ADR-0004). */
+  async function runCropAlphaCheck() {
+    const work = editor.work
+    if (!work || !panelOpen.value || format.value !== 'jpeg') return
+    if (cropTransparency.value !== 'running') return
+    const key = alphaKey(work.id, work.revision)
+    if (cropAlpha.value?.key === key) return
+    cropAlpha.value = { key, state: 'running' }
+    let answer: boolean
+    try {
+      const copy = await copyBitmap(work.original.pixels)
+      bitmapLedger.noteReceived()
+      const result = await checkTransparency({ bitmap: copy, geometry: work.geometry })
+      closeBitmap(copy) // already transferred and closed in the worker; this records it
+      answer = result.ok ? result.value : true // a failed check shows the hint: the safe side
+    } catch {
+      answer = true
+    }
+    if (cropAlpha.value?.key === key) cropAlpha.value = { key, state: answer }
+  }
+
+  watch(
+    () => [panelOpen.value, format.value, editor.work?.id, editor.work?.revision] as const,
+    () => void runCropAlphaCheck(),
+  )
+
   const transparencyHint = computed(() =>
-    format.value === 'jpeg' && editor.work?.original.hasTransparency ? hintTransparency() : null,
+    format.value === 'jpeg' && cropTransparency.value === true ? hintTransparency() : null,
   )
   const pathLine = computed(() => (saveDialogProbe.value() ? lineSaveDialog() : lineDownloads()))
 
@@ -247,7 +309,7 @@ export const useExportStore = defineStore('export', () => {
   /** Opens the panel for the open Work, seeding its choices the first time (AC-19). */
   function openPanel(): boolean {
     const work = editor.work
-    if (!work || editorBusy.value) return false
+    if (!work || editorBusy.value || editor.activeTool) return false
     if (!current.value) {
       choice.value = {
         workId: work.id,
@@ -313,6 +375,7 @@ export const useExportStore = defineStore('export', () => {
       height,
       format: job.format,
       quality: lossyQuality,
+      geometry: snapshot.geometry,
     })
     closeBitmap(copy) // already transferred and closed in the worker; this records it
     if (!result.ok) {
@@ -440,6 +503,7 @@ export const useExportStore = defineStore('export', () => {
     setSaveDialogProbe,
     setExporter,
     setBitmapCopier,
+    setTransparencyChecker,
     setSavePlatform,
     openPanel,
     closePanel,

@@ -1,6 +1,8 @@
 import {
   appError,
+  cropToOriginalUv,
   err,
+  identityGeometry,
   EXPORT_MIME_TYPES,
   HEADER_WINDOW_BYTES,
   ok,
@@ -8,17 +10,28 @@ import {
   stripMetadata,
   type AppError,
   type ExportFormat,
+  type Geometry,
   type Result,
 } from '@/core'
 import { buildProgram, uploadTexture } from '../shaders'
 
-/** One export: a transferred copy of the Original, the output size, format and quality (1–100). */
+/**
+ * One export: a transferred copy of the Original, the Work's Geometry, the output size (counted
+ * from the Crop's), format and quality (1–100).
+ */
 export interface ExportRequest {
   bitmap: ImageBitmap
   width: number
   height: number
   format: ExportFormat
   quality: number
+  geometry: Geometry
+}
+
+/** Whether any pixel inside the Crop is not fully opaque (crop-rotate ADR-0004). */
+export interface AlphaRequest {
+  bitmap: ImageBitmap
+  geometry: Geometry
 }
 
 /** The browser APIs the export needs, injected so it runs under unit tests too. */
@@ -47,10 +60,13 @@ export interface FormatCheck {
   webp: boolean
 }
 
-/** A message to the export worker: one export, or the session format check. */
-export type ExportWorkerMessage = { kind: 'export'; request: ExportRequest } | { kind: 'check' }
+/** A message to the export worker: one export, the session format check, or an alpha check. */
+export type ExportWorkerMessage =
+  | { kind: 'export'; request: ExportRequest }
+  | { kind: 'check' }
+  | { kind: 'alpha'; request: AlphaRequest }
 
-/** Fills the canvas with the whole Work, upright: uv (0,0) → top-left in clip space (AC-03). */
+/** Fills the canvas with the unit quad (the Crop), upright: (0,0) → top-left in clip space (AC-03). */
 const FULL_QUAD = new Float32Array([2, 0, 0, 0, -2, 0, -1, 1, 1])
 
 const failed = () => err(appError('EXPORT_FAILED'))
@@ -80,6 +96,35 @@ export async function handleExport(
 }
 
 /**
+ * Renders the Crop at its full size through the export path, unflattened, and reads the alpha
+ * channel back: true when any pixel is not fully opaque (crop-rotate ADR-0004). The bitmap copy is
+ * closed in every branch.
+ */
+export async function handleAlpha(
+  request: AlphaRequest,
+  env: ExportEnv,
+): Promise<Result<boolean, AppError>> {
+  const { bitmap, geometry } = request
+  try {
+    const { width, height } = geometry.crop
+    const canvas = env.createCanvas(width, height)
+    const gl = render(canvas, { ...request, width, height, format: 'png', quality: 100 }, env)
+    if (!gl) return failed()
+    const pixels = new Uint8Array(width * height * 4)
+    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+    if (gl.isContextLost()) return failed()
+    for (let i = 3; i < pixels.length; i += 4) {
+      if (pixels[i]! < 255) return ok(true)
+    }
+    return ok(false)
+  } catch {
+    return failed()
+  } finally {
+    bitmap.close()
+  }
+}
+
+/**
  * Trial-encodes a 2×2 sample in JPEG and WebP through the very path an export takes, judged by
  * content; any error counts as unavailable (AC-12).
  */
@@ -89,7 +134,14 @@ export async function handleCheck(env: ExportEnv): Promise<FormatCheck> {
     try {
       const sample = env.createSample()
       const result = await handleExport(
-        { bitmap: sample, width: 2, height: 2, format, quality: 90 },
+        {
+          bitmap: sample,
+          width: 2,
+          height: 2,
+          format,
+          quality: 90,
+          geometry: identityGeometry({ width: 2, height: 2 }),
+        },
         env,
       )
       return result.ok
@@ -124,26 +176,35 @@ function readPixels(bitmap: ImageBitmap, env: ExportEnv): ImageData {
   return ctx.getImageData(0, 0, bitmap.width, bitmap.height)
 }
 
-/** Draws the Work into the canvas; false when there is no usable WebGL2 context. */
-function render(canvas: OffscreenCanvas, request: ExportRequest, env: ExportEnv): boolean {
+/**
+ * Draws the Work through its Geometry into the canvas; the context, or null when there is no
+ * usable WebGL2 context.
+ */
+function render(
+  canvas: OffscreenCanvas,
+  request: ExportRequest,
+  env: ExportEnv,
+): WebGL2RenderingContext | null {
   const gl = canvas.getContext('webgl2', {
     alpha: true,
     antialias: false,
     premultipliedAlpha: true,
     preserveDrawingBuffer: true,
   })
-  if (!gl) return false
-  const { bitmap, width, height } = request
+  if (!gl) return null
+  const { bitmap, width, height, geometry } = request
   const gpu = buildProgram(gl)
   const texture = uploadTexture(gl, readPixels(bitmap, env))
-  // Full size samples texel centres 1:1, as the Preview at 100%; smaller sizes use the mipmaps.
-  const fullSize = width === bitmap.width && height === bitmap.height
+  // Full size without a Straighten angle samples texel centres 1:1, as the Preview at 100%. A
+  // Straighten angle magnifies bilinearly, as the Preview does; smaller sizes use the mipmaps.
+  const exact =
+    width === geometry.crop.width && height === geometry.crop.height && geometry.straighten === 0
   gl.texParameteri(
     gl.TEXTURE_2D,
     gl.TEXTURE_MIN_FILTER,
-    fullSize ? gl.NEAREST : gl.LINEAR_MIPMAP_LINEAR,
+    exact ? gl.NEAREST : gl.LINEAR_MIPMAP_LINEAR,
   )
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, fullSize ? gl.NEAREST : gl.LINEAR)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, exact ? gl.NEAREST : gl.LINEAR)
 
   gl.viewport(0, 0, width, height)
   gl.clearColor(0, 0, 0, 0)
@@ -153,10 +214,12 @@ function render(canvas: OffscreenCanvas, request: ExportRequest, env: ExportEnv)
   gl.activeTexture(gl.TEXTURE0)
   gl.bindTexture(gl.TEXTURE_2D, texture)
   gl.uniformMatrix3fv(gpu.transform, false, FULL_QUAD)
+  const original = { width: bitmap.width, height: bitmap.height }
+  gl.uniformMatrix3fv(gpu.geometry, false, new Float32Array(cropToOriginalUv(geometry, original)))
   gl.uniform1i(gpu.flatten, request.format === 'jpeg' ? 1 : 0)
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
   gl.finish()
-  return !gl.isContextLost()
+  return gl.isContextLost() ? null : gl
 }
 
 /**

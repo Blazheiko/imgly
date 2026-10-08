@@ -1,7 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { nextTick, watch } from 'vue'
-import { appError, err, ok, type AppError, type Result } from '@/core'
+import {
+  appError,
+  err,
+  flipOnScreen,
+  identityGeometry,
+  ok,
+  turnedBounds,
+  type AppError,
+  type Geometry,
+  type Result,
+} from '@/core'
 import { SUPERSEDED, type DecodedImage, type DecodeOutcome } from '@/infra/image-decode'
 import { useNotices } from '@/shared'
 import { useEditorStore } from './store'
@@ -442,6 +452,7 @@ describe('editor store — exporting phase and save point (export AC-09, AC-10, 
       workId: work.id,
       revision: 1,
       original: work.original,
+      geometry: work.geometry,
       sourceName: 'IMG_4021',
       sourceFormat: 'jpeg',
     })
@@ -543,5 +554,285 @@ describe('editor store — exporting phase and save point (export AC-09, AC-10, 
     expect(editor.view.zoom).not.toBe(view.zoom)
     editor.fit()
     expect(editor.view).toEqual(view)
+  })
+})
+
+describe('editor store — tool slot (crop-rotate ADR-0003)', () => {
+  let decoder: ReturnType<typeof fakeDecoder>
+  let editor: ReturnType<typeof useEditorStore>
+
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    decoder = fakeDecoder()
+    editor = useEditorStore()
+    editor.setDecoder(decoder.decode)
+    editor.setCanvasSize(1000, 800)
+  })
+
+  async function open(width = 4000, height = 2000) {
+    const pending = editor.openImage(file())
+    decoder.answer(decoder.decode.mock.calls.length - 1, ok(decoded(width, height)))
+    return pending
+  }
+
+  const geometry = (over: Partial<Geometry> = {}): Geometry => ({
+    ...identityGeometry({ width: 4000, height: 2000 }),
+    ...over,
+  })
+
+  it('refuses to open a tool with no Work (AC-18)', () => {
+    expect(editor.openTool('crop-rotate')).toEqual({ ok: false, reason: 'no-work' })
+    expect(editor.activeTool).toBeNull()
+  })
+
+  it('refuses while exporting, and does not queue the request (AC-15)', async () => {
+    await open()
+    const snapshot = editor.beginExport()!
+    expect(editor.openTool('crop-rotate')).toEqual({ ok: false, reason: 'exporting' })
+    editor.finishExport(snapshot, false)
+    expect(editor.activeTool).toBeNull()
+  })
+
+  it('refuses while another feature’s panel or the replace dialog is open (AC-16, AC-20)', async () => {
+    await open()
+    editor.setActivePanel('export')
+    expect(editor.openTool('crop-rotate')).toEqual({ ok: false, reason: 'panel-open' })
+    editor.setActivePanel(null)
+    editor.phase = 'confirming'
+    expect(editor.openTool('crop-rotate')).toEqual({ ok: false, reason: 'confirming' })
+    expect(editor.activeTool).toBeNull()
+  })
+
+  it('refuses a second tool while one is open', async () => {
+    await open()
+    expect(editor.openTool('crop-rotate')).toEqual({ ok: true })
+    expect(editor.openTool('crop-rotate')).toEqual({ ok: false, reason: 'tool-open' })
+  })
+
+  it('opens with the Work’s Geometry as the preview and closes clearing it', async () => {
+    await open()
+    editor.openTool('crop-rotate')
+    expect(editor.activeTool).toBe('crop-rotate')
+    expect(editor.previewGeometry).toEqual(editor.work!.geometry)
+
+    editor.closeTool()
+    expect(editor.activeTool).toBeNull()
+    expect(editor.previewGeometry).toBeNull()
+  })
+
+  it('takes a preview Geometry only while a tool is open', async () => {
+    await open()
+    editor.setPreviewGeometry(geometry({ flipH: true }))
+    expect(editor.previewGeometry).toBeNull()
+    editor.openTool('crop-rotate')
+    editor.setPreviewGeometry(geometry({ flipH: true }))
+    expect(editor.previewGeometry).toMatchObject({ flipH: true })
+    expect(editor.work!.geometry.flipH).toBe(false)
+    expect(editor.hasUnsavedEdits).toBe(false) // the Draft never counts (AC-17)
+  })
+
+  it('refuses to export while a tool is open (AC-16)', async () => {
+    await open()
+    editor.openTool('crop-rotate')
+    expect(editor.beginExport()).toBeNull()
+    expect(editor.phase).toBe('idle')
+  })
+
+  describe('applyGeometry (AC-13)', () => {
+    it('stores a different Geometry and raises the revision', async () => {
+      await open()
+      editor.applyGeometry(
+        geometry({ rotation: 90, crop: { x: 0, y: 0, width: 2000, height: 4000 } }),
+      )
+      expect(editor.work!.geometry.rotation).toBe(90)
+      expect(editor.work!.revision).toBe(1)
+      expect(editor.hasUnsavedEdits).toBe(true)
+    })
+
+    it('leaves the revision alone for a field-equal Geometry', async () => {
+      await open()
+      editor.applyGeometry(geometry())
+      expect(editor.work!.revision).toBe(0)
+      expect(editor.hasUnsavedEdits).toBe(false)
+    })
+
+    it('counts H+V Flips on a 180° Rotation as a change, although the pixels match', async () => {
+      await open()
+      editor.applyGeometry(geometry({ rotation: 180 }))
+      editor.applyGeometry(geometry({ rotation: 180, flipH: true, flipV: true }))
+      expect(editor.work!.revision).toBe(2)
+    })
+
+    it('after an Export, changing it back by hand is still an edit', async () => {
+      await open()
+      editor.applyGeometry(geometry({ flipH: true }))
+      editor.finishExport(editor.beginExport()!, true)
+      expect(editor.hasUnsavedEdits).toBe(false)
+      editor.applyGeometry(geometry())
+      expect(editor.hasUnsavedEdits).toBe(true)
+    })
+
+    it('is refused while exporting', async () => {
+      await open()
+      editor.beginExport()
+      editor.applyGeometry(geometry({ flipH: true }))
+      expect(editor.work!.geometry.flipH).toBe(false)
+    })
+  })
+
+  describe('replace while the tool is open (AC-17)', () => {
+    it('closes the tool once the new image replaces the Work', async () => {
+      await open()
+      editor.openTool('crop-rotate')
+      editor.setPreviewGeometry(geometry({ flipV: true }))
+      await open(300, 200)
+      expect(editor.activeTool).toBeNull()
+      expect(editor.previewGeometry).toBeNull()
+    })
+
+    it('keeps the tool and its preview when the read fails', async () => {
+      await open()
+      editor.openTool('crop-rotate')
+      editor.setPreviewGeometry(geometry({ flipV: true }))
+      const pending = editor.openImage(file())
+      decoder.answer(decoder.decode.mock.calls.length - 1, err(appError('DECODE_FAILED')))
+      await pending
+      expect(editor.activeTool).toBe('crop-rotate')
+      expect(editor.previewGeometry).toMatchObject({ flipV: true })
+    })
+
+    it('keeps the tool while confirming and after a declined replace', async () => {
+      await open()
+      editor.applyGeometry(geometry({ flipH: true }))
+      editor.openTool('crop-rotate')
+      expect((await open(300, 200)).kind).toBe('confirming')
+      expect(editor.activeTool).toBe('crop-rotate')
+      editor.cancelReplace()
+      expect(editor.activeTool).toBe('crop-rotate')
+      editor.confirmReplace()
+      expect(editor.activeTool).toBe('crop-rotate')
+    })
+
+    it('closes the tool when the replace is confirmed', async () => {
+      await open()
+      editor.applyGeometry(geometry({ flipH: true }))
+      editor.openTool('crop-rotate')
+      await open(300, 200)
+      editor.confirmReplace()
+      expect(editor.activeTool).toBeNull()
+    })
+  })
+
+  describe('fit-View (AC-19)', () => {
+    it('fits the whole turned image on open and the Work’s size after close', async () => {
+      await open(4000, 2000)
+      editor.applyGeometry(geometry({ crop: { x: 0, y: 0, width: 500, height: 400 } }))
+      editor.fit()
+      // The Work is 500×400 → at most 100%: zoom 1.
+      expect(editor.view.zoom).toBe(1)
+
+      editor.openTool('crop-rotate')
+      // The whole 4000×2000 turned image fits 1000×800 at 0.25.
+      expect(editor.view).toMatchObject({ zoom: 0.25, panX: 0, panY: 150 })
+
+      editor.closeTool()
+      expect(editor.view).toMatchObject({ zoom: 1, panX: 250, panY: 200 })
+    })
+
+    it('re-fits when a quarter turn changes the turned image inside the tool', async () => {
+      await open(4000, 2000)
+      editor.openTool('crop-rotate')
+      editor.setPreviewGeometry(
+        geometry({ rotation: 90, crop: { x: 0, y: 0, width: 2000, height: 4000 } }),
+      )
+      // 2000×4000 into 1000×800 → 0.2.
+      expect(editor.view.zoom).toBe(0.2)
+    })
+
+    it('keeps the frame still on screen when a Straighten angle grows the bounds', async () => {
+      await open(4000, 2000)
+      editor.openTool('crop-rotate')
+      editor.zoomAt(2, { x: 500, y: 400 })
+      const before = { ...editor.view }
+      const straight = { ...geometry(), straighten: 100 }
+      editor.setPreviewGeometry(straight)
+      const b = turnedBounds(straight, { width: 4000, height: 2000 })
+      expect(editor.view.zoom).toBe(before.zoom)
+      expect(editor.view.panX).toBeCloseTo(before.panX + b.x * before.zoom, 9)
+      expect(editor.view.panY).toBeCloseTo(before.panY + b.y * before.zoom, 9)
+    })
+
+    it('keeps an off-centre frame still on screen while the angle changes (AC-05)', async () => {
+      await open(4000, 2000)
+      editor.openTool('crop-rotate')
+      const offCentre = geometry({ crop: { x: 200, y: 200, width: 1000, height: 600 } })
+      editor.setPreviewGeometry(offCentre)
+      const screenCentre = (g: Geometry) => {
+        const b = turnedBounds(g, { width: 4000, height: 2000 })
+        const { zoom, panX, panY } = editor.view
+        return {
+          x: panX + (g.crop.x + g.crop.width / 2 - b.x) * zoom,
+          y: panY + (g.crop.y + g.crop.height / 2 - b.y) * zoom,
+        }
+      }
+      const before = screenCentre(offCentre)
+      // The image turns around the frame's centre, so the centre moves in turned coordinates.
+      const turned = geometry({
+        straighten: 100,
+        crop: { x: 380, y: -60, width: 900, height: 540 },
+      })
+      editor.setPreviewGeometry(turned, { angleStep: true })
+      const after = screenCentre(turned)
+      expect(after.x).toBeCloseTo(before.x, 6)
+      expect(after.y).toBeCloseTo(before.y, 6)
+    })
+
+    it('leaves the pan alone when a Flip at an angle mirrors an off-centre frame (AC-04)', async () => {
+      await open(4000, 2000)
+      editor.openTool('crop-rotate')
+      const angled = geometry({
+        straighten: 100,
+        crop: { x: 380, y: -60, width: 900, height: 540 },
+      })
+      editor.setPreviewGeometry(angled, { angleStep: true })
+      const before = { ...editor.view }
+      editor.setPreviewGeometry(flipOnScreen(angled, 'horizontal', { width: 4000, height: 2000 }))
+      expect(editor.view).toEqual(before)
+    })
+
+    it('offsets only the turned bounds when a Reset leaves an angle (AC-12)', async () => {
+      await open(4000, 2000)
+      editor.openTool('crop-rotate')
+      const angled = geometry({
+        straighten: 100,
+        crop: { x: 380, y: -60, width: 900, height: 540 },
+      })
+      editor.setPreviewGeometry(angled, { angleStep: true })
+      const before = { ...editor.view }
+      const reset = identityGeometry({ width: 4000, height: 2000 })
+      editor.setPreviewGeometry(reset)
+      const from = turnedBounds(angled, { width: 4000, height: 2000 })
+      const to = turnedBounds(reset, { width: 4000, height: 2000 })
+      expect(editor.view.zoom).toBe(before.zoom)
+      expect(editor.view.panX).toBeCloseTo(before.panX + (to.x - from.x) * before.zoom, 9)
+      expect(editor.view.panY).toBeCloseTo(before.panY + (to.y - from.y) * before.zoom, 9)
+    })
+
+    it('zoom and pan in the tool never change the Geometry or count as an edit', async () => {
+      await open()
+      editor.openTool('crop-rotate')
+      editor.zoomAt(2, { x: 10, y: 10 })
+      editor.panBy(30, 30)
+      expect(editor.previewGeometry).toEqual(editor.work!.geometry)
+      expect(editor.work!.revision).toBe(0)
+    })
+  })
+
+  it('records which panel is open, for other features to read (AC-20)', () => {
+    expect(editor.activePanel).toBeNull()
+    editor.setActivePanel('export')
+    expect(editor.activePanel).toBe('export')
+    editor.setActivePanel(null)
+    expect(editor.activePanel).toBeNull()
   })
 })

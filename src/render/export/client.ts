@@ -1,5 +1,10 @@
 import { appError, err, isAppErrorCode, ok, type AppError, type Result } from '@/core'
-import type { ExportRequest, ExportWorkerMessage, FormatCheck } from './worker-handler'
+import type {
+  AlphaRequest,
+  ExportRequest,
+  ExportWorkerMessage,
+  FormatCheck,
+} from './worker-handler'
 
 /** Which formats this browser can produce, by content; PNG always (AC-12). */
 export interface FormatAvailabilityCheck {
@@ -17,6 +22,15 @@ const UNAVAILABLE: FormatAvailabilityCheck = { png: true, jpeg: false, webp: fal
  */
 export const EXPORT_TIMEOUT_MS = 60_000
 export const CHECK_TIMEOUT_MS = 15_000
+export const ALPHA_TIMEOUT_MS = 15_000
+
+/** Validates an alpha-check reply; anything malformed fails the check. */
+function parseAlphaReply(data: unknown): Result<boolean, AppError> {
+  const reply = (typeof data === 'object' && data !== null ? data : {}) as Record<string, unknown>
+  return reply.ok === true && typeof reply.value === 'boolean'
+    ? ok(reply.value)
+    : err(appError('EXPORT_FAILED'))
+}
 
 /** Validates an export reply; anything malformed is a failed export. */
 function parseExportReply(data: unknown): Result<Blob, AppError> {
@@ -51,6 +65,7 @@ const formatsOf = (check: FormatCheck): FormatAvailabilityCheck => ({
 export interface InWindowExport {
   exportImage(request: ExportRequest): Promise<Result<Blob, AppError>>
   check(): Promise<FormatCheck>
+  checkAlpha?(request: AlphaRequest): Promise<Result<boolean, AppError>>
 }
 
 /**
@@ -111,6 +126,25 @@ export function createExportClient(createWorker: () => Worker, inWindow?: InWind
         parseExportReply,
         err(appError('EXPORT_FAILED')),
         EXPORT_TIMEOUT_MS,
+      )
+      if (!posted) request.bitmap.close()
+      return value
+    },
+
+    /**
+     * Whether any pixel inside the Crop is not fully opaque, rendered with the export's shader on
+     * the GPU (crop-rotate ADR-0004). The bitmap is transferred and closed there; never rejects.
+     */
+    async checkCropTransparency(request: AlphaRequest): Promise<Result<boolean, AppError>> {
+      if (inWindow?.checkAlpha && useWindow && (await useWindow))
+        return inWindow.checkAlpha(request)
+      const { value, posted } = await runInWorker(
+        createWorker,
+        { kind: 'alpha', request },
+        [request.bitmap],
+        parseAlphaReply,
+        err(appError('EXPORT_FAILED')),
+        ALPHA_TIMEOUT_MS,
       )
       if (!posted) request.bitmap.close()
       return value

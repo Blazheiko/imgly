@@ -231,6 +231,18 @@ describe('EditorView — zoom shortcuts (SCR-02)', () => {
     expect(editor.view.zoom).toBe(1) // released Space did not press Zoom in
   })
 
+  it('shares space-pan on the store, so a tool overlay can step aside (crop-rotate AC-19)', async () => {
+    const canvas = wrapper.get('[data-testid="preview-canvas"]').element
+    const init = { key: ' ', code: 'Space', bubbles: true, cancelable: true }
+    canvas.dispatchEvent(new KeyboardEvent('keydown', init))
+    expect(editor.spacePan).toBe(true)
+    canvas.dispatchEvent(new KeyboardEvent('keyup', init))
+    expect(editor.spacePan).toBe(false)
+    canvas.dispatchEvent(new KeyboardEvent('keydown', init))
+    window.dispatchEvent(new Event('blur'))
+    expect(editor.spacePan).toBe(false)
+  })
+
   it('ignores shortcuts typed into a text field', () => {
     const input = document.createElement('input')
     document.body.appendChild(input)
@@ -467,5 +479,67 @@ describe('EditorView — while exporting (export AC-11)', () => {
     await flushPromises()
     expect(decode).toHaveBeenCalledTimes(1)
     expect(wrapper.text()).toContain('Wait for the export to finish, then drop the image again.')
+  })
+})
+
+describe('EditorView — tool slots (crop-rotate ADR-0003)', () => {
+  let wrapper: VueWrapper
+  let editor: ReturnType<typeof useEditorStore>
+
+  beforeEach(async () => {
+    setActivePinia(createPinia())
+    editor = useEditorStore()
+    editor.setRendererFactory(createFakeRenderer().factory)
+    editor.setDecoder(async () => ({
+      ok: true as const,
+      value: {
+        bitmap: { width: 400, height: 300, close() {} } as unknown as ImageBitmap,
+        sourceWidth: 400,
+        sourceHeight: 300,
+        width: 400,
+        height: 300,
+        format: 'png' as const,
+        animated: false,
+        downscaled: false,
+        hasTransparency: false,
+      },
+    }))
+    editor.setCanvasSize(1000, 1000)
+    await editor.openImage(new Blob())
+    await editor.runCapabilityGate(async () => ok(undefined))
+    wrapper = mount(EditorView, {
+      attachTo: document.body,
+      slots: {
+        'tool-canvas': '<div data-testid="tool-canvas" />',
+        'tool-panel': '<aside data-testid="tool-panel" />',
+      },
+    })
+  })
+  afterEach(() => wrapper.unmount())
+
+  it('shows the tool slots only while a tool is open, keeping the Preview mounted', async () => {
+    expect(wrapper.find('[data-testid="tool-canvas"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="tool-panel"]').exists()).toBe(false)
+    const canvas = wrapper.get('[data-testid="preview-canvas"]').element
+
+    editor.openTool('crop-rotate')
+    await nextTick()
+    const area = wrapper.get('section[aria-label="Canvas"]')
+    expect(area.find('[data-testid="tool-canvas"]').exists()).toBe(true)
+    expect(area.find('[data-testid="tool-panel"]').exists()).toBe(false) // beside, not over
+    expect(wrapper.find('[data-testid="tool-panel"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="preview-canvas"]').element).toBe(canvas)
+
+    editor.closeTool()
+    await nextTick()
+    expect(wrapper.find('[data-testid="tool-canvas"]').exists()).toBe(false)
+  })
+
+  it('keeps the panel, so Cancel still works, when the display is lost', async () => {
+    editor.openTool('crop-rotate')
+    editor.setRendererStatus('lost')
+    await nextTick()
+    expect(wrapper.find('[data-testid="tool-canvas"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="tool-panel"]').exists()).toBe(true)
   })
 })

@@ -1,5 +1,6 @@
 export * from './result'
 export * from './document'
+export * from './geometry'
 export * from './image-header'
 export * from './view'
 export * from './open'

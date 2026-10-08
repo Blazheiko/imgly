@@ -13,8 +13,6 @@ import { useEditorStore } from './store'
 
 const editor = useEditorStore()
 const dragging = ref(false)
-/** Space is held: the canvas shows the grab cursor, and the focused button is never pressed. */
-const spacePan = ref(false)
 
 /** The Preview's screens (SCR-01/02) are up: not checking, not SCR-04 or SCR-05. */
 const live = computed(() => editor.display === 'ok' || editor.display === 'restoring')
@@ -45,17 +43,26 @@ async function openPicked() {
   if (file) await editor.openFile(file)
 }
 
+/** A slider takes no typing and Space doesn't press it, so Space still pans (crop-rotate AC-19). */
+function isSlider(target: EventTarget | null): boolean {
+  return target instanceof HTMLInputElement && target.type === 'range'
+}
+
 function isTextField(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false
+  if (!(target instanceof HTMLElement) || isSlider(target)) return false
   return target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)
 }
 
 /**
  * Controls in a panel, or one that opts in with `data-keeps-space`, keep Space as their native
- * activation (export AC-17); everywhere else Space starts space-pan.
+ * activation (export AC-17); everywhere else, and on a slider, Space starts space-pan.
  */
 function keepsSpace(target: EventTarget | null): boolean {
-  return target instanceof Element && target.closest('[role="dialog"], [data-keeps-space]') !== null
+  return (
+    target instanceof Element &&
+    !isSlider(target) &&
+    target.closest('[role="dialog"], [data-keeps-space]') !== null
+  )
 }
 
 /** SCR-02 zoom shortcuts. Ctrl/Cmd + / - / 0 stay the browser's page zoom (never intercepted). */
@@ -78,7 +85,7 @@ function onKeydown(event: KeyboardEvent) {
   if (event.code === 'Space') {
     if (keepsSpace(event.target)) return
     event.preventDefault() // a focused button would otherwise fire on release (AC-13)
-    spacePan.value = true
+    editor.setSpacePan(true)
     return
   }
   const shortcut = zoomShortcuts.find((s) => s.matches(event))
@@ -101,13 +108,13 @@ function blockPageZoomGesture(event: Event) {
 const GESTURE_EVENTS = ['gesturestart', 'gesturechange', 'gestureend']
 
 function onKeyup(event: KeyboardEvent) {
-  if (event.code !== 'Space' || !spacePan.value) return
+  if (event.code !== 'Space' || !editor.spacePan) return
   event.preventDefault()
-  spacePan.value = false
+  editor.setSpacePan(false)
 }
 
 function endSpacePan() {
-  spacePan.value = false
+  editor.setSpacePan(false)
 }
 
 // The drop guard goes on the whole window first, so no drop ever navigates away (AC-02).
@@ -150,38 +157,46 @@ onBeforeUnmount(() => {
     >
       <template v-if="live" #actions><slot name="top-bar-actions" /></template>
     </EditorTopBar>
-    <section class="editor-view__canvas" aria-label="Canvas">
-      <CanvasMessage
-        v-if="editor.display === 'unsupported'"
-        :title="BLOCKING.UNSUPPORTED_BROWSER.title"
-      >
-        {{ BLOCKING.UNSUPPORTED_BROWSER.body }}
-      </CanvasMessage>
-      <CanvasMessage
-        v-else-if="editor.display === 'lost'"
-        :title="BLOCKING.DISPLAY_LOST.title"
-        role="alert"
-      >
-        {{ BLOCKING.DISPLAY_LOST.body }}
-        <template #action>
-          <BaseButton ref="reloadButton" variant="primary" @click="reload">Reload page</BaseButton>
-        </template>
-      </CanvasMessage>
-      <template v-else-if="live">
-        <EmptyCanvas v-if="!editor.work" @open="openPicked" />
-        <PreviewCanvas v-else />
-        <div
-          v-if="editor.display === 'restoring'"
-          class="editor-view__restoring"
-          data-testid="restoring"
+    <div class="editor-view__workspace">
+      <section class="editor-view__canvas" aria-label="Canvas">
+        <CanvasMessage
+          v-if="editor.display === 'unsupported'"
+          :title="BLOCKING.UNSUPPORTED_BROWSER.title"
         >
-          <Spinner label="Restoring the display" />
-        </div>
-        <div v-else-if="editor.phase === 'reading'" class="editor-view__loading">
-          <Spinner label="Opening image" />
-        </div>
-      </template>
-    </section>
+          {{ BLOCKING.UNSUPPORTED_BROWSER.body }}
+        </CanvasMessage>
+        <CanvasMessage
+          v-else-if="editor.display === 'lost'"
+          :title="BLOCKING.DISPLAY_LOST.title"
+          role="alert"
+        >
+          {{ BLOCKING.DISPLAY_LOST.body }}
+          <template #action>
+            <BaseButton ref="reloadButton" variant="primary" @click="reload"
+              >Reload page</BaseButton
+            >
+          </template>
+        </CanvasMessage>
+        <template v-else-if="live">
+          <EmptyCanvas v-if="!editor.work" @open="openPicked" />
+          <PreviewCanvas v-else />
+          <!-- An open tool's canvas half (crop-rotate's frame), over the Preview (ADR-0003). -->
+          <slot v-if="editor.work && editor.activeTool" name="tool-canvas" />
+          <div
+            v-if="editor.display === 'restoring'"
+            class="editor-view__restoring"
+            data-testid="restoring"
+          >
+            <Spinner label="Restoring the display" />
+          </div>
+          <div v-else-if="editor.phase === 'reading'" class="editor-view__loading">
+            <Spinner label="Opening image" />
+          </div>
+        </template>
+      </section>
+      <!-- The tool's panel beside the canvas; it stays when the display is lost, so Cancel works. -->
+      <slot v-if="editor.work && editor.activeTool" name="tool-panel" />
+    </div>
     <EditorStatusBar v-if="live" />
     <ToastStack />
     <DropOverlay v-if="dragging" />
@@ -200,9 +215,23 @@ onBeforeUnmount(() => {
   --toast-stack-bottom: calc(var(--toolbar-size) + var(--space-4));
 }
 
+.editor-view__workspace {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Below 1024 px a tool's panel moves under the canvas (canon §Platform posture). */
+@media (max-width: 1023px) {
+  .editor-view__workspace {
+    flex-direction: column;
+  }
+}
+
 .editor-view__canvas {
   position: relative;
   flex: 1;
+  min-width: 0;
   min-height: 0;
   background: var(--color-canvas-surround);
 }
