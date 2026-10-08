@@ -1,7 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 import { jpeg, png, webpLossy } from '@/core/image-header/test-fixtures'
 import { createFakeCanvas, createFakeGl, type FakeGl } from '../fake-gl'
-import { cropToOriginalUv, identityGeometry, type Geometry } from '@/core'
+import {
+  cropToOriginalUv,
+  identityGeometry,
+  NEUTRAL_ADJUSTMENTS,
+  toUniforms,
+  type Geometry,
+} from '@/core'
 import {
   handleAlpha,
   handleCheck,
@@ -97,6 +103,7 @@ const request = (overrides: Partial<ExportRequest> = {}): ExportRequest => ({
   format: 'png',
   quality: 90,
   geometry: identityGeometry({ width: 4096, height: 3072 }),
+  adjustments: NEUTRAL_ADJUSTMENTS,
   ...overrides,
 })
 
@@ -448,5 +455,81 @@ describe('handleAlpha (crop transparency check, crop-rotate ADR-0004)', () => {
       ok: false,
     })
     expect(b.close).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('handleExport with Adjustments (adjust ADR-0002, AC-14)', () => {
+  const adjusted = { ...NEUTRAL_ADJUSTMENTS, contrast: 40, sepia: 30 }
+  const draws = (fake: FakeGl) => fake.names().filter((n) => n === 'drawArrays').length
+  const adjustOn = (fake: FakeGl) =>
+    uniformCalls(fake, 'u_adjust').map(([, , value]) => value as number)
+
+  it('keeps one pass with the colour block off for neutral values, at any size', async () => {
+    for (const size of [
+      { width: 4096, height: 3072 },
+      { width: 2048, height: 1536 },
+    ]) {
+      const { fake, env } = setup()
+      await handleExport(request(size), env)
+      expect(draws(fake!)).toBe(1)
+      expect(adjustOn(fake!)).toEqual([0])
+      expect(fake!.names()).not.toContain('createFramebuffer')
+    }
+  })
+
+  it('renders a full-size adjusted Export in one pass with the request’s uniforms', async () => {
+    const { fake, env } = setup()
+    const result = await handleExport(request({ adjustments: adjusted }), env)
+    expect(result.ok).toBe(true)
+    expect(draws(fake!)).toBe(1)
+    expect(adjustOn(fake!)).toEqual([1])
+    expect(uniformCalls(fake!, 'u_contrast').at(-1)?.[2]).toBe(toUniforms(adjusted).contrast)
+    expect(fake!.names()).not.toContain('createFramebuffer')
+  })
+
+  it('adjusts at full size, then reduces with mipmaps, for a smaller adjusted Export', async () => {
+    const { fake, env } = setup()
+    const req = request({ width: 1024, height: 768, format: 'jpeg', adjustments: adjusted })
+    const result = await handleExport(req, env)
+    expect(result.ok).toBe(true)
+    expect(draws(fake!)).toBe(2)
+    // Pass 1 at the Crop's full size with the colour block; pass 2 at the export size without it.
+    const viewports = fake!.calls.filter(([n]) => n === 'viewport').map((c) => c.slice(1))
+    expect(viewports).toEqual([
+      [0, 0, 4096, 3072],
+      [0, 0, 1024, 768],
+    ])
+    expect(adjustOn(fake!)).toEqual([1, 0])
+    // The JPEG flatten happens only in the last pass.
+    expect(uniformCalls(fake!, 'u_flatten').map(([, , v]) => v)).toEqual([0, 1])
+    const passUpload = fake!.calls.find(([n, , , , w, h, , , , data]) => {
+      return n === 'texImage2D' && w === 4096 && h === 3072 && data === null
+    })
+    expect(passUpload).toBeDefined()
+    const afterPass1 = fake!.names().slice(fake!.names().indexOf('drawArrays'))
+    expect(afterPass1).toContain('generateMipmap')
+    expect(fake!.calls).toContainEqual([
+      'texParameteri',
+      'TEXTURE_2D',
+      'TEXTURE_MIN_FILTER',
+      'LINEAR_MIPMAP_LINEAR',
+    ])
+    expect(fake!.calls).toContainEqual(['bindFramebuffer', 'FRAMEBUFFER', null])
+  })
+
+  it('frees the pass framebuffer and texture', async () => {
+    const { fake, env } = setup()
+    await handleExport(request({ width: 1024, height: 768, adjustments: adjusted }), env)
+    expect(fake!.names()).toContain('deleteFramebuffer')
+    expect(fake!.names()).toContain('deleteTexture')
+  })
+
+  it('runs the transparency check without Adjustments', async () => {
+    const { fake, env } = setup()
+    await handleAlpha(
+      { bitmap: bitmap(4, 4), geometry: identityGeometry({ width: 4, height: 4 }) },
+      env,
+    )
+    expect(adjustOn(fake!)).toEqual([0])
   })
 })

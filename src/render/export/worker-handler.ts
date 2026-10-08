@@ -5,19 +5,28 @@ import {
   identityGeometry,
   EXPORT_MIME_TYPES,
   HEADER_WINDOW_BYTES,
+  isNeutral,
+  NEUTRAL_ADJUSTMENTS,
   ok,
   sniffImageHeader,
   stripMetadata,
+  type Adjustments,
   type AppError,
   type ExportFormat,
   type Geometry,
   type Result,
 } from '@/core'
-import { buildProgram, uploadTexture } from '../shaders'
+import {
+  buildProgram,
+  IDENTITY_GEOMETRY,
+  setAdjustmentUniforms,
+  uploadTexture,
+  type GpuProgram,
+} from '../shaders'
 
 /**
- * One export: a transferred copy of the Original, the Work's Geometry, the output size (counted
- * from the Crop's), format and quality (1–100).
+ * One export: a transferred copy of the Original, the Work's Geometry and applied Adjustments, the
+ * output size (counted from the Crop's), format and quality (1–100).
  */
 export interface ExportRequest {
   bitmap: ImageBitmap
@@ -26,6 +35,8 @@ export interface ExportRequest {
   format: ExportFormat
   quality: number
   geometry: Geometry
+  /** The Work's applied Adjustments (adjust ADR-0001); never an open tool's Draft. */
+  adjustments: Adjustments
 }
 
 /** Whether any pixel inside the Crop is not fully opaque (crop-rotate ADR-0004). */
@@ -69,6 +80,12 @@ export type ExportWorkerMessage =
 /** Fills the canvas with the unit quad (the Crop), upright: (0,0) → top-left in clip space (AC-03). */
 const FULL_QUAD = new Float32Array([2, 0, 0, 0, -2, 0, -1, 1, 1])
 
+/**
+ * Fills a framebuffer with the unit quad, v up, so the pass texture's v = 0 is the Crop's top row
+ * and the second pass samples it through the identity.
+ */
+const PASS_QUAD = new Float32Array([2, 0, 0, 0, 2, 0, -1, -1, 1])
+
 const failed = () => err(appError('EXPORT_FAILED'))
 
 /**
@@ -108,7 +125,11 @@ export async function handleAlpha(
   try {
     const { width, height } = geometry.crop
     const canvas = env.createCanvas(width, height)
-    const gl = render(canvas, { ...request, width, height, format: 'png', quality: 100 }, env)
+    const gl = render(
+      canvas,
+      { ...request, width, height, format: 'png', quality: 100, adjustments: NEUTRAL_ADJUSTMENTS },
+      env,
+    )
     if (!gl) return failed()
     const pixels = new Uint8Array(width * height * 4)
     gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
@@ -141,6 +162,7 @@ export async function handleCheck(env: ExportEnv): Promise<FormatCheck> {
           format,
           quality: 90,
           geometry: identityGeometry({ width: 2, height: 2 }),
+          adjustments: NEUTRAL_ADJUSTMENTS,
         },
         env,
       )
@@ -177,8 +199,10 @@ function readPixels(bitmap: ImageBitmap, env: ExportEnv): ImageData {
 }
 
 /**
- * Draws the Work through its Geometry into the canvas; the context, or null when there is no
- * usable WebGL2 context.
+ * Draws the Work through its Geometry and Adjustments into the canvas; the context, or null when
+ * there is no usable WebGL2 context. A smaller Export with Adjustments takes two passes (adjust
+ * sad.md §5): the Crop at full size with the Adjustments into a texture, then that texture reduced
+ * through its mipmaps, flattened for JPEG in that last pass. Otherwise one pass, as before.
  */
 function render(
   canvas: OffscreenCanvas,
@@ -192,34 +216,95 @@ function render(
     preserveDrawingBuffer: true,
   })
   if (!gl) return null
-  const { bitmap, width, height, geometry } = request
+  const { bitmap, width, height, geometry, adjustments } = request
   const gpu = buildProgram(gl)
   const texture = uploadTexture(gl, readPixels(bitmap, env))
-  // Full size without a Straighten angle samples texel centres 1:1, as the Preview at 100%. A
-  // Straighten angle magnifies bilinearly, as the Preview does; smaller sizes use the mipmaps.
-  const exact =
-    width === geometry.crop.width && height === geometry.crop.height && geometry.straighten === 0
+  const original = { width: bitmap.width, height: bitmap.height }
+  const uv = new Float32Array(cropToOriginalUv(geometry, original))
+  const flatten = request.format === 'jpeg'
+  const full = width === geometry.crop.width && height === geometry.crop.height
+  const unturned = geometry.straighten === 0
+
+  if (full || isNeutral(adjustments)) {
+    draw(gl, gpu, texture, { width, height, uv, adjustments, flatten, exact: full && unturned })
+  } else {
+    const { width: cw, height: ch } = geometry.crop
+    const pass = gl.createTexture()
+    gl.bindTexture(gl.TEXTURE_2D, pass)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, cw, ch, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+    const framebuffer = gl.createFramebuffer()
+    try {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, pass, 0)
+      draw(gl, gpu, texture, {
+        width: cw,
+        height: ch,
+        uv,
+        adjustments,
+        flatten: false,
+        exact: unturned,
+        transform: PASS_QUAD,
+      })
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+      gl.bindTexture(gl.TEXTURE_2D, pass)
+      gl.generateMipmap(gl.TEXTURE_2D)
+      draw(gl, gpu, pass, {
+        width,
+        height,
+        uv: IDENTITY_GEOMETRY,
+        adjustments: NEUTRAL_ADJUSTMENTS,
+        flatten,
+        exact: false,
+      })
+    } finally {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+      gl.deleteFramebuffer(framebuffer)
+      gl.deleteTexture(pass)
+    }
+  }
+  gl.finish()
+  return gl.isContextLost() ? null : gl
+}
+
+interface Pass {
+  width: number
+  height: number
+  /** The unit quad → the source texture's coordinates. */
+  uv: Float32Array
+  adjustments: Adjustments
+  flatten: boolean
+  /**
+   * Texel centres 1:1 (NEAREST): full size without a Straighten angle, as the Preview at 100%. A
+   * Straighten angle magnifies bilinearly, as the Preview does; smaller sizes use the mipmaps.
+   */
+  exact: boolean
+  transform?: Float32Array
+}
+
+/** One textured quad over the bound framebuffer at `width`×`height`. */
+function draw(gl: WebGL2RenderingContext, gpu: GpuProgram, source: WebGLTexture | null, p: Pass) {
+  gl.bindTexture(gl.TEXTURE_2D, source)
   gl.texParameteri(
     gl.TEXTURE_2D,
     gl.TEXTURE_MIN_FILTER,
-    exact ? gl.NEAREST : gl.LINEAR_MIPMAP_LINEAR,
+    p.exact ? gl.NEAREST : gl.LINEAR_MIPMAP_LINEAR,
   )
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, exact ? gl.NEAREST : gl.LINEAR)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, p.exact ? gl.NEAREST : gl.LINEAR)
 
-  gl.viewport(0, 0, width, height)
+  gl.viewport(0, 0, p.width, p.height)
   gl.clearColor(0, 0, 0, 0)
   gl.clear(gl.COLOR_BUFFER_BIT)
   gl.useProgram(gpu.program)
   gl.bindVertexArray(gpu.vao)
   gl.activeTexture(gl.TEXTURE0)
-  gl.bindTexture(gl.TEXTURE_2D, texture)
-  gl.uniformMatrix3fv(gpu.transform, false, FULL_QUAD)
-  const original = { width: bitmap.width, height: bitmap.height }
-  gl.uniformMatrix3fv(gpu.geometry, false, new Float32Array(cropToOriginalUv(geometry, original)))
-  gl.uniform1i(gpu.flatten, request.format === 'jpeg' ? 1 : 0)
+  gl.bindTexture(gl.TEXTURE_2D, source)
+  gl.uniformMatrix3fv(gpu.transform, false, p.transform ?? FULL_QUAD)
+  gl.uniformMatrix3fv(gpu.geometry, false, p.uv)
+  gl.uniform1i(gpu.flatten, p.flatten ? 1 : 0)
+  setAdjustmentUniforms(gl, gpu, p.adjustments)
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
-  gl.finish()
-  return gl.isContextLost() ? null : gl
 }
 
 /**

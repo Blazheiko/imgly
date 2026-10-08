@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { identityGeometry } from '@/core'
+import { identityGeometry, NEUTRAL_ADJUSTMENTS } from '@/core'
 import { ALPHA_TIMEOUT_MS, CHECK_TIMEOUT_MS, createExportClient, EXPORT_TIMEOUT_MS } from './client'
 import type { ExportRequest } from './worker-handler'
 
@@ -43,6 +43,9 @@ const request = (): ExportRequest => ({
   format: 'jpeg',
   quality: 90,
   geometry: identityGeometry({ width: 4096, height: 3072 }),
+  // Not neutral, so the pass-through checks below prove the Adjustments reach the worker and the
+  // window fallback (adjust AC-14).
+  adjustments: { ...NEUTRAL_ADJUSTMENTS, contrast: 20, sepia: 40 },
 })
 
 describe('exportImage (export client)', () => {

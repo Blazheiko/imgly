@@ -11,7 +11,7 @@
 | T4 | Add autoAdjust(sample): unpremultiply, median and percentiles of Rec. 709 lightness, grey-world gains, rounded half up within ±50, or nothing | domain | Blazheiko | M | T3 | done |
 | T5 | Add the seven-step colour block to the shared shader (u_adjust) and PreviewRenderer.setAdjustments | infra | Blazheiko | M | T3 | done |
 | T6 | Add PreviewRenderer.sampleCrop(geometry, maxSide) into a temporary framebuffer and the editor store's sampleWork() | infra | Blazheiko | M | T4, T5, T8 | done |
-| T7 | Send the applied Adjustments to the export worker, set them as uniforms, and reduce smaller adjusted Exports in two passes | infra | Blazheiko | M | T5, T8 | todo |
+| T7 | Send the applied Adjustments to the export worker, set them as uniforms, and reduce smaller adjusted Exports in two passes | infra | Blazheiko | M | T5, T8 | done |
 | T8 | Give the editor's tool slot the 'adjust' tool: per-tool open/close side effects, previewAdjustments, applyAdjustments and the snapshot's Adjustments | app | Blazheiko | M | T1 | done |
 | T9 | Make PreviewCanvas draw previewAdjustments ?? work.adjustments, and give the e2e hooks setAdjustments and an adjusted previewAt100 | wiring | Blazheiko | S | T5, T8 | todo |
 | T10 | Make the export refusal name the open tool and make 'Crop and rotate' and C hint 'apply or cancel the open tool first' while Adjust is open | app | Blazheiko | S | T8 | todo |

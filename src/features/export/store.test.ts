@@ -6,6 +6,7 @@ import {
   createWork,
   err,
   identityGeometry,
+  NEUTRAL_ADJUSTMENTS,
   ok,
   type AppError,
   type Geometry,
@@ -669,6 +670,23 @@ describe('export store — the applied Geometry (crop-rotate AC-14)', () => {
     expect(store.longSide).toBe(1000)
     editor.applyGeometry(cropTo(4000, 2000))
     expect(store.longSide).toBe(3000)
+  })
+
+  it('sends the Work’s applied Adjustments with the export request (adjust AC-14)', async () => {
+    const exporter = vi.fn<(r: ExportRequest) => Promise<Result<Blob, AppError>>>(async () =>
+      ok(new Blob()),
+    )
+    store.setExporter(exporter)
+    store.setSavePlatform({
+      pickSaveTarget: vi.fn(async () => ok({ kind: 'cancelled' as const })),
+    })
+    openWork(editor)
+    await flush()
+    const applied = { ...NEUTRAL_ADJUSTMENTS, brightness: 15, grayscale: 100 }
+    editor.applyAdjustments(applied)
+    store.openPanel()
+    await store.confirm()
+    expect(exporter.mock.calls[0]![0].adjustments).toEqual(applied)
   })
 
   it('sends the Work’s Geometry with the export request', async () => {
