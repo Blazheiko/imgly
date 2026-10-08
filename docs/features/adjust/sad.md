@@ -9,9 +9,6 @@ target_surfaces: [web-frontend]  # filled in §4 — subset of: backend-service 
 
 # Software Architecture Document — adjust
 
-<!-- 12 Arc42 sections. Empty section → <!-- N/A: <one-line reason> -->. -->
-<!-- C4 Context (L1) lives inline in §3. C4 Container (L2) lives inline in §5. -->
-<!-- Numbers in §10 come VERBATIM from spec.md §6 NFR — no inventing, no rounding. -->
 
 ## 1. Introduction and goals
 
@@ -121,7 +118,7 @@ The Editor and the Portfolio reviewer drive the app by mouse and keyboard. The a
    - grayscale uses Rec. 709 weights and sepia uses the CSS `sepia()` matrix
 
    This answers spec §8's first open question with an anchor table that the unit and e2e tests pin. Serves quality goals 1 and 2.
-4. **Auto adjust measures a bounded sample of the Crop in the Preview's WebGL2 context and computes the values in `core`** — [ADR-0004](adr/0004-measure-auto-adjust-on-a-bounded-sample-in-the-preview-context.md). The renderer draws the Crop with its Geometry and no Adjustments into a framebuffer of at most 512 px on the long side, sampling exact texels, and reads it back. Then `core/adjust/auto.ts` derives the four values from the lightness median and percentiles and the grey-world channel means, inverting ADR-0003's formulas, and rounds and clamps them to ±50. It is deterministic and takes tens of milliseconds against a 300 ms budget. Serves quality goal 3.
+4. **Auto adjust measures a bounded sample of the Crop in the Preview's WebGL2 context and computes the values in `core`** — [ADR-0004](adr/0004-measure-auto-adjust-on-a-bounded-sample-in-the-preview-context.md). The renderer draws the Crop with its Geometry and no Adjustments into a framebuffer of at most 512 px on the long side, sampling exact texels, and reads the premultiplied pixels back. Then `core/adjust/auto.ts` divides each colour by its alpha (skipping alpha 0) and derives the four values from the lightness median and percentiles and the grey-world channel means, inverting ADR-0003's formulas, and rounds and clamps them to ±50. It is deterministic and takes tens of milliseconds against a 300 ms budget. Serves quality goal 3.
 
 Decided inline, below the ADR gate (the same mechanism as crop-rotate ADR-0003):
 - **The Draft and Compare live in the new `adjust` store.** The Preview reads `editor.previewAdjustments`, which the adjust store sets to the Draft, or to neutral values while Compare is held (AC-08). With no adjust tool open, `previewAdjustments` is null and the Preview draws `work.adjustments`, including while "Crop and rotate" is open (AC-18).
@@ -140,6 +137,7 @@ The feature follows the repo's functional core with feature folders (repo ADR 00
 - `Work` gains `adjustments: Adjustments`, neutral at open (ADR-0001). `ExportSnapshot` and `ExportRequest` gain `adjustments`. The crop-rotate transparency check (crop-rotate ADR-0004) is unchanged, because Adjustments never change alpha (AC-06), so its cached answer stays valid across Adjustment changes.
 - The `editor` store gains:
   - `ToolId` `'adjust'` next to `'crop-rotate'`. `openTool` already refuses during an export, under the export panel, during the replace confirmation and while another tool is open (AC-15, AC-18, AC-21)
+  - the slot's crop-rotate side effects become per tool. Today `openTool` always sets `previewGeometry` and fits the View, `closeTool` fits it again, and `PreviewCanvas` draws the whole turned image whenever `previewGeometry` is set. For `'crop-rotate'` this stays as it is (crop-rotate AC-19). For `'adjust'`, `openTool` and `closeTool` leave `previewGeometry` null and the View untouched, so the Preview keeps showing the Work's Crop at the current zoom and pan (AC-20, AC-08, AC-12). Store tests cover both tools
   - `previewAdjustments` (the Draft, or neutral while Compare is held; null when the adjust tool is closed) and `applyAdjustments(next)`, which raises the revision only when the values differ (AC-11)
   - `sampleWork()`, which asks the renderer it created for Auto's sample (ADR-0004)
   - `closeTool()` already runs on a successful replace of the Work, so the Draft is dropped with the old Work (AC-17)
@@ -271,7 +269,7 @@ sequenceDiagram
     SPA->>SPA: editor store asks its renderer for a sample of the Work
     SPA->>Browser: renders the Crop with its Geometry and no Adjustments, at most 512 px, exact texels
     Browser-->>SPA: sample pixels
-    SPA->>Core: computes Auto's values from the sample
+    SPA->>Core: unpremultiplies the sample and computes Auto's values
     alt no pixel that is not fully transparent, or all one colour
         Core-->>SPA: nothing to measure
         SPA-->>Editor: sliders unchanged, hint says there is nothing to correct automatically
@@ -322,7 +320,8 @@ A smaller Export is the full-size adjusted Export reduced to that size (AC-14): 
 - Typed value out of range, fractional, empty or not a number, with or without a trailing "%": snapped, rounded half up or reverted when the field is left or Enter is pressed in it. Enter there never applies the tool (AC-05).
 - Draft changed while Compare is held: the Draft changes, and "Before" stays until release (AC-08).
 - Open image or a drop while the tool is open: the tool stays through reading and the replace confirmation. A successful replace closes it and drops the Draft, and the new Work starts neutral. A failed read or a declined replace keeps it (AC-17).
-- Zoom and pan inside the tool change neither the Draft nor the Work (AC-20).
+- Zoom and pan inside the tool change neither the Draft nor the Work, and opening, applying or cancelling never refits the View or switches the Preview to the whole turned image (AC-20).
+- The \ key while a text field has focus: nothing happens, and Compare does not start (AC-08).
 - "Crop and rotate" opened on an adjusted Work: the whole turned image is shown with the applied Adjustments, and applying a Geometry keeps them (AC-18).
 
 ## 7. Deployment view
@@ -348,7 +347,7 @@ The topology is unchanged. The feature ships inside the existing static app on G
 | Tool state | One tool at a time in `editor.activeTool`, separate from the editor's phase. The Draft and the Compare flag live in the `adjust` Pinia setup store and reach the Preview only through `editor.previewAdjustments`. The Draft never counts as Unsaved edits (AC-17) | crop-rotate ADR-0003; §4 |
 | Colour pipeline | The Original is sampled through the Geometry, then the seven steps run on unpremultiplied stored sRGB values in the fixed order brightness, contrast, saturation, temperature, tint, grayscale, sepia, with a clamp after each, then JPEG's flatten onto white. Alpha is never changed. The drawing layer (step 6) composites after the steps and is never adjusted | ADR-0002, ADR-0003; root CONTEXT "Adjustments" |
 | Units and rounding | Every value is a whole number: −100 to 100 for the first five, 0 to 100 (shown with a "%" label) for grayscale and sepia. Typed and computed values round half up (2.5 → 3, −2.5 → −2), the same rule for the fields (AC-05) and for Auto (AC-13) | ADR-0001, ADR-0004 |
-| Keyboard shortcuts | Each feature owns its keys. adjust owns A, which is silent while the export panel is open, while the tool is open or while a field has focus. Inside the tool it owns Enter (apply, except in a field or on a focused button), Escape (cancel from anywhere, discarding a value being typed) and the held \ key for Compare, matched by `KeyboardEvent.code === 'Backslash'` so it works on any layout (AC-08, AC-21). The sliders' arrow keys (±1, ±10 with Shift) come from `SliderField`. export turns Ctrl/Cmd+S into the "apply or cancel the adjustments first" hint while adjust is open (AC-16). crop-rotate's C shows "apply or cancel the open tool first" (AC-18). Zoom and pan keys stay with the editor and keep working in the tool (AC-20) | here; crop-rotate sad.md §8; export sad.md §8 |
+| Keyboard shortcuts | Each feature owns its keys. adjust owns A, which is silent while the export panel is open, while the tool is open or while a field has focus. Inside the tool it owns Enter (apply, except in a field or on a focused button), Escape (cancel from anywhere, discarding a value being typed) and the held \ key for Compare, matched by `KeyboardEvent.code === 'Backslash'` so it works on any layout and silent while a text field has focus (AC-08, AC-21). The sliders' arrow keys (±1, ±10 with Shift) come from `SliderField`. export turns Ctrl/Cmd+S into the "apply or cancel the adjustments first" hint while adjust is open (AC-16). crop-rotate's C shows "apply or cancel the open tool first" (AC-18). Zoom and pan keys stay with the editor and keep working in the tool (AC-20) | here; crop-rotate sad.md §8; export sad.md §8 |
 | Field input | Checked only when the field is left or Enter is pressed in it, never while typing, and Enter in a field never applies the tool. Only plain decimal notation, with one decimal point or comma, counts as a number, and a trailing "%" is accepted in the grayscale and sepia fields (AC-05). A double-click on a slider or typing 0 sets it to neutral (AC-10) | crop-rotate AC-07; export AC-04; here |
 | Accessibility | Every slider, field and button is a focusable DOM control with a role and label from the shared primitives. Each slider reports its value, with "%" for grayscale and sepia. Compare is a button that reports itself pressed while held, and the "Before" label is announced when Compare starts. Hints on unavailable controls are reachable by keyboard | `docs/design-system.md`; `src/shared/ui/` |
 | Resource lifetime | A Preview Adjustment change allocates nothing on the GPU. Auto's framebuffer and its texture are deleted before `sampleCrop` returns, in every branch. The export worker's full-size pass texture is deleted with the export's context, as the bitmap copy is closed today. The bitmap ledger and the memory test cover all three | open-and-view sad.md §8; ADR-0002, ADR-0004 |
@@ -393,7 +392,7 @@ Each top-3 goal from §1 expanded into full scenarios. Every number is quoted fr
 *QG-1d. The directions and the anchors*
 - **When:** each slider moves alone on the anchor colours (mid-grey 128, black, white, the primaries and yellow).
 - **Then:** the directions of AC-02 to AC-04 hold and the values match ADR-0003's anchor table. Mid-grey stays 128 at any contrast, a higher brightness never darkens a channel, saturation −100 and grayscale 100% give equal channels, and sepia 100% gives red ≥ green ≥ blue whatever the other values.
-- **How verify:** `core/adjust` unit tests on the CPU reference, including property tests over random colours and random Adjustments. One e2e fixture renders the anchor colours through the shader on all three engines and compares with the table within 2 of 255.
+- **How verify:** `core/adjust` unit tests on the CPU reference, including property tests over random colours and random Adjustments. One e2e fixture renders the anchor colours through the shader on all three engines and compares with the table within 2 of 255. That tolerance is this SAD's design choice for the anchor check, borrowed from the scale of spec §6's fidelity row but not quoted from it, and `plan-tests` confirms it.
 
 *QG-1e. Export time with Adjustments*
 - **When:** all seven values are away from neutral on the 4096×3072 Work, and it is exported at full size.
@@ -429,7 +428,7 @@ Each top-3 goal from §1 expanded into full scenarios. Every number is quoted fr
 | ADR-0003's formulas become a stored-data contract once the gallery (step 8) saves Works: changing a formula after that changes the look of every saved Work | Medium | Tuning is free until step 8 ships. Step 8 stores a formula version with the Adjustments, so a later change can keep old Works as they were | Blazheiko — before `/sdd:design` of roadmap step 8 |
 | The `editor` store keeps growing (466 lines before this feature) with a second tool, `previewAdjustments`, `applyAdjustments` and `sampleWork` | Medium | Tools only add small, tested actions to it. Extract the tool slot and its previews into a `src/features/editor/tool-slot.ts` module before the drawing layer (step 6) adds a third tool, or as soon as the store passes 600 lines | Blazheiko — before `/sdd:tasks` of roadmap step 6 |
 | Scope sits at the upper bound of M (spec §1) | Medium | Auto adjust is cut first, then Compare. Without Auto, ADR-0004, `sampleCrop` and QG-3's 300 ms row fall away. Without Compare, only the adjust store's flag and the "Before" label go | Blazheiko |
-| Brownfield: crop-rotate's C key and action are silent or generic while any tool is open, and export's tool-open hint says "the crop" (`src/features/export/messages.ts`, `CropRotateAction.vue`). With a second tool both are wrong for adjust (AC-16, AC-18) | Low | One task makes both hints name the open tool, and AC-16 and AC-18 e2e tests run with each tool open | Blazheiko |
+| Brownfield: the tool slot was built for one tool. `openTool` and `closeTool` always set `previewGeometry` and refit the View, and `PreviewCanvas` then draws the whole turned image (`src/features/editor/store.ts`, `PreviewCanvas.vue`). Crop-rotate's C key and action are silent or generic while any tool is open, and export's tool-open hint says "the crop" (`src/features/export/messages.ts`, `CropRotateAction.vue`). Reused unchanged, adjust would refit the View and show the uncropped image (AC-20) and the wrong hints (AC-16, AC-18) | Medium | One task makes the slot's preview and fit per tool (§5), with store tests for both tools and an AC-20 e2e that checks zoom and pan after opening, applying and cancelling. Another makes both hints name the open tool, and the AC-16 and AC-18 e2e tests run with each tool open | Blazheiko |
 | Auto's sample of at most 512 px can judge a photo that is one colour except for a few pixels as one colour and show "nothing to correct" (ADR-0004) | Low | AC-13's fixtures are truly one colour. A photo with so few differing pixels has nothing useful to correct anyway. Raise `maxSide` if a real photo shows it | Blazheiko |
 | A smaller adjusted Export holds an extra full-size texture with mipmaps (up to about 85 MB) in the export worker while it renders (§5) | Low | Freed with the export's context. The memory row of QG-3 measures applied changes, and export's own memory test is repeated with Adjustments | Blazheiko |
 
@@ -455,5 +454,5 @@ Domain terms come from the glossaries ([root CONTEXT](../../../CONTEXT.md) and [
 | Premultiplied | Colour stored already multiplied by its opacity, as the Original's texture holds it. The shader divides it out before the steps and multiplies it back after them (ADR-0002) |
 | Rec. 709 lightness | `0.2126 R + 0.7152 G + 0.0722 B`, the weighting that grayscale, saturation and Auto use for perceived lightness (ADR-0003) |
 | Uniform | A value passed to the shader for a whole draw. The seven Adjustments and `u_adjust` reach the GPU as uniforms, so a slider move is a uniform change and one frame (ADR-0002) |
-| Sample | The pixels of the Crop that Auto measures: at most 512 px on the long side, rendered with the Geometry and without Adjustments, one exact texel per pixel (ADR-0004) |
+| Sample | The pixels of the Crop that Auto measures: at most 512 px on the long side, rendered with the Geometry and without Adjustments, one exact texel per pixel, read back premultiplied and unpremultiplied by `autoAdjust` in `core` (ADR-0004) |
 | Two-pass reduction | A smaller adjusted Export: the Crop is rendered at full size with the Adjustments, then reduced through mipmaps to the chosen size (§5) |
