@@ -371,29 +371,53 @@ ADR files live under `docs/features/adjust/adr/`. Four ADRs sit just below the 5
 
 ## 10. Quality requirements
 
-<!-- 🎯 Why: the QUALITY TREE — take a goal from §1 and break it into concrete leaves: tests,
-     metrics, configs, drills. ⭐ Without §10, §1 is a manifesto. With §10 each declaration maps
-     to something PROVABLE.
-     📋 Write: per §1 goal — When / Then / How-verify. Numbers from spec §6 NFR VERBATIM (don't
-     round ≤250ms to ≤300ms — that's a critic F6 hit).
-     📌 e.g. «p95 ≤ 500 ms on a block update, verified by a 100 req/s load test». -->
+Each top-3 goal from §1 expanded into full scenarios. Every number is quoted from spec §6 or §7. The reference machine, the 4096×3072 Work and "p95 over 20 runs after 2 warm-up runs" are as spec §6 defines them.
 
-Each top-3 goal from §1 expanded into a full scenario:
+**QG-1. Fidelity, Preview to Export**
 
-**QG-1. <quality attribute>**
-- **When:** <trigger condition>
-- **Then:** <expected behaviour with numbers from spec §6 NFR>
-- **How verify:** <test / chaos drill / load test / metric>
+*QG-1a. An adjusted Export matches the Preview*
+- **When:** each slider alone is set to −100, −50, +50 and +100 (0%, 50% and 100% for grayscale and sepia), and one setting has all seven values away from neutral. Each is applied with and without a Geometry and exported as a full-size PNG.
+- **Then:** "each pixel of a full-size PNG Export within 2 of 255 per channel of the Preview's own rendering of the Work at 100%, compared as in export §6".
+- **How verify:** e2e pixel comparison on Chromium, Firefox and WebKit. A test hook sets the Adjustments directly (§8), and `previewAt100()` reads back the Preview with the same Adjustments. The same fixtures feed spec §7's KPI "100% of Exports within the §6 fidelity tolerance".
 
-**QG-2. <quality attribute>**
-- **When:** <trigger>
-- **Then:** <expected>
-- **How verify:** <how>
+*QG-1b. Neutral values change nothing*
+- **When:** a Work is exported as a full-size PNG before any Adjustment, then the tool is opened, every value is set away from neutral and back to neutral, applied, and the Work is exported again.
+- **Then:** "difference 0 per channel between a full-size PNG Export with all values neutral and one of the same Work before any Adjustment was applied".
+- **How verify:** e2e exact comparison on Chromium, Firefox and WebKit. It holds by construction through ADR-0002's `u_adjust` bypass, and a unit test asserts `toUniforms(NEUTRAL_ADJUSTMENTS)` turns the bypass on.
 
-**QG-3. <quality attribute>**
-- **When:** <trigger>
-- **Then:** <expected>
-- **How verify:** <how>
+*QG-1c. Transparency is kept*
+- **When:** a fixture with fully transparent, partly transparent (alpha 1, 64, 128 and 254) and opaque pixels, and an opaque fixture, are exported at every setting of QG-1a.
+- **Then:** "100% of pixels keep their exact transparency at every setting of the fidelity row; an Original with no transparent pixels stays 100% opaque".
+- **How verify:** e2e alpha comparison on all three engines against the Export with neutral values. A unit test of the CPU reference asserts that a partly transparent pixel gets the same colour as the same opaque pixel (AC-06).
+
+*QG-1d. The directions and the anchors*
+- **When:** each slider moves alone on the anchor colours (mid-grey 128, black, white, the primaries and yellow).
+- **Then:** the directions of AC-02 to AC-04 hold and the values match ADR-0003's anchor table. Mid-grey stays 128 at any contrast, a higher brightness never darkens a channel, saturation −100 and grayscale 100% give equal channels, and sepia 100% gives red ≥ green ≥ blue whatever the other values.
+- **How verify:** `core/adjust` unit tests on the CPU reference, including property tests over random colours and random Adjustments. One e2e fixture renders the anchor colours through the shader on all three engines and compares with the table within 2 of 255.
+
+*QG-1e. Export time with Adjustments*
+- **When:** all seven values are away from neutral on the 4096×3072 Work, and it is exported at full size.
+- **Then:** "within export §6 targets: full-size JPEG at quality 90 p95 ≤ 1 s, full-size PNG p95 ≤ 2 s".
+- **How verify:** export's `@perf` e2e test (`e2e/export/perf.spec.ts`), repeated with all seven values set, on the reference machine.
+
+**QG-2. Non-destructive and exact Adjustments**
+- **When:** for each reference image, any Adjustments are applied, then the tool is reopened, Reset and applied. Separately, the same seven values are reached by different paths (contrast before or after brightness, a slider dragged far out and back), and Applies are made with no change or with a change undone by hand in the same tool.
+- **Then:** "for 100% of reference images, applying any Adjustments, then Reset and Apply, gives a full-size PNG Export with a difference of 0 per channel from the Export made before adjusting" (spec §7). The same values give the same pixels (AC-07). Unsaved edits change only when the applied values differ one by one from the values at open (AC-11).
+- **How verify:** the round trip as an e2e exact comparison on Chromium, Firefox and WebKit. AC-07 is covered by unit tests of the CPU reference, which depends only on the seven values, and by an e2e comparison of two paths to the same values. AC-11 has store-level tests with a real `editor` store, including the "change, export, change back in a later Apply" case.
+
+**QG-3. A responsive, leak-free tool**
+- **When:** on the reference machine with the 4096×3072 Work, the Editor drags each slider, chooses Apply, Cancel and Reset, releases Compare, opens the tool, chooses Auto, and applies 50 Adjustment changes.
+- **Then:**
+  - Preview update while dragging: "p95 frame interval ≤ 33 ms (at least 30 updates per second)".
+  - Apply, Cancel or Reset, or releasing Compare, to the updated Preview: "p95 ≤ 150 ms".
+  - Choosing "Adjust" to the tool being ready: "p95 ≤ 150 ms".
+  - Choosing Auto to the sliders and the Preview showing its values: "p95 ≤ 300 ms".
+  - Memory after 50 applied changes: "≤ 110% of memory after the first Apply".
+  - Auto's values are whole numbers within ±50, the same every time in one browser, and "between the target browsers each value differs by at most 1" (AC-13).
+- **How verify:**
+  - A new `e2e/adjust/perf.spec.ts` tagged `@perf` (run with `PERF=1` on the reference machine). It uses a frame-timing trace while dragging, performance marks from the action to the redrawn Preview, to the tool-ready mark and to Auto's frame (§7), and whole-page memory as export §6 measures it (`e2e/perf-memory.ts`), Chromium only.
+  - AC-13 is covered by `autoAdjust` unit tests and an e2e test that records Auto's values for the reference images on all three engines and compares them within 1.
+  - Spec §7's "≤ 3 actions" KPI is the e2e tool flow of AC-21.
 
 ## 11. Risks and technical debt
 
