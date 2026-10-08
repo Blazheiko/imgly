@@ -2,6 +2,7 @@ import { ref, shallowRef, watch } from 'vue'
 import { defineStore } from 'pinia'
 import {
   ADJUSTMENT_RANGES,
+  autoAdjust,
   NEUTRAL_ADJUSTMENTS,
   parseAdjustmentField,
   type AdjustmentKey,
@@ -11,8 +12,9 @@ import { useEditorStore } from '@/features/editor'
 
 /**
  * The "Adjust" tool's state (sad.md §4, §5): the Draft, the Adjustments from when the tool opened
- * (for Cancel) and the text still being typed in each field. The Draft reaches the Preview only
- * through `editor.previewAdjustments`, and the Work only through `editor.applyAdjustments` on
+ * (for Cancel), the text still being typed in each field, whether Compare is held and whether Auto
+ * found nothing to correct. The Draft reaches the Preview only through `editor.previewAdjustments`
+ * (neutral values while Compare is held), and the Work only through `editor.applyAdjustments` on
  * Apply. Its only cross-feature import is the editor store.
  */
 export const useAdjustStore = defineStore('adjust', () => {
@@ -20,6 +22,8 @@ export const useAdjustStore = defineStore('adjust', () => {
   const draft = shallowRef<Adjustments | null>(null)
   const atOpen = shallowRef<Adjustments | null>(null)
   const pending = ref<Partial<Record<AdjustmentKey, string>>>({})
+  const comparing = ref(false)
+  const nothingToCorrect = ref(false)
 
   // The editor closes the slot on Apply, Cancel and a confirmed replace: the Draft goes with it.
   watch(
@@ -29,13 +33,48 @@ export const useAdjustStore = defineStore('adjust', () => {
       draft.value = null
       atOpen.value = null
       pending.value = {}
+      comparing.value = false
+      nothingToCorrect.value = false
     },
     { flush: 'sync' },
   )
 
+  /** Every Draft change: the Preview shows it unless Compare is held (AC-08). */
   function update(next: Adjustments) {
     draft.value = next
-    editor.setPreviewAdjustments(next)
+    nothingToCorrect.value = false
+    if (!comparing.value) editor.setPreviewAdjustments(next)
+  }
+
+  /** Holds Compare: the Preview shows the Work with no Adjustments; nothing else changes (AC-08). */
+  function startCompare() {
+    if (!draft.value || comparing.value) return
+    comparing.value = true
+    editor.setPreviewAdjustments(NEUTRAL_ADJUSTMENTS)
+  }
+
+  /** Releases Compare (also on window blur): the Preview shows the current Draft again. */
+  function endCompare() {
+    if (!comparing.value) return
+    comparing.value = false
+    if (draft.value) editor.setPreviewAdjustments(draft.value)
+  }
+
+  /**
+   * Auto (AC-12, AC-13): measures the Work with its Geometry and no Adjustments, and replaces the
+   * Draft's brightness, contrast, temperature and tint, or says there is nothing to correct. With
+   * the display lost there is no sample and nothing changes (the UI disables Auto then).
+   */
+  function auto() {
+    if (!draft.value) return
+    const sample = editor.sampleWork()
+    if (!sample.ok) return
+    const result = autoAdjust(sample.value)
+    if (result.kind === 'nothing') {
+      nothingToCorrect.value = true
+      return
+    }
+    update({ ...draft.value, ...result.values })
   }
 
   /** Opens the tool with the Work's applied values as the Draft, or answers why it may not open. */
@@ -101,6 +140,8 @@ export const useAdjustStore = defineStore('adjust', () => {
     draft,
     atOpen,
     pending,
+    comparing,
+    nothingToCorrect,
     open,
     setValue,
     setPending,
@@ -109,5 +150,8 @@ export const useAdjustStore = defineStore('adjust', () => {
     reset,
     apply,
     cancel,
+    startCompare,
+    endCompare,
+    auto,
   }
 })

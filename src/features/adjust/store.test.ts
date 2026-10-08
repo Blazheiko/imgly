@@ -1,7 +1,17 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
-import { appError, createWork, err, NEUTRAL_ADJUSTMENTS, ok, type Adjustments } from '@/core'
+import {
+  appError,
+  autoAdjust,
+  createWork,
+  err,
+  NEUTRAL_ADJUSTMENTS,
+  ok,
+  type Adjustments,
+  type ImageSample,
+} from '@/core'
 import { useEditorStore } from '@/features/editor'
+import { createFakeRenderer } from '@/features/editor/testing'
 import { useAdjustStore } from './store'
 
 let ids = 0
@@ -218,6 +228,163 @@ describe('adjust store (sad.md §4, §5)', () => {
       expect(editor.activeTool).toBe('adjust')
       expect(tool.draft!.tint).toBe(40)
       expect(editor.previewAdjustments!.tint).toBe(40)
+    })
+  })
+
+  describe('Compare (AC-08)', () => {
+    beforeEach(() => {
+      openWork(editor, { contrast: 30 })
+      tool.open()
+      tool.setValue('sepia', 50)
+    })
+
+    const draftNow = () => ({ ...NEUTRAL_ADJUSTMENTS, contrast: 30, sepia: 50 })
+
+    it('previews neutral values while held, and the Draft again on release', () => {
+      tool.startCompare()
+      expect(tool.comparing).toBe(true)
+      expect(editor.previewAdjustments).toEqual(NEUTRAL_ADJUSTMENTS)
+      expect(tool.draft).toEqual(draftNow())
+      tool.endCompare()
+      expect(tool.comparing).toBe(false)
+      expect(editor.previewAdjustments).toEqual(draftNow())
+    })
+
+    it('never changes the Work, the Draft or the Unsaved edits', () => {
+      tool.startCompare()
+      tool.endCompare()
+      expect(editor.work!.adjustments).toEqual({ ...NEUTRAL_ADJUSTMENTS, contrast: 30 })
+      expect(editor.work!.revision).toBe(0)
+      expect(tool.draft).toEqual(draftNow())
+    })
+
+    it('keeps showing Before for Draft changes while held, and shows them on release', () => {
+      tool.startCompare()
+      tool.setValue('brightness', 20)
+      tool.setPending('tint', '7')
+      tool.commitField('tint')
+      tool.resetOne('contrast')
+      expect(editor.previewAdjustments).toEqual(NEUTRAL_ADJUSTMENTS)
+      tool.reset()
+      tool.setValue('grayscale', 10)
+      expect(editor.previewAdjustments).toEqual(NEUTRAL_ADJUSTMENTS)
+      tool.endCompare()
+      expect(editor.previewAdjustments).toEqual({ ...NEUTRAL_ADJUSTMENTS, grayscale: 10 })
+    })
+
+    it('ends when the tool closes, by Apply or by Cancel', () => {
+      tool.startCompare()
+      tool.cancel()
+      expect(tool.comparing).toBe(false)
+      expect(editor.previewAdjustments).toBeNull()
+
+      tool.open()
+      tool.setValue('tint', 5)
+      tool.startCompare()
+      tool.apply()
+      expect(tool.comparing).toBe(false)
+      expect(editor.work!.adjustments.tint).toBe(5)
+    })
+
+    it('does nothing with the tool closed', () => {
+      tool.cancel()
+      tool.startCompare()
+      expect(tool.comparing).toBe(false)
+      expect(editor.previewAdjustments).toBeNull()
+    })
+  })
+
+  describe('Auto (AC-12, AC-13)', () => {
+    let fake: ReturnType<typeof createFakeRenderer>
+
+    /** A dark grey ramp with a blue cast: Auto has something to correct. */
+    function castSample(): ImageSample {
+      const data = new Uint8Array(256 * 4)
+      for (let i = 0; i < 256; i++) {
+        const v = Math.round((i * 90) / 255)
+        data.set([Math.round(v * 0.8), v, v, 255], i * 4)
+      }
+      return { width: 256, height: 1, data }
+    }
+
+    function oneColour(): ImageSample {
+      return { width: 2, height: 1, data: new Uint8Array([10, 20, 30, 255, 10, 20, 30, 255]) }
+    }
+
+    beforeEach(() => {
+      fake = createFakeRenderer()
+      editor.setRendererFactory(fake.factory)
+      editor.createRenderer({} as HTMLCanvasElement)
+      openWork(editor, { saturation: -40, sepia: 30, contrast: 90 })
+      tool.open()
+    })
+
+    it('replaces only brightness, contrast, temperature and tint with the measured values', () => {
+      fake.renderer.sampleCrop.mockReturnValue(ok(castSample()))
+      const measured = autoAdjust(castSample())
+      if (measured.kind !== 'values') throw new Error('expected values')
+
+      tool.auto()
+      expect(tool.draft).toEqual({
+        ...NEUTRAL_ADJUSTMENTS,
+        ...measured.values,
+        saturation: -40,
+        sepia: 30,
+      })
+      expect(editor.previewAdjustments).toEqual(tool.draft)
+      expect(editor.work!.revision).toBe(0)
+    })
+
+    it('gives the same values when chosen again (replace, not add)', () => {
+      fake.renderer.sampleCrop.mockReturnValue(ok(castSample()))
+      tool.auto()
+      const first = tool.draft
+      tool.auto()
+      expect(tool.draft).toEqual(first)
+    })
+
+    it('samples the Work’s Geometry, not the Draft', () => {
+      fake.renderer.sampleCrop.mockReturnValue(ok(castSample()))
+      tool.auto()
+      expect(fake.renderer.sampleCrop).toHaveBeenCalledWith(editor.work!.geometry, 512)
+    })
+
+    it('leaves the Draft as it was and says there is nothing to correct for one colour', () => {
+      fake.renderer.sampleCrop.mockReturnValue(ok(oneColour()))
+      const before = tool.draft
+      tool.auto()
+      expect(tool.draft).toEqual(before)
+      expect(tool.nothingToCorrect).toBe(true)
+    })
+
+    it('clears the nothing hint on the next change to the Draft, and on close', () => {
+      fake.renderer.sampleCrop.mockReturnValue(ok(oneColour()))
+      tool.auto()
+      tool.setValue('tint', 3)
+      expect(tool.nothingToCorrect).toBe(false)
+      tool.auto()
+      tool.reset()
+      expect(tool.nothingToCorrect).toBe(false)
+      tool.auto()
+      tool.cancel()
+      expect(tool.nothingToCorrect).toBe(false)
+    })
+
+    it('changes nothing and shows no hint when the display is lost', () => {
+      fake.renderer.sampleCrop.mockReturnValue(err(appError('DISPLAY_LOST')))
+      const before = tool.draft
+      tool.auto()
+      expect(tool.draft).toEqual(before)
+      expect(tool.nothingToCorrect).toBe(false)
+    })
+
+    it('keeps showing Before when chosen while Compare is held', () => {
+      fake.renderer.sampleCrop.mockReturnValue(ok(castSample()))
+      tool.startCompare()
+      tool.auto()
+      expect(editor.previewAdjustments).toEqual(NEUTRAL_ADJUSTMENTS)
+      tool.endCompare()
+      expect(editor.previewAdjustments).toEqual(tool.draft)
     })
   })
 })

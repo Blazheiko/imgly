@@ -17,7 +17,7 @@
 | T10 | Make the export refusal name the open tool and make 'Crop and rotate' and C hint 'apply or cancel the open tool first' while Adjust is open | app | Blazheiko | S | T8 | done |
 | T11 | Add an optional 'neutral' to SliderField: double-clicking the range sets it, and register the option in the design system | ui | Blazheiko | S | — | done |
 | T12 | Add the adjust store: Draft and values at open, set / commit typed fields, reset one or all, apply and cancel | app | Blazheiko | M | T2, T8 | done |
-| T13 | Add Compare (held flag, neutral preview, ends on blur and close) and Auto (sampleWork → autoAdjust → four values or the nothing hint) to the adjust store | app | Blazheiko | S | T6, T12 | todo |
+| T13 | Add Compare (held flag, neutral preview, ends on blur and close) and Auto (sampleWork → autoAdjust → four values or the nothing hint) to the adjust store | app | Blazheiko | S | T6, T12 | done |
 | T14 | Add the 'Adjust' toolbar action with its hints, the A shortcut and the tool's message catalog, mounted next to 'Crop and rotate' | ui | Blazheiko | M | T12 | todo |
 | T15 | Build AdjustControls: seven SliderFields in three groups with neutral marks, press-and-hold Compare, Auto with its hint line, Reset / Cancel / Apply | ui | Blazheiko | M | T11, T13 | todo |
 | T16 | Mount AdjustTool in the editor's tool slot with the 'Before' label, Enter / Escape / held backslash keys, window-blur end of Compare, focus handling and the tool-ready mark | wiring | Blazheiko | M | T9, T14, T15 | todo |
