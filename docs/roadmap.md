@@ -101,4 +101,4 @@ flowchart LR
 |---|---|---|
 | 2 — Open and view an image | 2026-10-05 (merged to main in 3020ef1) | [changelog](features/open-and-view/_ship/changelog.md) |
 | 3 — Export the current image | 2026-10-06 (merged to main via PR #1) | [changelog](features/export/_ship/changelog.md) · [PR #1](https://github.com/Blazheiko/imgly/pull/1) |
-| 4 — Crop and rotate | 2026-10-07 (PR to open from `feat/crop-rotate-main`) | [changelog](features/crop-rotate/_ship/changelog.md) |
+| 4 — Crop and rotate | 2026-10-08 (merged to main via PR #4) | [changelog](features/crop-rotate/_ship/changelog.md) · [PR #4](https://github.com/Blazheiko/imgly/pull/4) |
