@@ -4,11 +4,15 @@ export interface OpenShortcutActions {
   exporting(): boolean
   /** Another feature's panel is open (`editor.activePanel`). */
   panelOpen(): boolean
+  /** This tool is open. */
   toolOpen(): boolean
+  /** Another tool is open in the slot, such as Adjust (adjust AC-18). */
+  otherToolOpen(): boolean
   /** The replace dialog is open over the Work. */
   confirming(): boolean
   open(): void
   notifyNoImage(): void
+  notifyOtherToolOpen(): void
 }
 
 /** Inputs that take no typed text (AC-20); `PRESSED_BY_ENTER` says which of them Enter presses itself. */
@@ -36,8 +40,9 @@ function isC(event: KeyboardEvent): boolean {
 
 /**
  * The C rows of screens.md §Keyboard: C (no Ctrl, Cmd or Alt) opens the tool, or with no image
- * shows the hint (AC-18). Silent for a held key's repeats, during an export, under the export
- * panel or the replace dialog, with the tool open or while a text field has focus (AC-15, AC-20).
+ * shows the hint (AC-18), or with another tool open says to apply or cancel it first (adjust
+ * AC-18). Silent for a held key's repeats, during an export, under the export panel or the
+ * replace dialog, with the tool open or while a text field has focus (AC-15, AC-20).
  */
 export function createOpenShortcut(actions: OpenShortcutActions): (event: KeyboardEvent) => void {
   return (event) => {
@@ -47,6 +52,7 @@ export function createOpenShortcut(actions: OpenShortcutActions): (event: Keyboa
       return
     }
     if (!actions.hasWork()) actions.notifyNoImage()
+    else if (actions.otherToolOpen()) actions.notifyOtherToolOpen()
     else actions.open()
   }
 }

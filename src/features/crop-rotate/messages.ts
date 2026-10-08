@@ -6,6 +6,11 @@ export function infoNoImage(): string {
   return 'Open an image first to crop or rotate it.'
 }
 
+/** "Crop and rotate" or C while another tool is open (adjust AC-18). */
+export function infoOtherToolOpen(): string {
+  return 'Apply or cancel the open tool first.'
+}
+
 export const ACTION_LABEL = 'Crop and rotate'
 export const ACTION_TOOLTIP = 'Crop and rotate (C)'
 

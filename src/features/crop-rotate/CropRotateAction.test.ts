@@ -6,7 +6,7 @@ import { createWork } from '@/core'
 import { useEditorStore } from '@/features/editor'
 import { useNotices } from '@/shared'
 import CropRotateAction from './CropRotateAction.vue'
-import { infoNoImage } from './messages'
+import { infoNoImage, infoOtherToolOpen } from './messages'
 
 describe('CropRotateAction (SCR-01, SCR-02)', () => {
   let wrapper: VueWrapper
@@ -93,5 +93,46 @@ describe('CropRotateAction (SCR-01, SCR-02)', () => {
     const input = document.body.appendChild(document.createElement('input'))
     pressC(input)
     expect(editor.activeTool).toBeNull()
+  })
+
+  describe('while the adjust tool is open (adjust AC-18)', () => {
+    beforeEach(async () => {
+      openWork()
+      expect(editor.openTool('adjust')).toEqual({ ok: true })
+      await nextTick()
+    })
+
+    it('words the hint', () => {
+      expect(infoOtherToolOpen()).toBe('Apply or cancel the open tool first.')
+    })
+
+    it('is unavailable but focusable, with the hint as its description', () => {
+      expect(button().attributes('disabled')).toBeUndefined()
+      expect(button().attributes('aria-disabled')).toBe('true')
+      const described = button().attributes('aria-describedby')!
+      expect(document.getElementById(described)?.textContent).toBe(infoOtherToolOpen())
+    })
+
+    it('shows the hint on click and on C, and never opens', async () => {
+      await button().trigger('click')
+      pressC()
+      expect(texts()).toEqual([infoOtherToolOpen(), infoOtherToolOpen()])
+      expect(editor.activeTool).toBe('adjust')
+    })
+
+    it('stays silent on C in a text field', () => {
+      const input = document.body.appendChild(document.createElement('input'))
+      pressC(input)
+      expect(texts()).toEqual([])
+    })
+
+    it('stays silent with its own tool open', async () => {
+      editor.closeTool()
+      editor.openTool('crop-rotate')
+      await nextTick()
+      pressC()
+      await button().trigger('click')
+      expect(texts()).toEqual([])
+    })
   })
 })
