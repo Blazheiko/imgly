@@ -1,8 +1,8 @@
 import type { Pinia } from 'pinia'
 import { useEditorStore } from '@/features/editor'
 import { useExportStore } from '@/features/export'
-import { cropToOriginalUv, workSize, type Geometry } from '@/core'
-import { buildProgram, uploadTexture, viewToTransform } from '@/render'
+import { cropToOriginalUv, workSize, type Adjustments, type Geometry } from '@/core'
+import { buildProgram, setAdjustmentUniforms, uploadTexture, viewToTransform } from '@/render'
 import { bitmapLedger } from '@/shared'
 
 /** What e2e tests may read and prepare. Only installed in the Playwright build (VITE_E2E_HOOKS). */
@@ -16,6 +16,8 @@ export interface ImglyTestHooks {
     originalWidth: number
     originalHeight: number
     geometry: Geometry
+    /** The Work's applied Adjustments (adjust ADR-0001). */
+    adjustments: Adjustments
     sourceName: string
     sourceFormat: string
     hasTransparency: boolean
@@ -29,8 +31,8 @@ export interface ImglyTestHooks {
    */
   originalPixel(x: number, y: number): number[]
   /**
-   * The Preview's own rendering of the Work at 100% (its shaders and View maths at zoom 1), with no
-   * transparency backdrop and no display scaling, as un-premultiplied RGBA rows (export §6
+   * The Preview's own rendering of the Work at 100% (its shaders and View maths at zoom 1), with its
+   * applied Adjustments, no transparency backdrop and no display scaling, as un-premultiplied RGBA rows (export §6
    * Fidelity). An empty array when no Work is open.
    */
   previewAt100(): number[]
@@ -43,6 +45,11 @@ export interface ImglyTestHooks {
    * Rotation × Flip and angle without driving the UI (crop-rotate sad.md §8 Test hooks).
    */
   setGeometry(geometry: Geometry): void
+  /**
+   * Applies Adjustments directly, as the tool's Apply does, so the fidelity tests reach every
+   * slider at its anchors without driving the UI (adjust sad.md §8 Test hooks).
+   */
+  setAdjustments(adjustments: Adjustments): void
   /** Bitmaps received from the decode worker and closed by the app; retained should be 1. */
   bitmaps(): { received: number; closed: number; retained: number }
   /**
@@ -60,7 +67,7 @@ declare global {
 }
 
 /** Renders the Work the way the Preview draws it at 100% and reads it back. */
-function renderAt100(bitmap: ImageBitmap, geometry: Geometry): number[] {
+function renderAt100(bitmap: ImageBitmap, geometry: Geometry, adjustments: Adjustments): number[] {
   const { width, height } = geometry.crop
   const canvas = new OffscreenCanvas(width, height)
   const gl = canvas.getContext('webgl2', {
@@ -89,6 +96,7 @@ function renderAt100(bitmap: ImageBitmap, geometry: Geometry): number[] {
   const original = { width: bitmap.width, height: bitmap.height }
   gl.uniformMatrix3fv(gpu.geometry, false, new Float32Array(cropToOriginalUv(geometry, original)))
   gl.uniform1i(gpu.flatten, 0)
+  setAdjustmentUniforms(gl, gpu, adjustments)
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
   const ctx = new OffscreenCanvas(width, height).getContext('2d')!
   ctx.drawImage(canvas, 0, 0)
@@ -103,7 +111,7 @@ export function installTestHooks(pinia: Pinia): void {
     work: () => {
       const work = editor.work
       if (!work) return null
-      const { id, revision, original, geometry, sourceName, sourceFormat } = work
+      const { id, revision, original, geometry, adjustments, sourceName, sourceFormat } = work
       const size = workSize(work)
       return {
         id,
@@ -113,6 +121,7 @@ export function installTestHooks(pinia: Pinia): void {
         originalWidth: original.width,
         originalHeight: original.height,
         geometry,
+        adjustments: { ...adjustments },
         sourceName,
         sourceFormat,
         hasTransparency: original.hasTransparency,
@@ -129,11 +138,12 @@ export function installTestHooks(pinia: Pinia): void {
     },
     previewAt100: () => {
       const work = editor.work
-      return work ? renderAt100(work.original.pixels, work.geometry) : []
+      return work ? renderAt100(work.original.pixels, work.geometry, work.adjustments) : []
     },
     exportStatus: () => exporter.status,
     applyEdit: () => editor.applyEdit(),
     setGeometry: (geometry) => editor.applyGeometry(geometry),
+    setAdjustments: (adjustments) => editor.applyAdjustments(adjustments),
     bitmaps: () => ({
       received: bitmapLedger.received,
       closed: bitmapLedger.closed,

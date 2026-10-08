@@ -13,7 +13,7 @@
 | T6 | Add PreviewRenderer.sampleCrop(geometry, maxSide) into a temporary framebuffer and the editor store's sampleWork() | infra | Blazheiko | M | T4, T5, T8 | done |
 | T7 | Send the applied Adjustments to the export worker, set them as uniforms, and reduce smaller adjusted Exports in two passes | infra | Blazheiko | M | T5, T8 | done |
 | T8 | Give the editor's tool slot the 'adjust' tool: per-tool open/close side effects, previewAdjustments, applyAdjustments and the snapshot's Adjustments | app | Blazheiko | M | T1 | done |
-| T9 | Make PreviewCanvas draw previewAdjustments ?? work.adjustments, and give the e2e hooks setAdjustments and an adjusted previewAt100 | wiring | Blazheiko | S | T5, T8 | todo |
+| T9 | Make PreviewCanvas draw previewAdjustments ?? work.adjustments, and give the e2e hooks setAdjustments and an adjusted previewAt100 | wiring | Blazheiko | S | T5, T8 | done |
 | T10 | Make the export refusal name the open tool and make 'Crop and rotate' and C hint 'apply or cancel the open tool first' while Adjust is open | app | Blazheiko | S | T8 | todo |
 | T11 | Add an optional 'neutral' to SliderField: double-clicking the range sets it, and register the option in the design system | ui | Blazheiko | S | — | done |
 | T12 | Add the adjust store: Draft and values at open, set / commit typed fields, reset one or all, apply and cancel | app | Blazheiko | M | T2, T8 | todo |

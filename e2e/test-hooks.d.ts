@@ -12,6 +12,19 @@ export interface Geometry {
   crop: { x: number; y: number; width: number; height: number }
 }
 
+/** Mirrors `Adjustments` in src/core/adjust/types.ts: seven whole numbers. */
+export interface Adjustments {
+  brightness: number
+  contrast: number
+  saturation: number
+  temperature: number
+  tint: number
+  /** 0…100 (%). */
+  grayscale: number
+  /** 0…100 (%). */
+  sepia: number
+}
+
 declare global {
   interface Window {
     __imglyTest?: {
@@ -23,6 +36,7 @@ declare global {
         originalWidth: number
         originalHeight: number
         geometry: Geometry
+        adjustments: Adjustments
         sourceName: string
         sourceFormat: string
         hasTransparency: boolean
@@ -34,6 +48,7 @@ declare global {
       exportStatus(): string
       applyEdit(): void
       setGeometry(geometry: Geometry): void
+      setAdjustments(adjustments: Adjustments): void
       bitmaps(): { received: number; closed: number; retained: number }
       holdNextOpen(): void
       releaseHeldOpen(): void
