@@ -1,0 +1,14 @@
+{
+  "ref.png": {
+    "brightness": 50,
+    "contrast": 9,
+    "temperature": -50,
+    "tint": 50
+  },
+  "photo.png": {
+    "brightness": 33,
+    "contrast": 50,
+    "temperature": -50,
+    "tint": 27
+  }
+}

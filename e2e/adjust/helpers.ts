@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 import { NEUTRAL_ADJUSTMENTS, type Adjustments } from '../../src/core/adjust'
 import {
   choose,
@@ -122,4 +122,17 @@ export async function openPixels(
   )
   await openFile(page, 'pixels.png', Buffer.from(base64, 'base64'), 'image/png')
   await waitForWork(page, width, height)
+}
+
+/**
+ * Presses Tab until `target` has focus, as a keyboard user would. WebKit, like Safari by default,
+ * tabs only to text fields; Option+Tab reaches every control (as crop-rotate's suite does).
+ */
+export async function tabTo(page: Page, target: Locator) {
+  const tab = test.info().project.name === 'webkit' ? 'Alt+Tab' : 'Tab'
+  for (let i = 0; i < 40; i++) {
+    if (await target.evaluate((el) => el === document.activeElement)) return
+    await page.keyboard.press(tab)
+  }
+  throw new Error('Tab never reached the control')
 }
