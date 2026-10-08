@@ -12,6 +12,9 @@ export type AutoValues = Pick<Adjustments, 'brightness' | 'contrast' | 'temperat
 
 export type AutoResult = { kind: 'values'; values: AutoValues } | { kind: 'nothing' }
 
+/** The long side of the sample Auto measures, in pixels (ADR-0004). */
+export const AUTO_SAMPLE_MAX_SIDE = 512
+
 /** Auto never moves a slider further than this from neutral (AC-13). */
 const AUTO_LIMIT = 50
 const MID = 128 / 255

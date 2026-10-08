@@ -17,6 +17,7 @@ import {
 import { SUPERSEDED, type DecodedImage, type DecodeOutcome } from '@/infra/image-decode'
 import { useNotices } from '@/shared'
 import { useEditorStore } from './store'
+import { createFakeRenderer } from './fake-renderer'
 
 type FakeBitmap = ImageBitmap & { close: ReturnType<typeof vi.fn> }
 const bitmap = (width: number, height: number) =>
@@ -1020,5 +1021,48 @@ describe('editor store — the adjust tool in the slot (adjust AC-11, AC-17, AC-
     await open()
     editor.applyAdjustments(adjusted({ brightness: 12 }))
     expect(editor.beginExport()!.adjustments).toEqual(adjusted({ brightness: 12 }))
+  })
+})
+
+describe('editor store — sampleWork for Auto (adjust ADR-0004)', () => {
+  let decoder: ReturnType<typeof fakeDecoder>
+  let editor: ReturnType<typeof useEditorStore>
+
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    decoder = fakeDecoder()
+    editor = useEditorStore()
+    editor.setDecoder(decoder.decode)
+    editor.setCanvasSize(1000, 800)
+  })
+
+  async function open(width = 4000, height = 2000) {
+    const pending = editor.openImage(file())
+    decoder.answer(decoder.decode.mock.calls.length - 1, ok(decoded(width, height)))
+    return pending
+  }
+
+  it('reports DISPLAY_LOST with no renderer or no Work', async () => {
+    expect(editor.sampleWork()).toEqual({ ok: false, error: { code: 'DISPLAY_LOST' } })
+    const fake = createFakeRenderer()
+    editor.setRendererFactory(fake.factory)
+    editor.createRenderer({} as HTMLCanvasElement)
+    expect(editor.sampleWork()).toEqual({ ok: false, error: { code: 'DISPLAY_LOST' } })
+    expect(fake.renderer.sampleCrop).not.toHaveBeenCalled()
+  })
+
+  it('samples the Work’s Geometry, not the open tool’s preview, at most 512 px', async () => {
+    const fake = createFakeRenderer()
+    editor.setRendererFactory(fake.factory)
+    editor.createRenderer({} as HTMLCanvasElement)
+    await open()
+    const g = { ...identityGeometry({ width: 4000, height: 2000 }), flipH: true }
+    editor.applyGeometry(g)
+    editor.openTool('crop-rotate')
+    editor.setPreviewGeometry({ ...g, flipV: true })
+
+    const result = editor.sampleWork()
+    expect(fake.renderer.sampleCrop).toHaveBeenCalledWith(g, 512)
+    expect(result).toEqual(fake.renderer.sampleCrop.mock.results[0]!.value)
   })
 })

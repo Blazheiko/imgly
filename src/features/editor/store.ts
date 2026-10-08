@@ -2,7 +2,10 @@ import { computed, nextTick, ref, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
 import {
   adjustmentsEquals,
+  appError,
+  AUTO_SAMPLE_MAX_SIDE,
   createWork,
+  err,
   fitView,
   geometryEquals,
   hasUnsavedEdits as workHasUnsavedEdits,
@@ -20,6 +23,7 @@ import {
   type AppError,
   type Geometry,
   type ImageFormat,
+  type ImageSample,
   type Original,
   type Point,
   type Result,
@@ -160,8 +164,19 @@ export const useEditorStore = defineStore('editor', () => {
     rendererFactory = next
   }
 
+  // The Preview's renderer, held so Auto can sample the Work without the adjust feature touching it.
+  let renderer: PreviewRenderer | undefined
+
   function createRenderer(canvas: HTMLCanvasElement) {
-    return rendererFactory(canvas)
+    const result = rendererFactory(canvas)
+    if (result.ok) renderer = result.value
+    return result
+  }
+
+  /** Auto's sample of the Work with its Geometry and no Adjustments (adjust ADR-0004). */
+  function sampleWork(): Result<ImageSample, AppError> {
+    if (!renderer || !work.value) return err(appError('DISPLAY_LOST'))
+    return renderer.sampleCrop(work.value.geometry, AUTO_SAMPLE_MAX_SIDE)
   }
 
   /** Runs the start-up capability gate once; the drop guard must already be installed. */
@@ -476,6 +491,7 @@ export const useEditorStore = defineStore('editor', () => {
     setDecoder,
     setRendererFactory,
     createRenderer,
+    sampleWork,
     runCapabilityGate,
     setRendererStatus,
     openImage,

@@ -10,6 +10,7 @@ import {
   type Adjustments,
   type AppError,
   type Geometry,
+  type ImageSample,
   type Result,
   type View,
 } from '@/core'
@@ -24,6 +25,12 @@ import { viewToTransform } from './view-transform'
 
 /** Marked on the first frame drawn after a new Original; the @perf suite times opens to it. */
 export const FIRST_FRAME_MARK = 'imgly:first-frame'
+
+/**
+ * The unit quad onto the whole sample framebuffer with v up, so `readPixels`, which reads from the
+ * bottom row, returns the Crop's top row first.
+ */
+const SAMPLE_TRANSFORM = new Float32Array([2, 0, 0, 0, 2, 0, -1, -1, 1])
 
 /** How long a lost context may take to come back before the display counts as lost (AC-19b). */
 export const RESTORE_DEADLINE_MS = 5000
@@ -48,6 +55,13 @@ export interface PreviewRenderer {
    * texture upload. Until called, neutral values are drawn.
    */
   setAdjustments(a: Adjustments): void
+  /**
+   * Auto's sample of the Work (adjust ADR-0004): the Crop through `g`, with no Adjustments, into a
+   * framebuffer whose long side is at most `maxSide`, one exact texel per pixel (NEAREST), read back
+   * premultiplied and row-major from the top. Everything it allocates is freed before it returns.
+   * `DISPLAY_LOST` while the context is not ready.
+   */
+  sampleCrop(g: Geometry, maxSide: number): Result<ImageSample, AppError>
   /** Sets the backing store size in device pixels. */
   resize(width: number, height: number): void
   readonly status: RendererStatus
@@ -93,6 +107,7 @@ export function createPreviewRenderer(
   let adjustments: Adjustments = NEUTRAL_ADJUSTMENTS
   let frame: number | undefined
   let firstFramePending = false
+  let disposed = false
 
   function invalidate() {
     if (frame === undefined) frame = requestFrame(draw)
@@ -196,6 +211,52 @@ export function createPreviewRenderer(
       shown = { geometry, mode }
       invalidate()
     },
+    sampleCrop(geometry, maxSide) {
+      if (disposed || status !== 'ready' || !bitmap || !texture)
+        return err(appError('DISPLAY_LOST'))
+      const original = { width: bitmap.width, height: bitmap.height }
+      const { width: cw, height: ch } = geometry.crop
+      const scale = Math.min(1, maxSide / Math.max(cw, ch))
+      const width = Math.max(1, Math.round(cw * scale))
+      const height = Math.max(1, Math.round(ch * scale))
+      const target = gl.createTexture()
+      const framebuffer = gl.createFramebuffer()
+      try {
+        gl.bindTexture(gl.TEXTURE_2D, target)
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+        gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, target, 0)
+        gl.viewport(0, 0, width, height)
+        gl.clearColor(0, 0, 0, 0)
+        gl.clear(gl.COLOR_BUFFER_BIT)
+        gl.useProgram(gpu.program)
+        gl.bindVertexArray(gpu.vao)
+        gl.activeTexture(gl.TEXTURE0)
+        gl.bindTexture(gl.TEXTURE_2D, texture)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+        gl.uniformMatrix3fv(
+          gpu.geometry,
+          false,
+          new Float32Array(cropToOriginalUv(geometry, original)),
+        )
+        gl.uniformMatrix3fv(gpu.transform, false, SAMPLE_TRANSFORM)
+        gl.uniform1i(gpu.flatten, 0)
+        setAdjustmentUniforms(gl, gpu, NEUTRAL_ADJUSTMENTS)
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+        const data = new Uint8Array(width * height * 4)
+        gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, data)
+        return ok({ width, height, data })
+      } catch {
+        return err(appError('DISPLAY_LOST'))
+      } finally {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+        gl.deleteFramebuffer(framebuffer)
+        gl.deleteTexture(target)
+        gl.bindTexture(gl.TEXTURE_2D, texture)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
+      }
+    },
     setAdjustments(next) {
       if (adjustmentsEquals(next, adjustments)) return
       adjustments = { ...next }
@@ -215,6 +276,7 @@ export function createPreviewRenderer(
       return () => listeners.delete(listener)
     },
     dispose() {
+      disposed = true
       clearTimeout(deadline)
       listeners.clear()
       canvas.removeEventListener('webglcontextlost', onContextLost)
