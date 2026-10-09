@@ -55,6 +55,16 @@ async function shot(page: Page) {
 /** How far the screen's patch is from `target`, for `expect.poll` while the Preview catches up. */
 const distance = (page: Page, target: number[]) => async () => maxDiff(await shot(page), target)
 
+/**
+ * Whether a patch can be taken while the tool is closed. WebKit on the Linux runner leaves the
+ * WebGL canvas out of page screenshots while it spans the whole window (every pixel of the patch is
+ * page background, though the page shows the image), and puts it back once the tool narrows it. So
+ * the Work is shot with the tool open at neutral values, where the Preview shows it unchanged, and
+ * only the checks after the tool closes stay on the other engines there.
+ */
+const shotsWithToolClosed = () =>
+  !(test.info().project.name === 'webkit' && process.platform === 'linux')
+
 const mean = (data: number[]) => {
   let sum = 0
   for (let i = 0; i < data.length; i += 4) sum += data[i]! + data[i + 1]! + data[i + 2]!
@@ -84,10 +94,9 @@ async function openPhoto(page: Page) {
 test.describe('AC-01, AC-21 — three actions by mouse', () => {
   test('Adjust, drag brightness, Apply gives a lighter Work', async ({ page }) => {
     await openPhoto(page)
-    const start = await shot(page)
-
     await action(page).click()
     await expect(tool(page)).toBeVisible()
+    const start = await shot(page)
     const box = (await slider(page, 'Brightness').boundingBox())!
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
     await page.mouse.down()
@@ -105,7 +114,7 @@ test.describe('AC-01, AC-21 — three actions by mouse', () => {
       adjustments: { brightness: value },
       hasUnsavedEdits: true,
     })
-    await expect.poll(distance(page, dragged)).toBeLessThanOrEqual(1)
+    if (shotsWithToolClosed()) await expect.poll(distance(page, dragged)).toBeLessThanOrEqual(1)
   })
 
   test('A, Auto, Apply gives an auto-adjusted Work, and Auto again changes nothing', async ({
@@ -215,8 +224,8 @@ test.describe('AC-13 — Auto agrees within 1 across engines', () => {
 test.describe('AC-08 — Compare shows the Work before adjusting', () => {
   async function openAdjusted(page: Page) {
     await openPhoto(page)
-    const plain = await shot(page)
     await openTool(page)
+    const plain = await shot(page)
     await field(page, 'Contrast').fill('60')
     await field(page, 'Contrast').press('Enter')
     await field(page, 'Sepia').fill('80')
@@ -289,20 +298,20 @@ test.describe('AC-08 — Compare shows the Work before adjusting', () => {
 test.describe('AC-05, AC-09, AC-10 — fields, Cancel and resets', () => {
   test('Escape shows the Work as before and leaves no Unsaved edits', async ({ page }) => {
     await openPhoto(page)
-    const plain = await shot(page)
     await openTool(page)
+    const plain = await shot(page)
     await slider(page, 'Saturation').fill('-80')
     await expect.poll(distance(page, plain)).toBeGreaterThan(5)
     await page.keyboard.press('Escape')
     await expect(tool(page)).toBeHidden()
-    await expect.poll(distance(page, plain)).toBeLessThanOrEqual(1)
+    if (shotsWithToolClosed()) await expect.poll(distance(page, plain)).toBeLessThanOrEqual(1)
     expect((await work(page))!.hasUnsavedEdits).toBe(false)
   })
 
   test('double-clicking a slider resets it and the Preview follows', async ({ page }) => {
     await openPhoto(page)
-    const plain = await shot(page)
     await openTool(page)
+    const plain = await shot(page)
     // Away from neutral: at 85% of −100…100 a click alone sets about +70, so only the double-click
     // handler can bring it back to 0.
     const box = (await slider(page, 'Temperature').boundingBox())!
