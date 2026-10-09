@@ -4,7 +4,7 @@ title: "Mount AdjustTool in the editor's tool slot with the 'Before' label, Ente
 layer: "wiring"
 deps: ["T9", "T14", "T15"]
 blocks: ["T18", "T19"]
-acs: ["AC-08", "AC-09", "AC-20", "AC-21"]
+acs: ["AC-08", "AC-09", "AC-17", "AC-20", "AC-21"]
 files_hint: ["src/features/adjust/AdjustTool.vue", "src/features/adjust/AdjustTool.test.ts", "src/features/adjust/shortcuts.ts", "src/features/adjust/shortcuts.test.ts", "src/features/adjust/index.ts", "src/app/App.vue"]
 owner: "Blazheiko"
 estimate: "M"
@@ -102,6 +102,14 @@ Internal — no API surface.
 > **Then** the tool closes and the Work keeps the Adjustments it had before the tool was opened, with its Unsaved edits unchanged
 >
 > — `spec.md §5, AC-09, verbatim` · full text: [spec.md](../spec.md)
+
+### AC-17 — cross-context
+
+> **Given** the "Adjust" tool is open with a Draft that is not applied
+> **When** the Editor opens another image, by the "Open image" action or by dropping a file
+> **Then** the tool stays open with its Draft until the new image has been read and, when the Work has Unsaved edits, the Editor has confirmed the replacement, as open-and-view requires. Only then does the tool close, and its Draft is discarded with the old Work; the new Work starts with neutral Adjustments. If the new image cannot be opened or the replacement is declined, the tool stays open with its Draft. A Draft never counts as Unsaved edits on its own
+>
+> — `spec.md §5, AC-17, verbatim` · full text: [spec.md](../spec.md)
 
 ### AC-20 — cross-context
 

@@ -109,7 +109,7 @@ held by the rows named in the cell.
 | AC-04 happy | setting grayscale or sepia, by slider or by its "%" field, sends the amount to the Preview | component | the Preview's Adjustments carry the amount |
 | AC-04 happy | the real shader gives the grayscale and sepia anchors | e2e-through-UI | within 2/255 of ADR-0003's table on all three engines (QG-1d) |
 | AC-05 error | a typed value out of range snaps to the nearest bound | unit | "150" gives 100 and "−300" gives −100 in brightness; "120%" gives 100 and "−5" gives 0 in sepia |
-| AC-05 error | a fractional value rounds half up | unit | "2.5" gives 3; "−2.5" gives −2; "2.4" gives 2; "2,5" (decimal comma) gives 3 |
+| AC-05 error | a fractional value rounds half up | unit | "2.5" gives 3; "−2.5" gives −2; "2.4" gives 2; "2,5" (decimal comma) gives 3; a fraction longer than a double holds still rounds from its digits ("2.49999999999999999999" gives 2, "−2.50000000000000000001" gives −3) |
 | AC-05 error | an empty, non-numeric or scientific-notation value returns to the previous value | unit | "", "abc" and "1e2" keep the previous value; a very long plain decimal snaps to the range |
 | AC-05 error | a trailing "%" is a number only in the grayscale and sepia fields | unit | "60%" gives 60 in grayscale and sepia; in the five −100..100 fields it is not a number and the previous value returns |
 | AC-05 error | a corrected value reaches the Draft only on commit | integration | the Draft changes only when the field is left or Enter is pressed, and holds the corrected value |

@@ -88,3 +88,12 @@
 | H1 | Declining the replace with Esc closes only the dialog; the tool keeps its Draft (SCR-06 declined) | ui | Blazheiko | S | — | done |
 | H2 | T15 claims AC-11 | docs | Blazheiko | S | — | done |
 | H3 | AC-07 e2e checks that End and Home reach ±100 | tests | Blazheiko | S | — | done |
+
+## Review follow-ups (review-2026-10-09-5)
+
+| # | Task | Layer | Owner | Estimate | Blocked by | Status |
+|---|---|---|---|---|---|---|
+| I1 | T15's task file quotes AC-08, AC-09 and AC-11, which it claims | docs | Blazheiko | S | — | done |
+| I2 | T14 and T16 claim AC-17, whose Esc guard and focus return they own | docs | Blazheiko | S | — | done |
+| I3 | "Stops listening once the tool closes" checks each window listener is removed | tests | Blazheiko | S | — | done |
+| I4 | A typed value rounds half up from its digits, however long (AC-05) | domain | Blazheiko | S | — | done |

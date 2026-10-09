@@ -4,7 +4,7 @@ title: "Add the 'Adjust' toolbar action with its hints, the A shortcut and the t
 layer: "ui"
 deps: ["T12"]
 blocks: ["T16"]
-acs: ["AC-15", "AC-18", "AC-19", "AC-21"]
+acs: ["AC-15", "AC-17", "AC-18", "AC-19", "AC-21"]
 files_hint: ["src/features/adjust/AdjustAction.vue", "src/features/adjust/AdjustAction.test.ts", "src/features/adjust/shortcuts.ts", "src/features/adjust/shortcuts.test.ts", "src/features/adjust/messages.ts", "src/features/adjust/index.ts", "src/app/App.vue"]
 owner: "Blazheiko"
 estimate: "M"
@@ -95,6 +95,14 @@ Internal — no API surface.
 > **Then** the tool is not allowed to open: its button is visibly disabled and the shortcut does nothing, and the request is refused, not queued, because the file being saved must contain the Work exactly as it was when the Editor confirmed the export
 >
 > — `spec.md §5, AC-15, verbatim` · full text: [spec.md](../spec.md)
+
+### AC-17 — cross-context
+
+> **Given** the "Adjust" tool is open with a Draft that is not applied
+> **When** the Editor opens another image, by the "Open image" action or by dropping a file
+> **Then** the tool stays open with its Draft until the new image has been read and, when the Work has Unsaved edits, the Editor has confirmed the replacement, as open-and-view requires. Only then does the tool close, and its Draft is discarded with the old Work; the new Work starts with neutral Adjustments. If the new image cannot be opened or the replacement is declined, the tool stays open with its Draft. A Draft never counts as Unsaved edits on its own
+>
+> — `spec.md §5, AC-17, verbatim` · full text: [spec.md](../spec.md)
 
 ### AC-18 — cross-context
 

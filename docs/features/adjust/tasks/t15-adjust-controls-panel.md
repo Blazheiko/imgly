@@ -107,6 +107,22 @@ Internal — no API surface.
 >
 > — `spec.md §5, AC-05, verbatim` · full text: [spec.md](../spec.md)
 
+### AC-08 — happy path
+
+> **Given** the "Adjust" tool is open with any Draft
+> **When** the Editor holds the Compare button (with the mouse, or with Space or Enter while it has focus), or holds the \ key while no text field has focus. The \ key is the key in that position on a US keyboard, whatever the keyboard layout
+> **Then** while it is held, the Preview shows the Work with its Geometry and no Adjustments at all, and a "Before" label is shown over it; when it is released, the Preview shows the Draft again. Compare also ends when the window loses focus or the tool closes. Any change to the Draft while Compare is held (moving a slider, typing a value, Auto, Reset or a per-slider reset) changes the Draft, but the Preview keeps showing "Before" until Compare is released. Compare never changes the Work, the Draft or the Unsaved edits
+>
+> — `spec.md §5, AC-08, verbatim` · full text: [spec.md](../spec.md)
+
+### AC-09 — happy path
+
+> **Given** the Editor has changed one or more sliders in the open "Adjust" tool
+> **When** the Editor chooses Cancel or presses Escape
+> **Then** the tool closes and the Work keeps the Adjustments it had before the tool was opened, with its Unsaved edits unchanged
+>
+> — `spec.md §5, AC-09, verbatim` · full text: [spec.md](../spec.md)
+
 ### AC-10 — happy path
 
 > **Given** Adjustments were applied earlier to the open Work
@@ -114,6 +130,14 @@ Internal — no API surface.
 > **Then** the tool shows the applied values. Double-clicking a slider, or typing 0 in its field, sets that slider to its neutral value. Reset sets all seven sliders to their neutral values. Both change only the Draft and take effect on Apply; after Reset and Apply, the Work's pixels are exactly the pixels it had before any Adjustment was applied (AC-06), because the Adjustments never change the Original
 >
 > — `spec.md §5, AC-10, verbatim` · full text: [spec.md](../spec.md)
+
+### AC-11 — cross-context
+
+> **Given** an image is open
+> **When** the Editor applies the "Adjust" tool
+> **Then** the Work has Unsaved edits only when the applied Adjustments differ from the ones the Work had when the tool was opened. The seven values are compared one by one, not by the pixels they produce, and an Apply with no change, or with values changed and then changed back by hand in the same tool, leaves the Unsaved edits as they were. The comparison is only with the values from when the tool was opened: after an Export, changing a value in one Apply and changing it back in a later Apply still leaves the Work with Unsaved edits. After a change has been applied, opening another image asks for confirmation as open-and-view AC-15 requires, and a successful Export clears the Unsaved edits again (export AC-09)
+>
+> — `spec.md §5, AC-11, verbatim` · full text: [spec.md](../spec.md)
 
 ### AC-12 — happy path
 
