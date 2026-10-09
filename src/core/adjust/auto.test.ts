@@ -158,6 +158,25 @@ describe('autoAdjust with nothing to measure (AC-13)', () => {
     expect(autoAdjust(sample(pixels))).toEqual({ kind: 'nothing' })
   })
 
+  it.each([
+    ['rounds down', Math.floor],
+    ['rounds up', Math.ceil],
+  ])('returns nothing for one colour whose engine %s the edges at every alpha (N1)', (_, store) => {
+    // Engines store semi-transparent colours at different premultiplied steps (ADR-0005), so an
+    // edge may sit one level off the nearest step and must still count as the same colour.
+    const [r, g, b] = [200, 30, 30]
+    for (let a = 1; a < 255; a++) {
+      const edge: Px = [store((r * a) / 255), store((g * a) / 255), store((b * a) / 255), a]
+      const pixels: Px[] = [...opaque(60, () => [r, g, b]), edge]
+      expect(autoAdjust(sample(pixels)), `alpha ${a}`).toEqual({ kind: 'nothing' })
+    }
+  })
+
+  it('still measures a soft edge two levels off its colour', () => {
+    const edge: Px = [Math.round((200 * 192) / 255) - 2, 23, 23, 192]
+    expect(autoAdjust(sample([...opaque(60, () => [200, 30, 30]), edge])).kind).toBe('values')
+  })
+
   it('still measures two colours that differ by one level on opaque pixels', () => {
     const pixels: Px[] = [...opaque(32, () => [200, 30, 30]), ...opaque(32, () => [201, 30, 30])]
     expect(autoAdjust(sample(pixels)).kind).toBe('values')

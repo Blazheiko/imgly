@@ -6,6 +6,8 @@ mild-cast.png      160×120 RGB: a textured gradient, a little dark and flat, wi
                    cast, so Auto's four values all stay inside ±50 (AC-13 cross-engine).
 large-cast.png     1200×800 RGB: a finer textured gradient with a mild cool, green cast, longer than
                    Auto's 512 px sample, so the engines' reduced (NEAREST) sample is compared too.
+soft-edge.png      40×30 RGBA: one colour (200, 30, 30), opaque inside, with a one-pixel border whose
+                   alpha runs over 1…254, so Auto must see one colour on every engine (AC-13).
 """
 import struct
 import zlib
@@ -54,3 +56,18 @@ def textured(width, height, gains, period):
 
 png('mild-cast.png', 160, 120, textured(160, 120, (1.08, 0.96, 0.92), 9), rgba=False)
 png('large-cast.png', 1200, 800, textured(1200, 800, (0.93, 1.05, 1.04), 5), rgba=False)
+
+
+def soft_edge(width, height):
+    """One colour, opaque inside, with a border of many alphas (an anti-aliased edge)."""
+    rows = []
+    for y in range(height):
+        row = []
+        for x in range(width):
+            edge = x in (0, width - 1) or y in (0, height - 1)
+            row.extend((200, 30, 30, 1 + (x * 7 + y * 13) % 254 if edge else 255))
+        rows.append(row)
+    return rows
+
+
+png('soft-edge.png', 40, 30, soft_edge(40, 30), rgba=True)

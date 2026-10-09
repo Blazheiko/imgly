@@ -30,14 +30,16 @@ function settle(value: number): number {
 
 /**
  * Narrows `range` (low/high per channel, in 0…255 levels) to the colours that store as this
- * premultiplied pixel: 8-bit storage rounds `c × alpha / 255`, so a partly transparent pixel only
- * pins its colour to an interval. Returns false once the intervals stop overlapping.
+ * premultiplied pixel: 8-bit storage steps `c × alpha / 255`, and engines round that step down, up
+ * or to the nearest (ADR-0005), so a partly transparent pixel only pins its colour to within one
+ * stored level. An opaque pixel pins it exactly. Returns false once the intervals stop overlapping.
  */
 function narrowColour(range: Float64Array, data: ArrayLike<number>, i: number, alpha: number) {
+  const slack = alpha === 255 ? 0 : 1
   for (let ch = 0; ch < 3; ch++) {
     const stored = data[i + ch]!
-    range[ch * 2] = Math.max(range[ch * 2]!, Math.ceil(((stored - 0.5) * 255) / alpha))
-    range[ch * 2 + 1] = Math.min(range[ch * 2 + 1]!, Math.floor(((stored + 0.5) * 255) / alpha))
+    range[ch * 2] = Math.max(range[ch * 2]!, Math.ceil(((stored - slack) * 255) / alpha))
+    range[ch * 2 + 1] = Math.min(range[ch * 2 + 1]!, Math.floor(((stored + slack) * 255) / alpha))
     if (range[ch * 2]! > range[ch * 2 + 1]!) return false
   }
   return true

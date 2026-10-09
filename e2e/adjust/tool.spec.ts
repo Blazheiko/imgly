@@ -164,6 +164,21 @@ test.describe('AC-13 — Auto agrees within 1 across engines', () => {
     ).toBeVisible()
     expect(await autoFields(page)).toEqual({ brightness: 0, contrast: 0, temperature: 0, tint: 0 })
   })
+
+  test('a one-colour image with soft edges says there is nothing to correct (N1)', async ({
+    page,
+  }) => {
+    await gotoReady(page)
+    // An anti-aliased border at alphas 1…254, written byte by byte: each engine stores those edges
+    // at its own premultiplied step (ADR-0005), and they must still read as the same colour.
+    await openNamed(page, 'soft-edge.png', 40, 30)
+    await page.keyboard.press('a')
+    await page.getByRole('button', { name: 'Auto' }).click()
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Nothing to correct automatically.' }),
+    ).toBeVisible()
+    expect(await autoFields(page)).toEqual({ brightness: 0, contrast: 0, temperature: 0, tint: 0 })
+  })
 })
 
 test.describe('AC-08 — Compare shows the Work before adjusting', () => {
