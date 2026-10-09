@@ -100,6 +100,9 @@ function renderAt100(bitmap: ImageBitmap, geometry: Geometry, adjustments: Adjus
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
   const ctx = new OffscreenCanvas(width, height).getContext('2d')!
   ctx.drawImage(canvas, 0, 0)
+  // Free the context at once: engines cap live WebGL contexts (16 on Chromium) and lose the
+  // oldest, which would be the Preview's, after enough calls in one test.
+  gl.getExtension('WEBGL_lose_context')?.loseContext()
   return Array.from(ctx.getImageData(0, 0, width, height).data)
 }
 

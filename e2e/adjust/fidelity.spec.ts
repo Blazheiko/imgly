@@ -112,37 +112,37 @@ test('QG-1b — neutral values give the Export from before any Adjustment (AC-06
 
 test.describe('QG-1c — transparency is kept exactly (AC-06)', () => {
   const patches = { width: 24, height: 16 }
-  const extremes: [string, Adjustments][] = [
-    ...SIGNED.flatMap((key) =>
-      [-100, 100].map((v) => [`${key} ${v}`, adjusted({ [key]: v })] as [string, Adjustments]),
-    ),
-    ...PERCENT.map((key) => [`${key} 100%`, adjusted({ [key]: 100 })] as [string, Adjustments]),
-    ['combined', COMBINED],
-  ]
+  // Every setting of the fidelity row and the combined one (spec §6 Transparency).
+  const settings: [string, Adjustments][] = [...SETTINGS, ['combined', COMBINED]]
 
-  test('every pixel keeps its alpha, and soft-edge colour matches the Preview', async ({
-    page,
-    browserName,
-  }) => {
-    test.setTimeout(120_000)
-    await gotoReady(page)
-    await openNamed(page, 'alpha-patches.png', patches.width, patches.height)
-    const neutral = await decodePng(page, await exportPng(page, browserName))
-    for (const [name, a] of extremes) {
-      await applyAdjustments(page, a)
-      const out = await decodePng(page, await exportPng(page, browserName))
-      const kept = diff(out.data, neutral.data, out.width)
-      expect(kept.alpha, `${name}: alpha`).toBe(0)
-      // Recorded deviation (adr/0005): on Firefox and WebKit the Export already differs from the
-      // Preview by one premultiplied step below alpha 255 with neutral values, and Adjustments scale
-      // it, so colour is checked on opaque pixels there; Chromium matches from alpha 64.
-      const minAlpha = browserName === 'chromium' ? 64 : 255
-      const vsPreview = diff(out.data, await previewAt100(page), out.width, minAlpha)
-      expect(vsPreview.colour, `${name}: ${vsPreview.where}`).toBeLessThanOrEqual(
-        semiTransparentLimit(browserName),
-      )
-    }
-  })
+  for (const withGeometry of [false, true]) {
+    test(`every pixel keeps its alpha, and soft-edge colour matches the Preview, ${
+      withGeometry ? 'with' : 'without'
+    } a Geometry`, async ({ page, browserName }) => {
+      test.setTimeout(240_000)
+      await gotoReady(page)
+      await openNamed(page, 'alpha-patches.png', patches.width, patches.height)
+      if (withGeometry) {
+        await page.evaluate((g) => window.__imglyTest!.setGeometry(g), GEOMETRY)
+      }
+      // The reference is the neutral Export with the same Geometry.
+      const neutral = await decodePng(page, await exportPng(page, browserName))
+      for (const [name, a] of settings) {
+        await applyAdjustments(page, a)
+        const out = await decodePng(page, await exportPng(page, browserName))
+        const kept = diff(out.data, neutral.data, out.width)
+        expect(kept.alpha, `${name}: alpha`).toBe(0)
+        // Recorded deviation (adr/0005): on Firefox and WebKit the Export already differs from the
+        // Preview by one premultiplied step below alpha 255 with neutral values, and Adjustments
+        // scale it, so colour is checked on opaque pixels there; Chromium matches from alpha 64.
+        const minAlpha = browserName === 'chromium' ? 64 : 255
+        const vsPreview = diff(out.data, await previewAt100(page), out.width, minAlpha)
+        expect(vsPreview.colour, `${name}: ${vsPreview.where}`).toBeLessThanOrEqual(
+          semiTransparentLimit(browserName),
+        )
+      }
+    })
+  }
 })
 
 test.describe('QG-1d — the shader gives ADR-0003’s anchor table (AC-02, AC-03, AC-04)', () => {
