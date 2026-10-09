@@ -253,9 +253,14 @@ test.describe('AC-05, AC-09, AC-10 — fields, Cancel and resets', () => {
     await openPhoto(page)
     const plain = await shot(page)
     await openTool(page)
-    await field(page, 'Temperature').fill('70')
-    await field(page, 'Temperature').press('Enter')
-    await slider(page, 'Temperature').dblclick()
+    // Away from neutral: at 85% of −100…100 a click alone sets about +70, so only the double-click
+    // handler can bring it back to 0.
+    const box = (await slider(page, 'Temperature').boundingBox())!
+    const position = { x: box.width * 0.85, y: box.height / 2 }
+    await slider(page, 'Temperature').click({ position })
+    await expect(field(page, 'Temperature')).not.toHaveValue('0')
+    expect(Number(await field(page, 'Temperature').inputValue())).toBeGreaterThan(40)
+    await slider(page, 'Temperature').dblclick({ position })
     await expect(field(page, 'Temperature')).toHaveValue('0')
     expect(maxDiff(await shot(page), plain)).toBeLessThanOrEqual(1)
   })
