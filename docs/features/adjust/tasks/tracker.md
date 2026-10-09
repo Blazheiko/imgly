@@ -80,3 +80,11 @@
 | G3 | A declined replace returns focus into the tool, also on the "Open image" path (SCR-06 declined) | ui | Blazheiko | S | — | done |
 | G4 | Drive AC-07's two e2e paths through the tool instead of the test hook | tests | Blazheiko | S | — | done |
 | G5 | AC-13 e2e "nothing to correct" starts from values away from neutral | tests | Blazheiko | S | — | done |
+
+## Review follow-ups (review-2026-10-09-4)
+
+| # | Task | Layer | Owner | Estimate | Blocked by | Status |
+|---|---|---|---|---|---|---|
+| H1 | Declining the replace with Esc closes only the dialog; the tool keeps its Draft (SCR-06 declined) | ui | Blazheiko | S | — | done |
+| H2 | T15 claims AC-11 | docs | Blazheiko | S | — | done |
+| H3 | AC-07 e2e checks that End and Home reach ±100 | tests | Blazheiko | S | — | done |
