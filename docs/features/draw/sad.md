@@ -309,6 +309,373 @@ sequenceDiagram
 - the refusals: "Draw" during an export, export or Ctrl/Cmd+S while the tool is open, and one tool at a time (AC-14, AC-15, AC-16, AC-17);
 - "Crop and rotate" and "Adjust" over applied marks (AC-08, AC-11), and the crop-transparency check with a layer (AC-10).
 
+<!-- Flows below were added by `sequences` and use the generic participant vocabulary: <user> is the Editor or the Portfolio reviewer; <ui> is the editor view with the Draw action, the tool's controls, the draw overlay and the width circle (SCR-01 to SCR-08 of ux-flows.md); <service> is the feature logic (the draw and editor stores with the core rules: width, curve, footprint and coordinate maps); <service> (layer) is the Drawing layer container of §5 (the Draft and applied bitmaps and their painter); <service> (render) is the Preview renderer and the export worker; <external-system> is the browser and the operating system (pointer events, the colour picker, decoding, the file dialog). Nothing in these flows is written to persistent storage: the Draft, the applied layer and the tool settings are in-memory session state, so there are no persist notes for data-model. -->
+
+### F1 — Open the tool, and the refusals to open
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant UI as <ui>
+    participant S as <service>
+    participant L as <service> (layer)
+    participant R as <service> (render)
+
+    alt no image is open
+        U->>UI: looks for Draw, or presses D
+        UI-->>U: action unavailable, hint says to open an image first, D shows the same hint
+    else an export is in progress
+        U->>UI: clicks Draw, or presses D
+        UI-->>U: action visibly disabled, D does nothing, the request is refused and not queued
+    else Crop and rotate or Adjust is open
+        U->>UI: clicks Draw, or presses D
+        UI-->>U: hint says to apply or cancel the open tool first, D is silent while a text field has focus
+    else D while the export panel is open, the Draw tool is already open, or a text field has focus
+        U->>UI: presses D
+        UI-->>U: nothing happens
+    else an image is open, no export runs and no other tool is open
+        U->>UI: clicks Draw (next to Adjust), Tab then Enter or Space on it, or presses D (letter first, then key position)
+        UI->>S: asks to open the tool
+        S->>S: opens the tool slot as draw, keeps the Crop and the View, mode Brush, colour and width as last chosen this session
+        alt the Work has an applied Drawing layer
+            S->>L: copy the applied layer into a new Draft
+            L-->>S: Draft bitmap
+        else the Work has no layer yet
+            S->>S: the Draft is empty
+        end
+        S->>R: show the Draft as the layer
+        R-->>UI: Preview with the image, its Geometry, its Adjustments and the Draft on top
+        UI-->>U: tool ready (SCR-03), every control reachable with Tab, width circle under the pointer
+    end
+    Note over U,R: Postcondition: with the tool open the Work is unchanged, the View is as before, and Export is unavailable
+```
+
+Opening needs an image (AC-17) and no export in progress, and a refused request is not queued (AC-14). While "Crop and rotate" or "Adjust" is open, Draw and D show "apply or cancel the open tool first", and D stays silent in a text field (AC-16). D is also silent while the export panel is open or the tool is already open (AC-19). On opening, the tool starts on the Brush with the colour and width last chosen in this session (red #E53935 and 12 px the first time), copies the Work's applied layer into the Draft or starts empty, and keeps the View (AC-01, AC-18).
+
+### F2 — Draw a Stroke with the Brush
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant B as <external-system>
+    participant UI as <ui>
+    participant S as <service>
+    participant L as <service> (layer)
+    participant R as <service> (render)
+
+    Note over U,S: Precondition: the tool is open on the Brush (F1)
+    U->>UI: presses the main button over the image
+    UI->>S: Stroke starts, colour and width read once for this Stroke
+    alt the Draft is empty
+        S->>L: create a transparent bitmap the size of the Original
+    end
+    loop while the pointer is pressed
+        B->>UI: pointer move with its coalesced positions
+        UI->>S: every position in device pixels
+        S->>S: map each position through the View current at this event into the Crop's frame
+        S->>S: Catmull-Rom control points for the segment behind the newest point
+        S->>L: paint the segment in the colour, round caps, through frame-to-Original, clipped to the Crop
+        Note over S,L: only the painted area inside the Crop is changed, a footprint outside leaves no mark
+        S->>S: footprint reaches inside the Crop? sets the change flag
+        opt the user zooms or pans with the wheel, pinch or zoom keys
+            U->>UI: zoom or pan
+            UI->>S: new View, the Stroke continues, later positions map with it
+        end
+        opt a key, colour, width or Space arrives
+            UI->>S: held until the Stroke ends, applies from the next Stroke, Space does not pan
+        end
+    end
+    loop once per animation frame while painting
+        S->>L: read the dirty rectangle
+        S->>R: update that part of the layer texture
+        R-->>U: frame shows the Stroke under the pointer, at least 30 times a second
+    end
+    alt the user releases the pointer
+        U->>UI: releases
+        S->>L: paint the last segment, nothing painted earlier changes
+    else a click without moving
+        U->>UI: releases at the same point
+        S->>L: paint one round dot of the width, clipped to the Crop
+    else pointer cancel, the window loses focus, or a second touch starts
+        B->>UI: cancel, blur or a second pointer
+        S->>S: the Stroke ends where it is, what was drawn is kept
+    end
+    Note over U,R: Postcondition: the Draft holds the Stroke, the Work and its Unsaved edits are unchanged until Apply
+```
+
+A press starts a Stroke with the colour and width chosen at that moment. On an empty Draft, the first Brush Stroke creates the bitmap. Each pointer event's positions, coalesced ones included, are mapped with the View current at that event. They are joined by a curve that passes through every one, painted with round ends and clipped to the Crop by painted area (AC-01, AC-09). The change flag turns on when the footprint reaches inside the Crop (AC-12). Once per frame only the changed rectangle reaches the Preview (§6 timing). A zoom or pan during the Stroke does not break it. A key, a colour or width change, or Space waits for the Stroke to end, and Space does not pan (AC-18). Release paints the last segment without changing what was drawn. A click without moving paints one round dot. A pointer cancel, losing focus or a second touch ends the Stroke and keeps it (AC-01, AC-18).
+
+### F3 — Pick the colour, the width and the mode
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant B as <external-system>
+    participant UI as <ui>
+    participant S as <service>
+
+    Note over U,S: Precondition: the tool is open and no Stroke is in progress (a change during a Stroke waits, F2)
+    alt a palette colour
+        U->>UI: picks one of the 10 preset colours
+        UI->>S: that colour
+        S-->>UI: the colour is marked in the palette
+    else a custom colour
+        U->>UI: opens the custom colour
+        UI->>B: browser colour picker
+        B-->>UI: any fully opaque colour
+        UI->>S: that colour, marked only when it is one of the 10
+    else the width slider
+        U->>UI: drags the width slider
+        UI->>S: the whole width, 1 to 200
+    else the [ or ] key (by character, else by the two key positions right of P)
+        U->>UI: presses or holds [ or ], with or without Shift
+        UI->>S: width 1 smaller or larger, 10 with Shift, repeated while held, kept within 1 to 200
+    else typed in the width field
+        U->>UI: types, then leaves the field or presses Enter in it
+        Note over UI,S: nothing is checked while typing, and Enter here never applies the tool
+        UI->>S: the typed text
+        alt plain decimal number, optional sign, one point or comma, optional "px" in any case
+            S->>S: snaps a value outside 1 to 200 to the nearest bound, rounds a fraction half up
+        else empty, scientific notation or not a number
+            S->>S: returns to the previous width
+        end
+        S-->>UI: the field shows the checked width
+    else B or E (letter first, then key position)
+        U->>UI: presses B or E
+        UI->>S: Brush or Eraser, same width
+    else any of these keys while a text field has focus
+        U->>UI: types into the field
+        UI-->>U: the character is typed, no shortcut runs
+    end
+    S->>S: remembers colour and width for this page, never as an edit
+    S-->>UI: width circle under the pointer shows the width at the current zoom
+    Note over U,S: Postcondition: later Strokes use the new colour and width, earlier ones keep theirs, and they stay chosen on Apply, Cancel and a new image until reload
+```
+
+The colour comes from the 10-colour palette, where the chosen one is marked, or from the browser's colour picker, which offers any fully opaque colour. The width comes from the slider, from [ and ] (±1, ±10 with Shift, repeating while held and kept within 1 to 200, recognised by the character or by key position), or from the field (AC-02, AC-19). A typed width is checked only when the field is left or Enter is pressed in it. It snaps to 1 or 200, rounds half up, or returns to the previous width, and "px" is accepted in any case (AC-03). B and E switch the mode, and every one of these keys types normally in a text field (AC-19). Colour and width are remembered until reload, never count as edits, and apply only to later Strokes (AC-02).
+
+### F4 — Erase and Clear
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant UI as <ui>
+    participant S as <service>
+    participant L as <service> (layer)
+    participant R as <service> (render)
+
+    Note over U,S: Precondition: the tool is open on a Draft with marks, applied earlier or drawn in this Draft
+    alt Eraser Stroke or click
+        U->>UI: selects the Eraser (or E), then drags or clicks
+        alt the Draft is empty
+            S->>S: nothing to erase, the image is never touched
+        else the Draft has a bitmap
+            loop each segment, as in F2
+                S->>L: erase along the path at the width, clipped to the Crop, from the layer only
+                opt the change flag is not yet set
+                    L-->>S: did the segment lower any alpha in its dirty rectangle?
+                    S->>S: sets the change flag if it did
+                end
+            end
+            Note over L: a click erases one round dot, never a whole Stroke, and at the edge a mark may keep a partly transparent fringe up to 1 px wide
+        end
+    else Clear
+        U->>UI: chooses Clear
+        opt the Draft has a bitmap
+            S->>L: did any pixel have a mark?
+            L-->>S: sets the change flag if one did
+            S->>L: release the Draft bitmap
+        end
+        S->>S: the Draft is empty, applied and hidden marks included, no confirmation
+        Note over S: Strokes drawn after Clear start a new Draft bitmap and are kept
+    end
+    S->>R: show the Draft, or no layer when it is empty
+    R-->>U: where marks were removed the image shows exactly as where nothing was drawn
+    Note over U,R: Invariant (AC-07): the image's own pixels never change, proven by §10 QG-2c, not a runtime step
+    Note over U,R: Postcondition: only the Draft changed, Apply makes it the Work's layer, Cancel brings back the applied marks (F5)
+```
+
+The Eraser removes marks along its path at the shared width, clipped to the Crop. It works on the layer only, so where nothing is drawn it changes nothing. A click erases one round dot and never a whole Stroke, and a mark's edge may keep a partly transparent fringe up to 1 px wide (AC-04). The change flag turns on once a segment actually lowered some layer pixel's alpha (AC-12). Clear empties the whole Draft at once, without a confirmation, including marks applied earlier and marks hidden outside a narrower Crop. It counts as a change only when the Draft had a mark, and Strokes drawn after it are kept (AC-05, AC-12). The image's own pixels never change, an invariant that §10 QG-2c proves (AC-07).
+
+### F5 — Apply, Cancel, or open another image while drawing
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant B as <external-system>
+    participant UI as <ui>
+    participant S as <service>
+    participant L as <service> (layer)
+    participant R as <service> (render)
+
+    Note over U,S: Precondition: the tool is open with a Draft (F1 to F4), the View as the user left it
+    alt Apply (the button, or Enter outside a field and outside a focused button)
+        U->>UI: chooses Apply
+        opt a Stroke is in progress
+            UI->>S: Apply waits until the pointer is released (F2)
+        end
+        S->>S: the Draft becomes the Work's layer with a new id, an empty Draft leaves the Work with no layer
+        alt the change flag is set
+            S->>S: raise the revision, the Work has Unsaved edits
+        else no Stroke, Strokes only outside the Crop, erasing nothing, or Clear of an empty layer
+            S->>S: Unsaved edits stay as they were
+        end
+        S->>L: release the previously applied layer
+        S->>S: close the tool slot, the View is unchanged
+        S->>R: show the Work's layer, the same bitmap, so nothing is uploaded
+        R-->>U: Preview keeps the marks over the image (SCR-01)
+    else Cancel or Escape (from anywhere, a field included, also during a Stroke)
+        U->>UI: chooses Cancel, or presses Escape
+        S->>L: release the Draft, a partial Stroke included
+        S->>S: close the tool slot, the View is unchanged
+        S->>R: show the Work's applied layer again
+        R-->>U: Preview as before the tool, Unsaved edits unchanged (SCR-01)
+    else Open image or a dropped file
+        U->>UI: chooses Open image (SCR-08), or drops a file
+        UI->>B: file dialog or drop, then decode
+        Note over S: the tool stays open with its Draft while the image is read
+        alt the image cannot be opened, or the dialog is cancelled
+            B-->>S: refusal or nothing
+            S-->>UI: the tool stays open with its Draft, a refusal shows its notice
+        else read, and the Work has Unsaved edits
+            S-->>UI: replace confirmation (SCR-07)
+            alt the user declines
+                UI-->>U: back in the tool with the Draft unchanged
+            else the user confirms
+                S->>S: replace the Work (below)
+            end
+        else read, and no Unsaved edits
+            S->>S: replace the Work (below)
+        end
+        opt the Work is replaced
+            S->>S: close the tool slot
+            S->>L: release the Draft and the old Work's layer
+            S->>S: the new Work starts with no Drawing layer
+            R-->>U: the new image at Fit (SCR-01)
+        end
+    end
+    Note over U,R: Postcondition: a Draft never counts as Unsaved edits on its own, and the change is judged only against the layer from when the tool opened
+```
+
+Apply waits for a Stroke in progress to end, then hands the Draft to the Work as its layer with a new id. The Work gets Unsaved edits only when the change flag is set: a mark drawn and erased again in one Draft still counts, while an Apply with no Stroke, with Strokes only outside the Crop, with erasing where nothing was drawn, or with a Clear of an empty layer does not (AC-12). The previous applied layer is released, nothing is uploaded, the tool closes and the View stays (AC-01, AC-18). Cancel or Escape, from anywhere and even during a Stroke, releases the Draft and shows the Work's layer from before, with Unsaved edits unchanged (AC-06, AC-18). Opening another image keeps the tool open with its Draft until the image has been read and any replace confirmation answered. A failed read or a declined replacement leaves the tool open. A replacement closes the tool, discards the Draft with the old Work, and the new Work has no layer (AC-13).
+
+### F6 — Change the Geometry, or adjust, over applied marks
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant UI as <ui>
+    participant S as <service>
+    participant R as <service> (render)
+
+    Note over U,S: Precondition: the Work has an applied Drawing layer and no tool is open
+    alt Crop and rotate
+        U->>UI: opens Crop and rotate (SCR-04)
+        S->>R: whole turned image, the layer sampled through the same transform as the image
+        R-->>U: every mark is shown, including marks outside the crop frame
+        U->>UI: applies a Rotation, a Flip, a Straighten angle or a new Crop
+        S->>S: store the new Geometry, the layer itself is untouched
+        S->>R: the Crop through the new Geometry, the layer through the same coordinates
+        R-->>U: marks turn, flip and straighten with the image, keep their shape and width relative to it
+        alt the new Crop is narrower
+            R-->>U: marks outside it are hidden, not removed
+        else a later Crop widens again
+            R-->>U: the hidden marks show where they were drawn
+        end
+        Note over S,R: four quarter turns or two Flips the same way give an identical full-size PNG (QG-2a)
+    else Adjust
+        U->>UI: opens Adjust (SCR-05), moves sliders, holds Compare
+        S->>R: only the colour uniforms change, the layer is composited after them
+        R-->>U: marks shown unadjusted, in the Draft and in Compare's Before view
+    else Draw on a Work with Geometry and Adjustments
+        U->>UI: opens Draw (F1)
+        R-->>U: the user draws over the image as it stands, with its Geometry and applied Adjustments
+    end
+    Note over U,R: Postcondition: the layer's pixels never change through Geometry or Adjustments, only how they are shown
+```
+
+In "Crop and rotate", the tool shows the whole turned image with every mark, including those outside the crop frame, so widening the frame shows them where they will be (AC-11). Applying a Rotation, a Flip, a Straighten angle or a Crop stores only the Geometry, and the layer follows the image because it is sampled through the same coordinates. Marks keep their shape and width relative to the image, a narrower Crop hides marks without removing them, and widening it again shows them (AC-08). In "Adjust", including Compare's "Before" view, only the colour values change and the marks stay unadjusted on top (AC-11). Opening "Draw" afterwards draws over the image as it stands (AC-11).
+
+### F7 — Export with marks, and Export or another tool while drawing
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant UI as <ui>
+    participant S as <service>
+    participant L as <service> (layer)
+    participant R as <service> (render)
+
+    alt the Draw tool is open
+        alt Export, or Ctrl or Cmd plus S
+            U->>UI: tries to export
+            UI-->>U: Export unavailable, hint says to apply or cancel the drawing first, the browser's Save page never opens
+        else Crop and rotate or Adjust, by button or by C or A
+            U->>UI: tries to open the other tool
+            UI-->>U: hint says to apply or cancel the open tool first, the key does nothing while a text field has focus
+        end
+    else the tool is closed, the export panel is open with JPEG chosen
+        alt the Original has no transparent pixel
+            S-->>UI: no transparency hint, opaque marks cannot add transparency
+        else no layer and the identity Geometry
+            S-->>UI: transparency hint shown, as before this feature
+        else otherwise
+            S->>L: read the applied layer
+            S->>R: render the Crop with the layer and check its alpha, cached by Work, Geometry and layer id
+            R-->>S: whether a transparent pixel is left inside the Crop
+            S-->>UI: hint shown exactly when one is left
+        end
+        U->>UI: confirms the export
+        Note over S,R: rendered as in critical flow 2, the layer composited unadjusted over the adjusted image, a smaller size is the full-size result reduced
+        R-->>U: the file matches the Preview, never containing an unapplied Draft
+    end
+```
+
+While "Draw" is open, Export and Ctrl/Cmd+S show "apply or cancel the drawing first" and never open the browser's "Save page" (AC-15). "Crop and rotate" and "Adjust" show "apply or cancel the open tool first", and C and A do nothing in a text field (AC-16). With the tool closed, the JPEG transparency hint follows the drawn result. An opaque Original never shows it. Without a layer and with the identity Geometry it shows, as before. Otherwise the export renders the Crop with the layer and shows the hint exactly when a transparent pixel is left inside the Crop (AC-10). The Export itself is critical flow 2: the layer composited unadjusted over the adjusted image, and a smaller size is the full-size result reduced (AC-10).
+
+**Coverage (use cases and acceptance criteria).**
+
+| User story | Flows |
+|---|---|
+| US-01 Draw freehand | F1, F2, critical flow 1 |
+| US-02 Pick colour and width | F3 |
+| US-03 Fix mistakes | F4 |
+| US-04 Change my mind | F5 |
+| US-05 Keep marks in place | F6 |
+| US-06 Export what I see | F6, F7, critical flow 2 |
+| US-07 Draw on the first try | F1, F3 |
+
+| AC | Shown by |
+|---|---|
+| AC-01 | F1 (opening state), F2 (live line, dot), F5 (Apply) |
+| AC-02 | F3 |
+| AC-03 | F3, the typed-width branch |
+| AC-04 | F4, the Eraser branch |
+| AC-05 | F4, the Clear branch |
+| AC-06 | F5, the Cancel or Escape branch |
+| AC-07 | Non-runtime: an invariant of every outcome, noted in F4 and proven by §10 QG-1b and QG-2c |
+| AC-08 | F6, the Crop and rotate branch |
+| AC-09 | F2, the clip to the Crop |
+| AC-10 | F7, the transparency hint, and critical flow 2 |
+| AC-11 | F6 (all three branches) |
+| AC-12 | F2 and F4 (the change flag), F5 (Apply's branches) |
+| AC-13 | F5, the Open image or drop branch |
+| AC-14 | F1, the export-in-progress branch |
+| AC-15 | F7, the tool-open Export branch |
+| AC-16 | F1 (Draw while another tool is open), F7 (another tool while Draw is open) |
+| AC-17 | F1, the no-image branch |
+| AC-18 | F2 (input during a Stroke, zoom, cancel, blur, second touch), F5 (Enter waits, Escape during a Stroke, View unchanged) |
+| AC-19 | F1 (Draw action and D), F3 (B, E, [ and ], silence in a field), F5 (Enter and Escape) |
+
+**Flags for design:** none for participants. Every participant is in §5: the Editor SPA as `<ui>` and `<service>`, the Drawing layer as `<service> (layer)`, the Preview renderer and the export worker as `<service> (render)`, and the browser and operating system as `<external-system>`. No flow is async, and nothing is persisted, so data-model has no indexes to derive.
+
 ## 7. Deployment view
 
 The topology is unchanged. The feature ships inside the existing static app on GitHub Pages under `/imgly/`, as part of the same Vite build, and runs entirely in one browser tab. There is no server, replica or scaling unit to add. The service worker precaches the larger app shell and the changed export worker script exactly as it does today, so the tool works offline after the first load. No new hosting configuration, header or permission is needed. Canvas 2D on an `OffscreenCanvas` in the window is available in every target browser, and OffscreenCanvas and WebGL2 are already start-up requirements (open-and-view capability gate).
