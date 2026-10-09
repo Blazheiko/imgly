@@ -279,7 +279,7 @@ describe('AC-06 only colours change (seeded)', () => {
   })
 })
 
-describe('AC-07 one fixed order, clamped, never wrapped (seeded)', () => {
+describe('AC-07 clamped, never wrapped (seeded)', () => {
   it('keeps every channel within 0…255 at any values', () => {
     const rand = mulberry32(702)
     for (let i = 0; i < RUNS; i++) {

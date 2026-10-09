@@ -4,7 +4,7 @@ title: "Build AdjustControls: seven SliderFields in three groups with neutral ma
 layer: "ui"
 deps: ["T11", "T13"]
 blocks: ["T16"]
-acs: ["AC-01", "AC-05", "AC-10", "AC-12", "AC-13"]
+acs: ["AC-01", "AC-05", "AC-08", "AC-09", "AC-10", "AC-12", "AC-13"]
 files_hint: ["src/features/adjust/AdjustControls.vue", "src/features/adjust/AdjustControls.test.ts", "src/features/adjust/messages.ts"]
 owner: "Blazheiko"
 estimate: "M"

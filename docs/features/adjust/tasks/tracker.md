@@ -70,3 +70,13 @@
 | F6 | Test-plan AC-21 row: Enter and Space on the action narrowed to e2e | docs | Blazheiko | S | — | done |
 | F7 | Tick spec §8 Q1, Q2 and the sad F4 question, with links to their answers | docs | Blazheiko | S | — | done |
 | F8 | Delete the AC-07 "any order" unit test that could not fail | tests | Blazheiko | S | — | done |
+
+## Review follow-ups (review-2026-10-09-3)
+
+| # | Task | Layer | Owner | Estimate | Blocked by | Status |
+|---|---|---|---|---|---|---|
+| G1 | Test plan, sad and formula.test.ts stop describing the deleted AC-07 "any order" unit test | docs | Blazheiko | S | — | done |
+| G2 | T15 claims AC-08 and AC-09; screens.md marks the reused open-and-view and export states (AC-17, AC-20) | docs | Blazheiko | S | — | done |
+| G3 | A declined replace returns focus into the tool, also on the "Open image" path (SCR-06 declined) | ui | Blazheiko | S | — | done |
+| G4 | Drive AC-07's two e2e paths through the tool instead of the test hook | tests | Blazheiko | S | — | done |
+| G5 | AC-13 e2e "nothing to correct" starts from values away from neutral | tests | Blazheiko | S | — | done |
