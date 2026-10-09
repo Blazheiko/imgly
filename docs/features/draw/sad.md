@@ -134,50 +134,78 @@ Each tactical decision in later sections traces to one of these seeds. A tactica
 
 ## 5. Building block view
 
-<!-- 🎯 Why: INTERNAL DECOMPOSITION — modules, containers, datastores. The static topology: who
-     may talk to whom. Without §5, §6 (the flows) has no vocabulary of participants.
-     📋 Write: 1 ¶ on the style (layered / hexagonal / clean / event-driven) + a folder tree + a
-     C4Container block.
-     📌 Draw ONE Container per declared `target_surface` (frontmatter): a fullstack
-     [backend-service, web-frontend] = a backend-API container + a web/SPA container; a
-     [backend-service, mobile-app] = the API + the mobile app. The Container(web, …) line below is
-     just one surface's container — swap/add per what was declared in §4. → _shared/surfaces.md
-     📌 e.g. «web app, content API, media worker, datastore, object store, CDN». -->
+The layering is the repo's functional core with feature folders (repo ADR 0002), unchanged. Pure rules go in `src/core/draw/`: the width rules, the stroke curve, the footprint test and the frame-to-Original transform. The Canvas 2D bitmap and its painter go in `src/render/drawing/`, next to the WebGL2 renderer that composites them. The tool, its Draft, its overlay and its keys go in `src/features/draw/`, following crop-rotate and adjust. Features still never import each other: the `draw` store reaches the Work and the Preview only through the `editor` store (`setPreviewLayer`, `layerChanged`, `applyDrawing`), as adjust does through `setPreviewAdjustments` and `applyAdjustments`. The hot path does not go through Vue reactivity. A pointer event goes to the `draw` store's Stroke session, which calls the painter. Once per frame the dirty rectangle goes to `editor.layerChanged(rect)` and on to the renderer. The bitmap handle sits in a plain field, so a pointer move triggers no reactive update.
 
-<One paragraph: layered / hexagonal / clean / event-driven, and why.>
+**The tool slot is extracted from the `editor` store before the third tool lands** (decided inline; it answers adjust sad.md §11's risk, due before this step's `tasks`). The store is 515 lines today and draw adds the layer preview, `applyDrawing` and the snapshot's layer. One refactoring task moves `activeTool`, `openTool`, `closeTool`, the per-tool previews (`previewGeometry`, `previewAdjustments`, `previewLayer`) and their setters into `src/features/editor/tool-slot.ts`, which the store composes. The store's public API stays as it is, and its existing tests must pass unchanged before any draw code is added.
+
+**Cross-feature changes (editor, export, crop-rotate, adjust, app shell):**
+- **editor** (`store.ts`, `tool-slot.ts`): `ToolId` gains `'draw'`. `openTool('draw')` keeps the Crop and the View, as for `'adjust'`. New: `previewLayer` with `setPreviewLayer(layer | null)` (only while the "Draw" tool is open), `layerChanged(rect)`, which forwards to the renderer, and `applyDrawing(layer, changed)`, which is refused while exporting and raises the revision only when `changed` is true (§4). `closeTool()` clears `previewLayer`. `replace()` closes the tool, and the `draw` store releases its Draft when its tool is closed this way (AC-13). `ExportSnapshot` gains `drawing`, the applied layer or `null`.
+- **editor `PreviewCanvas.vue`**: passes `previewLayer ?? work.drawing` to `renderer.setLayer()`. While the "Draw" tool is open, a main-button drag over the image belongs to the draw overlay, not to the pan gesture. Space-drag, the wheel, pinch and the zoom keys keep their open-and-view behaviour (AC-18), through the existing `spacePan` flag that lets a drag through an overlay.
+- **render** (`shaders.ts`, `preview-renderer.ts`): `u_layer`, `u_draw`, `setLayer` and `updateLayer` (ADR-0003). `sampleCrop` stays without the layer.
+- **render/export** (`worker-handler.ts`, `client.ts`): `ExportRequest` and `AlphaRequest` gain `layer: ImageData | null`, transferred. Single-pass rendering now applies only when the Export is full size, or when the Adjustments are neutral and there is no layer. Otherwise the two passes of adjust sad.md §5 run with the layer in the first pass (AC-10).
+- **export** (`store.ts`, `messages.ts`): the snapshot's layer is read with `getImageData` once per export and per alpha check. The alpha check's cache key gains the layer id (ADR-0003). `infoToolOpen('draw')` says "Apply or cancel the drawing first, then export." for the action and Ctrl/Cmd+S (AC-15).
+- **crop-rotate, adjust**: no change. Their actions and keys already refuse with "Apply or cancel the open tool first." whenever another tool is open, and stay silent in a text field (AC-16). An e2e test runs that rule with "Draw" open.
+- **app shell** (`App.vue`, `test-hooks.ts`): `DrawAction` sits in `top-bar-actions` after `AdjustAction` (AC-19), with `DrawOverlay` in `tool-canvas` and `DrawTool` in `tool-panel`. The e2e hooks gain a way to put a reference drawing on the Work without driving the pointer, and `previewAt100()` renders with the layer.
 
 **Internal decomposition:**
 
 ```
-<e.g. modules/<feature>/>
-├── domain/       <entities + sentinel errors>
-├── app/          <use cases / services>
-├── infra/        <repository + integration impl>
-├── ports/        <handlers, DTOs, error mapping>
-└── wiring        <self-wiring entry point>
+src/core/draw/                 pure rules, no DOM
+├── settings.ts                PALETTE (10 colours, AC-02), DEFAULT_COLOUR #E53935, DEFAULT_WIDTH 12, MIN/MAX_WIDTH 1…200
+├── width.ts                   parseWidth (AC-03 field rules, "px" suffix), stepWidth ([ ] ±1, ±10 with Shift, clamped; AC-19)
+├── stroke.ts                  catmullRomSegments (points → Bézier control points), segmentBounds, footprintReachesCrop (AC-12)
+└── index.ts
+src/core/geometry/transform.ts + frameToOriginal(g, original) — the pixel-unit form of cropToOriginalUv's frame step
+src/core/view/                 + deviceToFrame(view, crop, point) — the inverse of the View for one point
+src/core/document.ts           + Work.drawing: DrawingLayer | null; DrawingLayer { id, width, height, pixels }
+src/render/drawing/            Canvas 2D bitmap (repo ADR 0004)
+├── layer.ts                   createLayer, copyLayer, releaseLayer (0×0 + ledger), readRect, hasAnyMark
+├── painter.ts                 paintSegment / paintDot (Brush source-over, Eraser destination-out) under setTransform + clip
+└── index.ts
+src/render/shaders.ts          + u_layer, u_draw, setLayerUniforms
+src/render/preview-renderer.ts + setLayer, updateLayer (dirty rect + mipmaps)
+src/render/export/             + layer in ExportRequest / AlphaRequest, two-pass condition
+src/features/draw/
+├── DrawAction.vue             top-bar "Draw" button, D key, hints (AC-14, AC-16, AC-17, AC-19)
+├── DrawTool.vue               panel: mode, palette + custom colour, width slider + field, Clear, Cancel, Apply
+├── DrawOverlay.vue            tool-canvas: pointer capture, coalesced events, width circle under the pointer
+├── store.ts                   Draft, changed flag, mode, colour, width, the Stroke session
+├── shortcuts.ts               B, E, [ ], Enter, Escape inside the tool (AC-19); letter-first, then key position
+├── messages.ts                hints and labels
+└── index.ts
+src/features/editor/tool-slot.ts   extracted active-tool slot and per-tool previews (above)
 ```
 
-**C4 Container (L2):** <!-- syntax → references/c4-mermaid-syntax.md. Real names, no <placeholder> stubs. ONE Container per declared target_surface (frontmatter); the web container below is one example surface. -->
+`screens` decides whether the palette needs a new swatch primitive. A new primitive is built in `src/shared/ui/` and registered in `docs/design-system.md`.
+
+**C4 Container (L2):**
 
 ```mermaid
 C4Container
-    title <feature> — Containers
+    title draw — Containers
 
-    Person(actor, "<Actor>")
+    Person(editor, "Editor", "Draws, erases, clears, applies or cancels")
 
-    Container_Boundary(app, "<Our system>") {
-        Container(web, "<Web/UI>", "<technology>", "<purpose>")
-        Container(api, "<API/handler>", "<technology>", "<purpose>")
-        ContainerDb(db, "<Datastore>", "<technology>", "<purpose>")
+    Container_Boundary(tab, "Browser tab") {
+        Container(spa, "Editor SPA", "Vue 3, Pinia, TypeScript", "Draw tool, overlay and store; editor store with the tool slot, the Work and the export snapshot")
+        Container(core, "Editing core", "Pure TypeScript", "Work with its Drawing layer, Geometry transform, width rules, stroke curve, footprint test")
+        Container(painter, "Drawing layer", "Canvas 2D on OffscreenCanvas", "The Draft and the applied layer on the Original's pixel grid; paints and erases Strokes")
+        Container(gpu, "Preview renderer", "WebGL2", "Composites Original, Adjustments and layer in the shared shader at the View")
+        Container(eworker, "Export worker", "Web Worker, OffscreenCanvas WebGL2", "Renders the Work with its layer in the same shader, encodes, checks transparency")
     }
 
-    System_Ext(ext, "<External>", "<purpose>")
+    System_Ext(browser, "Browser platform", "Pointer events with coalesced positions, encoders, downloads")
 
-    Rel(actor, web, "<interaction>", "<protocol>")
-    Rel(web, api, "<calls>")
-    Rel(api, db, "<reads/writes>", "<driver>")
-    Rel(api, ext, "<emits>", "<protocol>")
+    Rel(editor, spa, "Drags, clicks, types a width, presses keys", "mouse, pen, keyboard")
+    Rel(spa, core, "Maps pointer to Original, checks widths and footprints")
+    Rel(spa, painter, "Paints segments, clears, copies and releases layers")
+    Rel(spa, gpu, "Sets the layer and uploads dirty rectangles")
+    Rel(spa, eworker, "Exports the snapshot with the applied layer", "postMessage, transfer")
+    Rel(painter, core, "Uses the frame-to-Original transform")
+    Rel(browser, spa, "Delivers pointer and key events", "DOM events")
 ```
+
+The Editor drives the Editor SPA, where the draw tool and its store live. The SPA asks the editing core to map pointer positions onto the Original and to check widths and footprints. It has the Drawing layer container paint each segment through core's transform, hands the dirty rectangle to the WebGL2 Preview renderer, and sends the applied layer with the export snapshot to the export worker. The renderer and the worker composite the layer with the same shader. The browser platform delivers the pointer and key events. The decode worker, the service worker and the Works store are unchanged and left out.
 
 ## 6. Runtime view
 
