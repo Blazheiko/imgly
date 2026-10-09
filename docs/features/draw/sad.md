@@ -360,29 +360,70 @@ ADR files live under `docs/features/draw/adr/`. Five ADRs sit at the low end of 
 
 ## 10. Quality requirements
 
-<!-- 🎯 Why: the QUALITY TREE — take a goal from §1 and break it into concrete leaves: tests,
-     metrics, configs, drills. ⭐ Without §10, §1 is a manifesto. With §10 each declaration maps
-     to something PROVABLE.
-     📋 Write: per §1 goal — When / Then / How-verify. Numbers from spec §6 NFR VERBATIM (don't
-     round ≤250ms to ≤300ms — that's a critic F6 hit).
-     📌 e.g. «p95 ≤ 500 ms on a block update, verified by a 100 req/s load test». -->
+Each top-3 goal from §1 is expanded below into full scenarios. Every number is quoted from spec §6 or §7. The reference machine, the 4096×3072 Work, "p95 over 20 runs after 2 warm-up runs", "measured at Fit and at 100%", "scripted pointer moves at 120 per second", "covered by marks over the whole image" and "a Stroke across the whole image" are as spec §6 defines them.
 
-Each top-3 goal from §1 expanded into a full scenario:
+**QG-1. Fidelity, Preview to Export, with marks**
 
-**QG-1. <quality attribute>**
-- **When:** <trigger condition>
-- **Then:** <expected behaviour with numbers from spec §6 NFR>
-- **How verify:** <test / chaos drill / load test / metric>
+*QG-1a. An Export with marks matches the Preview*
+- **When:** the reference drawing (Strokes at 1, 12 and 200 px in the 10 preset colours plus erased parts) is applied with each of these: no Geometry; each Rotation; a Flip; a Straighten angle and a Crop; all seven Adjustments away from neutral. Each is exported as a full-size PNG.
+- **Then:** "each pixel of a full-size PNG Export within 2 of 255 per channel of the Preview's own rendering of the Work at 100%, compared as in export §6".
+- **How verify:** e2e pixel comparison on Chromium, Firefox and WebKit. A test hook paints the reference drawing through the same painter (§8), and `previewAt100()` reads back the Preview with the same layer. The same fixtures feed spec §7's KPI "100% of Exports within the §6 fidelity tolerance". A grayscale-100% case asserts that a red mark stays the same red (AC-10).
 
-**QG-2. <quality attribute>**
-- **When:** <trigger>
-- **Then:** <expected>
-- **How verify:** <how>
+*QG-1b. An empty Drawing layer changes nothing*
+- **When:** a Work is exported as a full-size PNG before anything is drawn, then marks are drawn and applied, then Clear and Apply, and it is exported again.
+- **Then:** "difference 0 per channel between a full-size PNG Export after Clear and Apply and one of the same Work before anything was drawn".
+- **How verify:** e2e exact comparison on Chromium, Firefox and WebKit. It holds by construction, because Clear makes the layer `null` and `u_draw` false (ADR-0001, ADR-0003). A unit test asserts that an applied empty Draft is `null`, and a shader test that `u_draw` false skips the block.
 
-**QG-3. <quality attribute>**
-- **When:** <trigger>
-- **Then:** <expected>
-- **How verify:** <how>
+*QG-1c. Export time with a full layer*
+- **When:** the 4096×3072 Work is covered by marks over the whole image and exported at full size.
+- **Then:** "within export §6 targets: full-size JPEG at quality 90 p95 ≤ 1 s, full-size PNG p95 ≤ 2 s".
+- **How verify:** export's `@perf` e2e test (`e2e/export/perf.spec.ts`), repeated with a full Drawing layer, on the reference machine.
+
+*QG-1d. The transparency hint follows the drawn result*
+- **When:** an Original with transparent pixels inside the Crop is exported with marks that cover some, then all, of them.
+- **Then:** export AC-15's hint is shown "exactly when the drawn result still has a transparent pixel inside the Crop" (AC-10). Where a mark lies over a transparent part, the Export shows the mark's colour, and everywhere else the image keeps exactly its own transparency (AC-07).
+- **How verify:** e2e on all three engines with a transparent fixture: one alpha comparison against the Export without marks, and one check of the hint's state per case.
+
+**QG-2. Non-destructive marks that stay on the image**
+
+*QG-2a. Geometry round trips*
+- **When:** marks are applied over the whole image, then the Work is turned four quarter turns in either direction, or flipped twice in the same direction.
+- **Then:** "difference 0 per channel between a full-size PNG Export before and after four quarter turns, and before and after two Flips in the same direction".
+- **How verify:** e2e exact comparison on Chromium, Firefox and WebKit. It holds by construction, because the layer lies on the Original's grid and is never resampled (ADR-0001).
+
+*QG-2b. Marks land on the same content through re-editing*
+- **When:** for each reference case — each Rotation, each Flip, a Straighten angle, narrowing and then widening the Crop — marks are applied first and the Geometry is changed afterwards.
+- **Then:** "for 100% of reference cases … every mark lands on the same image content as before, checked by pixel comparison against the expected Export" (spec §7). A mark outside a narrower Crop is hidden, not removed, and shows again when the Crop is widened (AC-08). A Stroke that reached outside the Crop leaves no mark there when the Crop is widened later (AC-09).
+- **How verify:** e2e pixel comparison on all three engines against expected Exports computed from the same layer through `frameToOriginal`. `core/draw` and `core/geometry` unit tests cover the mapping and the footprint test.
+
+*QG-2c. The image itself never changes*
+- **When:** any mix of Brush Strokes, Eraser Strokes and Clear is applied, on opaque and on transparent fixtures.
+- **Then:** "everywhere no mark lies, the Preview and a full-size PNG Export show exactly the pixels the Work has with an empty Drawing layer". Inside an Eraser path the image shows as where nothing was ever drawn, with at most a 1 px partly transparent fringe of the mark at the path's edge (AC-04, AC-07).
+- **How verify:** e2e exact comparison outside a mask of the drawn area on all three engines. The Eraser's edge is checked with the 1 px fringe excluded.
+
+*QG-2d. Unsaved edits change only with a real change*
+- **When:** Applies are made with no Stroke, with Brush Strokes only outside the Crop, with an Eraser Stroke only where nothing was drawn, with a Clear of an empty layer, with a mark drawn and erased again in one Draft, and with a mark drawn in one Apply and erased in a later one after an Export.
+- **Then:** the first four leave the Unsaved edits as they were, and the last two give the Work Unsaved edits (AC-12).
+- **How verify:** store-level tests with a real `editor` store and the `draw` store. The painter is faked only where the flag's pixel checks need it, and the footprint test is covered in `core/draw` units.
+
+**QG-3. Live, leak-free drawing**
+- **When:** on the reference machine with the 4096×3072 Work, at Fit and at 100%, the Editor draws with the Brush and the Eraser at 200 px and at 1 px, opens the tool, chooses Apply, Cancel and Clear with the layer covered by marks over the whole image, applies a "Crop and rotate" change over such a layer, and makes 50 Applies each with a new Stroke across the whole image.
+- **Then:**
+  - Preview update while drawing: "p95 frame interval ≤ 33 ms (at least 30 updates per second), at the widest width of 200 px and at 1 px".
+  - From a pointer move to the frame that shows the Stroke reaching that point: "p95 ≤ 50 ms".
+  - From choosing "Draw" to the tool being ready to draw: "p95 ≤ 150 ms".
+  - From choosing Apply, Cancel or Clear to the updated Preview: "p95 ≤ 150 ms, with the Drawing layer covered by marks over the whole image".
+  - From choosing Apply in "Crop and rotate" to the updated Preview, with marks over the whole image: "p95 ≤ 150 ms".
+  - Memory after 50 Applies, each with a new Stroke across the whole image: "≤ 110% of memory after the first Apply".
+- **How verify:**
+  - A new `e2e/draw/perf.spec.ts` tagged `@perf`, run with `PERF=1` on the reference machine.
+    - It drives scripted pointer moves at 120 per second.
+    - It reads a frame-timing trace while drawing, and the per-frame Stroke marks matched to their pointer moves (§7).
+    - It times from the action marks to the redrawn Preview and to the tool-ready mark.
+    - It measures whole-page memory as export §6 does (`e2e/perf-memory.ts`), Chromium only.
+  - The bitmap ledger assertion (§7) runs in every e2e build, so a missed release fails CI before the memory row does.
+  - AC-01's path rules (through every reported position, a round dot for a click, unchanged after release) are e2e checks on Chromium. They compare the Preview read during the Stroke with the Preview after release, and the curve's control points are covered by `core/draw` units.
+  - Spec §7's "≤ 3 actions" KPI is the e2e tool flow of AC-19.
 
 ## 11. Risks and technical debt
 
