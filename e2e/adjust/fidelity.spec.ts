@@ -8,6 +8,7 @@ import {
   decodePng,
   diff,
   exportPng,
+  field,
   gotoReady,
   openNamed,
   openPixels,
@@ -268,6 +269,7 @@ test('AC-07 — two paths through the tool to the same values give the same pixe
   await openTool(page)
   await slider(page, 'Contrast').focus()
   await page.keyboard.press('End')
+  await expect(field(page, 'Contrast')).toHaveValue('100')
   await setField(page, 'Contrast', '40')
   await setField(page, 'Brightness', '30')
   await setField(page, 'Sepia', '20')
@@ -284,6 +286,7 @@ test('AC-07 — two paths through the tool to the same values give the same pixe
   await setField(page, 'Brightness', '30')
   await slider(page, 'Contrast').focus()
   await page.keyboard.press('Home')
+  await expect(field(page, 'Contrast')).toHaveValue('-100')
   await setField(page, 'Contrast', '40')
   await apply()
   expect((await work(page))!.adjustments).toEqual(target)
