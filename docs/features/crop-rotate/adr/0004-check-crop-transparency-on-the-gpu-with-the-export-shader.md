@@ -36,7 +36,12 @@ The export panel shows a hint that transparent areas become white when JPEG is c
 How it works:
 
 - `src/render/export/`: the worker message union gains `{ kind: 'alpha', request: { bitmap, geometry } }`. The handler renders at `workSize` with the export path, reads the alpha channel back and answers `Result<boolean>`. The window fallback (export ADR-0003) runs the same code. The bitmap copy is closed in every branch, as for an export.
-- `src/features/export/store.ts`: `transparencyHint` uses `original.hasTransparency` when it is false or the Geometry is the identity. Otherwise it uses the check's result, cached by `(work id, revision)`. While the check runs, the hint stays hidden. If the check fails, the hint is shown, because showing it is the safe side.
+- `src/features/export/store.ts`: `transparencyHint` uses `original.hasTransparency` when it is false or the Geometry is the identity. Otherwise it uses the check's result, cached by `(work id, revision)` (amended below: now `(work id, Geometry)`). While the check runs, the hint stays hidden. If the check fails, the hint is shown, because showing it is the safe side.
+
+**Amended by adjust (2026-10-09, review R3):** the cache key is `(work id, Geometry)`, not
+`(work id, revision)`. Adjustments raise the revision but never change alpha (adjust AC-06), so
+keying on the revision re-ran the GPU check after every Apply of Adjustments. A new Work gets a new
+id and a Geometry change gets a new key, so the answer can't go stale.
 
 ## Consequences
 

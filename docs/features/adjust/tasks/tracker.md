@@ -53,7 +53,7 @@
 | N1 | Auto's same-colour check allows ±1 stored level below full alpha (exact at 255), with a floor-rounded unit case and a soft-edge "nothing to correct" e2e | domain | Blazheiko | S | — | done |
 | N2 | AC-06 alpha e2e at every fidelity setting, with and without a Geometry | tests | Blazheiko | S | — | done |
 | N3 | Component tests: fields after Auto, Unsaved edits after Apply, field text after Reset, Space on the Adjust action | tests | Blazheiko | S | — | done |
-| N4 | Index ADR-0005 in sad §9 and link it from §11 | docs | Blazheiko | S | — | todo |
-| N5 | Note the transparency cache's Work id + Geometry key in crop-rotate ADR-0004, crop-rotate sad and adjust sad | docs | Blazheiko | S | — | todo |
-| N6 | screens.md SCR-03 comparing row names AdjustBeforeLabel in #tool-canvas | docs | Blazheiko | S | — | todo |
+| N4 | Index ADR-0005 in sad §9 and link it from §11 | docs | Blazheiko | S | — | done |
+| N5 | Note the transparency cache's Work id + Geometry key in crop-rotate ADR-0004, crop-rotate sad and adjust sad | docs | Blazheiko | S | — | done |
+| N6 | screens.md SCR-03 comparing row names AdjustBeforeLabel in #tool-canvas | docs | Blazheiko | S | — | done |
 | N7 | Remove the unreachable resetOne (owner chose delete over a new SliderField reset event) | app | Blazheiko | S | — | done |
