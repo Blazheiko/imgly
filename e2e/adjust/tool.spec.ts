@@ -125,6 +125,10 @@ test.describe('AC-13 — Auto agrees within 1 across engines', () => {
   const FIXTURES: [string, number, number][] = [
     ['photo.png', 320, 240],
     ['ref.png', 48, 32],
+    // Inside ±50, where "within 1" is not met by the clamp alone.
+    ['mild-cast.png', 160, 120],
+    // Longer than 512 px: Auto measures the engines' reduced (NEAREST) sample.
+    ['large-cast.png', 1200, 800],
   ]
 
   for (const [name, width, height] of FIXTURES) {
