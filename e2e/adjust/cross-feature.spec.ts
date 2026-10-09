@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type FileChooser, type Page } from '@playwright/test'
 import { canvasArea, dropGeneratedImage } from '../open-and-view/helpers'
 import { dropBytes, pixelsAt } from '../crop-rotate/helpers'
 import { choose, generateImage, openFile, panel, view } from '../export/helpers'
@@ -35,6 +35,13 @@ const toast = (page: Page, text: string) => toasts(page, text).first()
 async function setField(page: Page, name: string, value: string) {
   await field(page, name).fill(value)
   await field(page, name).press('Enter')
+}
+
+/** Clicks the top bar's "Open image" and hands its file dialog to `answer`. */
+async function pickThroughOpenImage(page: Page, answer: (chooser: FileChooser) => Promise<void>) {
+  const chooser = page.waitForEvent('filechooser')
+  await page.getByTestId('editor-top-bar').getByRole('button', { name: 'Open image' }).click()
+  await answer(await chooser)
 }
 
 async function apply(page: Page) {
@@ -222,6 +229,53 @@ test.describe('with an image', () => {
       await waitForWork(page, 120, 90)
       await expect(tool(page)).toBeHidden()
       expect((await work(page))!.adjustments).toEqual(NEUTRAL_ADJUSTMENTS)
+    })
+
+    test('through "Open image": declining keeps the Draft, confirming closes the tool', async ({
+      page,
+    }) => {
+      await applyAdjustments(page, adjusted({ tint: 10 }))
+      await openTool(page)
+      await setField(page, 'Saturation', '-30')
+      await pickThroughOpenImage(page, (chooser) =>
+        chooser.setFiles({
+          name: 'photo.jpg',
+          mimeType: 'image/jpeg',
+          buffer: fixture('photo.jpg'),
+        }),
+      )
+      await expect(replaceDialog(page)).toBeVisible()
+      await replaceDialog(page).getByRole('button', { name: 'Cancel' }).click()
+      await expect(tool(page)).toBeVisible()
+      await expect(field(page, 'Saturation')).toHaveValue('-30')
+
+      const before = (await work(page))!
+      await pickThroughOpenImage(page, (chooser) =>
+        chooser.setFiles({
+          name: 'photo.jpg',
+          mimeType: 'image/jpeg',
+          buffer: fixture('photo.jpg'),
+        }),
+      )
+      await replaceDialog(page).getByRole('button', { name: 'Replace' }).click()
+      await expect.poll(async () => (await work(page))!.id).not.toBe(before.id)
+      await expect(tool(page)).toBeHidden()
+      expect((await work(page))!.adjustments).toEqual(NEUTRAL_ADJUSTMENTS)
+    })
+
+    test('a cancelled file dialog leaves the tool and its Draft as they were (SCR-07)', async ({
+      page,
+    }) => {
+      await openTool(page)
+      await setField(page, 'Brightness', '40')
+      const before = (await work(page))!
+      await pickThroughOpenImage(page, async (chooser) => {
+        await chooser.element().dispatchEvent('cancel')
+      })
+      await expect(replaceDialog(page)).toHaveCount(0)
+      await expect(tool(page)).toBeVisible()
+      await expect(field(page, 'Brightness')).toHaveValue('40')
+      expect((await work(page))!).toMatchObject({ id: before.id, revision: before.revision })
     })
   })
 
