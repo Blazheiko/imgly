@@ -164,15 +164,17 @@ src/
 ├── features/export/              sends adjustments; the tool-open hint names the open tool (AC-16)
 ├── features/crop-rotate/         action and C key: "apply or cancel the open tool first" while adjust is open (AC-18)
 ├── features/adjust/
-│   ├── store.ts                  `adjust` store: Draft, Adjustments at open, Compare held, field state,
-│   │                             apply / cancel / reset / reset one / auto
+│   ├── store.ts                  `adjust` store: Draft, Compare held, nothing to correct; commitText (AC-05),
+│   │                             apply / cancel / reset / reset one / auto (Cancel reads the Work's values)
 │   ├── AdjustAction.vue          the toolbar action with its hints (SCR-01, SCR-02; AC-15, AC-18, AC-19, AC-21)
-│   ├── AdjustTool.vue            SCR-03, mounted in the editor's tool slot: the panel beside the canvas and the "Before" label over it
+│   ├── AdjustTool.vue            SCR-03, mounted in the editor's tool slot: the panel beside the canvas, its keys and focus
+│   ├── AdjustBeforeLabel.vue     the "Before" label over the canvas while Compare is held, mounted in the #tool-canvas slot
 │   ├── AdjustControls.vue        seven SliderFields with number fields and neutral marks, Compare, Auto, Reset, Cancel, Apply
 │   ├── shortcuts.ts              A to open; inside the tool Enter, Escape and the held \ key (by key code, AC-08, AC-21)
 │   ├── messages.ts               the tool's hint catalog ("nothing to correct automatically", refusals)
-│   └── index.ts                  public surface: AdjustAction, AdjustTool, useAdjustStore
-└── app/App.vue                   mounts AdjustAction next to CropRotateAction, and AdjustTool into the editor's tool slot
+│   └── index.ts                  public surface: AdjustAction, AdjustTool, AdjustBeforeLabel, useAdjustStore
+└── app/App.vue                   mounts AdjustAction next to CropRotateAction, AdjustTool into the editor's tool slot
+                                  and AdjustBeforeLabel into its #tool-canvas slot, over the canvas
 ```
 
 Dependency direction stays `features → core | infra | render | shared`. `render` imports `core` for the `Adjustments` type and `toUniforms`, as repo `CLAUDE.md` §Module boundaries allows. No new `AppError` code: the field rules never fail (they snap, round or revert), "nothing to correct" is a result, not an error, and a failed sample is the existing `DISPLAY_LOST`.
