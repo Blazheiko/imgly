@@ -1,12 +1,13 @@
 ---
 status: Living
-updated_at: "2026-10-06"
+updated_at: "2026-10-08"
 ---
 
 # Domain Context — imgly-editor
 
 ## Glossary
 
+- Adjustments — the Work's seven colour values, applied after its Geometry: brightness, contrast, saturation, temperature and tint from −100 to +100, and grayscale and sepia from 0% to 100%; each has a neutral value (0, or 0%) at which it changes no pixel, and together they change only colour, never transparency, size or position. NOT the Geometry, which decides which part of the Original is shown and how it is turned, and NOT the drawing layer, which is painted over the adjusted image and is never adjusted itself.
 - Crop — the rectangle of the image, as it stands after its Flip, Rotation and Straighten angle, that the Work keeps; the Preview and every Export show only what is inside it, and it always lies fully inside the image and is at least 1×1 px. NOT the View, which only frames the Preview on screen and is never saved, and NOT a destructive cut: the area outside the Crop stays in the Original and can be brought back by widening the Crop.
 - Downscale limit — the maximum length, in pixels, of an image's long side once it is opened (4096 px); larger images are reduced to it proportionally on open. NOT the export size the Editor chooses later, which can only be equal or smaller.
 - Editor — the person editing an image in the app: the owner or any casual desktop user. NOT the Portfolio reviewer, whose goal is to judge the app rather than to finish an image.

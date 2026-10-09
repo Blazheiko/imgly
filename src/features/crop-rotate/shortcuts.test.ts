@@ -3,7 +3,10 @@ import { createOpenShortcut, createToolKeys, type OpenShortcutActions } from './
 
 function setup(
   state: Partial<
-    Record<'hasWork' | 'exporting' | 'panelOpen' | 'toolOpen' | 'confirming', boolean>
+    Record<
+      'hasWork' | 'exporting' | 'panelOpen' | 'toolOpen' | 'otherToolOpen' | 'confirming',
+      boolean
+    >
   > = {},
 ) {
   const actions: OpenShortcutActions = {
@@ -11,9 +14,11 @@ function setup(
     exporting: () => state.exporting ?? false,
     panelOpen: () => state.panelOpen ?? false,
     toolOpen: () => state.toolOpen ?? false,
+    otherToolOpen: () => state.otherToolOpen ?? false,
     confirming: () => state.confirming ?? false,
     open: vi.fn(),
     notifyNoImage: vi.fn(),
+    notifyOtherToolOpen: vi.fn(),
   }
   return { actions, handle: createOpenShortcut(actions) }
 }
@@ -51,6 +56,20 @@ describe('the C shortcut (AC-18, AC-20)', () => {
     expect(actions.open).not.toHaveBeenCalled()
     expect(actions.notifyNoImage).not.toHaveBeenCalled()
     expect(event.defaultPrevented).toBe(false)
+  })
+
+  it('hints "apply or cancel the open tool first" while another tool is open (adjust AC-18)', () => {
+    const { actions, handle } = setup({ otherToolOpen: true })
+    handle(key())
+    handle(key({ repeat: true }))
+    expect(actions.notifyOtherToolOpen).toHaveBeenCalledTimes(1)
+    expect(actions.open).not.toHaveBeenCalled()
+  })
+
+  it('stays silent with another tool open while a text field has focus', () => {
+    const { actions, handle } = setup({ otherToolOpen: true })
+    handle(key({ target: document.createElement('input') }))
+    expect(actions.notifyOtherToolOpen).not.toHaveBeenCalled()
   })
 
   it('does nothing while a text field has focus', () => {

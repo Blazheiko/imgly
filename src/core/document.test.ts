@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createWork, hasUnsavedEdits, withEdit } from './document'
+import { NEUTRAL_ADJUSTMENTS } from './adjust'
 
 const original = { width: 4096, height: 2731, pixels: 'bitmap', hasTransparency: false }
 const source = { sourceName: 'IMG_4021', sourceFormat: 'heic' } as const
@@ -53,5 +54,20 @@ describe('Work source facts (export AC-08, AC-15)', () => {
 
     expect(edited).toMatchObject({ sourceName: 'IMG_4021', sourceFormat: 'heic' })
     expect(edited.original.hasTransparency).toBe(true)
+  })
+})
+
+describe('Work Adjustments (adjust ADR-0001, AC-17)', () => {
+  it('starts every new Work with neutral Adjustments', () => {
+    const work = createWork(original, 'w-1', source, 1000)
+
+    expect(work.adjustments).toEqual(NEUTRAL_ADJUSTMENTS)
+  })
+
+  it('keeps the Adjustments across an edit', () => {
+    const work = createWork(original, 'w-1', source, 1000)
+    const adjusted = { ...work, adjustments: { ...work.adjustments, contrast: 20 } }
+
+    expect(withEdit(adjusted).adjustments.contrast).toBe(20)
   })
 })

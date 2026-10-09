@@ -19,6 +19,7 @@ import {
   type Result,
   type Size,
   type SizeChoice,
+  type Work,
   workSize as workSizeOf,
 } from '@/core'
 import { useEditorStore, type ExportSnapshot } from '@/features/editor'
@@ -54,7 +55,10 @@ export type Exporter = (request: ExportRequest) => Promise<Result<Blob, AppError
 export type BitmapCopier = (source: ImageBitmap) => Promise<ImageBitmap>
 export type TransparencyChecker = (request: AlphaRequest) => Promise<Result<boolean, AppError>>
 
-/** The GPU check's answer for one revision of one Work; `running` hides the hint meanwhile. */
+/**
+ * The GPU check's answer for one Geometry of one Work; `running` hides the hint meanwhile. It does
+ * not depend on the Adjustments, which never change alpha (adjust sad §5).
+ */
 interface CropAlpha {
   key: string
   state: 'running' | boolean
@@ -245,17 +249,17 @@ export const useExportStore = defineStore('export', () => {
     if (!work || !work.original.hasTransparency) return false
     if (geometryEquals(work.geometry, identityGeometry(work.original))) return true
     const answer = cropAlpha.value
-    return answer && answer.key === alphaKey(work.id, work.revision) ? answer.state : 'running'
+    return answer && answer.key === alphaKey(work) ? answer.state : 'running'
   })
 
-  const alphaKey = (id: string, revision: number) => `${id}@${revision}`
+  const alphaKey = (work: Work) => `${work.id}@${JSON.stringify(work.geometry)}`
 
   /** Runs only when the open panel needs the answer, never on every Apply (ADR-0004). */
   async function runCropAlphaCheck() {
     const work = editor.work
     if (!work || !panelOpen.value || format.value !== 'jpeg') return
     if (cropTransparency.value !== 'running') return
-    const key = alphaKey(work.id, work.revision)
+    const key = alphaKey(work)
     if (cropAlpha.value?.key === key) return
     cropAlpha.value = { key, state: 'running' }
     let answer: boolean
@@ -272,7 +276,7 @@ export const useExportStore = defineStore('export', () => {
   }
 
   watch(
-    () => [panelOpen.value, format.value, editor.work?.id, editor.work?.revision] as const,
+    () => [panelOpen.value, format.value, editor.work?.id, editor.work?.geometry] as const,
     () => void runCropAlphaCheck(),
   )
 
@@ -376,6 +380,7 @@ export const useExportStore = defineStore('export', () => {
       format: job.format,
       quality: lossyQuality,
       geometry: snapshot.geometry,
+      adjustments: snapshot.adjustments,
     })
     closeBitmap(copy) // already transferred and closed in the worker; this records it
     if (!result.ok) {

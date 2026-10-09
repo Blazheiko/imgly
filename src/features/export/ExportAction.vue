@@ -20,7 +20,7 @@ const hasWork = computed(() => editor.work !== null)
 const toolOpen = computed(() => editor.activeTool !== null)
 /** Unavailable but focusable, with a hint saying why (SCR-02; crop-rotate SCR-03). */
 const hint = computed(() =>
-  !hasWork.value ? infoNoImage() : toolOpen.value ? infoToolOpen() : null,
+  !hasWork.value ? infoNoImage() : editor.activeTool ? infoToolOpen(editor.activeTool) : null,
 )
 // File ready is still an export: Export stays disabled with progress (screens.md SCR-01).
 const exporting = computed(() => editor.phase === 'exporting')
@@ -34,7 +34,7 @@ function notifyNoImage() {
 }
 
 function notifyToolOpen() {
-  notices.pushAll([{ kind: 'info', text: infoToolOpen() }])
+  if (editor.activeTool) notices.pushAll([{ kind: 'info', text: infoToolOpen(editor.activeTool) }])
 }
 
 function onActivate() {

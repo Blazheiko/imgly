@@ -1,0 +1,450 @@
+{
+  "slug": "adjust",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Add the Adjustments to the Work: type, fixed key order, ranges, NEUTRAL_ADJUSTMENTS, isNeutral and adjustmentsEquals",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-11",
+        "AC-17"
+      ],
+      "dod": "Vitest proves ADJUSTMENT_KEYS order, ranges, isNeutral and field-by-field adjustmentsEquals, and createWork sets NEUTRAL_ADJUSTMENTS on every new Work",
+      "files_hint": [
+        "src/core/adjust/types.ts",
+        "src/core/adjust/equality.ts",
+        "src/core/adjust/adjust.test.ts",
+        "src/core/adjust/index.ts",
+        "src/core/document.ts",
+        "src/core/document.test.ts",
+        "src/core/index.ts"
+      ],
+      "file": "docs/features/adjust/tasks/t01-core-adjustments-model-and-equality.md"
+    },
+    {
+      "id": "T2",
+      "title": "Add parseAdjustmentField: plain decimal only, trailing % for grayscale and sepia, snap to range, round half up, revert on empty or non-numeric",
+      "layer": "domain",
+      "deps": [
+        "T1"
+      ],
+      "acs": [
+        "AC-05"
+      ],
+      "dod": "Table-driven Vitest proves snap to range, round half up (2.5→3, −2.5→−2), revert on empty, 1e2 and non-numeric, decimal comma, very long numbers and trailing % only for grayscale and sepia",
+      "files_hint": [
+        "src/core/adjust/parse.ts",
+        "src/core/adjust/parse.test.ts",
+        "src/core/adjust/index.ts"
+      ],
+      "file": "docs/features/adjust/tasks/t02-core-adjustment-field-rule.md"
+    },
+    {
+      "id": "T3",
+      "title": "Write the CPU reference of the seven formulas (applyAdjustmentsToPixel) and toUniforms, pinned to ADR-0003's anchor table",
+      "layer": "domain",
+      "deps": [
+        "T1"
+      ],
+      "acs": [
+        "AC-02",
+        "AC-03",
+        "AC-04",
+        "AC-06",
+        "AC-07"
+      ],
+      "dod": "Vitest pins every ADR-0003 anchor, seeded property tests prove the AC-02–AC-04 directions, alpha invariance (AC-06) and clamping without wrap (AC-07), and toUniforms(NEUTRAL) disables the block",
+      "files_hint": [
+        "src/core/adjust/formula.ts",
+        "src/core/adjust/uniforms.ts",
+        "src/core/adjust/formula.test.ts",
+        "src/core/adjust/index.ts"
+      ],
+      "file": "docs/features/adjust/tasks/t03-core-formulas-and-uniforms.md"
+    },
+    {
+      "id": "T4",
+      "title": "Add autoAdjust(sample): unpremultiply, median and percentiles of Rec. 709 lightness, grey-world gains, rounded half up within ±50, or nothing",
+      "layer": "domain",
+      "deps": [
+        "T3"
+      ],
+      "acs": [
+        "AC-12",
+        "AC-13"
+      ],
+      "dod": "Vitest on synthetic samples proves autoAdjust's directions, whole numbers within ±50 rounded half up, 'nothing' for one colour or no opaque pixel, alpha-0 skipping and identical output for the same sample",
+      "files_hint": [
+        "src/core/adjust/auto.ts",
+        "src/core/adjust/auto.test.ts",
+        "src/core/adjust/index.ts"
+      ],
+      "file": "docs/features/adjust/tasks/t04-core-auto-adjust.md"
+    },
+    {
+      "id": "T5",
+      "title": "Add the seven-step colour block to the shared shader (u_adjust) and PreviewRenderer.setAdjustments",
+      "layer": "infra",
+      "deps": [
+        "T3"
+      ],
+      "acs": [
+        "AC-06",
+        "AC-07"
+      ],
+      "dod": "Fake-GL Vitest proves the shader builds with u_adjust and the seven uniforms, neutral values set u_adjust false, and setAdjustments requests exactly one frame with no texture upload",
+      "files_hint": [
+        "src/render/shaders.ts",
+        "src/render/shaders.test.ts",
+        "src/render/preview-renderer.ts",
+        "src/render/preview-renderer.test.ts",
+        "src/render/fake-gl.ts",
+        "src/features/editor/fake-renderer.ts"
+      ],
+      "file": "docs/features/adjust/tasks/t05-render-shader-adjust-block.md"
+    },
+    {
+      "id": "T6",
+      "title": "Add PreviewRenderer.sampleCrop(geometry, maxSide) into a temporary framebuffer and the editor store's sampleWork()",
+      "layer": "infra",
+      "deps": [
+        "T4",
+        "T5",
+        "T8"
+      ],
+      "acs": [
+        "AC-12"
+      ],
+      "dod": "Fake-GL Vitest proves sampleCrop sizes the framebuffer to min(512, long side) with the Crop's proportion, samples NEAREST without Adjustments, frees everything in every branch and returns DISPLAY_LOST when not ready; a store test proves sampleWork uses the Work's Geometry",
+      "files_hint": [
+        "src/render/preview-renderer.ts",
+        "src/render/preview-renderer.test.ts",
+        "src/features/editor/fake-renderer.ts",
+        "src/features/editor/store.ts",
+        "src/features/editor/store.test.ts"
+      ],
+      "file": "docs/features/adjust/tasks/t06-render-sample-crop-and-sample-work.md"
+    },
+    {
+      "id": "T7",
+      "title": "Send the applied Adjustments to the export worker, set them as uniforms, and reduce smaller adjusted Exports in two passes",
+      "layer": "infra",
+      "deps": [
+        "T5",
+        "T8"
+      ],
+      "acs": [
+        "AC-14",
+        "AC-06"
+      ],
+      "dod": "Fake-GL Vitest proves the worker sets the Adjustment uniforms, keeps one pass for full size or neutral values, uses two passes (adjust at full size, then mipmapped reduction with JPEG flatten last) for smaller adjusted Exports and frees the pass texture; the export store sends the snapshot's Adjustments",
+      "files_hint": [
+        "src/render/export/worker-handler.ts",
+        "src/render/export/worker-handler.test.ts",
+        "src/render/export/client.ts",
+        "src/render/export/client.test.ts",
+        "src/features/export/store.ts",
+        "src/features/export/store.test.ts"
+      ],
+      "file": "docs/features/adjust/tasks/t07-export-adjustments-and-two-pass.md"
+    },
+    {
+      "id": "T8",
+      "title": "Give the editor's tool slot the 'adjust' tool: per-tool open/close side effects, previewAdjustments, applyAdjustments and the snapshot's Adjustments",
+      "layer": "app",
+      "deps": [
+        "T1"
+      ],
+      "acs": [
+        "AC-11",
+        "AC-17",
+        "AC-20"
+      ],
+      "dod": "Editor store tests prove openTool/closeTool('adjust') leave the View and previewGeometry untouched while crop-rotate still fits, applyAdjustments raises the revision only when a value differs, replace clears previewAdjustments and beginExport snapshots the applied Adjustments",
+      "files_hint": [
+        "src/features/editor/store.ts",
+        "src/features/editor/store.test.ts",
+        "src/features/editor/index.ts"
+      ],
+      "file": "docs/features/adjust/tasks/t08-editor-tool-slot-for-adjust.md"
+    },
+    {
+      "id": "T9",
+      "title": "Make PreviewCanvas draw previewAdjustments ?? work.adjustments, and give the e2e hooks setAdjustments and an adjusted previewAt100",
+      "layer": "wiring",
+      "deps": [
+        "T5",
+        "T8"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-18"
+      ],
+      "dod": "PreviewCanvas tests prove the renderer receives previewAdjustments when set and work.adjustments otherwise (including with Crop and rotate open), and the e2e hooks expose setAdjustments and an adjusted previewAt100",
+      "files_hint": [
+        "src/features/editor/components/PreviewCanvas.vue",
+        "src/features/editor/components/PreviewCanvas.test.ts",
+        "src/app/test-hooks.ts",
+        "e2e/test-hooks.d.ts"
+      ],
+      "file": "docs/features/adjust/tasks/t09-preview-follows-adjustments-and-test-hooks.md"
+    },
+    {
+      "id": "T10",
+      "title": "Make the export refusal name the open tool and make 'Crop and rotate' and C hint 'apply or cancel the open tool first' while Adjust is open",
+      "layer": "ui",
+      "deps": [
+        "T8"
+      ],
+      "acs": [
+        "AC-16",
+        "AC-18"
+      ],
+      "dod": "Component and shortcut tests prove Export and Ctrl/Cmd+S show 'Apply or cancel the adjustments first, then export.' with Adjust open (crop copy kept for crop-rotate), and 'Crop and rotate' and C show 'Apply or cancel the open tool first.' with Adjust open, silent in a text field",
+      "files_hint": [
+        "src/features/export/messages.ts",
+        "src/features/export/messages.test.ts",
+        "src/features/export/ExportAction.vue",
+        "src/features/export/ExportAction.test.ts",
+        "src/features/export/shortcuts.ts",
+        "src/features/crop-rotate/CropRotateAction.vue",
+        "src/features/crop-rotate/CropRotateAction.test.ts",
+        "src/features/crop-rotate/shortcuts.ts",
+        "src/features/crop-rotate/shortcuts.test.ts",
+        "src/features/crop-rotate/messages.ts"
+      ],
+      "file": "docs/features/adjust/tasks/t10-hints-name-the-open-tool.md"
+    },
+    {
+      "id": "T11",
+      "title": "Add an optional 'neutral' to SliderField: double-clicking the range sets it, and register the option in the design system",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-10"
+      ],
+      "dod": "Primitive tests prove SliderField emits its neutral value on double-click only when 'neutral' is set and it is enabled, and the design-system inventory row is updated",
+      "files_hint": [
+        "src/shared/ui/SliderField.vue",
+        "src/shared/ui/primitives.test.ts",
+        "docs/design-system.md"
+      ],
+      "file": "docs/features/adjust/tasks/t11-shared-slider-neutral-double-click.md"
+    },
+    {
+      "id": "T12",
+      "title": "Add the adjust store: Draft and values at open, set / commit typed fields, reset one or all, apply and cancel",
+      "layer": "app",
+      "deps": [
+        "T2",
+        "T8"
+      ],
+      "acs": [
+        "AC-05",
+        "AC-09",
+        "AC-10",
+        "AC-11",
+        "AC-17"
+      ],
+      "dod": "Adjust store tests against a real editor store prove open copies the Work's values, typed fields commit through parseAdjustmentField, resetOne/reset change only the Draft, apply raises the revision only on a real change, cancel and replace drop the Draft",
+      "files_hint": [
+        "src/features/adjust/store.ts",
+        "src/features/adjust/store.test.ts",
+        "src/features/adjust/index.ts"
+      ],
+      "file": "docs/features/adjust/tasks/t12-adjust-store-draft-fields-apply-cancel.md"
+    },
+    {
+      "id": "T13",
+      "title": "Add Compare (held flag, neutral preview, ends on blur and close) and Auto (sampleWork → autoAdjust → four values or the nothing hint) to the adjust store",
+      "layer": "app",
+      "deps": [
+        "T6",
+        "T12"
+      ],
+      "acs": [
+        "AC-08",
+        "AC-12",
+        "AC-13"
+      ],
+      "dod": "Adjust store tests prove Compare previews neutral values without touching the Work, the Draft or the revision and ends on endCompare or close, and Auto replaces only brightness, contrast, temperature and tint (idempotent) or sets the nothing-to-correct flag",
+      "files_hint": [
+        "src/features/adjust/store.ts",
+        "src/features/adjust/store.test.ts"
+      ],
+      "file": "docs/features/adjust/tasks/t13-adjust-store-compare-and-auto.md"
+    },
+    {
+      "id": "T14",
+      "title": "Add the 'Adjust' toolbar action with its hints, the A shortcut and the tool's message catalog, mounted next to 'Crop and rotate'",
+      "layer": "ui",
+      "deps": [
+        "T12"
+      ],
+      "acs": [
+        "AC-15",
+        "AC-17",
+        "AC-18",
+        "AC-19",
+        "AC-21"
+      ],
+      "dod": "Component and shortcut tests prove the Adjust action's pressed, disabled-during-export and aria-disabled-with-hint states, and that A opens the tool, hints with no image or with Crop and rotate open, and is silent under the export panel, with the tool open, in a text field or during an export",
+      "files_hint": [
+        "src/features/adjust/AdjustAction.vue",
+        "src/features/adjust/AdjustAction.test.ts",
+        "src/features/adjust/shortcuts.ts",
+        "src/features/adjust/shortcuts.test.ts",
+        "src/features/adjust/messages.ts",
+        "src/features/adjust/index.ts",
+        "src/app/App.vue"
+      ],
+      "file": "docs/features/adjust/tasks/t14-adjust-action-a-key-and-messages.md"
+    },
+    {
+      "id": "T15",
+      "title": "Build AdjustControls: seven SliderFields in three groups with neutral marks, press-and-hold Compare, Auto with its hint line, Reset / Cancel / Apply",
+      "layer": "ui",
+      "deps": [
+        "T11",
+        "T13"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-05",
+        "AC-08",
+        "AC-09",
+        "AC-10",
+        "AC-11",
+        "AC-12",
+        "AC-13"
+      ],
+      "dod": "Component tests prove seven SliderFields in AC-01 order with ranges, neutral marks and % units, typed values committed by the AC-05 rule, double-click reset, press-and-hold Compare by pointer, Space and Enter, Auto disabled when the display is not ready, the nothing-to-correct hint line, and Reset / Cancel / Apply",
+      "files_hint": [
+        "src/features/adjust/AdjustControls.vue",
+        "src/features/adjust/AdjustControls.test.ts",
+        "src/features/adjust/messages.ts"
+      ],
+      "file": "docs/features/adjust/tasks/t15-adjust-controls-panel.md"
+    },
+    {
+      "id": "T16",
+      "title": "Mount AdjustTool in the editor's tool slot with the 'Before' label, Enter / Escape / held backslash keys, window-blur end of Compare, focus handling and the tool-ready mark",
+      "layer": "wiring",
+      "deps": [
+        "T9",
+        "T14",
+        "T15"
+      ],
+      "acs": [
+        "AC-08",
+        "AC-09",
+        "AC-17",
+        "AC-20",
+        "AC-21"
+      ],
+      "dod": "Component tests prove AdjustTool mounts only for activeTool 'adjust' (and CropRotateTool only for its own), Enter applies outside fields and buttons, Escape cancels from anywhere, held backslash (by key code, silent in text fields) and window blur drive Compare, the Before label shows while comparing, and focus moves in and back out",
+      "files_hint": [
+        "src/features/adjust/AdjustTool.vue",
+        "src/features/adjust/AdjustTool.test.ts",
+        "src/features/adjust/shortcuts.ts",
+        "src/features/adjust/shortcuts.test.ts",
+        "src/features/adjust/index.ts",
+        "src/app/App.vue"
+      ],
+      "file": "docs/features/adjust/tasks/t16-adjust-tool-mount-keys-before-label.md"
+    },
+    {
+      "id": "T17",
+      "title": "Add the e2e fidelity suite: each slider at its anchors vs Preview, all seven combined, with and without a Geometry, neutral = 0 difference, exact alpha, lossless round trip, smaller sizes",
+      "layer": "tests",
+      "deps": [
+        "T7",
+        "T9"
+      ],
+      "acs": [
+        "AC-02",
+        "AC-03",
+        "AC-04",
+        "AC-06",
+        "AC-07",
+        "AC-14"
+      ],
+      "dod": "Playwright on Chromium, Firefox and WebKit proves every slider anchor and the combined setting within 2/255 of previewAt100 with and without a Geometry, neutral values and the Reset round trip at 0 difference, exact alpha, two paths to the same values equal, and smaller Exports reduced after adjusting",
+      "files_hint": [
+        "e2e/adjust/fidelity.spec.ts",
+        "e2e/adjust/helpers.ts",
+        "e2e/fixtures/"
+      ],
+      "file": "docs/features/adjust/tasks/t17-e2e-fidelity-neutral-alpha-round-trip.md"
+    },
+    {
+      "id": "T18",
+      "title": "Add the e2e tool-flow suite: three-action paths, live Preview on drag, Compare by mouse, keys and backslash, Cancel and Reset, Auto values and the nothing hint, keyboard-only use",
+      "layer": "tests",
+      "deps": [
+        "T16"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-08",
+        "AC-09",
+        "AC-10",
+        "AC-12",
+        "AC-13",
+        "AC-21"
+      ],
+      "dod": "Playwright on all three engines proves the three-action paths, Compare by mouse, Space, Enter and backslash with the Before label, Cancel and Reset, Auto values within ±50 and within 1 across engines with the nothing hint on one colour, and keyboard-only use",
+      "files_hint": [
+        "e2e/adjust/tool.spec.ts",
+        "e2e/adjust/helpers.ts"
+      ],
+      "file": "docs/features/adjust/tasks/t18-e2e-tool-flows.md"
+    },
+    {
+      "id": "T19",
+      "title": "Add the e2e cross-feature suite: Unsaved edits, export and crop refusals in both directions, replace while open, no-image hint, View untouched, Crop and rotate shows the adjusted image",
+      "layer": "tests",
+      "deps": [
+        "T10",
+        "T16"
+      ],
+      "acs": [
+        "AC-11",
+        "AC-15",
+        "AC-16",
+        "AC-17",
+        "AC-18",
+        "AC-19",
+        "AC-20"
+      ],
+      "dod": "Playwright on all three engines proves the AC-11 Unsaved-edit rules, the export and tool refusals in both directions, replace while open (success, failure, decline), the no-image hint, an untouched View and the adjusted image inside Crop and rotate",
+      "files_hint": [
+        "e2e/adjust/cross-feature.spec.ts",
+        "e2e/adjust/helpers.ts"
+      ],
+      "file": "docs/features/adjust/tasks/t19-e2e-cross-feature.md"
+    },
+    {
+      "id": "T20",
+      "title": "Add the @perf suite: drag frame interval, Apply / Cancel / Reset / Compare-release and tool-ready times, Auto time, memory after 50 Applies, and export time with all seven set",
+      "layer": "tests",
+      "deps": [
+        "T17",
+        "T18",
+        "T19"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-12"
+      ],
+      "dod": "PERF=1 @perf suite reports the drag frame-interval p95, Apply/Cancel/Reset/Compare-release and tool-ready p95, Auto p95, memory after 50 Applies and export time with all seven values set, against the spec §6 targets",
+      "files_hint": [
+        "e2e/adjust/perf.spec.ts",
+        "e2e/export/perf.spec.ts",
+        "src/features/adjust/AdjustControls.vue"
+      ],
+      "file": "docs/features/adjust/tasks/t20-perf-suite.md"
+    }
+  ]
+}

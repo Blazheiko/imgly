@@ -5,6 +5,7 @@ import {
   type ExportFormat,
   type ImageFormat,
 } from '@/core'
+import type { ToolId } from '@/features/editor'
 
 /**
  * The one catalog of user-facing copy for exporting (screens.md §Message catalog). File names are
@@ -47,9 +48,15 @@ export function infoNoImage(): string {
   return 'Open an image first to export it.'
 }
 
-/** Export or Ctrl/Cmd+S while an editing tool is open (crop-rotate AC-16). */
-export function infoToolOpen(): string {
-  return 'Apply or cancel the crop first, then export.'
+/** One text per tool, so a new `ToolId` does not compile until it has its own. */
+const TOOL_OPEN: Record<ToolId, string> = {
+  'crop-rotate': 'Apply or cancel the crop first, then export.',
+  adjust: 'Apply or cancel the adjustments first, then export.',
+}
+
+/** Export or Ctrl/Cmd+S while an editing tool is open, naming that tool (crop-rotate AC-16, adjust AC-16). */
+export function infoToolOpen(tool: ToolId): string {
+  return TOOL_OPEN[tool]
 }
 
 const FAILURES: Partial<Record<AppError['code'], (details: Record<string, unknown>) => string>> = {

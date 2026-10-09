@@ -1,0 +1,26 @@
+{
+  "ref.png": {
+    "brightness": 50,
+    "contrast": 9,
+    "temperature": -50,
+    "tint": 50
+  },
+  "photo.png": {
+    "brightness": 33,
+    "contrast": 50,
+    "temperature": -50,
+    "tint": 12
+  },
+  "large-cast.png": {
+    "brightness": 8,
+    "contrast": 41,
+    "temperature": 28,
+    "tint": 32
+  },
+  "mild-cast.png": {
+    "brightness": 16,
+    "contrast": 46,
+    "temperature": -40,
+    "tint": -17
+  }
+}

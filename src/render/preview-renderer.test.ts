@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   cropToOriginalUv,
   identityGeometry,
+  NEUTRAL_ADJUSTMENTS,
   turnedBounds,
   turnedImageToOriginalUv,
   type Geometry,
@@ -237,5 +238,184 @@ describe('PreviewRenderer.setGeometry (crop-rotate ADR-0002)', () => {
     frames.flush()
 
     expect(lastMatrix('u_geometry')).toEqual(new Float32Array(cropToOriginalUv(g, original)))
+  })
+
+  describe('setAdjustments (adjust ADR-0002)', () => {
+    const adjusted = { ...NEUTRAL_ADJUSTMENTS, contrast: 40 }
+
+    it('requests exactly one frame per change and uploads no texture', () => {
+      renderer.setAdjustments(adjusted)
+      renderer.setAdjustments({ ...adjusted, contrast: 41 })
+      expect(frames.pending).toBe(1)
+      frames.flush()
+      expect(fake.names().filter((n) => n === 'drawArrays')).toHaveLength(1)
+      expect(fake.names()).not.toContain('texImage2D')
+      expect(fake.names()).not.toContain('createTexture')
+    })
+
+    it('draws with the latest values', () => {
+      renderer.setAdjustments(adjusted)
+      renderer.setAdjustments({ ...adjusted, contrast: 41 })
+      frames.flush()
+      expect(uniformCalls(fake, 'u_adjust').at(-1)).toEqual([
+        'uniform1i',
+        { uniform: 'u_adjust' },
+        1,
+      ])
+      expect(uniformCalls(fake, 'u_contrast').at(-1)?.[2]).toBeCloseTo(1 / (1 - 0.75 * 0.41), 10)
+    })
+
+    it('requests no frame when the values did not change', () => {
+      renderer.setAdjustments(adjusted)
+      frames.flush()
+      renderer.setAdjustments({ ...adjusted })
+      expect(frames.pending).toBe(0)
+    })
+
+    it('draws neutral values with u_adjust false, also before any call', () => {
+      renderer.setView(view(0.5))
+      frames.flush()
+      expect(uniformCalls(fake, 'u_adjust').at(-1)).toEqual([
+        'uniform1i',
+        { uniform: 'u_adjust' },
+        0,
+      ])
+      renderer.setAdjustments(adjusted)
+      frames.flush()
+      renderer.setAdjustments(NEUTRAL_ADJUSTMENTS)
+      frames.flush()
+      expect(uniformCalls(fake, 'u_adjust').at(-1)).toEqual([
+        'uniform1i',
+        { uniform: 'u_adjust' },
+        0,
+      ])
+    })
+  })
+})
+
+describe('PreviewRenderer.sampleCrop (adjust ADR-0004)', () => {
+  let fake: FakeGl
+  let frames: ReturnType<typeof createFakeFrames>
+  let canvas: ReturnType<typeof createFakeCanvas>
+  let renderer: PreviewRenderer
+
+  const crop = (width: number, height: number, over: Partial<Geometry> = {}): Geometry => ({
+    ...identityGeometry({ width: 4096, height: 4096 }),
+    crop: { x: 0, y: 0, width, height },
+    ...over,
+  })
+
+  beforeEach(() => {
+    fake = createFakeGl()
+    frames = createFakeFrames()
+    canvas = createFakeCanvas(fake.gl)
+    const result = createPreviewRenderer(canvas as unknown as HTMLCanvasElement, frames)
+    if (!result.ok) throw new Error('renderer failed')
+    renderer = result.value
+    renderer.resize(800, 600)
+    renderer.setOriginal(bitmap(4096, 4096))
+    renderer.setView(view(0.19))
+    renderer.setAdjustments({ ...NEUTRAL_ADJUSTMENTS, contrast: 50 })
+    frames.flush()
+    fake.calls.length = 0
+  })
+
+  const targetUpload = () =>
+    fake.calls.find(([name, , , , , , , , , data]) => name === 'texImage2D' && data === null)
+
+  it.each([
+    [300, 200, 300, 200],
+    [4096, 1024, 512, 128],
+    [1000, 3000, 171, 512],
+    [512, 512, 512, 512],
+  ])('samples a %d×%d Crop at %d×%d, keeping its proportion', (w, h, sw, sh) => {
+    const result = renderer.sampleCrop(crop(w, h), 512)
+    expect(result.ok && { width: result.value.width, height: result.value.height }).toEqual({
+      width: sw,
+      height: sh,
+    })
+    expect(result.ok && result.value.data.length).toBe(sw * sh * 4)
+    expect(targetUpload()?.slice(4, 6)).toEqual([sw, sh])
+    expect(fake.calls).toContainEqual(['viewport', 0, 0, sw, sh])
+    expect(fake.calls).toContainEqual([
+      'readPixels',
+      0,
+      0,
+      sw,
+      sh,
+      'RGBA',
+      'UNSIGNED_BYTE',
+      expect.any(Uint8Array),
+    ])
+  })
+
+  it('maps the quad through the Crop with exact texels and no Adjustments or flatten', () => {
+    const g = crop(300, 200, { crop: { x: 40, y: 50, width: 300, height: 200 } })
+    renderer.sampleCrop(g, 512)
+    expect(uniformCalls(fake, 'u_geometry').at(-1)?.[3]).toEqual(
+      new Float32Array(cropToOriginalUv(g, { width: 4096, height: 4096 })),
+    )
+    expect(fake.calls).toContainEqual([
+      'texParameteri',
+      'TEXTURE_2D',
+      'TEXTURE_MIN_FILTER',
+      'NEAREST',
+    ])
+    expect(fake.calls).toContainEqual([
+      'texParameteri',
+      'TEXTURE_2D',
+      'TEXTURE_MAG_FILTER',
+      'NEAREST',
+    ])
+    expect(uniformCalls(fake, 'u_adjust').at(-1)).toEqual(['uniform1i', { uniform: 'u_adjust' }, 0])
+    expect(uniformCalls(fake, 'u_flatten').at(-1)).toEqual([
+      'uniform1i',
+      { uniform: 'u_flatten' },
+      0,
+    ])
+  })
+
+  it('frees the framebuffer and its texture and restores the filter before the next frame', () => {
+    renderer.sampleCrop(crop(300, 200), 512)
+    const names = fake.names()
+    expect(names).toContain('deleteFramebuffer')
+    expect(names.filter((n) => n === 'deleteTexture')).toHaveLength(1)
+    expect(fake.calls.at(-1)).toEqual([
+      'texParameteri',
+      'TEXTURE_2D',
+      'TEXTURE_MIN_FILTER',
+      'LINEAR_MIPMAP_LINEAR',
+    ])
+    expect(fake.calls).toContainEqual(['bindFramebuffer', 'FRAMEBUFFER', null])
+
+    renderer.setView(view(0.5))
+    fake.calls.length = 0
+    frames.flush()
+    expect(uniformCalls(fake, 'u_adjust').at(-1)).toEqual(['uniform1i', { uniform: 'u_adjust' }, 1])
+  })
+
+  it('frees everything and reports DISPLAY_LOST when the readback throws', () => {
+    fake.returns.readPixels = () => {
+      throw new Error('lost')
+    }
+    expect(renderer.sampleCrop(crop(300, 200), 512)).toEqual({
+      ok: false,
+      error: { code: 'DISPLAY_LOST' },
+    })
+    expect(fake.names()).toContain('deleteFramebuffer')
+    expect(fake.names()).toContain('deleteTexture')
+  })
+
+  it('reports DISPLAY_LOST and allocates nothing while the context is lost or after dispose', () => {
+    canvas.dispatch('webglcontextlost')
+    expect(renderer.sampleCrop(crop(300, 200), 512)).toEqual({
+      ok: false,
+      error: { code: 'DISPLAY_LOST' },
+    })
+    expect(fake.names()).not.toContain('createFramebuffer')
+    canvas.dispatch('webglcontextrestored')
+    renderer.dispose()
+    expect(renderer.sampleCrop(crop(300, 200), 512).ok).toBe(false)
+    expect(fake.names()).not.toContain('createFramebuffer')
   })
 })

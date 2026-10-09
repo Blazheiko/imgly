@@ -250,4 +250,28 @@ describe('ExportAction and Ctrl/Cmd+S (AC-11, AC-17)', () => {
       expect(store.panelOpen).toBe(true)
     })
   })
+
+  describe('while the adjust tool is open (adjust AC-16)', () => {
+    const hint = 'Apply or cancel the adjustments first, then export.'
+
+    beforeEach(async () => {
+      openWork()
+      await flush()
+      expect(editor.openTool('adjust')).toEqual({ ok: true })
+      await flush()
+    })
+
+    it('names the adjustments in its description, notice and Ctrl/Cmd+S hint', async () => {
+      const described = exportButton().attributes('aria-describedby')!
+      expect(document.getElementById(described)?.textContent).toBe(hint)
+      expect(exportButton().attributes('aria-disabled')).toBe('true')
+
+      await exportButton().trigger('click')
+      const event = pressSave({ ctrlKey: true })
+      await flush()
+      expect(event.defaultPrevented).toBe(true)
+      expect(store.panelOpen).toBe(false)
+      expect(texts().filter((t) => t === hint)).toHaveLength(2)
+    })
+  })
 })

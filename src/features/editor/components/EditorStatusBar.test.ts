@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { nextTick } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
-import { identityGeometry, ok } from '@/core'
+import { identityGeometry, NEUTRAL_ADJUSTMENTS, ok } from '@/core'
 import EditorStatusBar from './EditorStatusBar.vue'
 import { useEditorStore } from '../store'
 
@@ -39,6 +40,16 @@ describe('EditorStatusBar', () => {
   it('shows the Original’s dimensions (AC-05, AC-06)', () => {
     const wrapper = mount(EditorStatusBar)
     expect(wrapper.get('[data-testid="dimensions-readout"]').text()).toBe('4096 × 2731 px')
+  })
+
+  it('reads the same size before and after Adjustments are applied (adjust AC-06)', async () => {
+    const wrapper = mount(EditorStatusBar)
+    const readout = () => wrapper.get('[data-testid="dimensions-readout"]').text()
+    const before = readout()
+    editor.applyAdjustments({ ...NEUTRAL_ADJUSTMENTS, brightness: 100, grayscale: 100, sepia: 50 })
+    await nextTick()
+    expect(readout()).toBe(before)
+    expect(before).toBe('4096 × 2731 px')
   })
 
   it('shows the Work’s size after a 90° Rotation, from the Original’s dimensions (AC-01)', async () => {

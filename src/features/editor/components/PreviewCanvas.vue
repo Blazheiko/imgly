@@ -27,6 +27,12 @@ const shown = computed(() => {
     : { geometry: work.geometry, mode: 'crop' as const }
 })
 
+/**
+ * The Adjustments the Preview colours with: the adjust tool's Draft (or neutral values while
+ * comparing), else the Work's, also inside Crop and rotate (adjust AC-18).
+ */
+const shownAdjustments = computed(() => editor.previewAdjustments ?? editor.work?.adjustments)
+
 /** The shown image overflows the canvas area on some axis, so it can be panned (AC-13). */
 const pannable = computed(() => {
   const { work, view, canvasSize } = editor
@@ -121,6 +127,7 @@ onMounted(() => {
   watch(shown, (next) => next && renderer?.setGeometry(next.geometry, next.mode), {
     immediate: true,
   })
+  watch(shownAdjustments, (next) => next && renderer?.setAdjustments(next), { immediate: true })
   watch(
     () => editor.view,
     (view) => renderer?.setView(view),

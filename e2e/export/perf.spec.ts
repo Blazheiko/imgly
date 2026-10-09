@@ -150,6 +150,40 @@ for (const [label, format, target] of [
   })
 }
 
+// adjust spec §6: the same targets with all seven Adjustments away from neutral, which renders
+// in the one shader pass at full size (adjust ADR-0002).
+for (const [label, format, target] of [
+  ['JPEG q90', 'JPEG', 1000],
+  ['PNG', 'PNG', 2000],
+] as const) {
+  test(`@perf export time with all seven Adjustments, 4096×3072 ${label}: p95 ≤ ${target} ms`, async ({
+    page,
+  }) => {
+    test.setTimeout(240_000)
+    await prepare(page)
+    await page.evaluate(() =>
+      window.__imglyTest!.setAdjustments({
+        brightness: 20,
+        contrast: 35,
+        saturation: -30,
+        temperature: 25,
+        tint: -15,
+        grayscale: 40,
+        sepia: 30,
+      }),
+    )
+    await choose(page, format === 'JPEG' ? { format, quality: 90 } : { format })
+
+    const runs: number[] = []
+    for (let i = 0; i < WARM_UP + RUNS; i++) runs.push((await timedExport(page)).ms)
+    const time = p95(runs.slice(WARM_UP))
+    results[`adjusted export p95 ${label}`] = `${Math.round(time)} ms (target ≤ ${target} ms)`
+    expect(time, `p95 export time with all seven Adjustments for ${label}`).toBeLessThanOrEqual(
+      target,
+    )
+  })
+}
+
 test('@perf memory after 10 PNG exports is ≤ 110% of the first, one Original retained', async ({
   page,
 }) => {

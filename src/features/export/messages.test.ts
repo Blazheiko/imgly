@@ -19,7 +19,8 @@ describe('export messages (screens.md §Message catalog)', () => {
     expect(infoSaved('IMG_4021-edited.jpg')).toBe('Saved IMG_4021-edited.jpg.')
     expect(infoDownloaded('a-edited.png')).toBe("a-edited.png is in your browser's downloads.")
     expect(infoNoImage()).toBe('Open an image first to export it.')
-    expect(infoToolOpen()).toBe('Apply or cancel the crop first, then export.')
+    expect(infoToolOpen('crop-rotate')).toBe('Apply or cancel the crop first, then export.')
+    expect(infoToolOpen('adjust')).toBe('Apply or cancel the adjustments first, then export.')
   })
 
   it('words every export failure', () => {

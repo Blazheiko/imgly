@@ -6,6 +6,7 @@ import {
   createWork,
   err,
   identityGeometry,
+  NEUTRAL_ADJUSTMENTS,
   ok,
   type AppError,
   type Geometry,
@@ -671,6 +672,23 @@ describe('export store — the applied Geometry (crop-rotate AC-14)', () => {
     expect(store.longSide).toBe(3000)
   })
 
+  it('sends the Work’s applied Adjustments with the export request (adjust AC-14)', async () => {
+    const exporter = vi.fn<(r: ExportRequest) => Promise<Result<Blob, AppError>>>(async () =>
+      ok(new Blob()),
+    )
+    store.setExporter(exporter)
+    store.setSavePlatform({
+      pickSaveTarget: vi.fn(async () => ok({ kind: 'cancelled' as const })),
+    })
+    openWork(editor)
+    await flush()
+    const applied = { ...NEUTRAL_ADJUSTMENTS, brightness: 15, grayscale: 100 }
+    editor.applyAdjustments(applied)
+    store.openPanel()
+    await store.confirm()
+    expect(exporter.mock.calls[0]![0].adjustments).toEqual(applied)
+  })
+
   it('sends the Work’s Geometry with the export request', async () => {
     const exporter = vi.fn<(r: ExportRequest) => Promise<Result<Blob, AppError>>>(async () =>
       ok(new Blob()),
@@ -768,14 +786,14 @@ describe('export store — the applied Geometry (crop-rotate AC-14)', () => {
       expect(store.transparencyHint).not.toBeNull()
     })
 
-    it('caches by Work and revision, and ignores a stale answer', async () => {
+    it('caches by Work and Geometry, and ignores a stale answer', async () => {
       await jpegPanel(true)
       editor.applyGeometry(cropTo(10, 10))
       await flush()
       editor.applyGeometry(cropTo(20, 20))
       await flush()
       expect(checks).toHaveLength(2)
-      checks[0]!.answer(ok(true)) // stale: for the previous revision
+      checks[0]!.answer(ok(true)) // stale: for the previous Geometry
       await flush()
       expect(store.transparencyHint).toBeNull()
       checks[1]!.answer(ok(false))
@@ -786,7 +804,21 @@ describe('export store — the applied Geometry (crop-rotate AC-14)', () => {
       await flush()
       store.selectFormat('jpeg')
       await flush()
-      expect(checks).toHaveLength(2) // answered for this revision already
+      expect(checks).toHaveLength(2) // answered for this Geometry already
+    })
+
+    it('keeps its answer across an Adjustment change: it depends on the Geometry only (R3)', async () => {
+      await jpegPanel(true)
+      editor.applyGeometry(cropTo(10, 10))
+      await flush()
+      checks[0]!.answer(ok(true))
+      await flush()
+      expect(store.transparencyHint).not.toBeNull()
+
+      editor.applyAdjustments({ ...NEUTRAL_ADJUSTMENTS, brightness: 30, sepia: 40 })
+      await flush()
+      expect(store.transparencyHint).not.toBeNull()
+      expect(checks).toHaveLength(1)
     })
 
     it('runs no check while PNG is chosen', async () => {

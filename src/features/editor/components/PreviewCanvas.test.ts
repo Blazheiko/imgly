@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { nextTick } from 'vue'
-import { appError, err, identityGeometry, ok } from '@/core'
+import { appError, err, identityGeometry, NEUTRAL_ADJUSTMENTS, ok } from '@/core'
 import { createFakeRenderer } from '../fake-renderer'
 import PreviewCanvas from './PreviewCanvas.vue'
 import { useEditorStore } from '../store'
@@ -195,5 +195,50 @@ describe('PreviewCanvas', () => {
     editor.actualSize()
     await wrapper.vm.$nextTick()
     expect(wrapper.get('canvas').classes()).toContain('preview-canvas--pannable')
+  })
+
+  describe('Adjustments (adjust sad.md §5, AC-01, AC-18)', () => {
+    const applied = { ...NEUTRAL_ADJUSTMENTS, contrast: 25 }
+    const draft = { ...NEUTRAL_ADJUSTMENTS, contrast: 60, sepia: 10 }
+    const last = () => fake.renderer.setAdjustments.mock.lastCall?.[0]
+
+    it('colours the Preview with the Work’s Adjustments from the start', async () => {
+      editor.applyAdjustments(applied)
+      mount(PreviewCanvas)
+      expect(last()).toEqual(applied)
+    })
+
+    it('uses the adjust tool’s Draft while it is set, and the Work’s again after close', async () => {
+      editor.applyAdjustments(applied)
+      mount(PreviewCanvas)
+      editor.openTool('adjust')
+      editor.setPreviewAdjustments(draft)
+      await nextTick()
+      expect(last()).toEqual(draft)
+
+      editor.closeTool()
+      await nextTick()
+      expect(last()).toEqual(applied)
+    })
+
+    it('follows an Apply', async () => {
+      mount(PreviewCanvas)
+      expect(last()).toEqual(NEUTRAL_ADJUSTMENTS)
+      editor.openTool('adjust')
+      editor.setPreviewAdjustments(draft)
+      editor.applyAdjustments(draft)
+      editor.closeTool()
+      await nextTick()
+      expect(last()).toEqual(draft)
+    })
+
+    it('shows the applied Adjustments over the whole turned image in Crop and rotate', async () => {
+      editor.applyAdjustments(applied)
+      mount(PreviewCanvas)
+      editor.openTool('crop-rotate')
+      await nextTick()
+      expect(fake.renderer.setGeometry).toHaveBeenLastCalledWith(editor.work!.geometry, 'whole')
+      expect(last()).toEqual(applied)
+    })
   })
 })
