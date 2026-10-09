@@ -97,3 +97,9 @@
 | I2 | T14 and T16 claim AC-17, whose Esc guard and focus return they own | docs | Blazheiko | S | — | done |
 | I3 | "Stops listening once the tool closes" checks each window listener is removed | tests | Blazheiko | S | — | done |
 | I4 | A typed value rounds half up from its digits, however long (AC-05) | domain | Blazheiko | S | — | done |
+
+## Review follow-ups (review-2026-10-09-6)
+
+| # | Task | Layer | Owner | Estimate | Blocked by | Status |
+|---|---|---|---|---|---|---|
+| J1 | A smaller adjusted Export keeps its orientation with a Rotation and a Crop (AC-14 e2e) | tests | Blazheiko | S | — | done |
