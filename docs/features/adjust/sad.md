@@ -165,7 +165,8 @@ src/
 ├── features/crop-rotate/         action and C key: "apply or cancel the open tool first" while adjust is open (AC-18)
 ├── features/adjust/
 │   ├── store.ts                  `adjust` store: Draft, Compare held, nothing to correct; commitText (AC-05),
-│   │                             apply / cancel / reset / reset one / auto (Cancel reads the Work's values)
+│   │                             apply / cancel / reset / auto (Cancel reads the Work's values; a slider's
+│   │                             own reset is setValue to its neutral value)
 │   ├── AdjustAction.vue          the toolbar action with its hints (SCR-01, SCR-02; AC-15, AC-18, AC-19, AC-21)
 │   ├── AdjustTool.vue            SCR-03, mounted in the editor's tool slot: the panel beside the canvas, its keys and focus
 │   ├── AdjustBeforeLabel.vue     the "Before" label over the canvas while Compare is held, mounted in the #tool-canvas slot
@@ -223,7 +224,7 @@ sequenceDiagram
 
     Editor->>SPA: chooses Adjust, or presses A
     SPA->>SPA: editor store opens the tool slot if a Work is open, no export runs and no other tool is open
-    SPA->>SPA: adjust store copies the Work's Adjustments as the Draft and as the values to return to
+    SPA->>SPA: adjust store copies the Work's Adjustments as the Draft (Cancel reads them back from the Work)
     SPA-->>Editor: seven sliders at the Work's values, View unchanged
     loop each slider move, typed value, reset or Reset
         Editor->>SPA: drags a slider, leaves a field, double-clicks a slider or chooses Reset
@@ -353,7 +354,7 @@ sequenceDiagram
         U->>UI: clicks Adjust, Tab then Enter or Space on it, or presses A
         UI->>S: asks to open the tool
         S->>S: opens the tool slot as adjust, leaves the View and the Preview's Crop as they are
-        S->>S: copies the Work's Adjustments as the Draft and as the values to return to
+        S->>S: copies the Work's Adjustments as the Draft (Cancel reads them back from the Work)
         S->>R: draws the Draft, unchanged from the Work
         S-->>UI: seven sliders at the Work's values, neutral for a new Work, neutral marks shown
         UI-->>U: tool ready, every control reachable with Tab
@@ -663,7 +664,7 @@ Opening another image or dropping a file doesn't close the tool straight away. A
 **Flags for design:** none for participants. Every participant is in §5: the Editor SPA as `<ui>` and `<service>`, the Preview renderer and the export worker as `<service> (render)`, and the browser and operating system as `<external-system>`. No flow is async, and nothing is persisted, so data-model has no indexes to derive.
 
 **Open question from this stage:**
-- [ ] F4 (Auto adjust) is kept as drawn, but the owner marked it for review instead of accepting it (2026-10-08), without a reason recorded. Points to check: the "display lost" branch, which the spec does not name, the 512 px sample, and the order of "ignore fully transparent pixels, then unpremultiply" (ADR-0004). — owner: Blazheiko, due: before `/sdd:plan-tests adjust`
+- [x] F4 (Auto adjust) is kept as drawn, but the owner marked it for review instead of accepting it (2026-10-08), without a reason recorded. Points to check: the "display lost" branch, which the spec does not name, the 512 px sample, and the order of "ignore fully transparent pixels, then unpremultiply" (ADR-0004). — owner: Blazheiko, due: before `/sdd:plan-tests adjust` — **Closed (2026-10-09):** test-plan rows on AC-12 cover the 512 px sample and its freed framebuffer, and the display-lost branch; `src/core/adjust/auto.test.ts` covers skipping alpha 0 before unpremultiplying.
 
 ## 7. Deployment view
 
@@ -765,7 +766,7 @@ Each top-3 goal from §1 expanded into full scenarios. Every number is quoted fr
 | Risk / debt | Severity | Mitigation | Owner |
 |---|---|---|---|
 | The ±2/255 tolerance between an adjusted Export and the Preview at 100% may not hold on every engine. The steps use `pow` and divisions in float, which GPUs and drivers round differently. Linux WebKit already needs 3/255 for any Export of a semi-transparent Original, because it renders in the window (export ADR-0003, `e2e/export/fidelity.spec.ts`) | High | Same shader source, same uniforms from the same `core` function, and the same texel sampling at 100% in the Preview and the Export (ADR-0002). QG-1a runs on all three engines from the first shader task. Semi-transparent fixtures use export's per-engine limit. On Firefox and WebKit their colour is checked on opaque pixels only, and the measured gap below alpha 255 is recorded in [ADR-0005](adr/0005-record-the-semi-transparent-colour-deviation-on-firefox-and-webkit.md); alpha stays exact on every engine. The spec's 2/255 stays the target everywhere else, and a miss is a recorded engine deviation, never a silent loosening | Blazheiko — resolved by ADR-0005 |
-| Unpremultiplying an 8-bit premultiplied texel is coarse for very transparent pixels, so AC-06's "a partly transparent pixel changes colour exactly as the same opaque pixel would" can be off by a few levels of colour at alpha below about 16 | Medium | The error is in colour that is almost invisible at that opacity. QG-1c asserts alpha exactly and checks colour at alpha 64 and above. The texture format is open-and-view's and stays | Blazheiko |
+| Unpremultiplying an 8-bit premultiplied texel is coarse for very transparent pixels, so AC-06's "a partly transparent pixel changes colour exactly as the same opaque pixel would" can be off by a few levels of colour at alpha below about 16 | Medium | The error is in colour that is almost invisible at that opacity. QG-1c asserts alpha exactly on every engine and checks colour at alpha 64 and above on Chromium, and on opaque pixels only on Firefox and WebKit ([ADR-0005](adr/0005-record-the-semi-transparent-colour-deviation-on-firefox-and-webkit.md)). The texture format is open-and-view's and stays | Blazheiko |
 | Auto's cross-engine "at most 1" (AC-13) depends on every engine decoding the Original to the same sRGB values. Colour management differs between engines for some files (ICC profiles), and the sampled texels then differ | Medium | The sampled texels are the same, so only decoding can differ (ADR-0004). The AC-13 e2e uses sRGB fixtures without embedded profiles, and a differing engine is a recorded deviation in the test plan | Blazheiko |
 | ADR-0003's formulas become a stored-data contract once the gallery (step 8) saves Works: changing a formula after that changes the look of every saved Work | Medium | Tuning is free until step 8 ships. Step 8 stores a formula version with the Adjustments, so a later change can keep old Works as they were | Blazheiko — before `/sdd:design` of roadmap step 8 |
 | The `editor` store keeps growing (466 lines before this feature) with a second tool, `previewAdjustments`, `applyAdjustments` and `sampleWork` | Medium | Tools only add small, tested actions to it. Extract the tool slot and its previews into a `src/features/editor/tool-slot.ts` module before the drawing layer (step 6) adds a third tool, or as soon as the store passes 600 lines | Blazheiko — before `/sdd:tasks` of roadmap step 6 |

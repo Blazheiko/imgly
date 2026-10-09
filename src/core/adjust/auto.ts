@@ -30,9 +30,10 @@ function settle(value: number): number {
 
 /**
  * Narrows `range` (low/high per channel, in 0…255 levels) to the colours that store as this
- * premultiplied pixel: 8-bit storage steps `c × alpha / 255`, and engines round that step down, up
- * or to the nearest (ADR-0005), so a partly transparent pixel only pins its colour to within one
- * stored level. An opaque pixel pins it exactly. Returns false once the intervals stop overlapping.
+ * premultiplied pixel: 8-bit storage steps `c × alpha / 255`, and engines round that step down,
+ * up or to the nearest, so a partly transparent pixel only pins its colour to within one stored
+ * level (ADR-0004 amendment). An opaque pixel pins it exactly. Returns false once the intervals
+ * stop overlapping.
  */
 function narrowColour(range: Float64Array, data: ArrayLike<number>, i: number, alpha: number) {
   const slack = alpha === 255 ? 0 : 1

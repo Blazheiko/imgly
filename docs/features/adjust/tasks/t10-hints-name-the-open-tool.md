@@ -1,7 +1,7 @@
 ---
 id: T10
 title: "Make the export refusal name the open tool and make 'Crop and rotate' and C hint 'apply or cancel the open tool first' while Adjust is open"
-layer: "app"
+layer: "ui"
 deps: ["T8"]
 blocks: ["T19"]
 acs: ["AC-16", "AC-18"]

@@ -170,7 +170,7 @@ test.describe('AC-13 — Auto agrees within 1 across engines', () => {
   }) => {
     await gotoReady(page)
     // An anti-aliased border at alphas 1…254, written byte by byte: each engine stores those edges
-    // at its own premultiplied step (ADR-0005), and they must still read as the same colour.
+    // at its own premultiplied step (ADR-0004), and they must still read as the same colour.
     await openNamed(page, 'soft-edge.png', 40, 30)
     await page.keyboard.press('a')
     await page.getByRole('button', { name: 'Auto' }).click()

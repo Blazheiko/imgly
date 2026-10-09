@@ -121,7 +121,7 @@ held by the rows named in the cell.
 | AC-06 invariant | neutral Adjustments draw with the bypass on, and Apply keeps the Work's size and Geometry | integration | the recorded uniforms carry the bypass for neutral values; after Apply the Work's size and Geometry are unchanged |
 | AC-06 invariant | the status bar reads the same size before and after Apply | component | the dimensions text is unchanged by any Adjustments |
 | AC-06 invariant | neutral values give the same Export as before any Adjustment | e2e-through-UI | a full-size PNG Export after setting every value away and back to neutral and applying has difference 0 per channel from the Export before adjusting, on all three engines (QG-1b) |
-| AC-06 invariant | transparency is kept exactly at every fidelity setting | e2e-through-UI | on the semi-transparent fixture, every pixel's alpha equals the neutral Export's (difference 0); colour at alpha ≥ 64 within the per-engine limit; the opaque fixture stays 100% opaque; all three engines (QG-1c) |
+| AC-06 invariant | transparency is kept exactly at every fidelity setting | e2e-through-UI | on the semi-transparent fixture, every pixel's alpha equals the neutral Export's (difference 0); colour within the per-engine limit at alpha ≥ 64 on Chromium, and on opaque pixels only on Firefox and WebKit (ADR-0005); the opaque fixture stays 100% opaque; all three engines (QG-1c) |
 | AC-07 invariant | each step clamps, so a channel pushed past white or black never wraps (property) | unit | for random colours and Adjustments every channel stays in 0..255; 250 at brightness +100 and contrast +100 gives 255 |
 | AC-07 invariant | the result depends only on the seven values, in one fixed order | unit | building the same Adjustments in any order of field assignment gives the same output for random colours |
 | AC-07 invariant | two paths to the same values give the same Draft and the same uniforms | integration | contrast before brightness, brightness before contrast, and a slider dragged to +100 and back give equal Drafts and equal recorded uniforms |
@@ -153,10 +153,10 @@ held by the rows named in the cell.
 | AC-12 happy | Auto updates the sliders and is unavailable while the display is lost | component | after Auto the four sliders and fields show the values; the Auto button is disabled while the display is lost or being restored |
 | AC-12 happy | choosing Auto in a real browser moves four sliders and the Preview follows | e2e-through-UI | on a reference photo the four sliders change and the other three don't; the Preview's pixels change; a second Auto gives the same values |
 | AC-13 invariant | Auto's values are whole numbers within ±50, rounded half up (property) | unit | for random samples every value is an integer in −50..50 |
-| AC-13 invariant | a one-colour sample, or one with no pixel above alpha 0, has nothing to correct | unit | the result is "nothing to correct" for one colour, for all-transparent and for an empty sample |
+| AC-13 invariant | a one-colour sample, or one with no pixel above alpha 0, has nothing to correct | unit | the result is "nothing to correct" for one colour, for all-transparent and for an empty sample; for one colour whose soft edges are stored rounded down or up at every alpha 1…254; but not for an edge two levels off, nor for two opaque colours one level apart (ADR-0004 amendment) |
 | AC-13 invariant | "nothing to correct" leaves the Draft and sets the hint, which clears on the next change | integration | the Draft is unchanged; the hint flag is set and cleared by the next Draft change |
 | AC-13 invariant | the hint line shows "Nothing to correct automatically." and clears on the next change | component | the status line reads the hint; it is empty again after a slider moves |
-| AC-13 invariant | Auto on a one-colour image in a real browser shows the hint | e2e-through-UI | the sliders are unchanged and the hint is visible |
+| AC-13 invariant | Auto on a one-colour image in a real browser shows the hint | e2e-through-UI | the sliders are unchanged and the hint is visible, for a flat image and for `soft-edge.png` (one colour with a border at alphas 1…254) on all three engines |
 | AC-13 invariant | Auto's values agree within 1 between engines | e2e-through-UI | for each sRGB reference fixture without an embedded profile, each value differs by at most 1 between Chromium, Firefox and WebKit; a differing engine is recorded as a deviation |
 | AC-14 cross-context | the export request carries the applied Adjustments, never the Draft | integration | the snapshot holds the Work's Adjustments; an unapplied Draft never reaches it |
 | AC-14 cross-context | the export worker sets the same uniforms as the Preview | integration | for the same Adjustments the recorded uniforms are equal in the Preview renderer and the worker |
@@ -188,7 +188,7 @@ held by the rows named in the cell.
 | AC-20 cross-context | opening and closing adjust leave the View alone | integration | zoom, pan and the Preview's Geometry are unchanged by open, Apply and Cancel |
 | AC-20 cross-context | zoom and pan inside the tool never change the Draft or count as an edit | integration | the Draft and the revision are unchanged after zoom and pan |
 | AC-20 cross-context | zooming and panning around the tool in a real browser | e2e-through-UI | zoom and pan before opening are kept on opening; they work inside the tool; the View is the same after Apply and after Cancel; the Preview shows the Crop only |
-| AC-21 happy | the action sits next to "Crop and rotate", opens with Enter, Space or A, and A is guarded | component | it follows "Crop and rotate" in the top bar; Enter and Space open it; A opens it, and does nothing with the export panel open, with the tool open, or with a text field focused |
+| AC-21 happy | the action sits next to "Crop and rotate", opens with Enter, Space or A, and A is guarded | component | it follows "Crop and rotate" in the top bar; A opens it, and does nothing with the export panel open, with the tool open, or with a text field focused — **Narrowed on purpose:** Enter and Space open it only through native button activation, which happy-dom doesn't emulate, so they are asserted in a real browser (`e2e/adjust/tool.spec.ts`: "Space on the focused Adjust action opens the tool", and Enter on the action in "Tab to Auto and Apply") |
 | AC-21 happy | inside the tool Tab reaches every control, arrows step by 1 or 10, Enter applies outside a field or button, Escape cancels | component | the Tab order is each slider then its field top to bottom, then Compare, Auto, Reset, Cancel, Apply; arrows change by 1, by 10 with Shift, kept in range; Enter on a focused button presses only that button; Enter elsewhere applies; focus goes to brightness on open and back to the action on close |
 | AC-21 happy | lightening and an automatic fix each take three actions, by mouse and by keyboard alone | e2e-through-UI | Adjust, drag brightness, Apply gives a lighter Work; A, Auto, Apply gives an auto-adjusted Work; the same by Tab, Enter, arrows and Enter alone; Space on Auto and Apply presses them instead of starting space-pan (spec §7 KPI) |
 
@@ -240,6 +240,9 @@ The error and authorization ACs each have their own rows above: AC-05 (error), A
   - The **opaque reference set** for fidelity, the round trip and Auto: the existing `photo.png` and
     `ref.png`, which are sRGB without an embedded profile (checked by the fixtures README before use).
   - A **one-colour image**, built in the page at run time, for "nothing to correct".
+  - A **soft-edge one-colour image**, `soft-edge.png`: 40×30, colour (200, 30, 30) with a one-pixel
+    border at alphas 1…254, written byte by byte by `e2e/fixtures/adjust-fixtures.py`, for "nothing
+    to correct" across engines' premultiplied rounding (ADR-0004 amendment).
   - The 4096×3072 Work for the load scenarios, built in the page at run time as the export perf
     suite already does.
 - **Setting Adjustments.** The fidelity, anchor and transparency rows set Adjustments through the

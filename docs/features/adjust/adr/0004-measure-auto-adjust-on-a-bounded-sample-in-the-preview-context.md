@@ -39,12 +39,23 @@ How it works:
 
 - **Sample.** `PreviewRenderer` gains `sampleCrop(geometry, maxSide): Result<ImageSample, AppError>`. It renders the quad with `u_geometry = cropToOriginalUv(geometry, original)`, `u_adjust` false and `u_flatten` false into a framebuffer whose long side is `min(512, Crop's long side)`, keeping the Crop's proportion. Both filters are `NEAREST`, so every sample is one exact texel of the Original (for a Straighten angle too). It reads the pixels back with `readPixels` as they are rendered, premultiplied (the colour multiplied by its opacity), and returns them unchanged, deletes the framebuffer and restores the filters before the next Preview frame. It returns `DISPLAY_LOST` when the context is not ready. The `editor` store holds the renderer it creates and exposes `sampleWork(): Result<ImageSample, AppError>`, so the adjust feature never touches the renderer.
 - **Compute.** `src/core/adjust/auto.ts` exports `autoAdjust(sample): { kind: 'values'; values: Pick<Adjustments, 'brightness' | 'contrast' | 'temperature' | 'tint'> } | { kind: 'nothing' }`, a pure function over the premultiplied 8-bit samples:
-  - It skips samples with alpha 0 and divides every other sample's colour by its alpha, so a partly transparent pixel counts at its real colour (AC-12). Doing this in `core` keeps it under plain unit tests. If none remain, or every remaining sample has the same colour, it returns `nothing` (AC-13).
+  - It skips samples with alpha 0 and divides every other sample's colour by its alpha, so a partly transparent pixel counts at its real colour (AC-12). Doing this in `core` keeps it under plain unit tests. If none remain, or every remaining sample has the same colour, it returns `nothing` (AC-13). "The same colour" is exact on opaque samples and within one stored level on partly transparent ones (amended below).
   - **Brightness** from the median of `L(c)` (ADR-0003's Rec. 709 lightness, in a 256-bin histogram): the exponent that maps the median to 128 / 255, turned back into `b` through ADR-0003's brightness formula.
   - **Contrast** from the 0.5th and 99.5th percentiles after that brightness: the factor that stretches them towards 5 / 255 and 250 / 255 around 128 / 255, turned into `k` through ADR-0003's contrast formula.
   - **Temperature and tint** from the grey-world means of red, green and blue: the `t` that makes the red and blue means equal, and the `m` that brings the green mean to the average of red and blue, through ADR-0003's gains.
   - Every value is rounded half up and clamped to −50…50. The function uses doubles and integer histograms only, so the same sample always gives the same values.
 - **Apply to the Draft.** The adjust store replaces the four values of the Draft with the result (AC-12: replace, not add) or shows the "nothing to correct" hint, and the Preview redraws through `editor.previewAdjustments`.
+
+**Amended by adjust (2026-10-09, review N1):** "the same colour" is not an exact match on partly
+transparent samples. An 8-bit premultiplied sample stores `c × alpha / 255`, and engines round that
+step down, up or to the nearest (the same per-engine difference ADR-0005 records for Export). So a
+partly transparent sample pins its colour only to within one stored level: `autoAdjust` keeps, per
+channel, the interval `[⌈(s − 1) · 255 / alpha⌉, ⌊(s + 1) · 255 / alpha⌋]` (exact, slack 0, at alpha
+255) and returns `nothing` while the intervals of every remaining sample still overlap. An exact
+match made a one-colour image with anti-aliased edges get Auto values on Firefox. The cost: a second
+colour that appears only on partly transparent pixels and lies within that interval is counted as
+the first. Once composited, that is at most about 1.5 visible levels at any alpha, so the only
+colours Auto can miss are ones nobody can see. Opaque colours one level apart are still measured.
 
 ## Consequences
 

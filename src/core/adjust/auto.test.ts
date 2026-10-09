@@ -162,7 +162,7 @@ describe('autoAdjust with nothing to measure (AC-13)', () => {
     ['rounds down', Math.floor],
     ['rounds up', Math.ceil],
   ])('returns nothing for one colour whose engine %s the edges at every alpha (N1)', (_, store) => {
-    // Engines store semi-transparent colours at different premultiplied steps (ADR-0005), so an
+    // Engines store semi-transparent colours at different premultiplied steps (ADR-0004), so an
     // edge may sit one level off the nearest step and must still count as the same colour.
     const [r, g, b] = [200, 30, 30]
     for (let a = 1; a < 255; a++) {
