@@ -510,6 +510,21 @@ describe('SliderField', () => {
     expect((wrapper.get('input[type="range"]').element as HTMLInputElement).value).toBe('100')
   })
 
+  it('announces the value with its unit through aria-valuetext, and none without a unit', async () => {
+    const plain = setup(90)
+    expect(plain.get('input[type="range"]').attributes('aria-valuetext')).toBeUndefined()
+    plain.unmount()
+
+    const percent = mount(SliderField, {
+      props: { modelValue: 60, label: 'Sepia', min: 0, max: 100, unit: '%', normalize },
+      attachTo: document.body,
+    })
+    const range = percent.get('input[type="range"]')
+    expect(range.attributes('aria-valuetext')).toBe('60%')
+    await percent.setProps({ modelValue: 5 })
+    expect(range.attributes('aria-valuetext')).toBe('5%')
+  })
+
   it('exposes apply() for a value still being typed', async () => {
     const wrapper = setup(90)
     await wrapper.get('input:not([type="range"])').setValue('12')
@@ -552,6 +567,10 @@ describe('SliderField options (crop-rotate AC-05, AC-20)', () => {
     expect(wrapper.get('input[type="range"]').attributes('step')).toBe('1')
     expect(wrapper.get('input[type="range"]').attributes('list')).toBeUndefined()
     expect((wrapper.get('input:not([type="range"])').element as HTMLInputElement).value).toBe('5')
+  })
+
+  it('announces the value with its decimals and unit', () => {
+    expect(angle(2).get('input[type="range"]').attributes('aria-valuetext')).toBe('2.0°')
   })
 
   it('steps by 0.1, shows one decimal and marks 0', () => {

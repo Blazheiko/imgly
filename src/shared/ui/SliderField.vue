@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, useId } from 'vue'
+import { computed, ref, useId } from 'vue'
 import NumberField from './NumberField.vue'
 
 const props = withDefaults(
@@ -36,6 +36,11 @@ const props = withDefaults(
 const emit = defineEmits<{ 'update:modelValue': [value: number] }>()
 
 const field = ref<InstanceType<typeof NumberField>>()
+
+/** The range's spoken value: a screen reader hears the unit too, such as "60%" (adjust sad §8). */
+const valueText = computed(() =>
+  props.unit === undefined ? undefined : `${props.modelValue.toFixed(props.decimals)}${props.unit}`,
+)
 const marksId = useId()
 
 /** Rounded to `decimals`, so 0.1 × 3 is 0.3, and clamped to the range. */
@@ -84,6 +89,7 @@ defineExpose({ apply })
       :max="max"
       :value="modelValue"
       :aria-label="label"
+      :aria-valuetext="valueText"
       :title="rangeTitle"
       :disabled="disabled"
       @input="onRange"
