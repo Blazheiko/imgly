@@ -209,31 +209,100 @@ The Editor drives the Editor SPA, where the draw tool and its store live. The SP
 
 ## 6. Runtime view
 
-<!-- 🎯 Why: the RUNTIME FLOW of 1–2 critical scenarios — who talks to whom, when, in what order.
-     Without §6, §5 is just boxes with no life.
-     📋 Write: a Mermaid sequenceDiagram. Participants are names from §5 (don't invent new ones).
-     Messages are semantic («saves a draft»), NO HTTP verbs / paths / status codes — endpoint-level
-     sequences arrive at the `api` stage.
-     📌 e.g. «author → web: composes draft → web → content API: save». Seed the primary flow(s) here;
-     the `sequences` stage then covers every §5 AC (no cap). Never N/A for M+; XS/S keeps ≥1 happy-path flow. -->
+The participants are the §5 containers: the Editor SPA (the draw overlay, the `draw` store and the `editor` store), the Editing core, the Drawing layer, the Preview renderer and the Export worker. Messages are semantic. This stage seeds the two critical flows, and `sequences` covers every remaining AC as a flow or a branch.
 
-**Critical flow 1: <flow name>**
+**Critical flow 1: open the tool, draw a Stroke, then Apply or Cancel**
 
 ```mermaid
 sequenceDiagram
-    actor Actor
-    participant Web
-    participant Service
-    participant Store
-    Actor->>Web: <action>
-    Web->>Service: <call>
-    Service->>Store: <write>
-    Store-->>Service: ok
-    Service-->>Web: result
-    Web-->>Actor: confirmation
+    actor Editor
+    participant SPA as Editor SPA
+    participant Core as Editing core
+    participant Layer as Drawing layer
+    participant GPU as Preview renderer
+
+    Editor->>SPA: chooses Draw (button or D)
+    SPA->>SPA: open the tool slot, keep Crop and View, mode Brush, last colour and width
+    alt the Work has a Drawing layer
+        SPA->>Layer: copy the applied layer into a new Draft
+    else no layer yet
+        SPA->>SPA: Draft is empty (null)
+    end
+    SPA->>GPU: show the Draft as the layer
+    GPU-->>Editor: Preview with the Work and its marks, tool ready
+
+    Editor->>SPA: presses and drags over the image
+    loop every pointer event, coalesced positions included
+        SPA->>Core: map each position through the View into the Crop's frame
+        SPA->>Core: Catmull-Rom control points for the segment behind the newest point
+        opt Brush on an empty Draft
+            SPA->>Layer: create a transparent bitmap the size of the Original
+        end
+        SPA->>Layer: paint the segment through frame-to-Original, clipped to the Crop
+        Layer-->>SPA: segment painted, dirty rectangle widened
+        SPA->>Core: does the footprint reach inside the Crop, or did the Eraser lower an alpha?
+        Core-->>SPA: change flag for AC-12
+    end
+    loop once per animation frame while drawing
+        SPA->>Layer: read the dirty rectangle
+        SPA->>GPU: update that part of the layer texture
+        GPU-->>Editor: frame shows the Stroke under the pointer
+    end
+    Editor->>SPA: releases the pointer
+    SPA->>Layer: paint the last segment
+
+    alt Apply (button, or Enter once the pointer is up)
+        SPA->>SPA: hand the Draft to the Work, new layer id, revision raised only if changed
+        SPA->>Layer: release the previous applied layer
+        SPA->>SPA: close the tool slot, View unchanged
+        GPU-->>Editor: Preview keeps the Strokes, nothing re-uploaded
+    else Cancel or Escape, also during a Stroke
+        SPA->>Layer: release the Draft
+        SPA->>GPU: show the Work's applied layer again
+        GPU-->>Editor: Preview as before the tool, Unsaved edits unchanged
+    end
 ```
 
-**Critical flow 2: <e.g. async event propagation>** — <if applicable, otherwise N/A>.
+**Critical flow 2: export a Work with marks, at full or smaller size**
+
+```mermaid
+sequenceDiagram
+    actor Editor
+    participant SPA as Editor SPA
+    participant Layer as Drawing layer
+    participant Worker as Export worker
+
+    Editor->>SPA: confirms the export (tool closed)
+    SPA->>SPA: enter exporting, snapshot the Work with its applied layer
+    alt the Work has a layer
+        SPA->>Layer: read the whole applied layer as straight pixels
+        Layer-->>SPA: layer pixels
+    end
+    SPA->>Worker: export request with Original, Geometry, Adjustments and layer pixels (transferred)
+    Worker->>Worker: upload Original and layer as premultiplied textures
+    alt full size
+        Worker->>Worker: one pass, Geometry then Adjustments then layer over, flatten for JPEG
+    else smaller size with a layer or with Adjustments
+        Worker->>Worker: full-size pass with Adjustments and layer into a texture
+        Worker->>Worker: reduce that texture through its mipmaps, flatten for JPEG
+    end
+    Worker->>Worker: encode and verify the file by content
+    alt verified
+        Worker-->>SPA: file
+        SPA-->>Editor: save dialog or download, Unsaved edits cleared at the snapshot's revision
+    else failed
+        Worker-->>SPA: export error
+        SPA-->>Editor: failure notice, Unsaved edits kept
+    end
+```
+
+**Branches the `sequences` stage draws:**
+- the Eraser path, a dot from a click, and Clear (AC-04, AC-05), with the AC-12 flag in each;
+- a Stroke that starts or ends outside the Crop (AC-09);
+- zoom, pan and Space during a Stroke, a pointer cancel, losing focus and a second touch (AC-18);
+- opening another image while the tool is open (AC-13);
+- the refusals: "Draw" during an export, export or Ctrl/Cmd+S while the tool is open, and one tool at a time (AC-14, AC-15, AC-16, AC-17);
+- "Crop and rotate" and "Adjust" over applied marks (AC-08, AC-11), and the crop-transparency check with a layer (AC-10).
 
 ## 7. Deployment view
 
