@@ -451,13 +451,22 @@ Each top-3 goal from §1 is expanded below into full scenarios. Every number is 
 
 ## 12. Glossary
 
-<!-- 🎯 Why: ⭐ the DOMAIN GLOSSARY that ends arguments a year later («checkpoint — weekly or
-     biweekly? quarter — calendar or fiscal?»).
-     📋 Write: a term / meaning table. Business + technical terms mixed.
-     📌 e.g. «Lesson | a unit inside a course made of blocks (text, video)». -->
+Domain terms come from the glossaries ([root CONTEXT](../../../CONTEXT.md) and [draw CONTEXT](./CONTEXT.md)), which stay canonical. Technical terms are this document's.
 
 | Term | Meaning |
 |---|---|
-| <e.g. domain object A> | <its meaning in this domain> |
-| <e.g. domain object B> | <its meaning> |
-| <e.g. domain invariant name> | <the rule, in plain language> |
+| Drawing layer | The Work's one layer of freehand marks, as large as the Original and attached to it, so every Flip, Rotation, Straighten angle and Crop moves it together with the image. It is painted over the adjusted image, never adjusted, and empty for a newly opened Work (root CONTEXT). Here: one Canvas 2D bitmap on the Original's pixel grid, or `null` while empty (ADR-0001) |
+| Stroke | One continuous mark on the Drawing layer, made with the Brush or the Eraser from pressing the pointer down until releasing it (root CONTEXT) |
+| Brush | The "Draw" tool's mode that paints fully opaque Strokes of the chosen colour and width onto the Drawing layer (draw CONTEXT) |
+| Eraser | The "Draw" tool's mode that removes marks along its Stroke, uncovering the image under them; where nothing is drawn it changes nothing (draw CONTEXT). Here: `destination-out` on the layer only (repo ADR 0004) |
+| Clear | The action that removes every mark from the Draft at once, applied marks included; it reaches the Work only on Apply (draw CONTEXT). Here: it sets the Draft to `null` |
+| Draft | The Drawing layer being changed in the open "Draw" tool; it reaches the Work only on Apply and never counts as Unsaved edits on its own (draw CONTEXT). Here: a full copy of the applied layer, owned by the `draw` store (ADR-0004) |
+| Work, Original, Geometry, Crop, Straighten angle, Adjustments, Preview, Export, View, Unsaved edits, Editor, Portfolio reviewer | As in the root CONTEXT |
+| Crop's frame | The image after its Flip, Rotation and Straighten angle, in image pixels, where the Crop is an upright rectangle. Pointer positions are mapped into it through the View, and from it onto the Original through the Geometry (§8) |
+| Original's pixel grid | The coordinates of the Original's own pixels, before any Geometry. The layer lives here, so it is never resampled when the Geometry changes (ADR-0001) |
+| Coalesced positions | The pointer positions the browser collects between two pointer events and hands over together (`getCoalescedEvents()`). AC-01's line passes through every one (ADR-0002) |
+| Catmull–Rom segment | A curve between two points that also uses the points before and after them, passing exactly through each point. It is drawn as a cubic Bézier, so the line has no corners and needs no stabiliser (ADR-0002) |
+| Dirty rectangle | The part of the layer that Strokes changed since the last frame. Only it is read back and uploaded to the GPU (ADR-0002, ADR-0003) |
+| Premultiplied "over" | Compositing a premultiplied mark onto the image as `mark + (1 − mark opacity) × image`: an opaque mark shows only its colour, and a transparent layer leaves the image exactly as it was (ADR-0003) |
+| Change flag | The `draw` store's per-Draft flag that decides whether Apply raises the revision: set by a Brush footprint reaching inside the Crop, an Eraser segment that lowered some alpha, or a Clear of a non-empty bitmap (§4, AC-12) |
+| Release | Freeing a layer's bitmap explicitly by setting its canvas to 0×0, counted by the bitmap ledger, so memory does not wait for garbage collection (ADR-0001, ADR-0004) |
