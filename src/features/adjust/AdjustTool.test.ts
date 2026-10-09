@@ -217,13 +217,17 @@ describe('AdjustTool (SCR-03)', () => {
     })
 
     it('stops listening once the tool closes', async () => {
+      const added = vi.spyOn(window, 'addEventListener')
+      const removed = vi.spyOn(window, 'removeEventListener')
       await openTool()
+      const listeners = added.mock.calls.map(([type, handler]) => [type, handler])
+      expect(listeners.map(([type]) => type)).toEqual(
+        expect.arrayContaining(['keydown', 'keyup', 'blur']),
+      )
       tool.cancel()
       await nextTick()
-      tool.open()
-      tool.cancel()
-      key('keydown', { key: '\\', code: 'Backslash' })
-      expect(tool.comparing).toBe(false)
+      const gone = removed.mock.calls.map(([type, handler]) => [type, handler])
+      for (const listener of listeners) expect(gone).toContainEqual(listener)
     })
   })
 
