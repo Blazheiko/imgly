@@ -12,8 +12,21 @@ const PERCENT_KEYS: ReadonlySet<AdjustmentKey> = new Set(['grayscale', 'sepia'])
 export function parseAdjustmentField(text: string, key: AdjustmentKey, previous: number): number {
   const trimmed = text.trim()
   const bare = PERCENT_KEYS.has(key) && trimmed.endsWith('%') ? trimmed.slice(0, -1) : trimmed
-  const value = parseDecimal(bare)
-  if (value === null) return previous
+  if (parseDecimal(bare) === null) return previous
   const { min, max } = ADJUSTMENT_RANGES[key]
-  return Math.min(max, Math.max(min, Math.floor(value + 0.5))) || 0
+  return Math.min(max, Math.max(min, roundHalfUp(bare.trim()))) || 0
+}
+
+/**
+ * Rounds a plain decimal half up from its digits, so a fraction longer than a double holds
+ * ("2.49999999999999999999") cannot collapse onto the half first.
+ */
+function roundHalfUp(decimal: string): number {
+  const negative = decimal.startsWith('-')
+  const [whole, fraction = ''] = decimal.replace(/^[+-]/, '').split(/[.,]/)
+  const magnitude = Number(whole || '0')
+  const first = fraction.charAt(0)
+  const beyondHalf = first > '5' || (first === '5' && /[1-9]/.test(fraction.slice(1)))
+  if (negative) return -(beyondHalf ? magnitude + 1 : magnitude)
+  return first >= '5' ? magnitude + 1 : magnitude
 }

@@ -12,6 +12,8 @@ describe('parseAdjustmentField (AC-05)', () => {
       ['1,5', 2],
       ['00000000000000000000012', 12],
       ['12.0000000000000000000001', 12],
+      ['0.49999999999999999999', 0],
+      ['0.50000000000000000000', 1],
       ['-0.4', 0],
       ['0', 0],
       ['  42  ', 42],
@@ -41,6 +43,10 @@ describe('parseAdjustmentField (AC-05)', () => {
       ['-150', -100],
       ['99.5', 100],
       ['-100.4', -100],
+      ['2.49999999999999999999', 2],
+      ['-2.50000000000000000001', -3],
+      ['-2.50000000000000000000', -2],
+      ['-2,49999999999999999999', -2],
     ])('reads %j as %d', (text, expected) => {
       expect(parseAdjustmentField(text, key, PREVIOUS)).toBe(expected)
     })
@@ -59,6 +65,7 @@ describe('parseAdjustmentField (AC-05)', () => {
       ['-2.5', 0],
       ['150%', 100],
       ['100', 100],
+      ['12.49999999999999999999%', 12],
     ])('reads %j as %d', (text, expected) => {
       expect(parseAdjustmentField(text, key, PREVIOUS)).toBe(expected)
     })
