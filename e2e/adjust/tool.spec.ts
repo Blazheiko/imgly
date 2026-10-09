@@ -56,14 +56,13 @@ async function shot(page: Page) {
 const distance = (page: Page, target: number[]) => async () => maxDiff(await shot(page), target)
 
 /**
- * Whether a patch can be taken while the tool is closed. WebKit on the Linux runner leaves the
- * WebGL canvas out of page screenshots while it spans the whole window (every pixel of the patch is
- * page background, though the page shows the image), and puts it back once the tool narrows it. So
- * the Work is shot with the tool open at neutral values, where the Preview shows it unchanged, and
- * only the checks after the tool closes stay on the other engines there.
+ * Whether the screen's pixels can be checked. WebKit on the Linux runner now and then leaves the
+ * WebGL canvas out of page screenshots, the tool open or closed (CI traces: every pixel of the
+ * patch is page background while the screencast shows the image), so there the steps run without
+ * the pixel checks, as open-and-view keeps its WebGL pixel checks off WebKit. The Preview's own
+ * pixels stay checked on every engine by fidelity.spec.ts, which reads them off-screen.
  */
-const shotsWithToolClosed = () =>
-  !(test.info().project.name === 'webkit' && process.platform === 'linux')
+const screenPixels = () => !(test.info().project.name === 'webkit' && process.platform === 'linux')
 
 const mean = (data: number[]) => {
   let sum = 0
@@ -105,7 +104,9 @@ test.describe('AC-01, AC-21 — three actions by mouse', () => {
     const value = Number(await field(page, 'Brightness').inputValue())
     expect(value).toBeGreaterThan(0)
     // The Preview follows the drag.
-    await expect.poll(async () => mean(await shot(page))).toBeGreaterThan(mean(start) + 1)
+    if (screenPixels()) {
+      await expect.poll(async () => mean(await shot(page))).toBeGreaterThan(mean(start) + 1)
+    }
     const dragged = await shot(page)
 
     await page.getByRole('button', { name: 'Apply' }).click()
@@ -114,7 +115,7 @@ test.describe('AC-01, AC-21 — three actions by mouse', () => {
       adjustments: { brightness: value },
       hasUnsavedEdits: true,
     })
-    if (shotsWithToolClosed()) await expect.poll(distance(page, dragged)).toBeLessThanOrEqual(1)
+    if (screenPixels()) await expect.poll(distance(page, dragged)).toBeLessThanOrEqual(1)
   })
 
   test('A, Auto, Apply gives an auto-adjusted Work, and Auto again changes nothing', async ({
@@ -127,7 +128,7 @@ test.describe('AC-01, AC-21 — three actions by mouse', () => {
     await page.getByRole('button', { name: 'Auto' }).click()
     const values = await autoFields(page)
     // The Preview follows Auto: its pixels change (test-plan AC-12 e2e row).
-    await expect.poll(distance(page, plain)).toBeGreaterThan(2)
+    if (screenPixels()) await expect.poll(distance(page, plain)).toBeGreaterThan(2)
     for (const v of Object.values(values)) {
       expect(Number.isInteger(v)).toBe(true)
       expect(Math.abs(v)).toBeLessThanOrEqual(50)
@@ -230,19 +231,19 @@ test.describe('AC-08 — Compare shows the Work before adjusting', () => {
     await field(page, 'Contrast').press('Enter')
     await field(page, 'Sepia').fill('80')
     await field(page, 'Sepia').press('Enter')
-    await expect.poll(distance(page, plain)).toBeGreaterThan(10)
+    if (screenPixels()) await expect.poll(distance(page, plain)).toBeGreaterThan(10)
     const drafted = await shot(page)
     return { plain, drafted }
   }
 
   async function expectHeld(page: Page, plain: number[]) {
     await expect(before(page)).toHaveText('Before')
-    await expect.poll(distance(page, plain)).toBeLessThanOrEqual(1)
+    if (screenPixels()) await expect.poll(distance(page, plain)).toBeLessThanOrEqual(1)
   }
 
   async function expectReleased(page: Page, drafted: number[]) {
     await expect(before(page)).toBeHidden()
-    await expect.poll(distance(page, drafted)).toBeLessThanOrEqual(1)
+    if (screenPixels()) await expect.poll(distance(page, drafted)).toBeLessThanOrEqual(1)
   }
 
   test('by the mouse', async ({ page }) => {
@@ -301,10 +302,10 @@ test.describe('AC-05, AC-09, AC-10 — fields, Cancel and resets', () => {
     await openTool(page)
     const plain = await shot(page)
     await slider(page, 'Saturation').fill('-80')
-    await expect.poll(distance(page, plain)).toBeGreaterThan(5)
+    if (screenPixels()) await expect.poll(distance(page, plain)).toBeGreaterThan(5)
     await page.keyboard.press('Escape')
     await expect(tool(page)).toBeHidden()
-    if (shotsWithToolClosed()) await expect.poll(distance(page, plain)).toBeLessThanOrEqual(1)
+    if (screenPixels()) await expect.poll(distance(page, plain)).toBeLessThanOrEqual(1)
     expect((await work(page))!.hasUnsavedEdits).toBe(false)
   })
 
@@ -321,7 +322,7 @@ test.describe('AC-05, AC-09, AC-10 — fields, Cancel and resets', () => {
     expect(Number(await field(page, 'Temperature').inputValue())).toBeGreaterThan(40)
     await slider(page, 'Temperature').dblclick({ position })
     await expect(field(page, 'Temperature')).toHaveValue('0')
-    await expect.poll(distance(page, plain)).toBeLessThanOrEqual(1)
+    if (screenPixels()) await expect.poll(distance(page, plain)).toBeLessThanOrEqual(1)
   })
 
   test('typed values snap, round and revert by the AC-05 rule; Enter never applies', async ({
