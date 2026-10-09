@@ -123,26 +123,77 @@ function timedAuto(page: Page): Promise<number> {
   )
 }
 
-/** Frame intervals (ms) while the brightness slider moves every animation frame for ~2 s. */
-function dragIntervals(page: Page): Promise<number[]> {
+/** The seven sliders with their ranges (AC-01), for the drag scenario. */
+const SLIDERS: [name: string, min: number, max: number][] = [
+  ['Brightness', -100, 100],
+  ['Contrast', -100, 100],
+  ['Saturation', -100, 100],
+  ['Temperature', -100, 100],
+  ['Tint', -100, 100],
+  ['Grayscale', 0, 100],
+  ['Sepia', 0, 100],
+]
+const DRAG_FRAMES = 120 // 2 s at 60 Hz
+
+/**
+ * Records the time of every draw the Preview renderer makes on its own canvas, in
+ * `window.__previewDraws`. Added before the page loads so the renderer's context is covered; the
+ * export worker's context lives in another global and is not.
+ */
+async function recordPreviewDraws(page: Page) {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __previewDraws: number[] }
+    w.__previewDraws = []
+    const draw = WebGL2RenderingContext.prototype.drawArrays
+    WebGL2RenderingContext.prototype.drawArrays = function (...args) {
+      const canvas = this.canvas
+      if (canvas instanceof HTMLCanvasElement && canvas.dataset.testid === 'preview-canvas') {
+        w.__previewDraws.push(performance.now())
+      }
+      return draw.apply(this, args)
+    }
+  })
+}
+
+/**
+ * One 2 s drag of a slider, one value per display frame across its range, and the intervals (ms)
+ * between the renderer's draws of the Preview meanwhile.
+ */
+function dragDrawIntervals(page: Page, name: string, min: number, max: number): Promise<number[]> {
   return page.evaluate(
-    () =>
+    ({ name, min, max, frames }) =>
       new Promise<number[]>((resolve) => {
-        const times: number[] = []
+        const w = window as unknown as { __previewDraws: number[] }
         const range = document.querySelector(
-          'input[type="range"][aria-label="Brightness"]',
+          `input[type="range"][aria-label="${name}"]`,
         ) as HTMLInputElement
+        const span = max - min
         let i = 0
-        const tick = (t: number) => {
-          times.push(t)
-          i++
-          range.value = String((i % 200) - 100)
+        const move = () => {
+          // A triangle wave over the whole range, three steps per frame: every frame is a change.
+          const phase = (i * 3) % (2 * span)
+          range.value = String(min + (phase <= span ? phase : 2 * span - phase))
           range.dispatchEvent(new Event('input', { bubbles: true }))
-          if (i < 120) requestAnimationFrame(tick)
-          else resolve(times.slice(1).map((t, k) => t - times[k]!))
         }
+        const tick = () => {
+          i++
+          // As a pointer move: a task between frames, not inside this frame's callbacks, where the
+          // renderer's own frame request would land a frame late.
+          setTimeout(move, 0)
+          if (i < frames) requestAnimationFrame(tick)
+          // Two more frames: the renderer draws the last value in the frame after it.
+          else
+            requestAnimationFrame(() =>
+              requestAnimationFrame(() => {
+                const draws = w.__previewDraws
+                resolve(draws.slice(1).map((t, k) => t - draws[k]!))
+              }),
+            )
+        }
+        w.__previewDraws = []
         requestAnimationFrame(tick)
       }),
+    { name, min, max, frames: DRAG_FRAMES },
   )
 }
 
@@ -176,15 +227,24 @@ for (const act of ['Apply', 'Cancel', 'Reset', 'compare-release'] as const) {
   })
 }
 
-test('@perf dragging a slider: p95 frame interval ≤ 33 ms', async ({ page }) => {
-  test.setTimeout(120_000)
-  await prepare(page)
-  await timedOpen(page)
-  await dragIntervals(page) // warm-up
-  const time = p95(await dragIntervals(page))
-  results['slider drag frame interval p95'] = `${time.toFixed(1)} ms (target ≤ 33 ms)`
-  expect(time).toBeLessThanOrEqual(33)
-})
+for (const [name, min, max] of SLIDERS) {
+  test(`@perf dragging ${name}: p95 interval between Preview draws ≤ 33 ms`, async ({ page }) => {
+    test.setTimeout(180_000)
+    await recordPreviewDraws(page)
+    await prepare(page)
+    await timedOpen(page)
+    const intervals: number[] = []
+    for (let i = 0; i < WARM_UP + RUNS; i++) {
+      const run = await dragDrawIntervals(page, name, min, max)
+      // At least 30 updates per second, as §6 row 1 asks, or the p95 below means nothing.
+      expect(run.length + 1, `draws in run ${i}`).toBeGreaterThanOrEqual(DRAG_FRAMES / 2)
+      if (i >= WARM_UP) intervals.push(...run)
+    }
+    const time = p95(intervals)
+    results[`${name} drag draw interval p95`] = `${time.toFixed(1)} ms (target ≤ 33 ms)`
+    expect(time).toBeLessThanOrEqual(33)
+  })
+}
 
 test('@perf Auto to the sliders and the Preview: p95 ≤ 300 ms', async ({ page }) => {
   test.setTimeout(120_000)

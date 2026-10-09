@@ -38,7 +38,7 @@
 | R4 | AC-20 e2e: pan across the open/close resize and assert the full View | tests | Blazheiko | S | — | done |
 | R5 | AC-17 e2e: "Open image" while open, and a cancelled file dialog | tests | Blazheiko | S | — | done |
 | R6 | Fill the AC-06 / AC-07 / AC-12 test-plan rows with no test behind them | tests | Blazheiko | S | — | done |
-| R7 | Perf drag over all seven sliders, timing the renderer's draws, 20 runs after 2 warm-ups | tests | Blazheiko | S | — | todo |
+| R7 | Perf drag over all seven sliders, timing the renderer's draws, 20 runs after 2 warm-ups | tests | Blazheiko | S | — | done |
 | R8 | Cross-engine Auto: a mild-cast fixture and one over 512 px; regenerate the expected values | tests | Blazheiko | S | R1, R2 | done |
 | R9 | Double-click reset e2e away from neutral | tests | Blazheiko | S | — | done |
 | R10 | SliderField announces the unit through aria-valuetext | ui | Blazheiko | S | — | done |
