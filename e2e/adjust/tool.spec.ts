@@ -21,20 +21,48 @@ import {
 // ux-flows F1–F5 in a real browser: what happy-dom can't show (the rendered Preview, real pointer
 // drags and held keys, Auto on real sampled pixels). The logic itself is unit-tested (T12–T16).
 
+/** Waits two frames: a Preview frame the last action scheduled has then been drawn. */
+const nextFrames = (page: Page) =>
+  page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
+
 /**
  * A 64×64 patch at the canvas centre, as the screen shows it (straight RGBA). The image sits at the
- * centre at Fit with the tool open or closed, and a small patch keeps decoding fast.
+ * centre at Fit with the tool open or closed, and a small patch keeps decoding fast. The Preview
+ * draws on `requestAnimationFrame`, and on a software-GL runner WebKit and Firefox show the frame
+ * late: the patch is taken after two frames, again until two takes in a row agree.
  */
 async function shot(page: Page) {
-  const box = (await page.getByTestId('preview-canvas').boundingBox())!
-  const clip = {
-    x: Math.round(box.x + box.width / 2 - 32),
-    y: Math.round(box.y + box.height / 2 - 32),
-    width: 64,
-    height: 64,
+  const take = async () => {
+    await nextFrames(page)
+    const box = (await page.getByTestId('preview-canvas').boundingBox())!
+    const clip = {
+      x: Math.round(box.x + box.width / 2 - 32),
+      y: Math.round(box.y + box.height / 2 - 32),
+      width: 64,
+      height: 64,
+    }
+    return (await decodePng(page, await page.screenshot({ clip }))).data
   }
-  return (await decodePng(page, await page.screenshot({ clip }))).data
+  let last = await take()
+  for (let i = 0; i < 10; i++) {
+    const next = await take()
+    if (maxDiff(next, last) === 0) return next
+    last = next
+  }
+  return last
 }
+
+/** How far the screen's patch is from `target`, for `expect.poll` while the Preview catches up. */
+const distance = (page: Page, target: number[]) => async () => maxDiff(await shot(page), target)
+
+/**
+ * Whether the screen's pixels can be checked. WebKit on the Linux runner now and then leaves the
+ * WebGL canvas out of page screenshots, the tool open or closed (CI traces: every pixel of the
+ * patch is page background while the screencast shows the image), so there the steps run without
+ * the pixel checks, as open-and-view keeps its WebGL pixel checks off WebKit. The Preview's own
+ * pixels stay checked on every engine by fidelity.spec.ts, which reads them off-screen.
+ */
+const screenPixels = () => !(test.info().project.name === 'webkit' && process.platform === 'linux')
 
 const mean = (data: number[]) => {
   let sum = 0
@@ -65,10 +93,9 @@ async function openPhoto(page: Page) {
 test.describe('AC-01, AC-21 — three actions by mouse', () => {
   test('Adjust, drag brightness, Apply gives a lighter Work', async ({ page }) => {
     await openPhoto(page)
-    const start = await shot(page)
-
     await action(page).click()
     await expect(tool(page)).toBeVisible()
+    const start = await shot(page)
     const box = (await slider(page, 'Brightness').boundingBox())!
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
     await page.mouse.down()
@@ -76,8 +103,11 @@ test.describe('AC-01, AC-21 — three actions by mouse', () => {
     await page.mouse.up()
     const value = Number(await field(page, 'Brightness').inputValue())
     expect(value).toBeGreaterThan(0)
+    // The Preview follows the drag.
+    if (screenPixels()) {
+      await expect.poll(async () => mean(await shot(page))).toBeGreaterThan(mean(start) + 1)
+    }
     const dragged = await shot(page)
-    expect(mean(dragged)).toBeGreaterThan(mean(start) + 1) // the Preview follows the drag
 
     await page.getByRole('button', { name: 'Apply' }).click()
     await expect(tool(page)).toBeHidden()
@@ -85,7 +115,7 @@ test.describe('AC-01, AC-21 — three actions by mouse', () => {
       adjustments: { brightness: value },
       hasUnsavedEdits: true,
     })
-    expect(maxDiff(await shot(page), dragged)).toBeLessThanOrEqual(1)
+    if (screenPixels()) await expect.poll(distance(page, dragged)).toBeLessThanOrEqual(1)
   })
 
   test('A, Auto, Apply gives an auto-adjusted Work, and Auto again changes nothing', async ({
@@ -98,7 +128,7 @@ test.describe('AC-01, AC-21 — three actions by mouse', () => {
     await page.getByRole('button', { name: 'Auto' }).click()
     const values = await autoFields(page)
     // The Preview follows Auto: its pixels change (test-plan AC-12 e2e row).
-    await expect.poll(async () => maxDiff(await shot(page), plain)).toBeGreaterThan(2)
+    if (screenPixels()) await expect.poll(distance(page, plain)).toBeGreaterThan(2)
     for (const v of Object.values(values)) {
       expect(Number.isInteger(v)).toBe(true)
       expect(Math.abs(v)).toBeLessThanOrEqual(50)
@@ -195,25 +225,25 @@ test.describe('AC-13 — Auto agrees within 1 across engines', () => {
 test.describe('AC-08 — Compare shows the Work before adjusting', () => {
   async function openAdjusted(page: Page) {
     await openPhoto(page)
-    const plain = await shot(page)
     await openTool(page)
+    const plain = await shot(page)
     await field(page, 'Contrast').fill('60')
     await field(page, 'Contrast').press('Enter')
     await field(page, 'Sepia').fill('80')
     await field(page, 'Sepia').press('Enter')
+    if (screenPixels()) await expect.poll(distance(page, plain)).toBeGreaterThan(10)
     const drafted = await shot(page)
-    expect(maxDiff(drafted, plain)).toBeGreaterThan(10)
     return { plain, drafted }
   }
 
   async function expectHeld(page: Page, plain: number[]) {
     await expect(before(page)).toHaveText('Before')
-    expect(maxDiff(await shot(page), plain)).toBeLessThanOrEqual(1)
+    if (screenPixels()) await expect.poll(distance(page, plain)).toBeLessThanOrEqual(1)
   }
 
   async function expectReleased(page: Page, drafted: number[]) {
     await expect(before(page)).toBeHidden()
-    expect(maxDiff(await shot(page), drafted)).toBeLessThanOrEqual(1)
+    if (screenPixels()) await expect.poll(distance(page, drafted)).toBeLessThanOrEqual(1)
   }
 
   test('by the mouse', async ({ page }) => {
@@ -269,20 +299,20 @@ test.describe('AC-08 — Compare shows the Work before adjusting', () => {
 test.describe('AC-05, AC-09, AC-10 — fields, Cancel and resets', () => {
   test('Escape shows the Work as before and leaves no Unsaved edits', async ({ page }) => {
     await openPhoto(page)
-    const plain = await shot(page)
     await openTool(page)
+    const plain = await shot(page)
     await slider(page, 'Saturation').fill('-80')
-    expect(maxDiff(await shot(page), plain)).toBeGreaterThan(5)
+    if (screenPixels()) await expect.poll(distance(page, plain)).toBeGreaterThan(5)
     await page.keyboard.press('Escape')
     await expect(tool(page)).toBeHidden()
-    expect(maxDiff(await shot(page), plain)).toBeLessThanOrEqual(1)
+    if (screenPixels()) await expect.poll(distance(page, plain)).toBeLessThanOrEqual(1)
     expect((await work(page))!.hasUnsavedEdits).toBe(false)
   })
 
   test('double-clicking a slider resets it and the Preview follows', async ({ page }) => {
     await openPhoto(page)
-    const plain = await shot(page)
     await openTool(page)
+    const plain = await shot(page)
     // Away from neutral: at 85% of −100…100 a click alone sets about +70, so only the double-click
     // handler can bring it back to 0.
     const box = (await slider(page, 'Temperature').boundingBox())!
@@ -292,7 +322,7 @@ test.describe('AC-05, AC-09, AC-10 — fields, Cancel and resets', () => {
     expect(Number(await field(page, 'Temperature').inputValue())).toBeGreaterThan(40)
     await slider(page, 'Temperature').dblclick({ position })
     await expect(field(page, 'Temperature')).toHaveValue('0')
-    expect(maxDiff(await shot(page), plain)).toBeLessThanOrEqual(1)
+    if (screenPixels()) await expect.poll(distance(page, plain)).toBeLessThanOrEqual(1)
   })
 
   test('typed values snap, round and revert by the AC-05 rule; Enter never applies', async ({
