@@ -100,11 +100,6 @@ export const useAdjustStore = defineStore('adjust', () => {
     return draft.value[key]
   }
 
-  /** One slider to its neutral value, on the Draft only (AC-10). */
-  function resetOne(key: AdjustmentKey) {
-    setValue(key, ADJUSTMENT_RANGES[key].neutral)
-  }
-
   /** All seven to their neutral values, on the Draft only: they reach the Work on Apply (AC-10). */
   function reset() {
     if (!draft.value) return
@@ -131,7 +126,6 @@ export const useAdjustStore = defineStore('adjust', () => {
     open,
     setValue,
     commitText,
-    resetOne,
     reset,
     apply,
     cancel,

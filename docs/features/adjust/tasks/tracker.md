@@ -56,4 +56,4 @@
 | N4 | Index ADR-0005 in sad §9 and link it from §11 | docs | Blazheiko | S | — | todo |
 | N5 | Note the transparency cache's Work id + Geometry key in crop-rotate ADR-0004, crop-rotate sad and adjust sad | docs | Blazheiko | S | — | todo |
 | N6 | screens.md SCR-03 comparing row names AdjustBeforeLabel in #tool-canvas | docs | Blazheiko | S | — | todo |
-| N7 | Route the slider double-click reset through tool.resetOne | ui | Blazheiko | S | — | todo |
+| N7 | Remove the unreachable resetOne (owner chose delete over a new SliderField reset event) | app | Blazheiko | S | — | done |

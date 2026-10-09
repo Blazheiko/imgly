@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import {
+  ADJUSTMENT_RANGES,
   appError,
   autoAdjust,
   createWork,
@@ -114,7 +115,8 @@ describe('adjust store (sad.md §4, §5)', () => {
       tool.setValue('saturation', 50)
       tool.commitText('contrast', '0')
       expect(tool.draft).toEqual({ ...NEUTRAL_ADJUSTMENTS, saturation: 50 })
-      tool.resetOne('saturation')
+      // A slider's double-click reset sends its neutral value (SliderField `neutral`).
+      tool.setValue('saturation', ADJUSTMENT_RANGES.saturation.neutral)
       expect(tool.draft).toEqual(NEUTRAL_ADJUSTMENTS)
     })
 
@@ -293,7 +295,7 @@ describe('adjust store (sad.md §4, §5)', () => {
       tool.startCompare()
       tool.setValue('brightness', 20)
       tool.commitText('tint', '7')
-      tool.resetOne('contrast')
+      tool.setValue('contrast', ADJUSTMENT_RANGES.contrast.neutral)
       expect(editor.previewAdjustments).toEqual(NEUTRAL_ADJUSTMENTS)
       tool.reset()
       tool.setValue('grayscale', 10)
