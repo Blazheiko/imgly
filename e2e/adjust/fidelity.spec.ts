@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { compareWithPreview } from '../export/helpers'
 import { identityGeometry, openFixture, setStraighten, type Geometry } from '../crop-rotate/helpers'
 import {
@@ -24,11 +24,29 @@ const TOLERANCE = 2
 const size = { width: 24, height: 16 }
 
 /** A Geometry with a Rotation, a Flip, a Straighten angle and a Crop. */
-const GEOMETRY: Geometry = setStraighten(
-  { ...identityGeometry(size), rotation: 90, flipH: true },
-  50,
-  size,
-)
+function geometryFor(s: { width: number; height: number }): Geometry {
+  return setStraighten({ ...identityGeometry(s), rotation: 90, flipH: true }, 50, s)
+}
+const GEOMETRY = geometryFor(size)
+
+type Reference = {
+  name: string
+  width: number
+  height: number
+  open: (page: Page) => Promise<void>
+}
+
+/** test-plan §Test data: the opaque reference set (`photo.png`, `ref.png`) and the synthetic gradient. */
+const REFERENCES: Reference[] = [
+  { name: 'gradient', ...size, open: (page) => openFixture(page, size.width, size.height) },
+  {
+    name: 'photo.png',
+    width: 320,
+    height: 240,
+    open: (page) => openNamed(page, 'photo.png', 320, 240),
+  },
+  { name: 'ref.png', width: 48, height: 32, open: (page) => openNamed(page, 'ref.png', 48, 32) },
+]
 
 const SIGNED = ['brightness', 'contrast', 'saturation', 'temperature', 'tint'] as const
 const PERCENT = ['grayscale', 'sepia'] as const
@@ -63,52 +81,56 @@ test.describe('QG-1a — an adjusted Export matches the Preview at 100% (AC-14)'
     ),
     ['all seven combined', [['combined', COMBINED]]],
   ]
-  for (const [group, settings] of groups) {
-    for (const withGeometry of [false, true]) {
-      test(`${group}, ${withGeometry ? 'with' : 'without'} a Geometry`, async ({
-        page,
-        browserName,
-      }) => {
-        test.setTimeout(90_000)
-        await gotoReady(page)
-        await openFixture(page, size.width, size.height)
-        if (withGeometry) {
-          await page.evaluate((g) => window.__imglyTest!.setGeometry(g), GEOMETRY)
-        }
-        for (const [name, a] of settings) {
-          await applyAdjustments(page, a)
-          const png = await exportPng(page, browserName)
-          const result = await compareWithPreview(page, png)
-          const worst = `${name}: ${JSON.stringify(result.worstPixel)}`
-          expect(result.black, worst).toBeLessThanOrEqual(TOLERANCE)
-          expect(result.white, worst).toBeLessThanOrEqual(TOLERANCE)
-          // The opaque fixture stays fully opaque (AC-06).
-          const out = await decodePng(page, png)
-          expect(
-            out.data.filter((v, i) => i % 4 === 3 && v !== 255),
-            name,
-          ).toEqual([])
-        }
-      })
+  for (const ref of REFERENCES) {
+    for (const [group, settings] of groups) {
+      for (const withGeometry of [false, true]) {
+        test(`${ref.name}: ${group}, ${withGeometry ? 'with' : 'without'} a Geometry`, async ({
+          page,
+          browserName,
+        }) => {
+          test.setTimeout(90_000)
+          await gotoReady(page)
+          await ref.open(page)
+          if (withGeometry) {
+            await page.evaluate((g) => window.__imglyTest!.setGeometry(g), geometryFor(ref))
+          }
+          for (const [name, a] of settings) {
+            await applyAdjustments(page, a)
+            const png = await exportPng(page, browserName)
+            const result = await compareWithPreview(page, png)
+            const worst = `${name}: ${JSON.stringify(result.worstPixel)}`
+            expect(result.black, worst).toBeLessThanOrEqual(TOLERANCE)
+            expect(result.white, worst).toBeLessThanOrEqual(TOLERANCE)
+            // The opaque fixture stays fully opaque (AC-06).
+            const out = await decodePng(page, png)
+            expect(
+              out.data.filter((v, i) => i % 4 === 3 && v !== 255),
+              name,
+            ).toEqual([])
+          }
+        })
+      }
     }
   }
 })
 
-test('QG-1b — neutral values give the Export from before any Adjustment (AC-06)', async ({
-  page,
-  browserName,
-}) => {
-  await gotoReady(page)
-  await openFixture(page, size.width, size.height)
-  const before = await decodePng(page, await exportPng(page, browserName))
+for (const ref of REFERENCES) {
+  test(`QG-1b — ${ref.name}: neutral values give the Export from before any Adjustment (AC-06)`, async ({
+    page,
+    browserName,
+  }) => {
+    await gotoReady(page)
+    await ref.open(page)
+    const before = await decodePng(page, await exportPng(page, browserName))
 
-  await applyAdjustments(page, COMBINED)
-  await applyAdjustments(page, NEUTRAL_ADJUSTMENTS)
-  const after = await decodePng(page, await exportPng(page, browserName))
-  const d = diff(after.data, before.data, after.width)
-  expect(d.alpha).toBe(0)
-  expect(d.colour, d.where).toBe(0)
-})
+    await applyAdjustments(page, COMBINED)
+    await applyAdjustments(page, NEUTRAL_ADJUSTMENTS)
+    const after = await decodePng(page, await exportPng(page, browserName))
+    const d = diff(after.data, before.data, after.width)
+    expect(d.alpha).toBe(0)
+    expect(d.colour, d.where).toBe(0)
+  })
+}
 
 test.describe('QG-1c — transparency is kept exactly (AC-06)', () => {
   const patches = { width: 24, height: 16 }
@@ -251,25 +273,28 @@ test('AC-07 — two paths to the same values give the same pixels', async ({ pag
   expect(diff(a.data, b.data, a.width)).toMatchObject({ alpha: 0, colour: 0 })
 })
 
-test('QG-2 — adjust, then Reset and Apply, gives back the Export from before (AC-10, KPI 3)', async ({
-  page,
-  browserName,
-}) => {
-  await gotoReady(page)
-  await openFixture(page, size.width, size.height)
-  const before = await decodePng(page, await exportPng(page, browserName))
+// KPI 3 is "for 100% of reference images", so the round trip runs on every one of them.
+for (const ref of REFERENCES) {
+  test(`QG-2 — ${ref.name}: adjust, then Reset and Apply, gives back the Export from before (AC-10, KPI 3)`, async ({
+    page,
+    browserName,
+  }) => {
+    await gotoReady(page)
+    await ref.open(page)
+    const before = await decodePng(page, await exportPng(page, browserName))
 
-  await applyAdjustments(page, COMBINED)
-  await openTool(page)
-  await page.getByRole('button', { name: 'Reset' }).click()
-  await page.getByRole('button', { name: 'Apply' }).click()
-  await expect(tool(page)).toBeHidden()
+    await applyAdjustments(page, COMBINED)
+    await openTool(page)
+    await page.getByRole('button', { name: 'Reset' }).click()
+    await page.getByRole('button', { name: 'Apply' }).click()
+    await expect(tool(page)).toBeHidden()
 
-  const after = await decodePng(page, await exportPng(page, browserName))
-  const d = diff(after.data, before.data, after.width)
-  expect(d.alpha).toBe(0)
-  expect(d.colour, d.where).toBe(0)
-})
+    const after = await decodePng(page, await exportPng(page, browserName))
+    const d = diff(after.data, before.data, after.width)
+    expect(d.alpha).toBe(0)
+    expect(d.colour, d.where).toBe(0)
+  })
+}
 
 test.describe('AC-14 — a smaller Export is reduced after the Adjustments', () => {
   test('1 px black and white stripes at brightness +100 stay mid-grey at 50%', async ({
