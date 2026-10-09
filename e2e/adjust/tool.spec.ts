@@ -331,6 +331,15 @@ test.describe('AC-21 — keyboard alone', () => {
     await expect(action(page)).toBeFocused()
   })
 
+  test('Space on the focused Adjust action opens the tool', async ({ page }) => {
+    await openPhoto(page)
+    await action(page).focus()
+    // Space presses the focused button; the editor's hold-Space pan does not take it.
+    await page.keyboard.press('Space')
+    await expect(tool(page)).toBeVisible()
+    await expect(slider(page, 'Brightness')).toBeFocused()
+  })
+
   test('Tab to Auto and Apply; Space presses them instead of panning', async ({ page }) => {
     await openPhoto(page)
     await action(page).focus()

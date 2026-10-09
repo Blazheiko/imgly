@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { nextTick } from 'vue'
-import { createWork, NEUTRAL_ADJUSTMENTS, ok, type Adjustments } from '@/core'
+import { autoAdjust, createWork, NEUTRAL_ADJUSTMENTS, ok, type Adjustments } from '@/core'
 import { useEditorStore } from '@/features/editor'
 import { createFakeRenderer } from '@/features/editor/testing'
 import AdjustControls, { AUTO_SHOWN_MARK } from './AdjustControls.vue'
@@ -129,6 +129,15 @@ describe('AdjustControls (SCR-03)', () => {
     expect(editor.activeTool).toBe('adjust')
   })
 
+  it('shows 0 in the field and the slider after "0" and Enter (AC-10)', async () => {
+    const temperature = field('Temperature')
+    expect((temperature.element as HTMLInputElement).value).toBe('35')
+    await temperature.setValue('0')
+    await temperature.trigger('keydown', { key: 'Enter' })
+    expect((temperature.element as HTMLInputElement).value).toBe('0')
+    expect((range('Temperature').element as HTMLInputElement).value).toBe('0')
+  })
+
   it('sets a slider to neutral on a double-click (AC-10)', async () => {
     await range('Temperature').trigger('dblclick')
     expect(tool.draft!.temperature).toBe(0)
@@ -204,6 +213,30 @@ describe('AdjustControls (SCR-03)', () => {
       vi.restoreAllMocks()
     })
 
+    it('shows the four values it found in their sliders and fields (AC-12)', async () => {
+      // A dim, warm ramp: every one of the four values moves.
+      const data = new Uint8Array(
+        Array.from({ length: 64 }, (_, i) => [40 + i, 30 + i, 10 + i, 255]).flat(),
+      )
+      const sample = { width: 64, height: 1, data }
+      const found = autoAdjust(sample)
+      if (found.kind !== 'values') throw new Error('the sample should give values')
+      fake.renderer.sampleCrop.mockReturnValue(ok(sample))
+      await auto().trigger('click')
+      for (const [key, label] of [
+        ['brightness', 'Brightness'],
+        ['contrast', 'Contrast'],
+        ['temperature', 'Temperature'],
+        ['tint', 'Tint'],
+      ] as const) {
+        const shown = String(found.values[key])
+        expect(found.values[key], key).not.toBe(0)
+        expect((field(label).element as HTMLInputElement).value, label).toBe(shown)
+        expect((range(label).element as HTMLInputElement).value, label).toBe(shown)
+      }
+      expect(status().text()).toBe('')
+    })
+
     it('shows the nothing-to-correct hint, and clears it on the next change', async () => {
       expect(status().text()).toBe('')
       fake.renderer.sampleCrop.mockReturnValue(
@@ -230,6 +263,32 @@ describe('AdjustControls (SCR-03)', () => {
       await buttonNamed(BUTTONS.apply).trigger('click')
       expect(editor.activeTool).toBeNull()
       expect(editor.work!.adjustments.sepia).toBe(20)
+    })
+
+    it('shows every slider and field at 0 after Reset (AC-10)', async () => {
+      await range('Brightness').setValue('42')
+      await range('Sepia').setValue('30')
+      await buttonNamed(BUTTONS.reset).trigger('click')
+      for (const label of Object.values(SLIDER_LABELS)) {
+        expect((field(label).element as HTMLInputElement).value, label).toBe('0')
+        expect((range(label).element as HTMLInputElement).value, label).toBe('0')
+      }
+    })
+
+    it('Apply with an unchanged Draft makes no edit; after a change it raises Unsaved edits (AC-11)', async () => {
+      const revision = editor.work!.revision
+      expect(editor.hasUnsavedEdits).toBe(false)
+      await buttonNamed(BUTTONS.apply).trigger('click')
+      expect(editor.activeTool).toBeNull()
+      expect(editor.work!.revision).toBe(revision)
+      expect(editor.hasUnsavedEdits).toBe(false)
+
+      tool.open()
+      await nextTick()
+      await range('Contrast').setValue('12')
+      await buttonNamed(BUTTONS.apply).trigger('click')
+      expect(editor.work!.revision).toBe(revision + 1)
+      expect(editor.hasUnsavedEdits).toBe(true)
     })
 
     it('reaches the controls in panel order with Tab (AC-21)', () => {
