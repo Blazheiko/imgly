@@ -93,8 +93,11 @@ test.describe('AC-01, AC-21 — three actions by mouse', () => {
     await openPhoto(page)
     await page.keyboard.press('a')
     await expect(tool(page)).toBeVisible()
+    const plain = await shot(page)
     await page.getByRole('button', { name: 'Auto' }).click()
     const values = await autoFields(page)
+    // The Preview follows Auto: its pixels change (test-plan AC-12 e2e row).
+    await expect.poll(async () => maxDiff(await shot(page), plain)).toBeGreaterThan(2)
     for (const v of Object.values(values)) {
       expect(Number.isInteger(v)).toBe(true)
       expect(Math.abs(v)).toBeLessThanOrEqual(50)

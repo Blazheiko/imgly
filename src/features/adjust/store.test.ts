@@ -7,6 +7,8 @@ import {
   err,
   NEUTRAL_ADJUSTMENTS,
   ok,
+  toUniforms,
+  workSize,
   type Adjustments,
   type ImageSample,
 } from '@/core'
@@ -170,6 +172,24 @@ describe('adjust store (sad.md §4, §5)', () => {
       expect(tool.draft).toBeNull()
     })
 
+    it('Apply keeps the Work’s size and Geometry (AC-06)', () => {
+      openWork(editor)
+      const geometry = {
+        ...editor.work!.geometry,
+        rotation: 90 as const,
+        crop: { x: 10, y: 20, width: 200, height: 150 },
+      }
+      editor.applyGeometry(geometry)
+      const size = workSize(editor.work!)
+      tool.open()
+      tool.setValue('sepia', 80)
+      tool.setValue('brightness', -40)
+      tool.apply()
+      expect(editor.work!.adjustments).toMatchObject({ sepia: 80, brightness: -40 })
+      expect(editor.work!.geometry).toEqual(geometry)
+      expect(workSize(editor.work!)).toEqual(size)
+    })
+
     it('opens again with the applied values', () => {
       openWork(editor)
       tool.open()
@@ -177,6 +197,38 @@ describe('adjust store (sad.md §4, §5)', () => {
       tool.apply()
       tool.open()
       expect(tool.draft).toEqual({ ...NEUTRAL_ADJUSTMENTS, saturation: 25 })
+    })
+  })
+
+  describe('the same values by any path (AC-07)', () => {
+    it('gives equal Drafts and equal Preview uniforms in any order, or after a drag out and back', () => {
+      openWork(editor)
+      const paths = [
+        () => {
+          tool.setValue('contrast', 40)
+          tool.setValue('brightness', -20)
+        },
+        () => {
+          tool.setValue('brightness', -20)
+          tool.setValue('contrast', 40)
+        },
+        () => {
+          tool.setValue('brightness', -20)
+          for (let v = 0; v <= 100; v += 7) tool.setValue('contrast', v)
+          tool.setValue('contrast', 100)
+          for (let v = 100; v >= 40; v -= 3) tool.setValue('contrast', v)
+        },
+      ]
+      const results = paths.map((path) => {
+        tool.open()
+        path()
+        const result = { draft: tool.draft, uniforms: toUniforms(editor.previewAdjustments!) }
+        tool.cancel()
+        return result
+      })
+      expect(results[0]!.draft).toEqual({ ...NEUTRAL_ADJUSTMENTS, contrast: 40, brightness: -20 })
+      expect(results[1]).toEqual(results[0])
+      expect(results[2]).toEqual(results[0])
     })
   })
 

@@ -56,6 +56,15 @@ describe('AdjustControls (SCR-03)', () => {
       )!
   const buttonNamed = (name: string) => wrapper.findAll('button').find((b) => b.text() === name)!
 
+  it('leaves the Draft as it was after a slider is dragged far out and back (AC-07)', async () => {
+    const before = { ...tool.draft! }
+    for (const v of ['60', '100']) await range('Temperature').setValue(v)
+    expect(tool.draft!.temperature).toBe(100)
+    for (const v of ['-100', '0', '35']) await range('Temperature').setValue(v)
+    expect(tool.draft).toEqual(before)
+    expect(editor.previewAdjustments).toEqual(before)
+  })
+
   it('lists the seven sliders in AC-01 order in three groups, with ranges, marks and units', () => {
     expect(wrapper.findAll('h3').map((h) => h.text())).toEqual([
       GROUPS.light,
