@@ -276,6 +276,16 @@ test.describe('AC-05, AC-09, AC-10 — fields, Cancel and resets', () => {
     await expect(field(page, 'Tint')).toHaveValue('0')
     await expect(tool(page)).toBeVisible()
   })
+
+  test('a value still being typed is committed when Apply is clicked', async ({ page }) => {
+    await openPhoto(page)
+    await openTool(page)
+    await field(page, 'Contrast').fill('35')
+    await field(page, 'Sepia').fill('20%')
+    await page.getByRole('button', { name: 'Apply' }).click()
+    await expect(tool(page)).toBeHidden()
+    expect((await work(page))!.adjustments).toMatchObject({ contrast: 35, sepia: 20 })
+  })
 })
 
 test.describe('AC-21 — keyboard alone', () => {

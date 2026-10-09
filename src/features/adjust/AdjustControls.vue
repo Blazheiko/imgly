@@ -38,11 +38,7 @@ const autoAvailable = computed(() => editor.display === 'ok')
  * the value the Draft ended with.
  */
 function commit(key: AdjustmentKey) {
-  return (raw: string) => {
-    tool.setPending(key, raw)
-    tool.commitField(key)
-    return tool.draft?.[key] ?? ADJUSTMENT_RANGES[key].neutral
-  }
+  return (raw: string) => tool.commitText(key, raw)
 }
 
 /**

@@ -43,5 +43,5 @@
 | R9 | Double-click reset e2e away from neutral | tests | Blazheiko | S | — | todo |
 | R10 | SliderField announces the unit through aria-valuetext | ui | Blazheiko | S | — | todo |
 | R11 | infoToolOpen as Record<ToolId, string> | app | Blazheiko | S | — | todo |
-| R12 | Remove the adjust store's dead atOpen and pending state | app | Blazheiko | S | — | todo |
+| R12 | Remove the adjust store's dead atOpen and pending state | app | Blazheiko | S | — | done |
 | R13 | Register AdjustBeforeLabel in screens.md and sad §5 | docs | Blazheiko | S | — | todo |

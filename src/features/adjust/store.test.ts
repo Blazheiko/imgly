@@ -70,7 +70,6 @@ describe('adjust store (sad.md §4, §5)', () => {
       expect(tool.open()).toEqual({ ok: true })
       expect(editor.activeTool).toBe('adjust')
       expect(tool.draft).toEqual({ ...NEUTRAL_ADJUSTMENTS, contrast: 30, sepia: 40 })
-      expect(tool.atOpen).toEqual(tool.draft)
       expect(editor.previewAdjustments).toEqual(tool.draft)
     })
   })
@@ -93,34 +92,25 @@ describe('adjust store (sad.md §4, §5)', () => {
       expect(editor.hasUnsavedEdits).toBe(false)
     })
 
-    it('commits a typed value through the AC-05 rule, only when the field is committed', () => {
-      tool.setPending('grayscale', '60%')
-      expect(tool.draft!.grayscale).toBe(0)
-      tool.commitField('grayscale')
+    it('commits a field’s text through the AC-05 rule and answers the value the Draft holds', () => {
+      expect(tool.commitText('grayscale', '60%')).toBe(60)
       expect(tool.draft!.grayscale).toBe(60)
-      expect(tool.pending.grayscale).toBeUndefined()
-
-      tool.setPending('contrast', '2.5')
-      tool.commitField('contrast')
-      expect(tool.draft!.contrast).toBe(3)
-      tool.setPending('contrast', '150')
-      tool.commitField('contrast')
-      expect(tool.draft!.contrast).toBe(100)
-      tool.setPending('contrast', 'abc')
-      tool.commitField('contrast')
+      expect(tool.commitText('contrast', '2.5')).toBe(3)
+      expect(tool.commitText('contrast', '150')).toBe(100)
+      expect(tool.commitText('contrast', 'abc')).toBe(100)
       expect(tool.draft!.contrast).toBe(100)
       expect(editor.previewAdjustments!.contrast).toBe(100)
     })
 
-    it('does nothing when a field with no typed text is committed', () => {
-      tool.commitField('tint')
-      expect(tool.draft).toEqual({ ...NEUTRAL_ADJUSTMENTS, contrast: 30 })
+    it('answers neutral and changes nothing with the tool closed', () => {
+      tool.cancel()
+      expect(tool.commitText('tint', '40')).toBe(0)
+      expect(tool.draft).toBeNull()
     })
 
     it('typing 0 or resetting one slider sets only that one to neutral (AC-10)', () => {
       tool.setValue('saturation', 50)
-      tool.setPending('contrast', '0')
-      tool.commitField('contrast')
+      tool.commitText('contrast', '0')
       expect(tool.draft).toEqual({ ...NEUTRAL_ADJUSTMENTS, saturation: 50 })
       tool.resetOne('saturation')
       expect(tool.draft).toEqual(NEUTRAL_ADJUSTMENTS)
@@ -152,19 +142,10 @@ describe('adjust store (sad.md §4, §5)', () => {
       openWork(editor, { brightness: 10 })
       tool.open()
       tool.setValue('brightness', 80)
-      tool.setPending('brightness', '10')
-      tool.commitField('brightness')
+      tool.commitText('brightness', '10')
       tool.apply()
       expect(editor.work!.revision).toBe(0)
       expect(editor.hasUnsavedEdits).toBe(false)
-    })
-
-    it('Apply commits a value still being typed first', () => {
-      openWork(editor)
-      tool.open()
-      tool.setPending('tint', '12')
-      tool.apply()
-      expect(editor.work!.adjustments.tint).toBe(12)
     })
 
     it('Reset then Apply on an adjusted Work makes it neutral, as an edit', () => {
@@ -176,18 +157,17 @@ describe('adjust store (sad.md §4, §5)', () => {
       expect(editor.work!.revision).toBe(1)
     })
 
-    it('Cancel closes the tool and leaves the Work, typed text included, as it was', () => {
+    it('Cancel closes the tool and leaves the Work as it was', () => {
       openWork(editor, { contrast: 30 })
       tool.open()
       tool.setValue('contrast', -60)
       tool.reset()
-      tool.setPending('tint', '50')
+      tool.commitText('tint', '50')
       tool.cancel()
       expect(editor.activeTool).toBeNull()
       expect(editor.work!.adjustments).toEqual({ ...NEUTRAL_ADJUSTMENTS, contrast: 30 })
       expect(editor.work!.revision).toBe(0)
       expect(tool.draft).toBeNull()
-      expect(tool.pending).toEqual({})
     })
 
     it('opens again with the applied values', () => {
@@ -206,11 +186,10 @@ describe('adjust store (sad.md §4, §5)', () => {
       openWork(editor, { contrast: 30 })
       tool.open()
       tool.setValue('tint', 40)
-      tool.setPending('sepia', '9')
+      tool.commitText('sepia', '9')
       await editor.openImage(new Blob())
       expect(editor.activeTool).toBeNull()
       expect(tool.draft).toBeNull()
-      expect(tool.pending).toEqual({})
       tool.open()
       expect(tool.draft).toEqual(NEUTRAL_ADJUSTMENTS)
     })
@@ -261,8 +240,7 @@ describe('adjust store (sad.md §4, §5)', () => {
     it('keeps showing Before for Draft changes while held, and shows them on release', () => {
       tool.startCompare()
       tool.setValue('brightness', 20)
-      tool.setPending('tint', '7')
-      tool.commitField('tint')
+      tool.commitText('tint', '7')
       tool.resetOne('contrast')
       expect(editor.previewAdjustments).toEqual(NEUTRAL_ADJUSTMENTS)
       tool.reset()

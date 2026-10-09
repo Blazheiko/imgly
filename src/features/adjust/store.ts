@@ -11,17 +11,16 @@ import {
 import { useEditorStore } from '@/features/editor'
 
 /**
- * The "Adjust" tool's state (sad.md §4, §5): the Draft, the Adjustments from when the tool opened
- * (for Cancel), the text still being typed in each field, whether Compare is held and whether Auto
- * found nothing to correct. The Draft reaches the Preview only through `editor.previewAdjustments`
- * (neutral values while Compare is held), and the Work only through `editor.applyAdjustments` on
- * Apply. Its only cross-feature import is the editor store.
+ * The "Adjust" tool's state (sad.md §4, §5): the Draft, whether Compare is held and whether Auto
+ * found nothing to correct. Cancel needs no copy of the values at open: the Work still holds them.
+ * A field's typed text stays in its NumberField until it is left or Enter is pressed (AC-05). The
+ * Draft reaches the Preview only through `editor.previewAdjustments` (neutral values while Compare
+ * is held), and the Work only through `editor.applyAdjustments` on Apply. Its only cross-feature
+ * import is the editor store.
  */
 export const useAdjustStore = defineStore('adjust', () => {
   const editor = useEditorStore()
   const draft = shallowRef<Adjustments | null>(null)
-  const atOpen = shallowRef<Adjustments | null>(null)
-  const pending = ref<Partial<Record<AdjustmentKey, string>>>({})
   const comparing = ref(false)
   const nothingToCorrect = ref(false)
 
@@ -31,8 +30,6 @@ export const useAdjustStore = defineStore('adjust', () => {
     (tool) => {
       if (tool === 'adjust') return
       draft.value = null
-      atOpen.value = null
-      pending.value = {}
       comparing.value = false
       nothingToCorrect.value = false
     },
@@ -81,10 +78,7 @@ export const useAdjustStore = defineStore('adjust', () => {
   function open() {
     const result = editor.openTool('adjust')
     if (!result.ok) return result
-    const applied = { ...editor.work!.adjustments }
-    atOpen.value = applied
-    pending.value = {}
-    update(applied)
+    update({ ...editor.work!.adjustments })
     return result
   }
 
@@ -96,18 +90,14 @@ export const useAdjustStore = defineStore('adjust', () => {
     if (next !== draft.value[key]) update({ ...draft.value, [key]: next })
   }
 
-  function setPending(key: AdjustmentKey, text: string) {
-    pending.value = { ...pending.value, [key]: text }
-  }
-
-  /** Applies a field's typed text by the AC-05 rule; it never applies the tool. */
-  function commitField(key: AdjustmentKey) {
-    const text = pending.value[key]
-    if (text === undefined) return
-    const rest = { ...pending.value }
-    delete rest[key]
-    pending.value = rest
-    if (draft.value) setValue(key, parseAdjustmentField(text, key, draft.value[key]))
+  /**
+   * Applies a field's typed text by the AC-05 rule and answers the value the Draft then holds, for
+   * the field to show. It never applies the tool.
+   */
+  function commitText(key: AdjustmentKey, text: string): number {
+    if (!draft.value) return ADJUSTMENT_RANGES[key].neutral
+    setValue(key, parseAdjustmentField(text, key, draft.value[key]))
+    return draft.value[key]
   }
 
   /** One slider to its neutral value, on the Draft only (AC-10). */
@@ -118,13 +108,11 @@ export const useAdjustStore = defineStore('adjust', () => {
   /** All seven to their neutral values, on the Draft only: they reach the Work on Apply (AC-10). */
   function reset() {
     if (!draft.value) return
-    pending.value = {}
     update({ ...NEUTRAL_ADJUSTMENTS })
   }
 
   /** Stores the Draft (an edit only when a value differs, AC-11) and closes the tool. */
   function apply() {
-    for (const key of Object.keys(pending.value) as AdjustmentKey[]) commitField(key)
     const next = draft.value
     if (!next || !editor.work) return
     editor.applyAdjustments(next)
@@ -138,14 +126,11 @@ export const useAdjustStore = defineStore('adjust', () => {
 
   return {
     draft,
-    atOpen,
-    pending,
     comparing,
     nothingToCorrect,
     open,
     setValue,
-    setPending,
-    commitField,
+    commitText,
     resetOne,
     reset,
     apply,
