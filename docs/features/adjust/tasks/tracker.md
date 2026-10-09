@@ -42,6 +42,6 @@
 | R8 | Cross-engine Auto: a mild-cast fixture and one over 512 px; regenerate the expected values | tests | Blazheiko | S | R1, R2 | todo |
 | R9 | Double-click reset e2e away from neutral | tests | Blazheiko | S | — | done |
 | R10 | SliderField announces the unit through aria-valuetext | ui | Blazheiko | S | — | done |
-| R11 | infoToolOpen as Record<ToolId, string> | app | Blazheiko | S | — | todo |
+| R11 | infoToolOpen as Record<ToolId, string> | app | Blazheiko | S | — | done |
 | R12 | Remove the adjust store's dead atOpen and pending state | app | Blazheiko | S | — | done |
 | R13 | Register AdjustBeforeLabel in screens.md and sad §5 | docs | Blazheiko | S | — | todo |
