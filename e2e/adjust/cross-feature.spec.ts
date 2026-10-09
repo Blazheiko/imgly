@@ -13,6 +13,7 @@ import {
   gotoReady,
   openNamed,
   openTool,
+  setField,
   slider,
   tool,
   waitForWork,
@@ -31,11 +32,6 @@ const replaceDialog = (page: Page) => page.getByRole('alertdialog')
 /** The info toasts with this text (not the actions' hidden descriptions, which say the same). */
 const toasts = (page: Page, text: string) => page.getByRole('status').filter({ hasText: text })
 const toast = (page: Page, text: string) => toasts(page, text).first()
-
-async function setField(page: Page, name: string, value: string) {
-  await field(page, name).fill(value)
-  await field(page, name).press('Enter')
-}
 
 /** Clicks the top bar's "Open image" and hands its file dialog to `answer`. */
 async function pickThroughOpenImage(page: Page, answer: (chooser: FileChooser) => Promise<void>) {
@@ -223,6 +219,8 @@ test.describe('with an image', () => {
       await replaceDialog(page).getByRole('button', { name: 'Cancel' }).click()
       await expect(tool(page)).toBeVisible()
       await expect(field(page, 'Saturation')).toHaveValue('-30')
+      // SCR-06 declined: focus is back inside the tool.
+      await expect(tool(page).locator(':focus')).toHaveCount(1)
 
       await dropGeneratedImage(page, { width: 120, height: 90 })
       await replaceDialog(page).getByRole('button', { name: 'Replace' }).click()
@@ -248,6 +246,8 @@ test.describe('with an image', () => {
       await replaceDialog(page).getByRole('button', { name: 'Cancel' }).click()
       await expect(tool(page)).toBeVisible()
       await expect(field(page, 'Saturation')).toHaveValue('-30')
+      // SCR-06 declined: the dialog came from the top bar, but focus goes back into the tool.
+      await expect(slider(page, 'Brightness')).toBeFocused()
 
       const before = (await work(page))!
       await pickThroughOpenImage(page, (chooser) =>

@@ -87,6 +87,12 @@ export const slider = (page: Page, name: string) => page.getByRole('slider', { n
 export const field = (page: Page, name: string) => page.getByRole('textbox', { name, exact: true })
 export const before = (page: Page) => page.getByTestId('adjust-before')
 
+/** Types a value into a slider's field and commits it with Enter (AC-05). */
+export async function setField(page: Page, name: string, value: string) {
+  await field(page, name).fill(value)
+  await field(page, name).press('Enter')
+}
+
 /** Opens the tool with its action and waits for the brightness slider to take focus. */
 export async function openTool(page: Page) {
   await action(page).click()

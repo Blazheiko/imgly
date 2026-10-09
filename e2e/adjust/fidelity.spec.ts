@@ -14,7 +14,10 @@ import {
   openTool,
   previewAt100,
   semiTransparentLimit,
+  setField,
+  slider,
   tool,
+  work,
   type Adjustments,
 } from './helpers'
 
@@ -249,22 +252,41 @@ test.describe('QG-1d — the shader gives ADR-0003’s anchor table (AC-02, AC-0
   })
 })
 
-test('AC-07 — two paths to the same values give the same pixels', async ({ page, browserName }) => {
+test('AC-07 — two paths through the tool to the same values give the same pixels', async ({
+  page,
+  browserName,
+}) => {
   await gotoReady(page)
   await openFixture(page, size.width, size.height)
   const target = adjusted({ brightness: 30, contrast: 40, sepia: 20 })
+  const apply = async () => {
+    await page.getByRole('button', { name: 'Apply' }).click()
+    await expect(tool(page)).toBeHidden()
+  }
 
-  // Contrast first, dragged far out and back, then brightness and sepia.
-  await applyAdjustments(page, adjusted({ contrast: 100 }))
-  await applyAdjustments(page, adjusted({ contrast: 40 }))
-  await applyAdjustments(page, target)
+  // Contrast first, its slider taken to the end and back, then brightness and sepia.
+  await openTool(page)
+  await slider(page, 'Contrast').focus()
+  await page.keyboard.press('End')
+  await setField(page, 'Contrast', '40')
+  await setField(page, 'Brightness', '30')
+  await setField(page, 'Sepia', '20')
+  await apply()
+  expect((await work(page))!.adjustments).toEqual(target)
   const first = { preview: await previewAt100(page), file: await exportPng(page, browserName) }
 
-  // Brightness and sepia first, then contrast.
-  await applyAdjustments(page, adjusted({ brightness: 30, sepia: 20 }))
+  // Back to a neutral Work, then sepia and brightness first, contrast last, through a Draft that
+  // passes through other values on the way.
   await applyAdjustments(page, NEUTRAL_ADJUSTMENTS)
-  await applyAdjustments(page, adjusted({ sepia: 20, brightness: 30 }))
-  await applyAdjustments(page, target)
+  await openTool(page)
+  await setField(page, 'Sepia', '20')
+  await setField(page, 'Brightness', '-100')
+  await setField(page, 'Brightness', '30')
+  await slider(page, 'Contrast').focus()
+  await page.keyboard.press('Home')
+  await setField(page, 'Contrast', '40')
+  await apply()
+  expect((await work(page))!.adjustments).toEqual(target)
   const second = { preview: await previewAt100(page), file: await exportPng(page, browserName) }
 
   expect(second.preview).toEqual(first.preview)

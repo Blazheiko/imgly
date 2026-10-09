@@ -11,6 +11,7 @@ import {
   openNamed,
   openPixels,
   openTool,
+  setField,
   slider,
   tabTo,
   tool,
@@ -154,15 +155,25 @@ test.describe('AC-13 — Auto agrees within 1 across engines', () => {
     })
   }
 
-  test('a one-colour image says there is nothing to correct', async ({ page }) => {
+  test('a one-colour image says there is nothing to correct and keeps the sliders', async ({
+    page,
+  }) => {
     await gotoReady(page)
     await openPixels(page, 40, 30, () => [90, 140, 200, 255])
     await page.keyboard.press('a')
+    // Values away from neutral, so "kept" can't pass as "set to 0".
+    await setField(page, 'Brightness', '25')
+    await setField(page, 'Tint', '-15')
     await page.getByRole('button', { name: 'Auto' }).click()
     await expect(
       page.getByRole('status').filter({ hasText: 'Nothing to correct automatically.' }),
     ).toBeVisible()
-    expect(await autoFields(page)).toEqual({ brightness: 0, contrast: 0, temperature: 0, tint: 0 })
+    expect(await autoFields(page)).toEqual({
+      brightness: 25,
+      contrast: 0,
+      temperature: 0,
+      tint: -15,
+    })
   })
 
   test('a one-colour image with soft edges says there is nothing to correct (N1)', async ({
