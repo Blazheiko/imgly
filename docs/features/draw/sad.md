@@ -348,17 +348,15 @@ The topology is unchanged. The feature ships inside the existing static app on G
 
 ## 9. Architecture decisions
 
-<!-- 🎯 Why: the REVERSE INDEX onto the adr/ folder. `ls adr/` gives the files; §9 gives the
-     semantics — why they exist, which SAD section they attach to, what status.
-     📋 Write: a 4-column table, one row per ADR. Mixed status is fine.
-     📌 e.g. «0001 | Store content as a table of typed blocks | Accepted | §4». -->
-
 | # | Title | Status | Section |
 |---|---|---|---|
-| <NNNN> | <imperative — e.g. "Use a sliding-window counter for rate limiting"> | Accepted | §<N> |
-| <NNNN> | <imperative — e.g. "Co-locate the worker in the API process"> | Accepted | §<N> |
+| [0001](adr/0001-hold-the-drawing-layer-as-one-bitmap-in-the-original-pixel-space-created-on-the-first-mark.md) | Hold the Drawing layer as one bitmap in the Original's pixel space, created on the first mark | Accepted | §4 |
+| [0002](adr/0002-paint-each-stroke-segment-straight-into-the-draft-in-original-coordinates.md) | Paint each Stroke segment straight into the Draft in Original coordinates, through the Geometry's transform and clipped to the Crop | Accepted | §4 |
+| [0003](adr/0003-composite-the-drawing-layer-in-the-shared-fragment-shader-after-the-adjustments.md) | Composite the Drawing layer in the shared fragment shader, after the Adjustments and before the JPEG flatten | Accepted | §4 |
+| [0004](adr/0004-hold-the-draft-as-a-full-copy-of-the-layer-and-hand-it-to-the-work-on-apply.md) | Hold the Draft as a full copy of the layer, hand it to the Work on Apply, and never paint an applied layer again | Accepted | §4 |
+| [0005](adr/0005-make-one-apply-of-the-draw-tool-one-undo-step.md) | Make one Apply of the "Draw" tool one undo step, and keep no per-Stroke history | Accepted | §4 |
 
-ADR files live under `docs/features/<slug>/adr/NNNN-<title>.md`.
+ADR files live under `docs/features/draw/adr/`. Five ADRs sit at the low end of the 5–12 expected for size M. The count stays low on purpose. Repo ADR 0004 already fixes Canvas 2D and `destination-out`. The tool mechanism and the Draft-in-store pattern come from crop-rotate ADR-0003, and the shared shader path from crop-rotate ADR-0002 and adjust ADR-0002. Below the gate and decided inline: the target surface, the per-Draft change flag (§4), keeping the Crop and the View in the tool (§4), extracting the tool slot (§5) and the two-pass reduction for a smaller Export with a layer (§5, which reuses adjust's). Inherited and still binding: repo ADRs 0002, 0003 and 0004; open-and-view ADR-0003 (WebGL2 Preview) and ADR-0005 (revision counter); export ADR-0002 (export worker) and ADR-0003 (window fallback); crop-rotate ADR-0001 (Geometry and its transform), ADR-0002 (one-pass shader), ADR-0003 (tool slot and Draft store), ADR-0004 (crop-transparency check) and ADR-0005 (DOM overlay over the Preview); adjust ADR-0002 (Adjustments in the shared shader) and ADR-0004 (Auto's sample, which stays without the layer).
 
 ## 10. Quality requirements
 
