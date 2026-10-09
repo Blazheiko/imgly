@@ -4,7 +4,7 @@ export const TOOL_READY_MARK = 'imgly:adjust-tool-ready'
 </script>
 
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useEditorStore } from '@/features/editor'
 import AdjustControls from './AdjustControls.vue'
 import { ACTION_LABEL } from './messages'
@@ -37,13 +37,31 @@ function onBlur() {
 const focus = (selector: string) =>
   (document.querySelector(selector) as HTMLElement | null)?.focus()
 
+const BRIGHTNESS = '[data-testid="adjust-slider-brightness"] input[type="range"]'
+const panel = ref<HTMLElement>()
+
+/**
+ * A declined replace returns focus into the tool (screens.md SCR-06). The dialog gives focus back to
+ * its opener, which is the top bar's "Open image" when the file came from there; a drop leaves
+ * focus inside the tool, where it stays. Runs after the dialog has unmounted.
+ */
+watch(
+  () => editor.phase,
+  (phase, previous) => {
+    if (previous !== 'confirming' || phase === 'confirming') return
+    if (panel.value?.contains(document.activeElement)) return
+    focus(BRIGHTNESS)
+  },
+  { flush: 'post' },
+)
+
 onMounted(async () => {
   window.addEventListener('keydown', onKeydown)
   window.addEventListener('keyup', compareKey.keyup)
   window.addEventListener('blur', onBlur)
   await nextTick()
   // Focus starts on the brightness slider (screens.md §Keyboard).
-  focus('[data-testid="adjust-slider-brightness"] input[type="range"]')
+  focus(BRIGHTNESS)
   performance.mark(TOOL_READY_MARK)
 })
 
@@ -57,7 +75,13 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <aside class="adjust-tool" :aria-label="ACTION_LABEL" data-testid="adjust-tool" data-keeps-space>
+  <aside
+    ref="panel"
+    class="adjust-tool"
+    :aria-label="ACTION_LABEL"
+    data-testid="adjust-tool"
+    data-keeps-space
+  >
     <AdjustControls />
   </aside>
 </template>

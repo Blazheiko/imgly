@@ -4,21 +4,27 @@ import { createPinia, setActivePinia } from 'pinia'
 import { defineComponent, h, nextTick } from 'vue'
 import { createWork, NEUTRAL_ADJUSTMENTS } from '@/core'
 import { useEditorStore } from '@/features/editor'
+import { Dialog } from '@/shared'
 import AdjustAction from './AdjustAction.vue'
 import AdjustBeforeLabel from './AdjustBeforeLabel.vue'
 import AdjustTool, { TOOL_READY_MARK } from './AdjustTool.vue'
 import { BEFORE_LABEL } from './messages'
 import { useAdjustStore } from './store'
 
-/** The two halves as the app shell places them, plus the action they return focus to. */
+/**
+ * The two halves as the app shell places them, plus the action they return focus to, a stand-in for
+ * the top bar's "Open image" and the replace dialog it can raise.
+ */
 const Shell = defineComponent({
   setup() {
     const editor = useEditorStore()
     return () =>
       h('div', [
+        h('button', { 'data-testid': 'open-image' }, 'Open image'),
         h(AdjustAction),
         editor.activeTool === 'adjust' ? h(AdjustBeforeLabel) : null,
         editor.activeTool === 'adjust' ? h(AdjustTool) : null,
+        editor.phase === 'confirming' ? h(Dialog, { title: 'Replace the current image?' }) : null,
       ])
   },
 })
@@ -123,6 +129,31 @@ describe('AdjustTool (SCR-03)', () => {
     )!
     key('keydown', { key: 'Enter' }, reset)
     expect(editor.activeTool).toBe('adjust')
+  })
+
+  describe('a declined replace (SCR-06 declined, AC-17)', () => {
+    async function decline() {
+      editor.phase = 'confirming'
+      await nextTick()
+      editor.phase = 'idle'
+      await nextTick()
+      await nextTick()
+    }
+
+    it('returns focus into the tool when the dialog was opened from "Open image"', async () => {
+      await openTool()
+      ;(document.querySelector('[data-testid="open-image"]') as HTMLElement).focus()
+      await decline()
+      expect(document.activeElement).toBe(rangeOf('Brightness'))
+      expect(editor.activeTool).toBe('adjust')
+    })
+
+    it('keeps focus where it was in the tool when the dialog was raised by a drop', async () => {
+      await openTool()
+      fieldOf('saturation').focus()
+      await decline()
+      expect(document.activeElement).toBe(fieldOf('saturation'))
+    })
   })
 
   it('leaves Enter and Escape to the replace dialog', async () => {
