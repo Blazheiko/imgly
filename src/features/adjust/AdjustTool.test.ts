@@ -24,7 +24,13 @@ const Shell = defineComponent({
         h(AdjustAction),
         editor.activeTool === 'adjust' ? h(AdjustBeforeLabel) : null,
         editor.activeTool === 'adjust' ? h(AdjustTool) : null,
-        editor.phase === 'confirming' ? h(Dialog, { title: 'Replace the current image?' }) : null,
+        editor.phase === 'confirming'
+          ? h(
+              Dialog,
+              { title: 'Replace the current image?', onCancel: () => editor.cancelReplace() },
+              { actions: () => h('button', { 'data-action': 'cancel' }, 'Cancel') },
+            )
+          : null,
       ])
   },
 })
@@ -153,6 +159,21 @@ describe('AdjustTool (SCR-03)', () => {
       fieldOf('saturation').focus()
       await decline()
       expect(document.activeElement).toBe(fieldOf('saturation'))
+    })
+
+    it('keeps the tool open with its Draft when Escape declines it in the dialog', async () => {
+      await openTool()
+      tool.setValue('contrast', 30)
+      editor.phase = 'confirming'
+      await nextTick()
+      await nextTick()
+      const cancel = document.querySelector('[data-action="cancel"]') as HTMLElement
+      cancel.focus()
+      key('keydown', { key: 'Escape' }, cancel)
+      await nextTick()
+      expect(editor.phase).toBe('idle')
+      expect(editor.activeTool).toBe('adjust')
+      expect(tool.draft!.contrast).toBe(30)
     })
   })
 

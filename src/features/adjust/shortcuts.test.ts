@@ -162,6 +162,17 @@ describe('Enter and Escape in the open tool (screens.md §Keyboard, AC-05, AC-09
     free.handle(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true }))
     expect(free.actions.apply).not.toHaveBeenCalled()
   })
+
+  it('leaves a key that a dialog already handled on its way up, even once it has closed (AC-17)', () => {
+    const { actions, handle } = setup()
+    for (const key of ['Escape', 'Enter']) {
+      const event = press(key, document.createElement('section'))
+      event.preventDefault()
+      handle(event)
+    }
+    expect(actions.cancel).not.toHaveBeenCalled()
+    expect(actions.apply).not.toHaveBeenCalled()
+  })
 })
 
 describe('the held \\ key (AC-08)', () => {

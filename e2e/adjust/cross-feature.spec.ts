@@ -229,6 +229,22 @@ test.describe('with an image', () => {
       expect((await work(page))!.adjustments).toEqual(NEUTRAL_ADJUSTMENTS)
     })
 
+    test('declining with Escape closes only the dialog: the tool stays open with its Draft', async ({
+      page,
+    }) => {
+      await applyAdjustments(page, adjusted({ tint: 10 }))
+      await openTool(page)
+      await setField(page, 'Saturation', '-30')
+      await dropGeneratedImage(page, { width: 120, height: 90 })
+      await expect(replaceDialog(page)).toBeVisible()
+      await page.keyboard.press('Escape')
+      await expect(replaceDialog(page)).toHaveCount(0)
+      await expect(tool(page)).toBeVisible()
+      await expect(field(page, 'Saturation')).toHaveValue('-30')
+      await expect(tool(page).locator(':focus')).toHaveCount(1)
+      expect((await work(page))!.adjustments).toEqual(adjusted({ tint: 10 }))
+    })
+
     test('through "Open image": declining keeps the Draft, confirming closes the tool', async ({
       page,
     }) => {

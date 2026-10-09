@@ -71,10 +71,13 @@ const PRESSED_BY_ENTER =
 /**
  * Enter and Escape inside the open tool (screens.md §Keyboard): Escape cancels from anywhere, a
  * field included (AC-09); Enter applies the tool (AC-21) except on a button, which it presses, or
- * in a number field, which applies only its value (AC-05).
+ * in a number field, which applies only its value (AC-05). A key the replace dialog already handled
+ * is left alone: its Escape declines the replace and closes the dialog before the key bubbles up
+ * here, so `blocked()` is already false by then (SCR-06 declined, AC-17).
  */
 export function createToolKeys(actions: ToolKeyActions): (event: KeyboardEvent) => void {
   return (event) => {
+    if (event.defaultPrevented) return
     if (event.ctrlKey || event.metaKey || event.altKey || actions.blocked()) return
     if (event.key === 'Escape') {
       event.preventDefault()
