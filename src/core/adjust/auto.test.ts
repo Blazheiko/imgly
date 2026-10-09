@@ -78,6 +78,15 @@ describe('autoAdjust directions (AC-12)', () => {
       'tint',
     ])
   })
+  it('takes tint from the clamped temperature, so a strong red cast still turns green (R1)', () => {
+    // Means R≈0.90, G≈0.40, B≈0.10: temperature clamps at −50, and after that gain the red–blue
+    // average (0.81 + 0.11) / 2 = 0.46 still sits above green, so green must rise (tint < 0).
+    const at = ramp(-10, 10)
+    const cast = sample(opaque(256, (i) => [230 + at(i, 256), 102 + at(i, 256), 26 + at(i, 256)]))
+    const v = values(cast)
+    expect(v.temperature).toBe(-50)
+    expect(v.tint).toBe(-50)
+  })
 })
 
 describe('autoAdjust bounds and determinism (AC-13)', () => {
@@ -134,6 +143,24 @@ describe('autoAdjust with nothing to measure (AC-13)', () => {
     expect(autoAdjust(sample(one))).toEqual({ kind: 'nothing' })
     const withHoles: Px[] = [...one, [0, 0, 0, 0], [0, 0, 0, 0]]
     expect(autoAdjust(sample(withHoles))).toEqual({ kind: 'nothing' })
+  })
+  it('returns nothing for one colour with anti-aliased edges (R2)', () => {
+    // 8-bit premultiplied storage rounds c × a / 255, so unpremultiplying an edge pixel does not
+    // give back exactly c; it must still count as the same colour.
+    const [r, g, b] = [200, 30, 30]
+    const edge = (a: number): Px => [
+      Math.round((r * a) / 255),
+      Math.round((g * a) / 255),
+      Math.round((b * a) / 255),
+      a,
+    ]
+    const pixels: Px[] = [...opaque(60, () => [r, g, b]), edge(64), edge(128), edge(192), edge(1)]
+    expect(autoAdjust(sample(pixels))).toEqual({ kind: 'nothing' })
+  })
+
+  it('still measures two colours that differ by one level on opaque pixels', () => {
+    const pixels: Px[] = [...opaque(32, () => [200, 30, 30]), ...opaque(32, () => [201, 30, 30])]
+    expect(autoAdjust(sample(pixels)).kind).toBe('values')
   })
 })
 

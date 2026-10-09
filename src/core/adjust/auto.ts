@@ -28,6 +28,21 @@ function settle(value: number): number {
   return Math.min(AUTO_LIMIT, Math.max(-AUTO_LIMIT, Math.floor(value + 0.5))) || 0
 }
 
+/**
+ * Narrows `range` (low/high per channel, in 0…255 levels) to the colours that store as this
+ * premultiplied pixel: 8-bit storage rounds `c × alpha / 255`, so a partly transparent pixel only
+ * pins its colour to an interval. Returns false once the intervals stop overlapping.
+ */
+function narrowColour(range: Float64Array, data: ArrayLike<number>, i: number, alpha: number) {
+  for (let ch = 0; ch < 3; ch++) {
+    const stored = data[i + ch]!
+    range[ch * 2] = Math.max(range[ch * 2]!, Math.ceil(((stored - 0.5) * 255) / alpha))
+    range[ch * 2 + 1] = Math.min(range[ch * 2 + 1]!, Math.floor(((stored + 0.5) * 255) / alpha))
+    if (range[ch * 2]! > range[ch * 2 + 1]!) return false
+  }
+  return true
+}
+
 /** The lightness bin (0…255) holding the given fraction of the samples, counted from the dark end. */
 function percentileBin(histogram: Uint32Array, count: number, fraction: number): number {
   const rank = Math.max(1, Math.ceil(count * fraction))
@@ -69,7 +84,8 @@ export function autoAdjust(sample: ImageSample): AutoResult {
   let sumR = 0
   let sumG = 0
   let sumB = 0
-  let first: [number, number, number] | null = null
+  // The colours every pixel so far could share; empty once two pixels differ (AC-13).
+  const shared = new Float64Array([0, 255, 0, 255, 0, 255])
   let varied = false
 
   for (let i = 0; i + 3 < data.length; i += 4) {
@@ -78,8 +94,7 @@ export function autoAdjust(sample: ImageSample): AutoResult {
     const r = Math.min(1, data[i]! / alpha)
     const g = Math.min(1, data[i + 1]! / alpha)
     const b = Math.min(1, data[i + 2]! / alpha)
-    if (first === null) first = [r, g, b]
-    else if (!varied && (r !== first[0] || g !== first[1] || b !== first[2])) varied = true
+    if (!varied && !narrowColour(shared, data, i, alpha)) varied = true
     histogram[Math.min(255, Math.round(lightness(r, g, b) * 255))]!++
     sumR += r
     sumG += g
@@ -95,9 +110,11 @@ export function autoAdjust(sample: ImageSample): AutoResult {
   const contrast = settle(contrastFor(lo, hi))
 
   // Grey world: the gain that makes the red and blue means equal, then the one that brings the
-  // green mean to theirs (ADR-0003's temperature and tint gains, 0.2 at ±100).
-  const warmth = sumR + sumB > 0 ? (sumB - sumR) / (sumR + sumB) : 0
-  const redBlue = sumR * (1 + warmth)
+  // green mean to theirs (ADR-0003's temperature and tint gains, 0.2 at ±100). Tint is measured
+  // after the temperature as written, so a clamped temperature still gets the right tint sign.
+  const temperature = settle(sumR + sumB > 0 ? ((sumB - sumR) / (sumR + sumB)) * 500 : 0)
+  const gain = temperature / 500
+  const redBlue = (sumR * (1 + gain) + sumB * (1 - gain)) / 2
   const magenta = sumG > 0 ? 1 - redBlue / sumG : redBlue > 0 ? -Infinity : 0
 
   return {
@@ -105,7 +122,7 @@ export function autoAdjust(sample: ImageSample): AutoResult {
     values: {
       brightness,
       contrast,
-      temperature: settle(warmth * 500),
+      temperature,
       tint: settle(magenta * 500),
     },
   }

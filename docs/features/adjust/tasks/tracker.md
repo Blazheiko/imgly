@@ -27,3 +27,21 @@
 | T20 | Add the @perf suite: drag frame interval, Apply / Cancel / Reset / Compare-release and tool-ready times, Auto time, memory after 50 Applies, and export time with all seven set | tests | Blazheiko | S | T17, T18, T19 | done |
 
 **Total:** 20 tasks, ~16.5 person-days (S ≈ ½ day, M ≈ 1 day).
+
+## Review follow-ups (review-2026-10-08)
+
+| # | Task | Layer | Owner | Estimate | Blocked by | Status |
+|---|---|---|---|---|---|---|
+| R1 | Auto takes tint from the clamped temperature, so a strong cast keeps the right tint sign | domain | Blazheiko | S | — | done |
+| R2 | Auto treats anti-aliased edges of one colour as that colour (premultiply quantization) | domain | Blazheiko | S | — | done |
+| R3 | Key the crop transparency answer on Work id + Geometry so Adjustment changes keep it | app | Blazheiko | S | — | todo |
+| R4 | AC-20 e2e: pan across the open/close resize and assert the full View | tests | Blazheiko | S | — | todo |
+| R5 | AC-17 e2e: "Open image" while open, and a cancelled file dialog | tests | Blazheiko | S | — | todo |
+| R6 | Fill the AC-06 / AC-07 / AC-12 test-plan rows with no test behind them | tests | Blazheiko | S | — | todo |
+| R7 | Perf drag over all seven sliders, timing the renderer's draws, 20 runs after 2 warm-ups | tests | Blazheiko | S | — | todo |
+| R8 | Cross-engine Auto: a mild-cast fixture and one over 512 px; regenerate the expected values | tests | Blazheiko | S | R1, R2 | todo |
+| R9 | Double-click reset e2e away from neutral | tests | Blazheiko | S | — | todo |
+| R10 | SliderField announces the unit through aria-valuetext | ui | Blazheiko | S | — | todo |
+| R11 | infoToolOpen as Record<ToolId, string> | app | Blazheiko | S | — | todo |
+| R12 | Remove the adjust store's dead atOpen and pending state | app | Blazheiko | S | — | todo |
+| R13 | Register AdjustBeforeLabel in screens.md and sad §5 | docs | Blazheiko | S | — | todo |
