@@ -306,25 +306,25 @@ sequenceDiagram
 
 ## 7. Deployment view
 
-<!-- 🎯 Why: the TOPOLOGY DevOps must know without reading the deploy charts — how many replicas,
-     where the background worker lives, AT WHAT NUMBERS we scale.
-     📋 Write: 2–3 sentences on topology + monitoring + concrete threshold numbers.
-     📌 e.g. «500 authors → partition by quarter» (not «we'll think about scale later»).
-     🎯 N/A allowed for XS/S that reuses an existing deployment unit with no change.
-     Deployment-diagram scaffold → templates/deployment.md. -->
-
-<Topology in 2–3 sentences. Where it runs, replicas, scaling thresholds.>
+The topology is unchanged. The feature ships inside the existing static app on GitHub Pages under `/imgly/`, as part of the same Vite build, and runs entirely in one browser tab. There is no server, replica or scaling unit to add. The service worker precaches the larger app shell and the changed export worker script exactly as it does today, so the tool works offline after the first load. No new hosting configuration, header or permission is needed. Canvas 2D on an `OffscreenCanvas` in the window is available in every target browser, and OffscreenCanvas and WebGL2 are already start-up requirements (open-and-view capability gate).
 
 **Monitoring:**
-- <Metrics — e.g. `<metric_name>`>
-- <Alerts — e.g. «worker lag > 10 min → page on-call»>
-- <Tracing — e.g. spans on the request boundary>
+- No runtime telemetry, by design: the app sends nothing anywhere (§2 Regulatory).
+- Performance marks in the e2e build are the measurement points for spec §6:
+  - a "tool ready" mark when SCR-03 is first drawn;
+  - a mark per frame that shows a Stroke, matched to the scripted pointer move that caused it;
+  - marks from Apply, Cancel, Clear and a "Crop and rotate" Apply to the redrawn Preview.
+
+  Frame timing uses the existing performance trace, and memory uses whole-page memory through `e2e/perf-memory.ts`. The `@perf` suite (`PERF=1`) reads them on the reference machine, not in CI.
+- The bitmap ledger counts created and released layers in DEV and e2e builds, so e2e can assert that exactly one applied layer, or none, is retained after Apply, Cancel and replacing the Work (ADR-0004).
+- CI runs the fidelity, empty-layer and Geometry round-trip pixel checks on Chromium, Firefox and WebKit with every push (§10).
 
 **Scaling thresholds:**
-- <e.g. comfortable in one table up to N rows/year>
-- <e.g. partition by quarter above N rows/year>
-
-<!-- For XS/S with no deployment change: <!-- N/A: reuses existing deployment unit, no infra change --> -->
+- The Downscale limit bounds everything: the Original's long side is at most 4096 px, so a layer is at most 4096 × 4096 px (64 MB of RGBA).
+- While the tool is open there are at most two layers in memory (the applied one and the Draft, up to 128 MB) and one layer texture with mipmaps on the GPU (about 85 MB). With the tool closed there is one layer, or none for a Work that was never drawn on (ADR-0001, ADR-0004).
+- An export with a layer moves up to 64 MB of straight pixels to the worker by transfer, not by copy. A smaller Export with a layer holds one extra full-size texture in the worker for the length of that export (adjust sad.md §5).
+- 4096 × 4096 is exactly the largest canvas area some Safari builds allow (16,777,216 px), so a layer never exceeds it (§11).
+- 50 Applies stay within spec §6's ≤ 110% of memory after the first Apply, because each Apply releases the layer it replaces.
 
 ## 8. Crosscutting concepts
 
