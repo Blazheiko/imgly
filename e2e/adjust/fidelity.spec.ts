@@ -123,6 +123,7 @@ for (const ref of REFERENCES) {
     page,
     browserName,
   }) => {
+    test.setTimeout(90_000) // two Exports, as QG-1a's tests make
     await gotoReady(page)
     await ref.open(page)
     const before = await decodePng(page, await exportPng(page, browserName))
@@ -304,6 +305,7 @@ for (const ref of REFERENCES) {
     page,
     browserName,
   }) => {
+    test.setTimeout(90_000) // two Exports, as QG-1a's tests make
     await gotoReady(page)
     await ref.open(page)
     const before = await decodePng(page, await exportPng(page, browserName))
