@@ -34,7 +34,7 @@
 |---|---|---|---|---|---|---|
 | R1 | Auto takes tint from the clamped temperature, so a strong cast keeps the right tint sign | domain | Blazheiko | S | — | done |
 | R2 | Auto treats anti-aliased edges of one colour as that colour (premultiply quantization) | domain | Blazheiko | S | — | done |
-| R3 | Key the crop transparency answer on Work id + Geometry so Adjustment changes keep it | app | Blazheiko | S | — | todo |
+| R3 | Key the crop transparency answer on Work id + Geometry so Adjustment changes keep it | app | Blazheiko | S | — | done |
 | R4 | AC-20 e2e: pan across the open/close resize and assert the full View | tests | Blazheiko | S | — | todo |
 | R5 | AC-17 e2e: "Open image" while open, and a cancelled file dialog | tests | Blazheiko | S | — | todo |
 | R6 | Fill the AC-06 / AC-07 / AC-12 test-plan rows with no test behind them | tests | Blazheiko | S | — | todo |

@@ -786,14 +786,14 @@ describe('export store — the applied Geometry (crop-rotate AC-14)', () => {
       expect(store.transparencyHint).not.toBeNull()
     })
 
-    it('caches by Work and revision, and ignores a stale answer', async () => {
+    it('caches by Work and Geometry, and ignores a stale answer', async () => {
       await jpegPanel(true)
       editor.applyGeometry(cropTo(10, 10))
       await flush()
       editor.applyGeometry(cropTo(20, 20))
       await flush()
       expect(checks).toHaveLength(2)
-      checks[0]!.answer(ok(true)) // stale: for the previous revision
+      checks[0]!.answer(ok(true)) // stale: for the previous Geometry
       await flush()
       expect(store.transparencyHint).toBeNull()
       checks[1]!.answer(ok(false))
@@ -804,7 +804,21 @@ describe('export store — the applied Geometry (crop-rotate AC-14)', () => {
       await flush()
       store.selectFormat('jpeg')
       await flush()
-      expect(checks).toHaveLength(2) // answered for this revision already
+      expect(checks).toHaveLength(2) // answered for this Geometry already
+    })
+
+    it('keeps its answer across an Adjustment change: it depends on the Geometry only (R3)', async () => {
+      await jpegPanel(true)
+      editor.applyGeometry(cropTo(10, 10))
+      await flush()
+      checks[0]!.answer(ok(true))
+      await flush()
+      expect(store.transparencyHint).not.toBeNull()
+
+      editor.applyAdjustments({ ...NEUTRAL_ADJUSTMENTS, brightness: 30, sepia: 40 })
+      await flush()
+      expect(store.transparencyHint).not.toBeNull()
+      expect(checks).toHaveLength(1)
     })
 
     it('runs no check while PNG is chosen', async () => {

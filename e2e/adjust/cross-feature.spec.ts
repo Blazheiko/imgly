@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import { dropGeneratedImage } from '../open-and-view/helpers'
 import { dropBytes, pixelsAt } from '../crop-rotate/helpers'
-import { view } from '../export/helpers'
+import { choose, generateImage, openFile, panel, view } from '../export/helpers'
 import {
   NEUTRAL_ADJUSTMENTS,
   action,
@@ -253,6 +253,44 @@ test.describe('with an image', () => {
     // The Preview shows the Crop only: the View's image is the Work's size.
     expect((await work(page))!).toMatchObject({ width: 320, height: 240 })
   })
+})
+
+test('AC-14 — a semi-transparent Crop shows the JPEG hint as it did without Adjustments', async ({
+  page,
+}) => {
+  await gotoReady(page)
+  // Alpha ramps from 0 at x = 0 to 255 at x = 63; the Crop keeps the semi-transparent left half.
+  await openFile(
+    page,
+    'clear.png',
+    await generateImage(page, { width: 64, height: 48, alpha: true }),
+  )
+  await waitForWork(page, 64, 48)
+  await page.evaluate(() =>
+    window.__imglyTest!.setGeometry({
+      flipH: false,
+      flipV: false,
+      rotation: 0,
+      straighten: 0,
+      crop: { x: 0, y: 0, width: 32, height: 48 },
+    }),
+  )
+  await waitForWork(page, 32, 48)
+  const hint = panel(page).getByText('JPEG has no transparency')
+
+  await choose(page)
+  await expect(panel(page).getByRole('radio', { name: 'JPEG', exact: true })).toBeEnabled({
+    timeout: 15_000,
+  })
+  await choose(page, { format: 'JPEG' })
+  await expect(hint).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(panel(page)).toBeHidden()
+
+  await applyAdjustments(page, adjusted({ brightness: 30, sepia: 60 }))
+  await choose(page)
+  await expect(panel(page).getByRole('radio', { name: 'JPEG', exact: true })).toBeChecked()
+  await expect(hint).toBeVisible()
 })
 
 test('AC-19 — with no image, "Adjust" and A only show the hint', async ({ page }) => {
