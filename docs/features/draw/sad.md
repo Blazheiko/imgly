@@ -4,7 +4,7 @@ owner: "Blazheiko"
 reviewers: ["Tech Lead", "Security Lead"]
 updated_at: "2026-10-09"
 feature_size: "M"
-target_surfaces: []  # filled in §4 — subset of: backend-service | web-frontend | mobile-app | desktop-app | cli | worker | library-sdk. Read (never re-derived) by api/sequences/tasks/plan-tests/review → _shared/surfaces.md
+target_surfaces: [web-frontend]  # filled in §4 — subset of: backend-service | web-frontend | mobile-app | desktop-app | cli | worker | library-sdk. Read (never re-derived) by api/sequences/tasks/plan-tests/review → _shared/surfaces.md
 ---
 
 # Software Architecture Document — draw
@@ -108,19 +108,29 @@ The Editor and the Portfolio reviewer drive the app by mouse, pen and keyboard. 
 
 ## 4. Solution strategy
 
-<!-- 🎯 Why: the 3–4 STRATEGIC PILLARS every ADR grows from. Without §4 each ADR looks random —
-     there's no umbrella. ⭐ The densest section — the blast-radius gate fires almost always here
-     (decisions are irreversible + multi-module).
-     📋 Write: 3–4 choices; each a heading + 2–3 sentences of rationale.
-     📌 «Store content as a table of typed blocks» is a pillar — ADR-0001 grows from it. -->
+**Target surface.** `target_surfaces: [web-frontend]` (frontmatter). The feature extends the one runnable surface, the Editor SPA in the browser tab. The export worker it changes is an internal container of that surface (§5). Decided inline: there is no server (repo ADR 0001) and no published library, so §2 excludes the other surfaces.
+
+**UI architecture (web-frontend).** Inherited from open-and-view, export, crop-rotate and adjust: a client-rendered SPA with one editor view and no router. The "Draw" tool (SCR-03) is a mode of that view in the same tool slot as "Crop and rotate" and "Adjust". Like "Adjust", it keeps the Work's Crop and the View as they are (AC-18), takes over the tool panel in place and never opens a page (ux-flows §Platform decisions). A DOM overlay over the Preview takes the pointer, as crop-rotate's frame does (crop-rotate ADR-0005). State lives in Pinia setup stores, and the controls reuse `src/shared/ui/` primitives (`SegmentedControl` for the mode, `SliderField` and `NumberField` for the width, `BaseButton`) and `tokens.css`. No new ADR: §2 excludes server rendering, and crop-rotate ADR-0003 already provides the tool-mode mechanism.
 
 **Top strategic choices (the seeds for ADRs):**
 
-1. **<e.g. Module isolation through events>** — <2–3 sentences citing quality goals + constraints>.
-2. **<e.g. Single-store persistence>** — <2–3 sentences>.
-3. **<e.g. Server-rendered read side>** — <2–3 sentences>.
+1. **The Drawing layer is one bitmap on the Original's pixel grid, created on the first mark** — [ADR-0001](adr/0001-hold-the-drawing-layer-as-one-bitmap-in-the-original-pixel-space-created-on-the-first-mark.md). `Work.drawing` is `null` for a new Work and becomes a W₀×H₀ Canvas 2D bitmap when a Brush first paints in a Draft. Each applied layer carries a new id. The bitmap is never resampled when the Geometry changes, so Geometry round trips and hidden marks under a narrower Crop are exact by construction (AC-08). Serves quality goals 1, 2 and 3.
+2. **Each Stroke segment is painted straight into the Draft in Original coordinates, through the Geometry's transform and clipped to the Crop** — [ADR-0002](adr/0002-paint-each-stroke-segment-straight-into-the-draft-in-original-coordinates.md). Pointer positions, coalesced ones included, are mapped through the View into the Crop's frame. Canvas 2D paints centripetal Catmull–Rom segments with round caps under `setTransform(frameToOriginal)` and `clip(crop)`. The Brush paints with `source-over` and the Eraser with `destination-out`. Only the dirty rectangle reaches the GPU each frame. The live line is the applied line (AC-01, AC-04, AC-09). Serves quality goals 1 and 3.
+3. **The layer is composited in the shared fragment shader, after the Adjustments and before the JPEG flatten** — [ADR-0003](adr/0003-composite-the-drawing-layer-in-the-shared-fragment-shader-after-the-adjustments.md). A second sampler, `u_layer`, is read with the same `v_uv` as the Original and composited as premultiplied "over" under `u_draw`. The Preview, the export worker and its window fallback, the crop-transparency check and `previewAt100()` all use this one path. "Crop and rotate" shows every mark, and "Adjust" and Compare leave the marks unadjusted without tool-specific code (AC-10, AC-11). Serves quality goals 1 and 2.
+4. **The Draft is a full copy of the layer, handed to the Work on Apply; an applied layer is never painted again** — [ADR-0004](adr/0004-hold-the-draft-as-a-full-copy-of-the-layer-and-hand-it-to-the-work-on-apply.md). The `draw` store copies `work.drawing` on open. The Preview shows the Draft through `editor.setPreviewLayer`. Apply is `editor.applyDrawing(draft, changed)`, a reference handover. Cancel, Escape and replacing the Work release the Draft. Every release is explicit and counted (AC-05, AC-06, AC-13). Serves quality goals 2 and 3.
+5. **One Apply of the tool is one undo step; there is no per-Stroke history** — [ADR-0005](adr/0005-make-one-apply-of-the-draw-tool-one-undo-step.md). This answers spec §8's open question in favour of its default, the same unit as "Crop and rotate" and "Adjust". With ADR-0004's immutable layers, step 7 undoes an Apply by swapping layers.
 
-Each tactical decision in later sections should trace to one of these seeds. Tactical decisions that *contradict* a strategic choice are red flags — surface them in §11.
+Decided inline, below the ADR gate:
+- **Unsaved edits come from a per-Draft change flag, never a pixel comparison** (AC-12, ux-flows design input 4). The flag starts false on open and turns true on the first of these:
+  - a Brush Stroke whose footprint (its path widened by half the width, with round ends) reaches inside the Crop, judged geometrically by a pure `core/draw` function;
+  - an Eraser segment that lowered the alpha of some layer pixel, judged by comparing the segment's dirty rectangle before and after painting, and only until the flag is true;
+  - a Clear of a Draft whose bitmap had some pixel with alpha above 0, judged by one scan of the bitmap.
+
+  Drawing a mark and erasing it again therefore still counts (AC-12). `editor.applyDrawing` raises the revision only when the flag is true. The comparison is only ever with the layer from when the tool was opened, because nothing else can change `work.drawing` while the tool is open.
+- **The tool keeps the Work's Crop and the View** (AC-18). `openTool('draw')` sets no `previewGeometry`, as for "Adjust", so the Editor draws on the image as it stands, with its Geometry and its applied Adjustments (AC-11). A Stroke's footprint outside the Crop is clipped (ADR-0002).
+- **No persistence.** The layer lives in session memory and ends with the Work (spec §3). Step 8 stores it as a PNG Blob with a forward migration, as repo ADR 0003 plans.
+
+Each tactical decision in later sections traces to one of these seeds. A tactical decision that contradicts one is surfaced in §11.
 
 ## 5. Building block view
 
