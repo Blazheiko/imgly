@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { dropGeneratedImage } from '../open-and-view/helpers'
+import { canvasArea, dropGeneratedImage } from '../open-and-view/helpers'
 import { dropBytes, pixelsAt } from '../crop-rotate/helpers'
 import { choose, generateImage, openFile, panel, view } from '../export/helpers'
 import {
@@ -228,30 +228,70 @@ test.describe('with an image', () => {
   test('AC-20 — the View is kept on open, works inside, and stays after Apply and Cancel', async ({
     page,
   }) => {
+    // Zoom in until the image overflows the canvas on both axes, so there is a pan to keep:
+    // opening and closing the tool resizes the canvas, and the View must survive the re-clamp.
+    // photo.png at 800% only just fills a 2× canvas, so this test opens a larger image.
+    const [W, H] = [1200, 900]
+    await dropGeneratedImage(page, { width: W, height: H })
+    await waitForWork(page, W, H)
     await page.keyboard.press('Shift+1') // 100%
-    await page.keyboard.press('+')
+    for (let i = 0; i < 12; i++) await page.keyboard.press('+')
+    const area = await canvasArea(page)
     const zoomed = await view(page)
-    expect(zoomed.zoom).toBeGreaterThan(1)
+    expect(W * zoomed.zoom).toBeGreaterThan(area.width)
+    expect(H * zoomed.zoom).toBeGreaterThan(area.height)
+
+    // A drag towards the top left moves the pan away from 0. Inside the tool every drag goes
+    // towards the bottom right, back towards 0, so the pan stays valid for the wider canvas the
+    // closed tool leaves (the clamp's upper bound is 0 at any size) and must come through as is.
+    async function drag(dx: number, dy: number) {
+      const a = await canvasArea(page)
+      const cx = a.left + a.width / a.dpr / 2
+      const cy = a.top + a.height / a.dpr / 2
+      await page.mouse.move(cx, cy)
+      await page.mouse.down()
+      await page.mouse.move(cx + dx, cy + dy, { steps: 4 })
+      await page.mouse.up()
+    }
+    await drag(-60, -60)
+    const before = await view(page)
+    expect(before).not.toEqual(zoomed)
+    const narrower = () =>
+      expect.poll(async () => (await canvasArea(page)).width).toBeLessThan(area.width)
+    const restored = () => expect.poll(async () => (await canvasArea(page)).width).toBe(area.width)
 
     await openTool(page)
-    expect(await view(page)).toMatchObject({ zoom: zoomed.zoom })
+    await narrower()
+    expect(await view(page)).toEqual(before)
     await setField(page, 'Contrast', '25')
     await slider(page, 'Contrast').focus()
     await page.keyboard.press('-')
+    expect((await view(page)).zoom).toBeLessThan(before.zoom)
+    await page.keyboard.press('+')
+    expect((await view(page)).zoom).toBe(before.zoom)
+    const zoomedInside = await view(page)
+    await drag(30, 30)
     const inside = await view(page)
-    expect(inside.zoom).toBeLessThan(zoomed.zoom)
+    expect(inside).not.toEqual(zoomedInside)
     await expect(field(page, 'Contrast')).toHaveValue('25')
     expect((await work(page))!.hasUnsavedEdits).toBe(false)
 
     await page.keyboard.press('Escape')
     await expect(tool(page)).toBeHidden()
-    expect((await view(page)).zoom).toBe(inside.zoom)
+    await restored()
+    expect(await view(page)).toEqual(inside)
 
     await openTool(page)
+    await narrower()
+    expect(await view(page)).toEqual(inside)
+    await drag(25, 25)
+    const applied = await view(page)
+    expect(applied).not.toEqual(inside)
     await apply(page)
-    expect((await view(page)).zoom).toBe(inside.zoom)
+    await restored()
+    expect(await view(page)).toEqual(applied)
     // The Preview shows the Crop only: the View's image is the Work's size.
-    expect((await work(page))!).toMatchObject({ width: 320, height: 240 })
+    expect((await work(page))!).toMatchObject({ width: W, height: H })
   })
 })
 
