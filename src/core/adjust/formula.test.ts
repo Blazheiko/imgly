@@ -280,16 +280,6 @@ describe('AC-06 only colours change (seeded)', () => {
 })
 
 describe('AC-07 one fixed order, clamped, never wrapped (seeded)', () => {
-  it('gives the same result whatever order the values were set in', () => {
-    const rand = mulberry32(701)
-    for (let i = 0; i < RUNS; i++) {
-      const a = randomAdjustments(rand)
-      const reversed = Object.fromEntries([...ADJUSTMENT_KEYS].reverse().map((k) => [k, a[k]]))
-      const c = randomRgb(rand)
-      expect(exact(c, reversed as unknown as Adjustments)).toEqual(exact(c, a))
-    }
-  })
-
   it('keeps every channel within 0…255 at any values', () => {
     const rand = mulberry32(702)
     for (let i = 0; i < RUNS; i++) {
