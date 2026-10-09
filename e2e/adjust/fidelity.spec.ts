@@ -321,6 +321,29 @@ for (const ref of REFERENCES) {
   })
 }
 
+/** The largest channel difference between `half` and `full` reduced by 2×2 averaging. */
+function worstAgainstReduced(
+  full: { width: number; data: ArrayLike<number> },
+  half: { width: number; height: number; data: ArrayLike<number> },
+) {
+  let worst = 0
+  for (let y = 0; y < half.height; y++) {
+    for (let x = 0; x < half.width; x++) {
+      for (let c = 0; c < 3; c++) {
+        const at = (yy: number, xx: number) => full.data[(yy * full.width + xx) * 4 + c]!
+        const box =
+          (at(2 * y, 2 * x) +
+            at(2 * y, 2 * x + 1) +
+            at(2 * y + 1, 2 * x) +
+            at(2 * y + 1, 2 * x + 1)) /
+          4
+        worst = Math.max(worst, Math.abs(half.data[(y * half.width + x) * 4 + c]! - box))
+      }
+    }
+  }
+  return worst
+}
+
 test.describe('AC-14 — a smaller Export is reduced after the Adjustments', () => {
   test('1 px black and white stripes at brightness +100 stay mid-grey at 50%', async ({
     page,
@@ -339,23 +362,41 @@ test.describe('AC-14 — a smaller Export is reduced after the Adjustments', () 
     expect(half).toMatchObject({ width: 16, height: 16 })
 
     // The full-size adjusted Export reduced by 2×2 averaging is the oracle.
-    let worst = 0
-    for (let y = 0; y < 16; y++) {
-      for (let x = 0; x < 16; x++) {
-        for (let c = 0; c < 3; c++) {
-          const at = (yy: number, xx: number) => full.data[(yy * 32 + xx) * 4 + c]!
-          const box =
-            (at(2 * y, 2 * x) +
-              at(2 * y, 2 * x + 1) +
-              at(2 * y + 1, 2 * x) +
-              at(2 * y + 1, 2 * x + 1)) /
-            4
-          worst = Math.max(worst, Math.abs(half.data[(y * 16 + x) * 4 + c]! - box))
-        }
-      }
-    }
+    const worst = worstAgainstReduced(full, half)
     // Export has no pixel tolerance for smaller sizes yet (its open §8 question); the measured
     // difference is recorded here, and it must stay far from the reduce-first result (≈ 53).
+    test.info().annotations.push({ type: 'measured', description: `max diff ${worst}/255` })
+    expect(worst).toBeLessThanOrEqual(4)
+  })
+
+  test('a turned and cropped gradient keeps its orientation at 50%', async ({
+    page,
+    browserName,
+  }) => {
+    // Red rises left to right and green top to bottom, so a flipped, mirrored or turned second
+    // pass moves every pixel far more than 4 from the oracle; stripes cannot show that.
+    const original = { width: 40, height: 24 }
+    await gotoReady(page)
+    await openPixels(page, original.width, original.height, (x, y) => [
+      40 + x * 4,
+      30 + y * 8,
+      120,
+      255,
+    ])
+    // Rotation 90 turns the Original to 24×40; the Crop is off-centre with even sides.
+    const geometry: Geometry = {
+      ...identityGeometry(original),
+      rotation: 90,
+      crop: { x: 2, y: 6, width: 16, height: 28 },
+    }
+    await page.evaluate((g) => window.__imglyTest!.setGeometry(g), geometry)
+    await applyAdjustments(page, COMBINED)
+    const full = await decodePng(page, await exportPng(page, browserName))
+    const half = await decodePng(page, await exportPng(page, browserName, '50%'))
+    expect(full).toMatchObject({ width: 16, height: 28 })
+    expect(half).toMatchObject({ width: 8, height: 14 })
+
+    const worst = worstAgainstReduced(full, half)
     test.info().annotations.push({ type: 'measured', description: `max diff ${worst}/255` })
     expect(worst).toBeLessThanOrEqual(4)
   })
