@@ -28,3 +28,6 @@ export const DEFAULT_WIDTH = 12
 /** The width range, in whole image pixels, shared by the Brush and the Eraser (AC-02). */
 export const MIN_WIDTH = 1
 export const MAX_WIDTH = 200
+
+/** The tool's two modes: the Brush paints, the Eraser removes marks (AC-04). */
+export type DrawMode = 'brush' | 'eraser'
