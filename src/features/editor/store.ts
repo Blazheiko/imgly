@@ -53,6 +53,7 @@ import {
   infoFirstFrame,
   infoOthersIgnored,
 } from './messages'
+import { createToolSlot } from './tool-slot'
 
 export type Decoder = (file: Blob) => Promise<DecodeOutcome>
 
@@ -72,11 +73,7 @@ export type OpenOutcome =
 
 export type EditorPhase = 'idle' | 'reading' | 'confirming' | 'exporting'
 
-/** A tool that edits the Work in the tool slot; one at a time (crop-rotate ADR-0003). */
-export type ToolId = 'crop-rotate' | 'adjust'
-
-/** Why a tool may not open: no image (AC-18), an export running (AC-15), or one already open. */
-export type ToolRefusal = 'no-work' | 'exporting' | 'tool-open' | 'panel-open' | 'confirming'
+export type { ToolId, ToolRefusal } from './tool-slot'
 
 /** A panel another feature has open, so a shortcut can stay silent under it (crop-rotate AC-20). */
 export type PanelId = 'export'
@@ -133,13 +130,9 @@ export const useEditorStore = defineStore('editor', () => {
   const canvasSize = ref<Size>({ width: 0, height: 0 })
   const phase = ref<EditorPhase>('idle')
   const display = ref<DisplayState>('checking')
-  const activeTool = ref<ToolId | null>(null)
-  // What the Preview draws while a tool is open, whole and turned, instead of the Work's Geometry.
-  const previewGeometry = shallowRef<Geometry | null>(null)
-  // What the Preview colours with while the adjust tool is open: its Draft, or neutral values while
-  // Compare is held. Null otherwise, so the Preview uses the Work's Adjustments.
-  const previewAdjustments = shallowRef<Adjustments | null>(null)
   const activePanel = ref<PanelId | null>(null)
+  const slot = createToolSlot({ work, phase, activePanel, view, fitIfSized })
+  const { activeTool, previewGeometry, previewAdjustments } = slot
   /** Space is held for space-pan: a tool's overlay lets the drag through to the canvas. */
   const spacePan = ref(false)
   let latestOpenId = 0
@@ -203,41 +196,6 @@ export const useEditorStore = defineStore('editor', () => {
   }
 
   /**
-   * Opens a tool over the Work. Crop and rotate shows the whole turned image, fitted (crop-rotate
-   * AC-19); Adjust keeps the Work's Crop and the View as they are (adjust AC-20). Refused, not queued, with no Work, during an export, while a tool is open, or under another
-   * feature's panel or the replace dialog (AC-15, AC-16, AC-18, AC-20).
-   */
-  function openTool(id: ToolId): { ok: true } | { ok: false; reason: ToolRefusal } {
-    if (!work.value) return { ok: false, reason: 'no-work' }
-    if (phase.value === 'exporting') return { ok: false, reason: 'exporting' }
-    if (activeTool.value) return { ok: false, reason: 'tool-open' }
-    if (activePanel.value) return { ok: false, reason: 'panel-open' }
-    if (phase.value === 'confirming') return { ok: false, reason: 'confirming' }
-    activeTool.value = id
-    if (id === 'crop-rotate') {
-      previewGeometry.value = work.value.geometry
-      fitIfSized()
-    }
-    return { ok: true }
-  }
-
-  /** Closes the tool slot; after Crop and rotate the View fits the Work again (AC-19). */
-  function closeTool() {
-    const closing = activeTool.value
-    if (!closing) return
-    activeTool.value = null
-    previewGeometry.value = null
-    previewAdjustments.value = null
-    if (closing === 'crop-rotate') fitIfSized()
-  }
-
-  /** The adjust tool's Draft (or neutral values while comparing) for the Preview; never an edit. */
-  function setPreviewAdjustments(next: Adjustments | null) {
-    if (activeTool.value !== 'adjust') return
-    previewAdjustments.value = next && { ...next }
-  }
-
-  /**
    * Applies Adjustments to the Work (adjust AC-11). It counts as an edit only when a value differs
    * from the Work's, which the open tool never changes before Apply. Refused while exporting.
    */
@@ -246,35 +204,6 @@ export const useEditorStore = defineStore('editor', () => {
     if (!current || phase.value === 'exporting') return
     const updated = { ...current, adjustments: { ...next } }
     work.value = adjustmentsEquals(next, current.adjustments) ? updated : withEdit(updated)
-  }
-
-  /**
-   * The open tool's Draft, for the Preview. A quarter turn re-fits the View; any other change keeps
-   * the image still on screen while the turned image's bounds move. An angle step also moves the
-   * frame's centre on the turned image (the image turns around it), so that is offset too (AC-05);
-   * a Flip or a Reset that changes the angle moves the frame instead (AC-04, AC-12).
-   */
-  function setPreviewGeometry(next: Geometry, { angleStep = false } = {}) {
-    const current = work.value
-    const previous = previewGeometry.value
-    if (!activeTool.value || !current || !previous) return
-    previewGeometry.value = next
-    if (next.rotation !== previous.rotation) {
-      fitIfSized()
-      return
-    }
-    const before = turnedBounds(previous, current.original)
-    const after = turnedBounds(next, current.original)
-    let dx = after.x - before.x
-    let dy = after.y - before.y
-    if (angleStep) {
-      dx -= next.crop.x + next.crop.width / 2 - (previous.crop.x + previous.crop.width / 2)
-      dy -= next.crop.y + next.crop.height / 2 - (previous.crop.y + previous.crop.height / 2)
-    }
-    const { zoom, panX, panY } = view.value
-    if (dx !== 0 || dy !== 0) {
-      view.value = { ...view.value, panX: panX + dx * zoom, panY: panY + dy * zoom }
-    }
   }
 
   /**
@@ -403,9 +332,7 @@ export const useEditorStore = defineStore('editor', () => {
   function replace(image: DecodedImage, fileName: string): OpenOutcome {
     const old = work.value?.original.pixels
     // The open tool's Draft is discarded with the old Work (AC-17).
-    activeTool.value = null
-    previewGeometry.value = null
-    previewAdjustments.value = null
+    slot.discard()
     const { bitmap, ...facts } = image
     work.value = createWork(
       {
@@ -480,11 +407,11 @@ export const useEditorStore = defineStore('editor', () => {
     activePanel,
     spacePan,
     hasUnsavedEdits,
-    openTool,
-    closeTool,
-    setPreviewGeometry,
+    openTool: slot.openTool,
+    closeTool: slot.closeTool,
+    setPreviewGeometry: slot.setPreviewGeometry,
     applyGeometry,
-    setPreviewAdjustments,
+    setPreviewAdjustments: slot.setPreviewAdjustments,
     applyAdjustments,
     setActivePanel,
     setSpacePan: (on: boolean) => (spacePan.value = on),

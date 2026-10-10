@@ -5,7 +5,7 @@
 
 | # | Task | Layer | Owner | Estimate | Blocked by | Status |
 |---|---|---|---|---|---|---|
-| T1 | Extract the tool slot from the editor store into tool-slot.ts, with the store's public API and its tests unchanged | app | Blazheiko | M | — | todo |
+| T1 | Extract the tool slot from the editor store into tool-slot.ts, with the store's public API and its tests unchanged | app | Blazheiko | M | — | done |
 | T2 | Add src/core/draw: palette and defaults, parseWidth and stepWidth, Catmull–Rom segments, segment bounds and footprintReachesCrop | domain | Blazheiko | M | — | todo |
 | T3 | Add frameToOriginal to the Geometry transform and deviceToFrame to the View, both unit-tested against the existing UV transform | domain | Blazheiko | S | — | todo |
 | T4 | Add Work.drawing (DrawingLayer | null) and the render/drawing layer module: create, copy, release with ledger counts, readRect and hasAnyMark | infra | Blazheiko | M | — | todo |
