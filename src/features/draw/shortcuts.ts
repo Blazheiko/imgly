@@ -77,9 +77,9 @@ export interface ToolKeyActions {
   stepWidth(delta: number): void
 }
 
-/** What Enter presses itself, so it must not apply the tool as well. */
+/** What Enter presses itself, so it must not apply the tool as well; a colour input opens its picker. */
 const PRESSED_BY_ENTER =
-  'button, a[href], input[type="button"], input[type="submit"], input[type="reset"]'
+  'button, a[href], input[type="button"], input[type="submit"], input[type="reset"], input[type="color"]'
 
 /**
  * `[` or `]`: the character it types, or on a layout that types another character there, the key

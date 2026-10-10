@@ -156,6 +156,15 @@ describe('in-tool keys (screens.md §Keyboard, AC-06, AC-18, AC-19)', () => {
     expect(actions.apply).toHaveBeenCalledTimes(1)
   })
 
+  it('Enter on the focused Custom colour input opens its picker and does not apply', () => {
+    const { actions, handle } = tool()
+    const picker = Object.assign(document.createElement('input'), { type: 'color' })
+    const event = press({ key: 'Enter', target: picker })
+    handle(event)
+    expect(actions.apply).not.toHaveBeenCalled()
+    expect(event.defaultPrevented).toBe(false)
+  })
+
   it('leaves Ctrl, Cmd and Alt combinations alone, and everything while blocked', () => {
     const { actions, handle } = tool()
     handle(press({ key: 'b', code: 'KeyB', ctrlKey: true }))

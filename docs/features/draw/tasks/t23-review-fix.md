@@ -7,7 +7,7 @@ acs: ["AC-19"]
 files_hint: ["src/features/draw/shortcuts.ts", "src/features/draw/shortcuts.test.ts"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 source: "review-2026-10-10 Q1"
 ---
 
