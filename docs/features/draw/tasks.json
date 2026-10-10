@@ -160,7 +160,8 @@
         "SCR-03 error (new image can't open)",
         "SCR-03 replace confirmation",
         "SCR-07 default",
-        "SCR-07 replaced"
+        "SCR-07 replaced",
+        "SCR-08 cancelled"
       ]
     },
     {
@@ -388,7 +389,8 @@
         "SCR-03 erasing",
         "SCR-03 input during a Stroke",
         "SCR-03 zoom and pan",
-        "SCR-03 display lost"
+        "SCR-03 display lost",
+        "SCR-03 Stroke ended early"
       ]
     },
     {
@@ -503,7 +505,8 @@
         "SCR-03 error (new image can't open)",
         "SCR-03 replace confirmation",
         "SCR-07 default",
-        "SCR-07 replaced"
+        "SCR-07 replaced",
+        "SCR-08 cancelled"
       ]
     },
     {

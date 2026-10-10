@@ -7,7 +7,7 @@ acs: ["AC-13", "AC-18", "AC-19"]
 files_hint: ["docs/features/draw/spec.md", "docs/features/draw/screens.md", "docs/features/draw/test-plan.md", "docs/features/draw/tasks.json"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 source: "review-2026-10-10-3 S1, S2"
 ---
 
