@@ -56,6 +56,7 @@ export const useDrawStore = defineStore('draw', () => {
       if (draft.value) releaseLayer(draft.value)
       draft.value = null
       strokeActive.value = false
+      editor.setStrokeActive(false)
       changed = false
     },
     { flush: 'sync' },
@@ -135,6 +136,7 @@ export const useDrawStore = defineStore('draw', () => {
       },
     )
     strokeActive.value = true
+    editor.setStrokeActive(true)
     session.begin(point, view)
   }
 
@@ -152,6 +154,7 @@ export const useDrawStore = defineStore('draw', () => {
     session.end()
     session = null
     strokeActive.value = false
+    editor.setStrokeActive(false)
     if (applyAfterRelease) {
       applyAfterRelease = false
       apply()

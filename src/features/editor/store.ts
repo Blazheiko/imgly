@@ -140,6 +140,8 @@ export const useEditorStore = defineStore('editor', () => {
   const { activeTool, previewGeometry, previewAdjustments, previewLayer } = slot
   /** Space is held for space-pan: a tool's overlay lets the drag through to the canvas. */
   const spacePan = ref(false)
+  /** A draw Stroke is in progress: Space must not start a pan until it ends (draw AC-18). */
+  const strokeActive = ref(false)
   let latestOpenId = 0
   let decode: Decoder = decodeImage
   let rendererFactory: RendererFactory = createPreviewRenderer
@@ -440,6 +442,7 @@ export const useEditorStore = defineStore('editor', () => {
     previewLayer,
     activePanel,
     spacePan,
+    strokeActive,
     hasUnsavedEdits,
     openTool: slot.openTool,
     closeTool: slot.closeTool,
@@ -452,6 +455,7 @@ export const useEditorStore = defineStore('editor', () => {
     applyDrawing,
     setActivePanel,
     setSpacePan: (on: boolean) => (spacePan.value = on),
+    setStrokeActive: (on: boolean) => (strokeActive.value = on),
     setDecoder,
     setRendererFactory,
     createRenderer,

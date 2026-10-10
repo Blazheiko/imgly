@@ -85,7 +85,8 @@ function onKeydown(event: KeyboardEvent) {
   if (event.code === 'Space') {
     if (keepsSpace(event.target)) return
     event.preventDefault() // a focused button would otherwise fire on release (AC-13)
-    editor.setSpacePan(true)
+    // A draw Stroke in progress holds Space: it starts no pan (draw AC-18).
+    if (!editor.strokeActive) editor.setSpacePan(true)
     return
   }
   const shortcut = zoomShortcuts.find((s) => s.matches(event))

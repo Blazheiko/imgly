@@ -243,6 +243,19 @@ describe('EditorView — zoom shortcuts (SCR-02)', () => {
     expect(editor.spacePan).toBe(false)
   })
 
+  it('starts no space-pan while a Stroke is in progress (draw AC-18)', () => {
+    const canvas = wrapper.get('[data-testid="preview-canvas"]').element
+    const init = { key: ' ', code: 'Space', bubbles: true, cancelable: true }
+    editor.setStrokeActive(true)
+    const down = new KeyboardEvent('keydown', init)
+    canvas.dispatchEvent(down)
+    expect(editor.spacePan).toBe(false)
+    expect(down.defaultPrevented).toBe(true) // nor does it scroll or press anything
+    editor.setStrokeActive(false)
+    canvas.dispatchEvent(new KeyboardEvent('keydown', init))
+    expect(editor.spacePan).toBe(true)
+  })
+
   it('ignores shortcuts typed into a text field', () => {
     const input = document.createElement('input')
     document.body.appendChild(input)
