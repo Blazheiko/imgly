@@ -86,16 +86,19 @@ export interface ImglyTestHooks {
    */
   setFullDrawing(): void
   /**
-   * The T9 hot-path spike: opens the draw tool on a fresh Draft and paints `points` (in the Crop's
-   * frame) through the painter at `hz` moves per second, one segment behind the newest point as
-   * the Stroke session does, handing each dirty rectangle to the Preview. Then cancels the tool.
-   * Resolves with the frame intervals during the Stroke and each move's latency to the end of the
-   * frame that drew it, in ms.
+   * The T9 hot-path spike: opens the draw tool on a fresh Draft (or, with `full`, a copy of a
+   * layer covered by marks, for the Eraser) and paints `points` (in the Crop's frame) through the
+   * painter at `hz` moves per second, one segment behind the newest point as the Stroke session
+   * does, handing each dirty rectangle to the Preview. Then cancels the tool. Resolves with the
+   * frame intervals during the Stroke and each point's latency, in ms: from its move to the end
+   * of the frame that shows the Stroke reaching it — the segment ending at a point is painted when
+   * the next point arrives, or on release for the last.
    */
   paintStroke(
     points: Point[],
     style: BrushStyle,
     hz?: number,
+    full?: boolean,
   ): Promise<{ frameIntervals: number[]; latencies: number[] }>
   /**
    * The applied Drawing layer's alpha on the Original's grid, row by row (draw QG-2c mask); an
@@ -220,6 +223,25 @@ function paintPath(layer: Layer, points: Point[], style: BrushStyle, g: Geometry
   }
 }
 
+/** A layer covered by marks over the whole image: 200 px Brush Strokes 100 px apart (spec §6). */
+function fullDrawing(size: Size): Layer {
+  const layer = createLayer(size)
+  const g = identityGeometry(size)
+  for (let y = 0, i = 0; y <= size.height + 100; y += 100, i++) {
+    const colour = PALETTE[i % PALETTE.length]!.hex
+    paintPath(
+      layer,
+      [
+        { x: -100, y },
+        { x: size.width + 100, y },
+      ],
+      { mode: 'brush', colour, width: 200 },
+      g,
+    )
+  }
+  return layer
+}
+
 /** A layer's alpha channel, row by row; empty with no layer. */
 function alphaOf(layer: Layer | null | undefined): number[] {
   const pixels = layer && readRect(layer, { x: 0, y: 0, width: layer.width, height: layer.height })
@@ -275,42 +297,31 @@ export function installTestHooks(pinia: Pinia): void {
     },
     setFullDrawing: () => {
       const work = editor.work
-      if (!work) return
-      const layer = createLayer(work.original)
-      const g = identityGeometry(work.original)
-      const { width: W, height: H } = work.original
-      for (let y = 0, i = 0; y <= H + 100; y += 100, i++) {
-        const colour = PALETTE[i % PALETTE.length]!.hex
-        paintPath(
-          layer,
-          [
-            { x: -100, y },
-            { x: W + 100, y },
-          ],
-          { mode: 'brush', colour, width: 200 },
-          g,
-        )
-      }
-      editor.applyDrawing(layer, true)
+      if (work) editor.applyDrawing(fullDrawing(work.original), true)
     },
-    paintStroke: async (points, style, hz = 120) => {
+    paintStroke: async (points, style, hz = 120, full = false) => {
       const work = editor.work
       if (!work || !editor.openTool('draw').ok) return { frameIntervals: [], latencies: [] }
-      const layer = createLayer(work.original)
+      const layer = full ? fullDrawing(work.original) : createLayer(work.original)
       editor.setPreviewLayer(layer)
       const g = work.geometry
       const frameIntervals: number[] = []
       const latencies: number[] = []
-      let pendingMoves: number[] = []
+      // Points whose segment has been painted, by their move time, waiting for the frame showing it.
+      let painted: number[] = []
       let lastFrame: number | undefined
       let stroking = true
-      // Registered after the renderer's own frame request, so it runs once that frame is drawn.
+      // rAF callbacks run in registration order, and this one re-registers during the previous
+      // frame, before the renderer's own request: it runs first. A task queued from it runs once
+      // the frame's callbacks, the renderer's draw (upload, mipmaps, drawArrays) included, are done.
       const onFrame = () => {
-        const now = performance.now()
-        if (lastFrame !== undefined) frameIntervals.push(now - lastFrame)
-        lastFrame = now
-        for (const t of pendingMoves) latencies.push(now - t)
-        pendingMoves = []
+        setTimeout(() => {
+          const now = performance.now()
+          if (lastFrame !== undefined) frameIntervals.push(now - lastFrame)
+          lastFrame = now
+          for (const t of painted) latencies.push(now - t)
+          painted = []
+        }, 0)
         if (stroking) requestAnimationFrame(onFrame)
       }
       requestAnimationFrame(onFrame)
@@ -321,21 +332,28 @@ export function installTestHooks(pinia: Pinia): void {
           points[i]!,
           points[i + 1] ?? points[i]!,
         )
+      const moved: number[] = []
       const start = performance.now()
       for (let i = 0; i < points.length; i++) {
         const due = start + (i * 1000) / hz
         await new Promise((resolve) => setTimeout(resolve, Math.max(0, due - performance.now())))
-        const moved = performance.now()
-        // The segment behind the newest point is painted once the point after it is known.
-        if (i >= 2) editor.layerChanged(paintSegment(layer, segmentTo(i - 1), style, g))
-        else if (i === 0 && points.length === 1)
+        moved.push(performance.now())
+        // The segment ending at the previous point is painted once this point is known.
+        if (i >= 2) {
+          editor.layerChanged(paintSegment(layer, segmentTo(i - 1), style, g))
+          painted.push(moved[i - 1]!)
+        } else if (i === 0 && points.length === 1) {
           editor.layerChanged(paintDot(layer, points[0]!, style, g))
-        pendingMoves.push(moved)
+          painted.push(moved[0]!)
+        }
       }
       if (points.length >= 2) {
+        // Release: the last segment.
         editor.layerChanged(paintSegment(layer, segmentTo(points.length - 1), style, g))
+        painted.push(moved[points.length - 1]!)
       }
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      await new Promise((resolve) => setTimeout(resolve, 0))
       stroking = false
       editor.closeTool()
       releaseLayer(layer)

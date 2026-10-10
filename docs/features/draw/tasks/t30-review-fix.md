@@ -7,7 +7,7 @@ acs: ["AC-01"]
 files_hint: ["src/app/test-hooks.ts", "e2e/draw/perf.spec.ts", "e2e/test-hooks.d.ts", "docs/features/draw/tasks/_epic.md"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 source: "review-2026-10-10 S3"
 ---
 

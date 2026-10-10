@@ -165,16 +165,26 @@ See [tracker.md](./tracker.md) for status. Machine contract: [tasks.json](../tas
 
     | Row | Measured | Target | |
     |---|---|---|---|
-    | Tool ready after "Draw" | 73 ms | ≤ 150 ms | pass |
-    | Apply / Cancel / Clear over a full layer | 28 / 111 / 29 ms | ≤ 150 ms | pass |
-    | Apply in "Crop and rotate" with a full layer | 29 ms | ≤ 150 ms | pass |
-    | Export with a full layer, JPEG q90 / PNG | 509 / 593 ms | ≤ 1000 / 2000 ms | pass |
-    | Memory after 50 Applies | 102 % of the first, 1 layer retained | ≤ 110 % | pass |
-    | Overlay drawing, 200 px at Fit / 100%: frame interval p95 | 34.7 / 36.0 ms | ≤ 33 ms | **miss** |
-    | Overlay drawing, 200 px: move-to-frame p95 | 0.5–1.0 ms | ≤ 50 ms | pass |
-    | Overlay drawing, 1 px at Fit / 100% | — (timed out in Playwright `mouse.move`) | ≤ 33 / 50 ms | **not measured** |
+    | Tool ready after "Draw" | 65 ms | ≤ 150 ms | pass |
+    | Apply / Cancel / Clear over a full layer | 17 / 71 / 30 ms | ≤ 150 ms | pass |
+    | Apply in "Crop and rotate" with a full layer | 13 ms | ≤ 150 ms | pass |
+    | Export with a full layer, JPEG q90 / PNG (T20 run, headless) | 509 / 593 ms | ≤ 1000 / 2000 ms | pass |
+    | Memory after 50 Applies | 98 % of the first, 1 layer retained | ≤ 110 % | pass |
+    | Overlay drawing, Brush 1 / 200 px at Fit: frame interval p95 | 9.8 / 10.4 ms | ≤ 33 ms | pass |
+    | Overlay drawing, Brush 1 / 200 px at 100%: frame interval p95 | 9.8 / 10.1 ms | ≤ 33 ms | pass |
+    | Overlay drawing, Eraser 1 / 200 px at Fit: frame interval p95 | 9.7 / 13.5 ms | ≤ 33 ms | pass |
+    | Overlay drawing, Eraser 1 / 200 px at 100%: frame interval p95 | 9.8 / 10.5 ms | ≤ 33 ms | pass |
+    | Overlay drawing, every row: move-to-frame p95 | 15.0–20.1 ms | ≤ 50 ms | pass |
+    | Spike (hooks), Brush and Eraser, 1 / 200 px, Fit and 100% | 9.9–11.0 ms frame, 14.6–17.5 ms latency | ≤ 33 / 50 ms | pass |
 
-    *Open:* the overlay rows drive the real overlay with CDP mouse moves awaited one by one, so the Preview's draw intervals may follow the input pacing rather than the renderer (the in-page T9 spike measured 17.6 ms at 100% on the same path). That is unproven. The 1 px timeouts are unexplained. T20 stays in `review` until the overlay rows are measured on the reference machine's GPU Chrome, or the harness is shown to be the cause; no threshold was changed.
+    *Re-measured 2026-10-10 (review T30), Apple M1 Pro, Playwright's Chromium, headed, DPR 2.* The
+    earlier misses and the 1 px timeouts were the harness, not the renderer: headless Chromium draws
+    WebGL with SwiftShader on the CPU, and Playwright's awaited mouse moves reached the page about
+    50 ms apart, so the draws followed the input. The suite now runs headed on the GPU, dispatches the
+    overlay's pointer events in the page at 120 Hz (they arrive 9.5–11.8 ms apart, p95), times each
+    point to the frame that shows the segment ending at it (one point later, ADR-0002), and measures
+    the Eraser too. The first mark of a new Draft no longer reads back the whole layer (T27). No
+    threshold was changed.
 - **Image pixels never change** (AC-07): the painter only ever touches the layer. The Eraser is `destination-out` on the layer alone (repo ADR 0004).
 - **The Draft never counts as Unsaved edits** (AC-12, AC-13): only `editor.applyDrawing(layer, changed)` raises the revision, and only when the per-Draft change flag is true. No pixel comparison is used.
 - **An Export never holds a Draft** (AC-14, AC-15): Export is unavailable while the tool is open, and the tool is refused during an export.

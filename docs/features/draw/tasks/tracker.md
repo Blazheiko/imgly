@@ -24,7 +24,7 @@
 | T17 | Add the e2e fidelity suite: reference drawing vs Preview at 100% for each Geometry case and with Adjustments, empty layer = 0, Geometry round trips = 0, image pixels unchanged outside marks, smaller sizes and the transparency hint | tests | Blazheiko | M | T8, T10 | done |
 | T18 | Add the e2e tool-flow suite: the live line through every position, a dot, the Eraser, Clear, Apply and Cancel, the clip at the Crop, drag vs pan and zoom in the tool, the keyboard path and the layer ledger | tests | Blazheiko | M | T16 | done |
 | T19 | Add the e2e cross-feature suite: Unsaved edits rules, export and Ctrl/Cmd+S refused while drawing, one tool at a time in both directions, Draw refused during an export and with no image, replace while open, and marks in Crop and rotate and Adjust | tests | Blazheiko | M | T10, T16 | done |
-| T20 | Complete the @perf suite: drawing frame interval and latency through the real overlay, tool-ready, Apply / Cancel / Clear and Crop-and-rotate Apply over a full layer, export time with a full layer, and memory after 50 Applies | tests | Blazheiko | M | T9, T17, T18, T19 | review |
+| T20 | Complete the @perf suite: drawing frame interval and latency through the real overlay, tool-ready, Apply / Cancel / Clear and Crop-and-rotate Apply over a full layer, export time with a full layer, and memory after 50 Applies | tests | Blazheiko | M | T9, T17, T18, T19 | done |
 | T21 | A Stroke takes focus from the tool panel: blur a focused panel control on a main-button pointerdown, committing pending width text; e2e drives real drags instead of leaveField | ui | Blazheiko | S | T16 | done |
 | T22 | With Draw open the key right of P (German +) steps the width instead of zooming | wiring | Blazheiko | S | T21 | done |
 | T23 | Enter on the focused Custom colour input opens the picker instead of applying the tool | ui | Blazheiko | S | T22 | done |
@@ -34,7 +34,7 @@
 | T27 | Released layers read as empty without allocating; a fresh empty layer is uploaded zero-filled with no readback | infra | Blazheiko | S | — | done |
 | T28 | Context-loss tests cover setLayer and updateLayer while the context is restoring | tests | Blazheiko | S | T27 | done |
 | T29 | Work.drawing is typed by the layer's pixel holder, and a refused applyDrawing leaves the Draft with its caller | domain | Blazheiko | S | T27 | done |
-| T30 | Fix the @perf drawing measurement: latency to the frame after the renderer draws, move i matched to the draw after i+1, Eraser runs, the 1 px timeouts explained; re-measure | tests | Blazheiko | S | T27, T29 | todo |
+| T30 | Fix the @perf drawing measurement: latency to the frame after the renderer draws, move i matched to the draw after i+1, Eraser runs, the 1 px timeouts explained; re-measure | tests | Blazheiko | S | T27, T29 | done |
 | T31 | QG-2b oracle: Export after each Rotation, Flip and Straighten equals the layer mapped through frameToOriginal; one case through the real Crop and rotate Apply; a Geometry Apply keeps the layer | tests | Blazheiko | S | T29 | todo |
 | T32 | Write the missing test-plan rows for AC-02, 03, 04, 07, 09, 10, 11 and 19, or mark them Narrowed on purpose | tests | Blazheiko | S | T22, T24, T31 | todo |
 | T33 | Docs: reword AC-18 to allow the layout re-fit when the panel opens; add SCR ids and the missing AC-04 / AC-06 claims to tasks.json | docs | Blazheiko | S | — | done |

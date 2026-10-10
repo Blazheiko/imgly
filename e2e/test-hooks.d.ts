@@ -62,6 +62,7 @@ declare global {
         points: { x: number; y: number }[],
         style: BrushStyle,
         hz?: number,
+        full?: boolean,
       ): Promise<{ frameIntervals: number[]; latencies: number[] }>
       drawingAlpha(): number[]
       draftAlpha(): number[]
