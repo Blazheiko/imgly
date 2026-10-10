@@ -45,5 +45,7 @@
 | T38 | Re-run the drawing rows (spec §6 rows 1–2) on a 60 Hz display with stable Chrome and record them | tests | Blazheiko | S | T34, T35, T36, T37 | done |
 | T39 | Docs: AC-18 and screens.md name the layouts whose zoom-in is numpad + and the controls; an AC-18 test-plan row; claim SCR-03 Stroke ended early and SCR-08 cancelled | docs | Blazheiko | S | — | done |
 | T40 | Palette swatch fills keep their colour in forced-colors mode | ui | Blazheiko | S | — | done |
+| T41 | AC-18 states its zoom exception as a rule (Italian included); a numpad + test; claim SCR-04 Geometry applied | docs | Blazheiko | S | — | done |
+| T42 | Swatch frames use the system text colour in forced-colors mode | ui | Blazheiko | S | — | done |
 
-**Total:** 40 tasks, ~30 person-days (S ≈ ½ day, M ≈ 1 day).
+**Total:** 42 tasks, ~31 person-days (S ≈ ½ day, M ≈ 1 day).

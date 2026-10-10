@@ -450,7 +450,10 @@
         "e2e/draw/helpers.ts",
         "e2e/fixtures/README.md"
       ],
-      "file": "docs/features/draw/tasks/t17-e2e-fidelity-and-invariants.md"
+      "file": "docs/features/draw/tasks/t17-e2e-fidelity-and-invariants.md",
+      "screens": [
+        "SCR-04 Geometry applied"
+      ]
     },
     {
       "id": "T18",
@@ -753,7 +756,10 @@
         "src/features/editor/store.test.ts"
       ],
       "file": "docs/features/draw/tasks/t31-review-fix.md",
-      "source": "docs/features/draw/_review/review-2026-10-10.md S5"
+      "source": "docs/features/draw/_review/review-2026-10-10.md S5",
+      "screens": [
+        "SCR-04 Geometry applied"
+      ]
     },
     {
       "id": "T32",
@@ -941,6 +947,34 @@
       ],
       "file": "docs/features/draw/tasks/t40-review-fix.md",
       "source": "docs/features/draw/_review/review-2026-10-10-3.md Q12"
+    },
+    {
+      "id": "T41",
+      "title": "AC-18 states its zoom exception as a rule (Italian included); a numpad + test; claim SCR-04 Geometry applied",
+      "layer": "docs",
+      "deps": [],
+      "acs": [
+        "AC-08",
+        "AC-18",
+        "AC-19"
+      ],
+      "dod": "AC-18 states its zoom exception as a rule (Italian included); a numpad + test; claim SCR-04 Geometry applied",
+      "files_hint": [],
+      "file": "docs/features/draw/tasks/t41-review-fix.md",
+      "source": "docs/features/draw/_review/review-2026-10-10-4.md N1, N2, N3"
+    },
+    {
+      "id": "T42",
+      "title": "Swatch frames use the system text colour in forced-colors mode",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-02"
+      ],
+      "dod": "Swatch frames use the system text colour in forced-colors mode",
+      "files_hint": [],
+      "file": "docs/features/draw/tasks/t42-review-fix.md",
+      "source": "docs/features/draw/_review/review-2026-10-10-4.md N4"
     }
   ]
 }

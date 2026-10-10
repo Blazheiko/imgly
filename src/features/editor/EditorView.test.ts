@@ -201,6 +201,7 @@ describe('EditorView — zoom shortcuts (SCR-02)', () => {
       { key: '=', code: 'BracketRight' }, // Dvorak
       { key: '+', code: 'BracketRight', shiftKey: true }, // Dvorak's Shift+=
       { key: '+', code: 'Equal', shiftKey: true }, // US
+      { key: '+', code: 'NumpadAdd' }, // German, Spanish, Italian, Portuguese: numpad +
     ]) {
       const key = press(init)
       expect(editor.view.zoom).toBeGreaterThan(zoom)

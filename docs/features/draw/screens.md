@@ -49,7 +49,7 @@ updated_at: "2026-10-09"
 | `Enter` | Anywhere else in SCR-03 | Applies the tool, after the pointer is released if a Stroke is in progress | AC-18, AC-19 |
 | `Esc` | Anywhere in SCR-03, including a field, also during a Stroke | Cancels the tool; a width still being typed and a Stroke in progress are discarded | AC-06, AC-18, AC-19 |
 | `Ctrl/Cmd+S` | SCR-03 | Shows the "apply or cancel the drawing first" notice. Never the browser's "Save page" | AC-15 |
-| Zoom keys, wheel, pinch, `Space`-drag pan | SCR-03 (outside a focused button or field) | As in the editor: never draw, never change the Draft, never count as an edit. During a Stroke, `Space` does not start a pan. One exception: an unshifted `+` on a key right of P (German, Spanish, Portuguese) steps the width instead, so on those layouts zoom-in is the numpad `+` or the zoom controls | AC-18, AC-19 |
+| Zoom keys, wheel, pinch, `Space`-drag pan | SCR-03 (outside a focused button or field) | As in the editor: never draw, never change the Draft, never count as an edit. During a Stroke, `Space` does not start a pan. One exception: an unshifted `+` on a key right of P (for example German, Spanish, Italian, Portuguese) steps the width instead, so on those layouts zoom-in is the numpad `+` or the zoom controls | AC-18, AC-19 |
 
 All of `D`, `B`, `E`, `[` and `]` type normally in a text field (AC-19). A key, colour or width change during a Stroke applies from the next Stroke (AC-18). Focus moves to the mode group (on "Brush") when the tool opens. After Apply or Cancel it returns to the "Draw" action.
 
