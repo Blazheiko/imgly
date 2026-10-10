@@ -218,7 +218,6 @@ export const useEditorStore = defineStore('editor', () => {
     return work.value?.drawing ?? null
   }
 
-  /** The open draw tool's dirty rectangle, straight to the renderer (draw ADR-0002 hot path). */
   /**
    * The draw tool's Draft for the Preview. The renderer gets it at once, not on the Preview's next
    * watcher flush: a new Draft is still blank then, so its texture is allocated without a readback
@@ -229,6 +228,7 @@ export const useEditorStore = defineStore('editor', () => {
     if (activeTool.value === 'draw') renderer?.setLayer(next)
   }
 
+  /** The open draw tool's dirty rectangle, straight to the renderer (draw ADR-0002 hot path). */
   function layerChanged(rect: LayerRect) {
     renderer?.updateLayer(rect)
   }

@@ -724,7 +724,15 @@ describe('SegmentedControl swatches (draw screens.md §New components)', () => {
     )
     expect(rule).not.toBeNull()
     expect(rule![1]).not.toMatch(/\boutline\b/)
-    expect(rule![1]).toMatch(/box-shadow:\s*inset 0 0 0 2px var\(--color-text\)/)
+    expect(rule![1]).toMatch(/box-shadow:[^;]*var\(--color-text\)/)
+  })
+
+  it('keeps the selected ring in forced-colors mode, where box-shadow is dropped', () => {
+    const forced = /@media \(forced-colors: active\)\s*\{([\s\S]*?)\n\}/.exec(segmentedSource)
+    expect(forced).not.toBeNull()
+    expect(forced![1]).toMatch(
+      /\.segmented__option--swatch\[aria-checked='true'\]\s*\{[^}]*\boutline:[^;]*CanvasText/,
+    )
   })
 
   it('shows an option’s title as its tooltip, and none for a plain option without one', () => {

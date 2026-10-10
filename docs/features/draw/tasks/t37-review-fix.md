@@ -7,7 +7,7 @@ acs: ["AC-02"]
 files_hint: ["src/features/editor/store.ts", "src/shared/ui/SegmentedControl.vue", "src/shared/ui/primitives.test.ts"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 source: "review-2026-10-10-2 Q9, Q10, Q11"
 ---
 

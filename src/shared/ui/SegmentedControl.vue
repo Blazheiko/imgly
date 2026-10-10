@@ -143,6 +143,15 @@ function onKeydown(event: KeyboardEvent, from: number) {
   box-shadow: inset 0 0 0 2px var(--color-text);
 }
 
+/* Forced colours drop box-shadow: draw the selected ring as an outline in the system text colour
+   (a system colour keyword, as forced-colors mode replaces every author colour). */
+@media (forced-colors: active) {
+  .segmented__option--swatch[aria-checked='true'] {
+    outline: 2px solid CanvasText;
+    outline-offset: -4px;
+  }
+}
+
 /* The fill is data (the palette colour); the frame comes from the tokens. */
 .segmented__swatch {
   width: var(--space-4);
