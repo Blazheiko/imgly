@@ -7,7 +7,7 @@ acs: []
 files_hint: ["src/render/context-loss.test.ts"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 source: "review-2026-10-10 Q8"
 ---
 
