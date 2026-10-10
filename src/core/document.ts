@@ -43,7 +43,7 @@ export interface WorkSource {
   sourceFormat: ImageFormat
 }
 
-export interface Work<TPixels = unknown> extends WorkSource {
+export interface Work<TPixels = unknown, TLayer = unknown> extends WorkSource {
   id: string
   createdAt: number
   updatedAt: number
@@ -53,18 +53,18 @@ export interface Work<TPixels = unknown> extends WorkSource {
   /** The seven colour values (adjust ADR-0001); neutral on every new Work. */
   adjustments: Adjustments
   /** The applied marks over the adjusted image; null while nothing is drawn (draw ADR-0001). */
-  drawing: DrawingLayer | null
+  drawing: DrawingLayer<TLayer> | null
   revision: number
   /** The revision at open (later also at save). */
   cleanRevision: number
 }
 
-export function createWork<TPixels>(
+export function createWork<TPixels, TLayer = unknown>(
   original: Original<TPixels>,
   id: string,
   source: WorkSource,
   now: number = Date.now(),
-): Work<TPixels> {
+): Work<TPixels, TLayer> {
   return {
     id,
     sourceName: source.sourceName,
@@ -85,6 +85,9 @@ export function hasUnsavedEdits(work: Work): boolean {
 }
 
 /** The one rule every edit follows: the changed Work carries `revision + 1`. */
-export function withEdit<TPixels>(work: Work<TPixels>, now: number = Date.now()): Work<TPixels> {
+export function withEdit<TPixels, TLayer>(
+  work: Work<TPixels, TLayer>,
+  now: number = Date.now(),
+): Work<TPixels, TLayer> {
   return { ...work, revision: work.revision + 1, updatedAt: now }
 }

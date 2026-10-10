@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { createWork, hasUnsavedEdits, withEdit } from './document'
+import { describe, expect, expectTypeOf, it } from 'vitest'
+import { createWork, hasUnsavedEdits, withEdit, type DrawingLayer } from './document'
 import { NEUTRAL_ADJUSTMENTS } from './adjust'
 
 const original = { width: 4096, height: 2731, pixels: 'bitmap', hasTransparency: false }
@@ -81,5 +81,13 @@ describe('Work Adjustments (adjust ADR-0001, AC-17)', () => {
     const adjusted = { ...work, adjustments: { ...work.adjustments, contrast: 20 } }
 
     expect(withEdit(adjusted).adjustments.contrast).toBe(20)
+  })
+})
+
+describe('Work.drawing typing (draw ADR-0001)', () => {
+  it('types the Drawing layer by its own pixel holder, kept through withEdit', () => {
+    const work = createWork<string, { canvas: true }>(original, 'w-1', source)
+    expectTypeOf(work.drawing).toEqualTypeOf<DrawingLayer<{ canvas: true }> | null>()
+    expectTypeOf(withEdit(work).drawing).toEqualTypeOf<DrawingLayer<{ canvas: true }> | null>()
   })
 })

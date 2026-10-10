@@ -11,7 +11,7 @@ export type ToolRefusal = 'no-work' | 'exporting' | 'tool-open' | 'panel-open' |
 
 /** What the slot reads from the editor store; the store owns these and composes the slot. */
 export interface ToolSlotDeps {
-  work: ShallowRef<Work<ImageBitmap> | null>
+  work: ShallowRef<Work<ImageBitmap, OffscreenCanvas> | null>
   phase: Ref<EditorPhase>
   activePanel: Ref<PanelId | null>
   view: Ref<View>

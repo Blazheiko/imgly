@@ -7,7 +7,7 @@ acs: []
 files_hint: ["src/core/document.ts", "src/features/editor/store.ts", "src/features/editor/store.test.ts", "src/features/draw/store.ts", "src/features/export/store.ts", "src/app/test-hooks.ts"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 source: "review-2026-10-10 Q5, Q7"
 ---
 

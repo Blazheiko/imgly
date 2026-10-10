@@ -277,7 +277,7 @@ export const useExportStore = defineStore('export', () => {
       const result = await checkTransparency({
         bitmap: copy,
         geometry: work.geometry,
-        layer: readLayer(work.drawing as Layer | null),
+        layer: readLayer(work.drawing),
       })
       closeBitmap(copy) // already transferred and closed in the worker; this records it
       answer = result.ok ? result.value : true // a failed check shows the hint: the safe side

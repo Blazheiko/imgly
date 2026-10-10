@@ -22,10 +22,14 @@ let ids = 0
 function openWork(editor: ReturnType<typeof useEditorStore>, adjustments?: Partial<Adjustments>) {
   const size = { width: 400, height: 300 }
   const pixels = { ...size, close() {} } as unknown as ImageBitmap
-  const work = createWork({ ...size, pixels, hasTransparency: false }, `w-${++ids}`, {
-    sourceName: 'a',
-    sourceFormat: 'png',
-  })
+  const work = createWork<ImageBitmap, OffscreenCanvas>(
+    { ...size, pixels, hasTransparency: false },
+    `w-${++ids}`,
+    {
+      sourceName: 'a',
+      sourceFormat: 'png',
+    },
+  )
   editor.work = { ...work, adjustments: { ...NEUTRAL_ADJUSTMENTS, ...adjustments } }
 }
 

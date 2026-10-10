@@ -129,7 +129,7 @@ const UNSIZED_VIEW: View = { zoom: 1, panX: 0, panY: 0, autoFit: true }
  */
 export const useEditorStore = defineStore('editor', () => {
   // shallowRef: an ImageBitmap must never be wrapped in a reactive proxy.
-  const work = shallowRef<Work<ImageBitmap> | null>(null)
+  const work = shallowRef<Work<ImageBitmap, OffscreenCanvas> | null>(null)
   const pending = shallowRef<DecodedImage | null>(null)
   const view = ref<View>(UNSIZED_VIEW)
   const canvasSize = ref<Size>({ width: 0, height: 0 })
@@ -215,7 +215,7 @@ export const useEditorStore = defineStore('editor', () => {
 
   /** The Work's applied Drawing layer as the browser holds it, or null. */
   function appliedLayer(): Layer | null {
-    return (work.value?.drawing as Layer | null | undefined) ?? null
+    return work.value?.drawing ?? null
   }
 
   /** The open draw tool's dirty rectangle, straight to the renderer (draw ADR-0002 hot path). */
@@ -236,16 +236,18 @@ export const useEditorStore = defineStore('editor', () => {
   /**
    * Applies the draw tool's Draft as the Work's Drawing layer with a new id (draw ADR-0004). It
    * counts as an edit only when the Draft's change flag says so (AC-12), and the applied layer it
-   * replaces is released unless it is the same canvas. Refused while exporting.
+   * replaces is released unless it is the same canvas. Refused while exporting, and then false:
+   * the caller still owns the Draft and must keep or release it.
    */
-  function applyDrawing(draft: Layer | null, changed: boolean) {
+  function applyDrawing(draft: Layer | null, changed: boolean): boolean {
     const current = work.value
-    if (!current || phase.value === 'exporting') return
+    if (!current || phase.value === 'exporting') return false
     const previous = appliedLayer()
     const drawing = draft && { ...draft, id: newId() }
     const updated = { ...current, drawing }
     work.value = changed ? withEdit(updated) : updated
     if (previous && previous.pixels !== draft?.pixels) releaseLayer(previous)
+    return true
   }
 
   /**

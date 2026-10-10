@@ -33,7 +33,7 @@
 | T26 | A focused, selected swatch shows both the selected ring and the focus ring | ui | Blazheiko | S | T25 | done |
 | T27 | Released layers read as empty without allocating; a fresh empty layer is uploaded zero-filled with no readback | infra | Blazheiko | S | — | done |
 | T28 | Context-loss tests cover setLayer and updateLayer while the context is restoring | tests | Blazheiko | S | T27 | done |
-| T29 | Work.drawing is typed by the layer's pixel holder, and a refused applyDrawing leaves the Draft with its caller | domain | Blazheiko | S | T27 | todo |
+| T29 | Work.drawing is typed by the layer's pixel holder, and a refused applyDrawing leaves the Draft with its caller | domain | Blazheiko | S | T27 | done |
 | T30 | Fix the @perf drawing measurement: latency to the frame after the renderer draws, move i matched to the draw after i+1, Eraser runs, the 1 px timeouts explained; re-measure | tests | Blazheiko | S | T27, T29 | todo |
 | T31 | QG-2b oracle: Export after each Rotation, Flip and Straighten equals the layer mapped through frameToOriginal; one case through the real Crop and rotate Apply; a Geometry Apply keeps the layer | tests | Blazheiko | S | T29 | todo |
 | T32 | Write the missing test-plan rows for AC-02, 03, 04, 07, 09, 10, 11 and 19, or mark them Narrowed on purpose | tests | Blazheiko | S | T22, T24, T31 | todo |

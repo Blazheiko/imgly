@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { turnedBounds, workSize } from '@/core'
-import type { Layer, PreviewRenderer } from '@/render'
+import type { PreviewRenderer } from '@/render'
 import { useEditorStore } from '../store'
 import { pinchGesture, wheelGesture, type PinchInput } from './gestures'
 
@@ -38,9 +38,7 @@ const shownAdjustments = computed(() => editor.previewAdjustments ?? editor.work
  * AC-05), else the Work's applied layer, also in the other tools (draw sad.md §5, AC-11).
  */
 const shownLayer = computed(() =>
-  editor.activeTool === 'draw'
-    ? editor.previewLayer
-    : ((editor.work?.drawing as Layer | null) ?? null),
+  editor.activeTool === 'draw' ? editor.previewLayer : (editor.work?.drawing ?? null),
 )
 
 /** The shown image overflows the canvas area on some axis, so it can be panned (AC-13). */

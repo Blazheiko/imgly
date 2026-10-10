@@ -76,7 +76,7 @@ export const useDrawStore = defineStore('draw', () => {
     if (!result.ok) return result
     mode.value = 'brush'
     changed = false
-    const applied = editor.work!.drawing as Layer | null
+    const applied = editor.work!.drawing
     show(applied && copyLayer(applied))
     return result
   }
@@ -182,9 +182,9 @@ export const useDrawStore = defineStore('draw', () => {
       applyAfterRelease = true
       return
     }
-    const handed = draft.value
+    // Refused (an export started): the Draft stays the open tool's, to apply or cancel later.
+    if (!editor.applyDrawing(draft.value, changed)) return
     draft.value = null // the Work owns it now: the close below must not release it
-    editor.applyDrawing(handed, changed)
     editor.closeTool()
   }
 

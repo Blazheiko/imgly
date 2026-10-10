@@ -262,12 +262,7 @@ export function installTestHooks(pinia: Pinia): void {
     previewAt100: () => {
       const work = editor.work
       return work
-        ? renderAt100(
-            work.original.pixels,
-            work.geometry,
-            work.adjustments,
-            work.drawing as Layer | null,
-          )
+        ? renderAt100(work.original.pixels, work.geometry, work.adjustments, work.drawing)
         : []
     },
     exportStatus: () => exporter.status,
@@ -346,7 +341,7 @@ export function installTestHooks(pinia: Pinia): void {
       releaseLayer(layer)
       return { frameIntervals, latencies }
     },
-    drawingAlpha: () => alphaOf(editor.work?.drawing as Layer | null | undefined),
+    drawingAlpha: () => alphaOf(editor.work?.drawing),
     draftAlpha: () => (editor.activeTool === 'draw' ? alphaOf(editor.previewLayer) : []),
     layers: () => ({
       created: bitmapLedger.layersCreated,

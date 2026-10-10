@@ -228,6 +228,19 @@ describe('draw store (draw ADR-0004, sad.md §4)', () => {
       expect(retained()).toBe(1)
     })
 
+    it('a refused Apply leaves the Draft with the open tool, so nothing leaks', () => {
+      openWork(editor)
+      draw.open()
+      const draft = draw.ensureDraft()
+      draw.markChanged()
+      vi.spyOn(editor, 'applyDrawing').mockReturnValue(false)
+      draw.apply()
+      expect(draw.isOpen).toBe(true)
+      expect(draw.draft).toBe(draft)
+      draw.cancel()
+      expect(retained()).toBe(0) // released with the tool, not lost
+    })
+
     it('Cancel keeps the Work’s layer and Unsaved edits, releasing the Draft', () => {
       openWork(editor)
       draw.open()

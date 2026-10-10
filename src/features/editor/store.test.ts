@@ -1175,9 +1175,14 @@ describe('editor store — the draw tool in the slot (draw AC-12, AC-13, AC-15, 
       await open()
       editor.beginExport()
       const layer = draft()
-      editor.applyDrawing(layer, true)
+      expect(editor.applyDrawing(layer, true)).toBe(false) // the caller keeps the Draft
       expect(editor.work!.drawing).toBeNull()
       expect(editor.work!.revision).toBe(0)
+    })
+
+    it('says it applied', async () => {
+      await open()
+      expect(editor.applyDrawing(draft(), true)).toBe(true)
     })
   })
 

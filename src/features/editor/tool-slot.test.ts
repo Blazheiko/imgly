@@ -14,7 +14,7 @@ import type { EditorPhase, PanelId } from './store'
 
 const bitmap = (width: number, height: number) => ({ width, height }) as unknown as ImageBitmap
 
-function makeWork(width = 400, height = 200): Work<ImageBitmap> {
+function makeWork(width = 400, height = 200): Work<ImageBitmap, OffscreenCanvas> {
   return createWork(
     { width, height, pixels: bitmap(width, height), hasTransparency: false },
     'w1',
@@ -26,7 +26,7 @@ function makeWork(width = 400, height = 200): Work<ImageBitmap> {
 }
 
 function setup({ withWork = true } = {}) {
-  const work = shallowRef<Work<ImageBitmap> | null>(withWork ? makeWork() : null)
+  const work = shallowRef<Work<ImageBitmap, OffscreenCanvas> | null>(withWork ? makeWork() : null)
   const phase = ref<EditorPhase>('idle')
   const activePanel = ref<PanelId | null>(null)
   const view = ref<View>({ zoom: 2, panX: 10, panY: 20, autoFit: false })
