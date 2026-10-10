@@ -740,6 +740,11 @@ describe('SegmentedControl swatches (draw screens.md §New components)', () => {
     expect(rule![1]).toMatch(/forced-color-adjust:\s*none/)
   })
 
+  it('frames each swatch in the system text colour in forced-colors mode', () => {
+    const forced = /@media \(forced-colors: active\)\s*\{([\s\S]*?)\n\}/.exec(segmentedSource)
+    expect(forced![1]).toMatch(/\.segmented__swatch\s*\{[^}]*border-color:\s*CanvasText/)
+  })
+
   it('shows an option’s title as its tooltip, and none for a plain option without one', () => {
     const wrapper = mount(SegmentedControl, {
       props: {

@@ -150,6 +150,11 @@ function onKeydown(event: KeyboardEvent, from: number) {
     outline: 2px solid CanvasText;
     outline-offset: -4px;
   }
+
+  /* The fill keeps its colour (forced-color-adjust: none), so the frame must be forced by hand. */
+  .segmented__swatch {
+    border-color: CanvasText;
+  }
 }
 
 /* The fill is data (the palette colour); the frame comes from the tokens. */

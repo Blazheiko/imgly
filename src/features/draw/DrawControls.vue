@@ -174,4 +174,11 @@ const preset = computed(() => (PALETTE.some((c) => c.hex === tool.colour) ? tool
 .draw-controls__spacer {
   flex: 1;
 }
+
+/* The fill keeps its colour (forced-color-adjust: none), so the frame must be forced by hand. */
+@media (forced-colors: active) {
+  .draw-controls__custom-swatch {
+    border-color: CanvasText;
+  }
+}
 </style>

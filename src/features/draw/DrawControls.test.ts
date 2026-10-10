@@ -132,6 +132,13 @@ describe('DrawControls (SCR-03)', () => {
     expect(rule![1]).toMatch(/forced-color-adjust:\s*none/)
   })
 
+  it('frames the custom swatch in the system text colour in forced-colors mode', () => {
+    const forced = /@media \(forced-colors: active\)\s*\{([\s\S]*?)\n\}/.exec(controlsSource)
+    expect(forced?.[1]).toMatch(
+      /\.draw-controls__custom-swatch\s*\{[^}]*border-color:\s*CanvasText/,
+    )
+  })
+
   it('has a Width slider 1 to 200 in px with its tooltip', () => {
     const range = wrapper.get<HTMLInputElement>('input[type="range"]')
     expect(range.attributes('aria-label')).toBe(WIDTH_LABEL)
