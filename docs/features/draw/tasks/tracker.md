@@ -24,7 +24,7 @@
 | T17 | Add the e2e fidelity suite: reference drawing vs Preview at 100% for each Geometry case and with Adjustments, empty layer = 0, Geometry round trips = 0, image pixels unchanged outside marks, smaller sizes and the transparency hint | tests | Blazheiko | M | T8, T10 | done |
 | T18 | Add the e2e tool-flow suite: the live line through every position, a dot, the Eraser, Clear, Apply and Cancel, the clip at the Crop, drag vs pan and zoom in the tool, the keyboard path and the layer ledger | tests | Blazheiko | M | T16 | done |
 | T19 | Add the e2e cross-feature suite: Unsaved edits rules, export and Ctrl/Cmd+S refused while drawing, one tool at a time in both directions, Draw refused during an export and with no image, replace while open, and marks in Crop and rotate and Adjust | tests | Blazheiko | M | T10, T16 | done |
-| T20 | Complete the @perf suite: drawing frame interval and latency through the real overlay, tool-ready, Apply / Cancel / Clear and Crop-and-rotate Apply over a full layer, export time with a full layer, and memory after 50 Applies | tests | Blazheiko | M | T9, T17, T18, T19 | review |
+| T20 | Complete the @perf suite: drawing frame interval and latency through the real overlay, tool-ready, Apply / Cancel / Clear and Crop-and-rotate Apply over a full layer, export time with a full layer, and memory after 50 Applies | tests | Blazheiko | M | T9, T17, T18, T19 | done |
 | T21 | A Stroke takes focus from the tool panel: blur a focused panel control on a main-button pointerdown, committing pending width text; e2e drives real drags instead of leaveField | ui | Blazheiko | S | T16 | done |
 | T22 | With Draw open the key right of P (German +) steps the width instead of zooming | wiring | Blazheiko | S | T21 | done |
 | T23 | Enter on the focused Custom colour input opens the picker instead of applying the tool | ui | Blazheiko | S | T22 | done |
@@ -42,7 +42,7 @@
 | T35 | Test the clip at a straightened Crop: a painter unit row with a Straighten Geometry and an e2e drag across a straightened Crop edge | tests | Blazheiko | S | — | done |
 | T36 | Docs: carry AC-18's re-fit wording into ux-flows, screens and sad; claim the remaining SCR states in tasks.json; correct the AC-04 note | docs | Blazheiko | S | T34, T35 | done |
 | T37 | Quality: layerChanged's comment back in place, a forced-colors selected ring, and the swatch CSS test asserting the invariant only | ui | Blazheiko | S | — | done |
-| T38 | Re-run the drawing rows (spec §6 rows 1–2) on a 60 Hz display with stable Chrome and record them | tests | Blazheiko | S | T34, T35, T36, T37 | todo |
+| T38 | Re-run the drawing rows (spec §6 rows 1–2) on a 60 Hz display with stable Chrome and record them | tests | Blazheiko | S | T34, T35, T36, T37 | done |
 | T39 | Docs: AC-18 and screens.md name the layouts whose zoom-in is numpad + and the controls; an AC-18 test-plan row; claim SCR-03 Stroke ended early and SCR-08 cancelled | docs | Blazheiko | S | — | done |
 | T40 | Palette swatch fills keep their colour in forced-colors mode | ui | Blazheiko | S | — | done |
 

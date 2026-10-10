@@ -7,7 +7,7 @@ acs: ["AC-01"]
 files_hint: ["e2e/draw/perf.spec.ts", "docs/features/draw/tasks/_epic.md"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 source: "review-2026-10-10-2 R2"
 ---
 

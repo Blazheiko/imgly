@@ -29,7 +29,8 @@ test.skip(({ browserName }) => browserName !== 'chromium', 'The @perf suite meas
 // software GL, not the GPU the reference machine draws with. Headed, it uses the GPU (Metal on
 // a Mac); the suite opens a browser window while it runs. The pixel ratio is the reference
 // machine's Retina 2: an emulated 1 would disagree with the device pixels the canvas sizes by.
-test.use({ headless: false, deviceScaleFactor: 2 })
+// Stable Chrome, as the reference machine runs (spec §6), not Playwright's bundled Chromium.
+test.use({ headless: false, deviceScaleFactor: 2, channel: 'chrome' })
 test.describe.configure({ mode: 'default' })
 
 /** Opens a 4096×3072 JPEG Work by drop. */
@@ -53,6 +54,35 @@ async function prepare(page: Page) {
     }
   }, SIZE)
   await waitForWork(page, SIZE.width, SIZE.height)
+  // The median frame interval when idle: 16.7 ms at the reference machine's 60 Hz. A 120 Hz
+  // display halves what a missed frame costs and would hide it from the 33 ms rows, so the
+  // suite refuses to measure there (review 2026-10-10, R2).
+  const median = await page.evaluate(
+    () =>
+      new Promise<number>((resolve) => {
+        const times: number[] = []
+        const tick = (t: number) => {
+          times.push(t)
+          if (times.length < 121) requestAnimationFrame(tick)
+          else {
+            const gaps = times
+              .slice(1)
+              .map((v, i) => v - times[i]!)
+              .sort((a, b) => a - b)
+            resolve(gaps[gaps.length >> 1]!)
+          }
+        }
+        requestAnimationFrame(tick)
+      }),
+  )
+  results['display refresh'] =
+    `${(1000 / median).toFixed(0)} Hz (median frame ${median.toFixed(1)} ms)`
+  results['browser'] =
+    `${page.context().browser()!.browserType().name()} ${page.context().browser()!.version()}`
+  expect(
+    median,
+    'set the display to 60 Hz: the rows assume the reference refresh rate',
+  ).toBeGreaterThan(15)
 }
 
 /**

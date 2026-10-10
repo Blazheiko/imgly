@@ -185,6 +185,23 @@ See [tracker.md](./tracker.md) for status. Machine contract: [tasks.json](../tas
     point to the frame that shows the segment ending at it (one point later, ADR-0002), and measures
     the Eraser too. The first mark of a new Draft no longer reads back the whole layer (T27). No
     threshold was changed.
+
+    *Reference run 2026-10-10 (review T38): display at 60 Hz (measured median frame 16.7 ms),
+    stable Chrome 154.0.8037.98, headed, DPR 2, Apple M1 Pro.* The suite now refuses to measure
+    unless the display runs at about 60 Hz, where one missed frame costs 33 ms. All 22 rows pass:
+
+    | Row | Measured (p95) | Target | |
+    |---|---|---|---|
+    | Overlay drawing, Brush and Eraser, 1 / 200 px, Fit and 100%: frame interval | 17.4–20.2 ms | ≤ 33 ms | pass |
+    | Overlay drawing, every row: move-to-frame | 22.0–24.7 ms | ≤ 50 ms | pass |
+    | Spike (hooks), Brush and Eraser, 1 / 200 px, Fit and 100% | 18.3–20.6 ms frame, 23.6–24.4 ms latency | ≤ 33 / 50 ms | pass |
+    | Tool ready after "Draw" | 56 ms | ≤ 150 ms | pass |
+    | Apply / Cancel / Clear over a full layer | 31 / 60 / 28 ms | ≤ 150 ms | pass |
+    | Apply in "Crop and rotate" with a full layer | 29 ms | ≤ 150 ms | pass |
+    | Memory after 50 Applies | 100 % of the first, 1 layer retained | ≤ 110 % | pass |
+
+    The machine is an M1 Pro, not the M1 Air the spec names; the refresh rate, browser and pixel
+    ratio match the reference. The overlay pointer events arrive 9.5–9.8 ms apart (sent at 8.3 ms).
 - **Image pixels never change** (AC-07): the painter only ever touches the layer. The Eraser is `destination-out` on the layer alone (repo ADR 0004).
 - **The Draft never counts as Unsaved edits** (AC-12, AC-13): only `editor.applyDrawing(layer, changed)` raises the revision, and only when the per-Draft change flag is true. No pixel comparison is used.
 - **An Export never holds a Draft** (AC-14, AC-15): Export is unavailable while the tool is open, and the tool is refused during an export.
