@@ -59,7 +59,12 @@ export class StrokeSession {
     if (this.ended || this.points.length === 0) return
     let dirty: LayerRect | null = null
     for (const p of points) {
-      this.points.push(deviceToFrame(view, this.geometry.crop, p))
+      const next = deviceToFrame(view, this.geometry.crop, p)
+      const last = this.points[this.points.length - 1]!
+      // A repeated position adds a zero-length segment, which canvas engines may drop: a press
+      // that never moves would then paint no dot (AC-01, AC-04).
+      if (next.x === last.x && next.y === last.y) continue
+      this.points.push(next)
       const n = this.points.length
       if (n >= 3) dirty = this.paint(this.segmentEndingAt(n - 2), dirty)
     }

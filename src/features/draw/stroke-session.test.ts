@@ -133,6 +133,43 @@ describe('StrokeSession (draw ADR-0002)', () => {
     expect(s.dirty).toHaveLength(1)
   })
 
+  it('two equal points give a dot: a move that stays on the press point paints no zero-length curve', () => {
+    for (const style of [brush, eraser]) {
+      const s = target(style.mode === 'eraser' ? createLayer(SIZE) : null)
+      const session = new StrokeSession(style, g, s.t)
+      session.begin({ x: 100, y: 100 }, view())
+      session.move(
+        [
+          { x: 100, y: 100 },
+          { x: 100, y: 100 },
+        ],
+        view(),
+      ) // e.g. a pen's pressure change
+      session.end()
+      expect(painted(s.layer!, 'bezierCurveTo')).toEqual([])
+      expect(painted(s.layer!, 'arc')).toEqual([['arc', 100, 100, 5, 0, Math.PI * 2]])
+    }
+  })
+
+  it('a repeated position mid-Stroke adds no zero-length segment', () => {
+    const s = target()
+    const session = new StrokeSession(brush, g, s.t)
+    session.begin({ x: 10, y: 10 }, view())
+    session.move(
+      [
+        { x: 20, y: 10 },
+        { x: 20, y: 10 },
+        { x: 30, y: 10 },
+      ],
+      view(),
+    )
+    session.end()
+    expect(painted(s.layer!, 'bezierCurveTo').map((c) => c.slice(5))).toEqual([
+      [20, 10],
+      [30, 10],
+    ])
+  })
+
   it('a Brush footprint inside the Crop sets the change flag; entirely outside paints nothing', () => {
     const outside = target()
     const crop = { x: 100, y: 100, width: 100, height: 100 }

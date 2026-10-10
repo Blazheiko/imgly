@@ -85,6 +85,17 @@ test.describe('AC-01 — the live line', () => {
       }
     }
   })
+})
+
+// Dots run on every engine: a zero-length path segment is dropped by some canvas engines.
+test.describe('AC-01, AC-04 — a press without movement', () => {
+  /** A disc of radius 10 centred on (100, 75): about 314 pixels, with antialiased edges. */
+  const isDisc = (alpha: number[]) => {
+    expect(marked(alpha)).toBeGreaterThan(280)
+    expect(marked(alpha)).toBeLessThan(380)
+    expect(at(alpha, 100, 75 - 12)).toBe(0)
+    expect(at(alpha, 100 + 12, 75)).toBe(0)
+  }
 
   test('a click without moving paints one round dot of the width', async ({ page }) => {
     await openTool(page)
@@ -92,11 +103,35 @@ test.describe('AC-01 — the live line', () => {
     await click(page, 100, 75)
     const alpha = await draftAlpha(page)
     expect(at(alpha, 100, 75)).toBe(255)
-    // A disc of radius 10: about 314 pixels, with antialiased edges.
-    expect(marked(alpha)).toBeGreaterThan(280)
-    expect(marked(alpha)).toBeLessThan(380)
-    expect(at(alpha, 100, 75 - 12)).toBe(0)
-    expect(at(alpha, 100 + 12, 75)).toBe(0)
+    isDisc(alpha)
+  })
+
+  test('a move that stays on the press point still paints the dot', async ({ page }) => {
+    await openTool(page)
+    await setWidth(page, 20)
+    const p = await screenPoint(page, 100, 75)
+    await page.mouse.move(p.x, p.y)
+    await page.mouse.down()
+    await page.mouse.move(p.x, p.y) // a pointermove at the same position
+    await page.mouse.up()
+    const alpha = await draftAlpha(page)
+    expect(at(alpha, 100, 75)).toBe(255)
+    isDisc(alpha)
+  })
+
+  test('an Eraser click removes a disc of the width', async ({ page }) => {
+    await page.evaluate(() => window.__imglyTest!.setFullDrawing())
+    await openTool(page)
+    await page.keyboard.press('e')
+    await setWidth(page, 20)
+    await click(page, 100, 75)
+    const alpha = await draftAlpha(page)
+    expect(at(alpha, 100, 75)).toBe(0)
+    const erased = alpha.filter((a) => a < 255).length
+    expect(erased).toBeGreaterThan(280)
+    expect(erased).toBeLessThan(380)
+    expect(at(alpha, 100, 75 - 12)).toBe(255)
+    expect(at(alpha, 100 + 12, 75)).toBe(255)
   })
 })
 

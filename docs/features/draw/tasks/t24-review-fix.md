@@ -7,7 +7,7 @@ acs: ["AC-01", "AC-04"]
 files_hint: ["src/features/draw/stroke-session.ts", "src/features/draw/stroke-session.test.ts", "e2e/draw/tool.spec.ts"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 source: "review-2026-10-10 S4"
 ---
 
