@@ -688,3 +688,48 @@ describe('BaseButton pressed (crop-rotate SCR-03)', () => {
     expect(off.classes()).not.toContain('base-button--pressed')
   })
 })
+
+describe('SegmentedControl swatches (draw screens.md §New components)', () => {
+  afterEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  it('renders a swatch option as a filled square, its label as accessible name and tooltip', () => {
+    const wrapper = mount(SegmentedControl, {
+      props: {
+        modelValue: '#E53935',
+        label: 'Colour',
+        options: [
+          { value: '#000000', label: 'Black', swatch: '#000000' },
+          { value: '#E53935', label: 'Red', swatch: '#E53935' },
+        ],
+      },
+    })
+    const radios = wrapper.findAll('[role="radio"]')
+    expect(radios[1]!.attributes('aria-label')).toBe('Red')
+    expect(radios[1]!.attributes('title')).toBe('Red')
+    expect(radios[1]!.attributes('aria-checked')).toBe('true')
+    expect(radios[1]!.text()).toBe('')
+    const fill = radios[1]!.get('.segmented__swatch')
+    expect(fill.attributes('style')).toContain('background: #E53935')
+    expect(wrapper.get('.segmented__group').classes()).toContain('segmented__group--swatches')
+  })
+
+  it('shows an option’s title as its tooltip, and none for a plain option without one', () => {
+    const wrapper = mount(SegmentedControl, {
+      props: {
+        modelValue: 'brush',
+        label: 'Mode',
+        options: [
+          { value: 'brush', label: 'Brush', title: 'Brush (B)' },
+          { value: 'eraser', label: 'Eraser' },
+        ],
+      },
+    })
+    const radios = wrapper.findAll('[role="radio"]')
+    expect(radios[0]!.attributes('title')).toBe('Brush (B)')
+    expect(radios[0]!.text()).toBe('Brush')
+    expect(radios[1]!.attributes('title')).toBeUndefined()
+    expect(radios[1]!.attributes('aria-label')).toBeUndefined()
+  })
+})
