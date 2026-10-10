@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { turnedBounds, workSize } from '@/core'
-import type { PreviewRenderer } from '@/render'
+import type { Layer, PreviewRenderer } from '@/render'
 import { useEditorStore } from '../store'
 import { pinchGesture, wheelGesture, type PinchInput } from './gestures'
 
@@ -32,6 +32,16 @@ const shown = computed(() => {
  * comparing), else the Work's, also inside Crop and rotate (adjust AC-18).
  */
 const shownAdjustments = computed(() => editor.previewAdjustments ?? editor.work?.adjustments)
+
+/**
+ * The marks the Preview shows: the draw tool's Draft while it is open (null after Clear shows none,
+ * AC-05), else the Work's applied layer, also in the other tools (draw sad.md §5, AC-11).
+ */
+const shownLayer = computed(() =>
+  editor.activeTool === 'draw'
+    ? editor.previewLayer
+    : ((editor.work?.drawing as Layer | null) ?? null),
+)
 
 /** The shown image overflows the canvas area on some axis, so it can be panned (AC-13). */
 const pannable = computed(() => {
@@ -128,6 +138,7 @@ onMounted(() => {
     immediate: true,
   })
   watch(shownAdjustments, (next) => next && renderer?.setAdjustments(next), { immediate: true })
+  watch(shownLayer, (next) => renderer?.setLayer(next), { immediate: true })
   watch(
     () => editor.view,
     (view) => renderer?.setView(view),

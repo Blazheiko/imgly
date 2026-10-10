@@ -1,8 +1,32 @@
 import type { Pinia } from 'pinia'
 import { useEditorStore } from '@/features/editor'
 import { useExportStore } from '@/features/export'
-import { cropToOriginalUv, workSize, type Adjustments, type Geometry } from '@/core'
-import { buildProgram, setAdjustmentUniforms, uploadTexture, viewToTransform } from '@/render'
+import {
+  catmullRomSegment,
+  cropToOriginalUv,
+  identityGeometry,
+  PALETTE,
+  workSize,
+  type Adjustments,
+  type DrawMode,
+  type Geometry,
+  type Point,
+  type Size,
+} from '@/core'
+import {
+  buildProgram,
+  createLayer,
+  paintDot,
+  paintSegment,
+  readRect,
+  releaseLayer,
+  setAdjustmentUniforms,
+  setLayerUniforms,
+  uploadTexture,
+  viewToTransform,
+  type BrushStyle,
+  type Layer,
+} from '@/render'
 import { bitmapLedger } from '@/shared'
 
 /** What e2e tests may read and prepare. Only installed in the Playwright build (VITE_E2E_HOOKS). */
@@ -50,6 +74,26 @@ export interface ImglyTestHooks {
    * slider at its anchors without driving the UI (adjust sad.md §8 Test hooks).
    */
   setAdjustments(adjustments: Adjustments): void
+  /**
+   * Applies the reference drawing directly, as the tool's Apply does (draw sad.md §8 Test hooks):
+   * Strokes at 1, 12 and 200 px in the 10 preset colours plus erased parts, painted through the
+   * painter on the Original's grid. A no-op with no Work.
+   */
+  setReferenceDrawing(): void
+  /**
+   * The T9 hot-path spike: opens the draw tool on a fresh Draft and paints `points` (in the Crop's
+   * frame) through the painter at `hz` moves per second, one segment behind the newest point as
+   * the Stroke session does, handing each dirty rectangle to the Preview. Then cancels the tool.
+   * Resolves with the frame intervals during the Stroke and each move's latency to the end of the
+   * frame that drew it, in ms.
+   */
+  paintStroke(
+    points: Point[],
+    style: BrushStyle,
+    hz?: number,
+  ): Promise<{ frameIntervals: number[]; latencies: number[] }>
+  /** Drawing layers created and released by the app (draw sad.md §7); retained is their difference. */
+  layers(): { created: number; released: number; retained: number }
   /** Bitmaps received from the decode worker and closed by the app; retained should be 1. */
   bitmaps(): { received: number; closed: number; retained: number }
   /**
@@ -66,8 +110,13 @@ declare global {
   }
 }
 
-/** Renders the Work the way the Preview draws it at 100% and reads it back. */
-function renderAt100(bitmap: ImageBitmap, geometry: Geometry, adjustments: Adjustments): number[] {
+/** Renders the Work the way the Preview draws it at 100%, with its layer, and reads it back. */
+function renderAt100(
+  bitmap: ImageBitmap,
+  geometry: Geometry,
+  adjustments: Adjustments,
+  layer: Layer | null,
+): number[] {
   const { width, height } = geometry.crop
   const canvas = new OffscreenCanvas(width, height)
   const gl = canvas.getContext('webgl2', {
@@ -77,13 +126,18 @@ function renderAt100(bitmap: ImageBitmap, geometry: Geometry, adjustments: Adjus
     preserveDrawingBuffer: true,
   })!
   const gpu = buildProgram(gl)
+  // The Preview at zoom ≥ 1: NEAREST, or LINEAR while straightened (crop-rotate ADR-0002), on both
+  // units (draw ADR-0003).
+  const magFilter = geometry.straighten === 0 ? gl.NEAREST : gl.LINEAR
+  const marks = layer && readRect(layer, { x: 0, y: 0, width: layer.width, height: layer.height })
+  if (marks) {
+    gl.activeTexture(gl.TEXTURE1)
+    uploadTexture(gl, marks)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, magFilter)
+    gl.activeTexture(gl.TEXTURE0)
+  }
   const texture = uploadTexture(gl, bitmap)
-  // The Preview at zoom ≥ 1: NEAREST, or LINEAR while straightened (crop-rotate ADR-0002).
-  gl.texParameteri(
-    gl.TEXTURE_2D,
-    gl.TEXTURE_MAG_FILTER,
-    geometry.straighten === 0 ? gl.NEAREST : gl.LINEAR,
-  )
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, magFilter)
   gl.viewport(0, 0, width, height)
   gl.clearColor(0, 0, 0, 0)
   gl.clear(gl.COLOR_BUFFER_BIT)
@@ -96,6 +150,7 @@ function renderAt100(bitmap: ImageBitmap, geometry: Geometry, adjustments: Adjus
   const original = { width: bitmap.width, height: bitmap.height }
   gl.uniformMatrix3fv(gpu.geometry, false, new Float32Array(cropToOriginalUv(geometry, original)))
   gl.uniform1i(gpu.flatten, 0)
+  setLayerUniforms(gl, gpu, marks !== null)
   setAdjustmentUniforms(gl, gpu, adjustments)
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
   const ctx = new OffscreenCanvas(width, height).getContext('2d')!
@@ -104,6 +159,53 @@ function renderAt100(bitmap: ImageBitmap, geometry: Geometry, adjustments: Adjus
   // oldest, which would be the Preview's, after enough calls in one test.
   gl.getExtension('WEBGL_lose_context')?.loseContext()
   return Array.from(ctx.getImageData(0, 0, width, height).data)
+}
+
+/** The reference drawing on the Original's grid (draw sad.md §8): every colour, three widths, erasing. */
+function referenceDrawing(original: Size): Layer {
+  const layer = createLayer(original)
+  const g = identityGeometry(original)
+  const { width: W, height: H } = original
+  const widths = [1, 12, 200]
+  PALETTE.forEach(({ hex }, i) => {
+    const y = ((i + 0.5) / PALETTE.length) * H
+    const width = widths[i % widths.length]!
+    const points = [
+      { x: 0.05 * W, y },
+      { x: 0.3 * W, y: y - 0.04 * H },
+      { x: 0.6 * W, y: y + 0.04 * H },
+      { x: 0.9 * W, y },
+    ]
+    paintPath(layer, points, { mode: 'brush', colour: hex, width }, g)
+    paintDot(layer, { x: 0.95 * W, y }, { mode: 'brush', colour: hex, width: 12 }, g)
+  })
+  const erase = (x: number, width: number) =>
+    paintPath(
+      layer,
+      [
+        { x: x * W, y: 0 },
+        { x: (x + 0.05) * W, y: 0.5 * H },
+        { x: x * W, y: H },
+      ],
+      { mode: 'eraser' as DrawMode, colour: '#000000', width },
+      g,
+    )
+  erase(0.45, 40)
+  erase(0.75, 7)
+  return layer
+}
+
+/** Paints a whole Stroke through the painter, every segment with its Catmull–Rom neighbours. */
+function paintPath(layer: Layer, points: Point[], style: BrushStyle, g: Geometry) {
+  for (let i = 1; i < points.length; i++) {
+    const segment = catmullRomSegment(
+      points[i - 2] ?? points[i - 1]!,
+      points[i - 1]!,
+      points[i]!,
+      points[i + 1] ?? points[i]!,
+    )
+    paintSegment(layer, segment, style, g)
+  }
 }
 
 export function installTestHooks(pinia: Pinia): void {
@@ -141,12 +243,76 @@ export function installTestHooks(pinia: Pinia): void {
     },
     previewAt100: () => {
       const work = editor.work
-      return work ? renderAt100(work.original.pixels, work.geometry, work.adjustments) : []
+      return work
+        ? renderAt100(
+            work.original.pixels,
+            work.geometry,
+            work.adjustments,
+            work.drawing as Layer | null,
+          )
+        : []
     },
     exportStatus: () => exporter.status,
     applyEdit: () => editor.applyEdit(),
     setGeometry: (geometry) => editor.applyGeometry(geometry),
     setAdjustments: (adjustments) => editor.applyAdjustments(adjustments),
+    setReferenceDrawing: () => {
+      const work = editor.work
+      if (work) editor.applyDrawing(referenceDrawing(work.original), true)
+    },
+    paintStroke: async (points, style, hz = 120) => {
+      const work = editor.work
+      if (!work || !editor.openTool('draw').ok) return { frameIntervals: [], latencies: [] }
+      const layer = createLayer(work.original)
+      editor.setPreviewLayer(layer)
+      const g = work.geometry
+      const frameIntervals: number[] = []
+      const latencies: number[] = []
+      let pendingMoves: number[] = []
+      let lastFrame: number | undefined
+      let stroking = true
+      // Registered after the renderer's own frame request, so it runs once that frame is drawn.
+      const onFrame = () => {
+        const now = performance.now()
+        if (lastFrame !== undefined) frameIntervals.push(now - lastFrame)
+        lastFrame = now
+        for (const t of pendingMoves) latencies.push(now - t)
+        pendingMoves = []
+        if (stroking) requestAnimationFrame(onFrame)
+      }
+      requestAnimationFrame(onFrame)
+      const segmentTo = (i: number) =>
+        catmullRomSegment(
+          points[i - 2] ?? points[i - 1]!,
+          points[i - 1]!,
+          points[i]!,
+          points[i + 1] ?? points[i]!,
+        )
+      const start = performance.now()
+      for (let i = 0; i < points.length; i++) {
+        const due = start + (i * 1000) / hz
+        await new Promise((resolve) => setTimeout(resolve, Math.max(0, due - performance.now())))
+        const moved = performance.now()
+        // The segment behind the newest point is painted once the point after it is known.
+        if (i >= 2) editor.layerChanged(paintSegment(layer, segmentTo(i - 1), style, g))
+        else if (i === 0 && points.length === 1)
+          editor.layerChanged(paintDot(layer, points[0]!, style, g))
+        pendingMoves.push(moved)
+      }
+      if (points.length >= 2) {
+        editor.layerChanged(paintSegment(layer, segmentTo(points.length - 1), style, g))
+      }
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      stroking = false
+      editor.closeTool()
+      releaseLayer(layer)
+      return { frameIntervals, latencies }
+    },
+    layers: () => ({
+      created: bitmapLedger.layersCreated,
+      released: bitmapLedger.layersReleased,
+      retained: bitmapLedger.layersCreated - bitmapLedger.layersReleased,
+    }),
     bitmaps: () => ({
       received: bitmapLedger.received,
       closed: bitmapLedger.closed,

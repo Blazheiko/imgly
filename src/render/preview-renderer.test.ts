@@ -520,6 +520,23 @@ describe('PreviewRenderer.setLayer / updateLayer (draw ADR-0003)', () => {
     expect(fake.names()).not.toContain('generateMipmap')
   })
 
+  it('uploads several updateLayer calls in one frame once, covering their union', () => {
+    renderer.setLayer(layer)
+    renderer.setView(view(1))
+    frames.flush()
+    fake.calls.length = 0
+    renderer.updateLayer({ x: 4, y: 2, width: 2, height: 2 })
+    renderer.updateLayer({ x: 10, y: 8, width: 2, height: 2 })
+    expect(fake.names()).not.toContain('texSubImage2D')
+    expect(frames.pending).toBe(1)
+    frames.flush()
+    const subs = fake.calls.filter(([n]) => n === 'texSubImage2D')
+    expect(subs).toHaveLength(1)
+    expect(subs[0]!.slice(3, 5)).toEqual([4, 2])
+    expect((subs[0]!.at(-1) as ImageData).width).toBe(8)
+    expect((subs[0]!.at(-1) as ImageData).height).toBe(8)
+  })
+
   it('updateLayer below 100% regenerates the mipmaps', () => {
     renderer.setLayer(layer)
     frames.flush()

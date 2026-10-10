@@ -6,6 +6,7 @@ import { appError, err, identityGeometry, NEUTRAL_ADJUSTMENTS, ok } from '@/core
 import { createFakeRenderer } from '../fake-renderer'
 import PreviewCanvas from './PreviewCanvas.vue'
 import { useEditorStore } from '../store'
+import type { Layer } from '@/render'
 
 /** happy-dom's WheelEvent drops modifier keys, so set them on the event directly. Wheel bubbles. */
 function wheelEvent(init: { deltaY: number; ctrlKey?: boolean }) {
@@ -239,6 +240,62 @@ describe('PreviewCanvas', () => {
       await nextTick()
       expect(fake.renderer.setGeometry).toHaveBeenLastCalledWith(editor.work!.geometry, 'whole')
       expect(last()).toEqual(applied)
+    })
+  })
+
+  describe('Drawing layer (draw sad.md §5, AC-05, AC-11)', () => {
+    const layer = (id: string) =>
+      ({ id, width: 4000, height: 4000, pixels: { width: 4000, height: 4000 } }) as unknown as Layer
+
+    it('shows no layer for a Work with none', () => {
+      mount(PreviewCanvas)
+      expect(fake.renderer.setLayer).toHaveBeenLastCalledWith(null)
+    })
+
+    it('shows the Work’s layer, the Draft while draw is open, and the Work’s again after close', async () => {
+      const applied = layer('applied')
+      editor.applyDrawing(applied, true)
+      mount(PreviewCanvas)
+      expect(fake.renderer.setLayer).toHaveBeenLastCalledWith(editor.work!.drawing)
+
+      editor.openTool('draw')
+      const draft = layer('draft')
+      editor.setPreviewLayer(draft)
+      await nextTick()
+      expect(fake.renderer.setLayer).toHaveBeenLastCalledWith(draft)
+
+      editor.closeTool()
+      await nextTick()
+      expect(fake.renderer.setLayer).toHaveBeenLastCalledWith(editor.work!.drawing)
+    })
+
+    it('shows no marks for an empty Draft (after Clear) although the Work has marks (AC-05)', async () => {
+      editor.applyDrawing(layer('applied'), true)
+      mount(PreviewCanvas)
+      editor.openTool('draw')
+      editor.setPreviewLayer(layer('draft'))
+      await nextTick()
+      editor.setPreviewLayer(null)
+      await nextTick()
+      expect(fake.renderer.setLayer).toHaveBeenLastCalledWith(null)
+    })
+
+    it.each(['adjust', 'crop-rotate'] as const)(
+      'keeps the Work’s marks while %s is open (AC-11)',
+      async (tool) => {
+        editor.applyDrawing(layer('applied'), true)
+        mount(PreviewCanvas)
+        editor.openTool(tool)
+        await nextTick()
+        expect(fake.renderer.setLayer).toHaveBeenLastCalledWith(editor.work!.drawing)
+      },
+    )
+
+    it('follows an Apply', async () => {
+      mount(PreviewCanvas)
+      editor.applyDrawing(layer('applied'), true)
+      await nextTick()
+      expect(fake.renderer.setLayer).toHaveBeenLastCalledWith(editor.work!.drawing)
     })
   })
 })

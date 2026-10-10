@@ -25,6 +25,17 @@ import {
 import { viewToTransform } from './view-transform'
 import { clampToLayer, readRect, type Layer, type LayerRect } from './drawing'
 
+const union = (a: LayerRect, b: LayerRect): LayerRect => {
+  const x = Math.min(a.x, b.x)
+  const y = Math.min(a.y, b.y)
+  return {
+    x,
+    y,
+    width: Math.max(a.x + a.width, b.x + b.width) - x,
+    height: Math.max(a.y + a.height, b.y + b.height) - y,
+  }
+}
+
 /** Marked on the first frame drawn after a new Original; the @perf suite times opens to it. */
 export const FIRST_FRAME_MARK = 'imgly:first-frame'
 
@@ -70,7 +81,10 @@ export interface PreviewRenderer {
    * nothing. Requests one frame. The caller keeps ownership of the layer.
    */
   setLayer(layer: Layer | null): void
-  /** Uploads one dirty rectangle of the held layer (ADR-0002) and requests one frame. */
+  /**
+   * Marks a dirty rectangle of the held layer (ADR-0002) and requests one frame. Rectangles marked
+   * before that frame are uploaded once, as their union, when it is drawn.
+   */
   updateLayer(rect: LayerRect): void
   /** Sets the backing store size in device pixels. */
   resize(width: number, height: number): void
@@ -116,6 +130,8 @@ export function createPreviewRenderer(
   let layerTexture: WebGLTexture | null = null
   // The layer changed at 100% or above without new mipmaps; regenerated before a draw below 100%.
   let layerMipmapsStale = false
+  // The union of the layer rectangles changed since the last frame, uploaded when it is drawn.
+  let layerDirty: LayerRect | null = null
   let view: View | undefined
   let shown: { geometry: Geometry; mode: GeometryMode } | undefined
   let adjustments: Adjustments = NEUTRAL_ADJUSTMENTS
@@ -150,6 +166,7 @@ export function createPreviewRenderer(
       gpu = buildProgram(gl!)
       texture = bitmap ? uploadTexture(gl!, bitmap) : null
       layerTexture = null
+      layerDirty = null
       uploadLayer()
     } catch {
       setStatus('lost')
@@ -168,6 +185,21 @@ export function createPreviewRenderer(
     layerTexture = uploadTexture(gl!, pixels)
     layerMipmapsStale = false
     gl!.activeTexture(gl!.TEXTURE0)
+  }
+
+  /** Uploads the dirty union to the bound layer texture; mipmaps are refreshed below 100% only. */
+  function uploadDirtyLayer(zoom: number) {
+    const r = layer && layerDirty && clampToLayer(layer, layerDirty)
+    layerDirty = null
+    const pixels = r && readRect(layer!, r)
+    if (!r || !pixels) return
+    gl!.pixelStorei(gl!.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true)
+    gl!.texSubImage2D(gl!.TEXTURE_2D, 0, r.x, r.y, gl!.RGBA, gl!.UNSIGNED_BYTE, pixels)
+    layerMipmapsStale = true
+    if (zoom < 1) {
+      gl!.generateMipmap(gl!.TEXTURE_2D)
+      layerMipmapsStale = false
+    }
   }
 
   canvas.addEventListener('webglcontextlost', onContextLost)
@@ -203,6 +235,7 @@ export function createPreviewRenderer(
       // The same filters as the Original's unit, so marks and image line up texel for texel.
       gl!.activeTexture(gl!.TEXTURE1)
       gl!.bindTexture(gl!.TEXTURE_2D, layerTexture)
+      uploadDirtyLayer(view.zoom)
       if (layerMipmapsStale && view.zoom < 1) {
         gl!.generateMipmap(gl!.TEXTURE_2D)
         layerMipmapsStale = false
@@ -298,6 +331,7 @@ export function createPreviewRenderer(
       if (next?.pixels !== layer?.pixels) {
         if (layerTexture) gl.deleteTexture(layerTexture)
         layerTexture = null
+        layerDirty = null
         layer = next
         if (status === 'ready') uploadLayer()
       } else {
@@ -306,17 +340,8 @@ export function createPreviewRenderer(
       invalidate()
     },
     updateLayer(rect) {
-      if (!layer || !layerTexture || status !== 'ready' || !view) return
-      const r = clampToLayer(layer, rect)
-      const pixels = r && readRect(layer, r)
-      if (!r || !pixels) return
-      gl.activeTexture(gl.TEXTURE1)
-      gl.bindTexture(gl.TEXTURE_2D, layerTexture)
-      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true)
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, r.x, r.y, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
-      if (view.zoom < 1) gl.generateMipmap(gl.TEXTURE_2D)
-      else layerMipmapsStale = true
-      gl.activeTexture(gl.TEXTURE0)
+      if (!layer || !layerTexture || !clampToLayer(layer, rect)) return
+      layerDirty = layerDirty ? union(layerDirty, rect) : rect
       invalidate()
     },
     setAdjustments(next) {
