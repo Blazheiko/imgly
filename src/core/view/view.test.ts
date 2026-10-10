@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   clampPan,
+  deviceToFrame,
   fitView,
   fitZoom,
   panBy,
@@ -10,6 +11,7 @@ import {
   zoomAt,
   zoomRange,
   ZOOM_STEPS,
+  type Point,
   type View,
   type ViewContext,
 } from './index'
@@ -249,5 +251,38 @@ describe('View functions never touch a Work (AC-14)', () => {
     for (const view of views) {
       expect(Object.keys(view).sort()).toEqual(['autoFit', 'panX', 'panY', 'zoom'])
     }
+  })
+})
+
+describe('deviceToFrame (draw ADR-0002)', () => {
+  const crop = { x: 30, y: 12, width: 400, height: 300 }
+  /** The View's forward mapping as the renderer draws it: round(pan) + (frame − crop origin) × zoom. */
+  const forward = (view: View, p: Point) => ({
+    x: Math.round(view.panX) + (p.x - crop.x) * view.zoom,
+    y: Math.round(view.panY) + (p.y - crop.y) * view.zoom,
+  })
+
+  it.each([
+    [1, 0, 0],
+    [0.25, 17.4, -3.6],
+    [2, -120.5, 40.49],
+    [8, -1000.7, -2000.2],
+    [0.1, 5, 5],
+  ])('inverts the View at zoom %f, pan (%f, %f)', (zoom, panX, panY) => {
+    const view: View = { zoom, panX, panY, autoFit: false }
+    for (const p of [
+      { x: crop.x, y: crop.y },
+      { x: 100.5, y: 200.25 },
+      { x: -40, y: 500 },
+    ]) {
+      const back = deviceToFrame(view, crop, forward(view, p))
+      expect(back.x).toBeCloseTo(p.x, 9)
+      expect(back.y).toBeCloseTo(p.y, 9)
+    }
+  })
+
+  it('rounds a fractional pan as the View draws it, so the mark lands under the pointer', () => {
+    const view: View = { zoom: 1, panX: 10.6, panY: 4.4, autoFit: false }
+    expect(deviceToFrame(view, crop, { x: 11, y: 4 })).toEqual({ x: crop.x, y: crop.y })
   })
 })

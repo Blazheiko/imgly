@@ -3,6 +3,7 @@ import {
   cropRectOnScreen,
   cropToOriginalUv,
   fitCropInside,
+  frameToOriginal,
   identityGeometry,
   screenDeltaToImage,
   screenToImage,
@@ -209,5 +210,72 @@ describe('overlay maths', () => {
     const r = cropRectOnScreen(crop, shown, view)
     expect(screenToImage({ x: r.left, y: r.top }, shown, view)).toEqual({ x: 17, y: 9 })
     expect(screenDeltaToImage(80, -16, view)).toEqual({ dx: 10, dy: -2 })
+  })
+})
+
+describe('frameToOriginal (draw ADR-0002)', () => {
+  /** Applies a Canvas 2×3 [a, b, c, d, e, f] to (x, y). */
+  const applyCanvas = (m: readonly number[], x: number, y: number) => ({
+    x: m[0]! * x + m[2]! * y + m[4]!,
+    y: m[1]! * x + m[3]! * y + m[5]!,
+  })
+  const original = { width: 40, height: 30 }
+
+  it('is exactly the identity for the identity Geometry', () => {
+    expect(frameToOriginal(identityGeometry(original), original)).toEqual([1, 0, 0, 1, 0, 0])
+  })
+
+  it('agrees with cropToOriginalUv × (W₀, H₀) for every Rotation, Flip, a Straighten angle and a Crop', () => {
+    const cases: Geometry[] = []
+    for (const rotation of ROTATIONS) {
+      for (const flipH of [false, true]) {
+        for (const flipV of [false, true]) {
+          for (const straighten of [0, 123, -450]) {
+            cases.push({
+              flipH,
+              flipV,
+              rotation,
+              straighten,
+              crop: { x: 3, y: 4, width: 10, height: 8 },
+            })
+          }
+        }
+      }
+    }
+    for (const g of cases) {
+      const m = frameToOriginal(g, original)
+      const uv = cropToOriginalUv(g, original)
+      for (const [u, v] of [
+        [0, 0],
+        [1, 0],
+        [0, 1],
+        [0.25, 0.75],
+      ] as const) {
+        const frame = { x: g.crop.x + u * g.crop.width, y: g.crop.y + v * g.crop.height }
+        const got = applyCanvas(m, frame.x, frame.y)
+        const want = apply(uv, u, v)
+        expect(got.x).toBeCloseTo(want.x * original.width, 9)
+        expect(got.y).toBeCloseTo(want.y * original.height, 9)
+      }
+    }
+  })
+
+  it('keeps lengths: |det| = 1 and orthonormal columns, with a Straighten angle too', () => {
+    for (const rotation of ROTATIONS) {
+      for (const straighten of [0, 37, -300]) {
+        const g = { ...identityGeometry(original), rotation, straighten, flipH: true }
+        const [a, b, c, d] = frameToOriginal(g, original)
+        expect(Math.abs(a * d - b * c)).toBeCloseTo(1, 12)
+        expect(Math.hypot(a, b)).toBeCloseTo(1, 12)
+        expect(a * c + b * d).toBeCloseTo(0, 12)
+      }
+    }
+  })
+
+  it('gives exact integers for quarter turns and Flips, so round trips are exact', () => {
+    for (const rotation of ROTATIONS) {
+      const m = frameToOriginal({ ...identityGeometry(original), rotation, flipV: true }, original)
+      for (const value of m) expect(Number.isInteger(value)).toBe(true)
+    }
   })
 })

@@ -7,7 +7,7 @@
 |---|---|---|---|---|---|---|
 | T1 | Extract the tool slot from the editor store into tool-slot.ts, with the store's public API and its tests unchanged | app | Blazheiko | M | — | done |
 | T2 | Add src/core/draw: palette and defaults, parseWidth and stepWidth, Catmull–Rom segments, segment bounds and footprintReachesCrop | domain | Blazheiko | M | — | done |
-| T3 | Add frameToOriginal to the Geometry transform and deviceToFrame to the View, both unit-tested against the existing UV transform | domain | Blazheiko | S | — | todo |
+| T3 | Add frameToOriginal to the Geometry transform and deviceToFrame to the View, both unit-tested against the existing UV transform | domain | Blazheiko | S | — | done |
 | T4 | Add Work.drawing (DrawingLayer | null) and the render/drawing layer module: create, copy, release with ledger counts, readRect and hasAnyMark | infra | Blazheiko | M | — | todo |
 | T5 | Add the painter: paintSegment and paintDot with Brush source-over and Eraser destination-out under setTransform(frameToOriginal) and clip(crop), the dirty rectangle and the alpha-lowered check | infra | Blazheiko | M | T2, T3, T4 | todo |
 | T6 | Composite the layer in the shared shader (u_layer, u_draw) and add PreviewRenderer.setLayer and updateLayer with context-loss restore | infra | Blazheiko | M | T4 | todo |

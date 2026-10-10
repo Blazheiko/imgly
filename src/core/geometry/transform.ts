@@ -36,9 +36,9 @@ const affine = (a: number, b: number, c: number, d: number, e: number, f: number
 
 /**
  * From a point of the Crop's frame (the image after Flip, Rotation and Straighten angle) to an
- * Original texture coordinate (0…1, v down), undoing the steps in reverse order.
+ * Original pixel, undoing the steps in reverse order. Every step keeps lengths.
  */
-function frameToOriginalUv(g: Geometry, original: Size): Rows {
+function frameToOriginalPx(g: Geometry, original: Size): Rows {
   const { width: W, height: H } = turnedSize(g, original)
   const W0 = original.width
   const H0 = original.height
@@ -66,8 +66,27 @@ function frameToOriginalUv(g: Geometry, original: Size): Rows {
     g.flipV ? -1 : 1,
     g.flipV ? H0 : 0,
   )
-  const toUv = affine(1 / W0, 0, 0, 0, 1 / H0, 0)
-  return multiply(toUv, multiply(unFlip, multiply(unRotate, unStraighten)))
+  return multiply(unFlip, multiply(unRotate, unStraighten))
+}
+
+/** `frameToOriginalPx` scaled to an Original texture coordinate (0…1, v down). */
+function frameToOriginalUv(g: Geometry, original: Size): Rows {
+  const toUv = affine(1 / original.width, 0, 0, 0, 1 / original.height, 0)
+  return multiply(toUv, frameToOriginalPx(g, original))
+}
+
+/** A Canvas 2D transform `[a, b, c, d, e, f]`, the argument order of `ctx.setTransform`. */
+export type CanvasTransform = [number, number, number, number, number, number]
+
+/**
+ * The pixel-unit form of the frame step `cropToOriginalUv` composes (draw ADR-0002): a point of
+ * the Crop's frame to the Original pixel under it, ready for `ctx.setTransform`. Quarter turns and
+ * Flips give exact integers, so the layer follows the image through every round trip (AC-08).
+ */
+export function frameToOriginal(g: Geometry, original: Size): CanvasTransform {
+  const m = frameToOriginalPx(g, original)
+  // `+ 0` turns a −0 from sin(0) into 0.
+  return [m[0][0] + 0, m[1][0] + 0, m[0][1] + 0, m[1][1] + 0, m[0][2] + 0, m[1][2] + 0]
 }
 
 /** The unit quad (0…1 over `rect`, v down) → the rect's pixels in the Crop's frame. */
