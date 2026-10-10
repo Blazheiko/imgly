@@ -17,7 +17,7 @@
 | T10 | Send the applied layer to the export worker and its window fallback, render it in one or two passes, and make the crop-transparency check include the layer | infra | Blazheiko | M | T6, T7 | done |
 | T11 | Add the draw store: open with a copy of the layer, mode reset to Brush, colour and width kept until reload, width field and steps, Clear with the change flag, Apply, Cancel and release on replace | app | Blazheiko | M | T2, T4, T7 | done |
 | T12 | Add the Stroke session: map coalesced positions through the View, paint Catmull–Rom segments and dots, set the change flag, flush the dirty rectangle once per frame, and hold input until the pointer is released | app | Blazheiko | M | T3, T5, T9, T11 | done |
-| T13 | Add the 'Draw' toolbar action with its hints, the D shortcut and the message catalog, mounted after 'Adjust' | ui | Blazheiko | M | T11 | todo |
+| T13 | Add the 'Draw' toolbar action with its hints, the D shortcut and the message catalog, mounted after 'Adjust' | ui | Blazheiko | M | T11 | done |
 | T14 | Add an optional swatch to SegmentedControl, register it, and build DrawControls: mode, palette, custom colour, width slider and field, Clear, Cancel and Apply | ui | Blazheiko | M | T11 | todo |
 | T15 | Build DrawOverlay: pointer capture with coalesced positions into the Stroke session, the width circle at width × zoom, the hidden cursor over the image, Space-drag pass-through and a second touch | ui | Blazheiko | M | T12 | todo |
 | T16 | Mount DrawTool in the tool slot with the overlay, add the in-tool keys B, E, [ ], Enter and Escape, focus on open and close, and the tool-ready mark | wiring | Blazheiko | M | T8, T13, T14, T15 | todo |
