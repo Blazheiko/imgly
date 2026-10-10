@@ -138,9 +138,9 @@ function onKeydown(event: KeyboardEvent, from: number) {
   padding: 0;
 }
 
+/* An inset shadow, not an outline: :focus-visible owns the outline, and both rings show. */
 .segmented__option--swatch[aria-checked='true'] {
-  outline: 2px solid var(--color-text);
-  outline-offset: -2px;
+  box-shadow: inset 0 0 0 2px var(--color-text);
 }
 
 /* The fill is data (the palette colour); the frame comes from the tokens. */

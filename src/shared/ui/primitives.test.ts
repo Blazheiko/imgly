@@ -15,6 +15,7 @@ import {
   ToastStack,
 } from './index'
 import type { SegmentedOption } from './SegmentedControl.vue'
+import segmentedSource from './SegmentedControl.vue?raw'
 import { useNotices } from '../notices'
 
 describe('Spinner', () => {
@@ -713,6 +714,17 @@ describe('SegmentedControl swatches (draw screens.md §New components)', () => {
     const fill = radios[1]!.get('.segmented__swatch')
     expect(fill.attributes('style')).toContain('background: #E53935')
     expect(wrapper.get('.segmented__group').classes()).toContain('segmented__group--swatches')
+  })
+
+  it('draws the selected ring apart from the outline, so a focused selected swatch shows both', () => {
+    // happy-dom resolves no cascade: read the rule. :focus-visible owns `outline`; the selected
+    // ring must use another property or the later focus rule replaces it (screens.md SCR-03).
+    const rule = /\.segmented__option--swatch\[aria-checked='true'\]\s*\{([^}]*)\}/.exec(
+      segmentedSource,
+    )
+    expect(rule).not.toBeNull()
+    expect(rule![1]).not.toMatch(/\boutline\b/)
+    expect(rule![1]).toMatch(/box-shadow:\s*inset 0 0 0 2px var\(--color-text\)/)
   })
 
   it('shows an option’s title as its tooltip, and none for a plain option without one', () => {
