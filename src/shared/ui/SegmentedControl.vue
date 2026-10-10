@@ -158,6 +158,8 @@ function onKeydown(event: KeyboardEvent, from: number) {
   height: var(--space-4);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
+  /* The fill is the colour itself: forced-colors mode must not replace it with Canvas. */
+  forced-color-adjust: none;
 }
 
 .segmented__option:focus-visible {

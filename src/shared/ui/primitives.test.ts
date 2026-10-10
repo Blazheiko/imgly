@@ -735,6 +735,11 @@ describe('SegmentedControl swatches (draw screens.md §New components)', () => {
     )
   })
 
+  it('keeps each swatch fill in forced-colors mode: the colour is data, not decoration', () => {
+    const rule = /^\.segmented__swatch\s*\{([^}]*)\}/m.exec(segmentedSource)
+    expect(rule![1]).toMatch(/forced-color-adjust:\s*none/)
+  })
+
   it('shows an option’s title as its tooltip, and none for a plain option without one', () => {
     const wrapper = mount(SegmentedControl, {
       props: {

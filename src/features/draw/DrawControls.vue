@@ -157,6 +157,8 @@ const preset = computed(() => (PALETTE.some((c) => c.hex === tool.colour) ? tool
   height: var(--space-4);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
+  /* The fill is the colour itself: forced-colors mode must not replace it with Canvas. */
+  forced-color-adjust: none;
 }
 
 .draw-controls__custom-swatch--empty {

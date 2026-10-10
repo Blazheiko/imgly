@@ -7,7 +7,7 @@ acs: ["AC-02"]
 files_hint: ["src/shared/ui/SegmentedControl.vue", "src/shared/ui/primitives.test.ts", "src/features/draw/DrawControls.vue"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 source: "review-2026-10-10-3 Q12"
 ---
 

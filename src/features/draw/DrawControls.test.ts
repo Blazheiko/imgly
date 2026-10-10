@@ -7,6 +7,7 @@ import { useEditorStore } from '@/features/editor'
 import { createLayer, setLayerCanvasFactory, type CanvasFactory } from '@/render'
 import { createFakeLayerCanvas, setPixel, type FakeLayerCanvas } from '@/render/testing'
 import DrawControls from './DrawControls.vue'
+import controlsSource from './DrawControls.vue?raw'
 import { BUTTONS, CUSTOM_COLOUR, GROUPS, MODES, WIDTH_LABEL, WIDTH_TOOLTIP } from './messages'
 import { useDrawStore } from './store'
 
@@ -124,6 +125,11 @@ describe('DrawControls (SCR-03)', () => {
     expect(wrapper.get('.draw-controls__custom').classes()).not.toContain(
       'draw-controls__custom--selected',
     )
+  })
+
+  it('keeps the custom swatch fill in forced-colors mode', () => {
+    const rule = /^\.draw-controls__custom-swatch\s*\{([^}]*)\}/m.exec(controlsSource)
+    expect(rule![1]).toMatch(/forced-color-adjust:\s*none/)
   })
 
   it('has a Width slider 1 to 200 in px with its tooltip', () => {
