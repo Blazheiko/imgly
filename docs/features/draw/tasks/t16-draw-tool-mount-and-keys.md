@@ -4,7 +4,7 @@ title: "Mount DrawTool in the tool slot with the overlay, add the in-tool keys B
 layer: "wiring"
 deps: ["T8", "T13", "T14", "T15"]
 blocks: ["T18", "T19"]
-acs: ["AC-06", "AC-16", "AC-18", "AC-19"]
+acs: ["AC-04", "AC-06", "AC-16", "AC-18", "AC-19"]
 files_hint: ["src/features/draw/DrawTool.vue", "src/features/draw/DrawTool.test.ts", "src/features/draw/shortcuts.ts", "src/features/draw/shortcuts.test.ts", "src/features/draw/index.ts", "src/app/App.vue"]
 owner: "Blazheiko"
 estimate: "M"

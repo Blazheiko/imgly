@@ -4,7 +4,7 @@ title: "Add an optional swatch to SegmentedControl, register it, and build DrawC
 layer: "ui"
 deps: ["T11"]
 blocks: ["T16"]
-acs: ["AC-02", "AC-03", "AC-05", "AC-19"]
+acs: ["AC-02", "AC-03", "AC-04", "AC-05", "AC-06", "AC-19"]
 files_hint: ["src/shared/ui/SegmentedControl.vue", "src/shared/ui/primitives.test.ts", "docs/design-system.md", "src/features/draw/DrawControls.vue", "src/features/draw/DrawControls.test.ts", "src/features/draw/messages.ts"]
 owner: "Blazheiko"
 estimate: "M"

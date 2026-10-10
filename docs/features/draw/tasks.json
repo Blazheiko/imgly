@@ -176,7 +176,16 @@
         "src/app/test-hooks.ts",
         "e2e/test-hooks.d.ts"
       ],
-      "file": "docs/features/draw/tasks/t08-preview-layer-and-test-hooks.md"
+      "file": "docs/features/draw/tasks/t08-preview-layer-and-test-hooks.md",
+      "screens": [
+        "SCR-01 marks applied",
+        "SCR-03 default",
+        "SCR-03 cleared",
+        "SCR-04 default, Work with marks",
+        "SCR-05 default, Work with marks",
+        "SCR-05 comparing, Work with marks",
+        "SCR-06 transparency hint"
+      ]
     },
     {
       "id": "T9",
@@ -293,7 +302,16 @@
         "src/features/draw/index.ts",
         "src/app/App.vue"
       ],
-      "file": "docs/features/draw/tasks/t13-draw-action-d-key-messages.md"
+      "file": "docs/features/draw/tasks/t13-draw-action-d-key-messages.md",
+      "screens": [
+        "SCR-01 default",
+        "SCR-01 tool open",
+        "SCR-01 exporting",
+        "SCR-02 default",
+        "SCR-02 hint",
+        "SCR-04 draw refused",
+        "SCR-05 draw refused"
+      ]
     },
     {
       "id": "T14",
@@ -305,7 +323,9 @@
       "acs": [
         "AC-02",
         "AC-03",
+        "AC-04",
         "AC-05",
+        "AC-06",
         "AC-19"
       ],
       "dod": "Primitive tests prove a swatch option renders a filled square with label as accessible name and null selects nothing; DrawControls tests prove the panel order, the palette order and marking, custom colour selection, the width field rules on blur and Enter without applying, and Clear / Cancel / Apply calling the store",
@@ -317,7 +337,19 @@
         "src/features/draw/DrawControls.test.ts",
         "src/features/draw/messages.ts"
       ],
-      "file": "docs/features/draw/tasks/t14-swatch-and-draw-controls.md"
+      "file": "docs/features/draw/tasks/t14-swatch-and-draw-controls.md",
+      "screens": [
+        "SCR-03 default",
+        "SCR-03 empty (no marks)",
+        "SCR-03 erasing",
+        "SCR-03 colour chosen",
+        "SCR-03 custom colour",
+        "SCR-03 width changed",
+        "SCR-03 typing (pending)",
+        "SCR-03 validation",
+        "SCR-03 cleared",
+        "SCR-03 closed"
+      ]
     },
     {
       "id": "T15",
@@ -337,7 +369,15 @@
         "src/features/draw/DrawOverlay.vue",
         "src/features/draw/DrawOverlay.test.ts"
       ],
-      "file": "docs/features/draw/tasks/t15-draw-overlay.md"
+      "file": "docs/features/draw/tasks/t15-draw-overlay.md",
+      "screens": [
+        "SCR-03 drawing",
+        "SCR-03 dot",
+        "SCR-03 erasing",
+        "SCR-03 input during a Stroke",
+        "SCR-03 zoom and pan",
+        "SCR-03 display lost"
+      ]
     },
     {
       "id": "T16",
@@ -350,6 +390,7 @@
         "T15"
       ],
       "acs": [
+        "AC-04",
         "AC-06",
         "AC-16",
         "AC-18",
@@ -364,7 +405,16 @@
         "src/features/draw/index.ts",
         "src/app/App.vue"
       ],
-      "file": "docs/features/draw/tasks/t16-draw-tool-mount-and-keys.md"
+      "file": "docs/features/draw/tasks/t16-draw-tool-mount-and-keys.md",
+      "screens": [
+        "SCR-03 default",
+        "SCR-03 erasing",
+        "SCR-03 width changed",
+        "SCR-03 input during a Stroke",
+        "SCR-03 tool refused",
+        "SCR-03 closed",
+        "SCR-07 declined"
+      ]
     },
     {
       "id": "T17",
@@ -477,7 +527,12 @@
         "e2e/draw/cross-feature.spec.ts"
       ],
       "file": "docs/features/draw/tasks/t21-review-fix.md",
-      "source": "docs/features/draw/_review/review-2026-10-10.md S1"
+      "source": "docs/features/draw/_review/review-2026-10-10.md S1",
+      "screens": [
+        "SCR-03 drawing",
+        "SCR-03 typing (pending)",
+        "SCR-03 zoom and pan"
+      ]
     },
     {
       "id": "T22",
@@ -496,7 +551,10 @@
         "src/features/draw/shortcuts.ts"
       ],
       "file": "docs/features/draw/tasks/t22-review-fix.md",
-      "source": "docs/features/draw/_review/review-2026-10-10.md S2"
+      "source": "docs/features/draw/_review/review-2026-10-10.md S2",
+      "screens": [
+        "SCR-03 width changed"
+      ]
     },
     {
       "id": "T23",
@@ -514,7 +572,10 @@
         "src/features/draw/shortcuts.test.ts"
       ],
       "file": "docs/features/draw/tasks/t23-review-fix.md",
-      "source": "docs/features/draw/_review/review-2026-10-10.md Q1"
+      "source": "docs/features/draw/_review/review-2026-10-10.md Q1",
+      "screens": [
+        "SCR-03 custom colour"
+      ]
     },
     {
       "id": "T24",
@@ -552,7 +613,10 @@
         "src/features/draw/DrawControls.test.ts"
       ],
       "file": "docs/features/draw/tasks/t25-review-fix.md",
-      "source": "docs/features/draw/_review/review-2026-10-10.md Q2, Q4"
+      "source": "docs/features/draw/_review/review-2026-10-10.md Q2, Q4",
+      "screens": [
+        "SCR-03 custom colour"
+      ]
     },
     {
       "id": "T26",
@@ -570,7 +634,10 @@
         "src/shared/ui/primitives.test.ts"
       ],
       "file": "docs/features/draw/tasks/t26-review-fix.md",
-      "source": "docs/features/draw/_review/review-2026-10-10.md Q3"
+      "source": "docs/features/draw/_review/review-2026-10-10.md Q3",
+      "screens": [
+        "SCR-03 colour chosen"
+      ]
     },
     {
       "id": "T27",
