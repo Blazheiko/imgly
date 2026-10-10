@@ -66,3 +66,64 @@ export function createOpenShortcut(actions: OpenShortcutActions): (event: Keyboa
     else actions.open()
   }
 }
+
+export interface ToolKeyActions {
+  /** Another modal surface (the replace dialog) owns the keys. */
+  blocked(): boolean
+  /** Applies the tool; the store waits for a Stroke in progress to end (AC-18). */
+  apply(): void
+  cancel(): void
+  setMode(mode: 'brush' | 'eraser'): void
+  stepWidth(delta: number): void
+}
+
+/** What Enter presses itself, so it must not apply the tool as well. */
+const PRESSED_BY_ENTER =
+  'button, a[href], input[type="button"], input[type="submit"], input[type="reset"]'
+
+/**
+ * `[` or `]`: the character it types, or on a layout that types another character there, the key
+ * position right of P (German ü and +); Shift+[ types "{" and still counts (AC-19).
+ */
+function bracket(event: KeyboardEvent): -1 | 1 | null {
+  if (event.key === '[' || event.key === '{') return -1
+  if (event.key === ']' || event.key === '}') return 1
+  if (event.code === 'BracketLeft') return -1
+  if (event.code === 'BracketRight') return 1
+  return null
+}
+
+/**
+ * The keys inside the open tool (screens.md §Keyboard): Escape cancels from anywhere, a field
+ * included (AC-06); Enter applies except on a button, which it presses, or in a field, which
+ * commits only its width (AC-03); B and E pick the mode and [ ] step the width (Shift ×10), all
+ * silent in a text field (AC-19).
+ */
+export function createToolKeys(actions: ToolKeyActions): (event: KeyboardEvent) => void {
+  return (event) => {
+    if (event.defaultPrevented) return
+    if (event.ctrlKey || event.metaKey || event.altKey || actions.blocked()) return
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      actions.cancel()
+      return
+    }
+    const target = event.target
+    if (isTextTarget(target)) return
+    if (event.key === 'Enter') {
+      if (target instanceof Element && target.closest(PRESSED_BY_ENTER)) return
+      event.preventDefault()
+      actions.apply()
+      return
+    }
+    const step = bracket(event)
+    if (step !== null) {
+      event.preventDefault()
+      actions.stepWidth(step * (event.shiftKey ? 10 : 1))
+      return
+    }
+    if (event.repeat) return
+    if (isLetter(event, 'b')) actions.setMode('brush')
+    else if (isLetter(event, 'e')) actions.setMode('eraser')
+  }
+}

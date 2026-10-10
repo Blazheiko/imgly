@@ -5,6 +5,7 @@ import { nextTick } from 'vue'
 import { createWork, ok } from '@/core'
 import { useEditorStore } from '@/features/editor'
 import { createFakeRenderer } from '@/features/editor/testing'
+import { useNotices } from '@/shared'
 import App from './App.vue'
 
 describe('App tool slots (adjust T16, crop-rotate ADR-0003)', () => {
@@ -53,5 +54,31 @@ describe('App tool slots (adjust T16, crop-rotate ADR-0003)', () => {
       el.getAttribute('data-testid'),
     )
     expect(order.indexOf('adjust-action')).toBe(order.indexOf('crop-rotate-action') + 1)
+  })
+
+  it('mounts only the draw tool and its overlay for "draw", with "Draw" after "Adjust"', async () => {
+    editor.openTool('draw')
+    await nextTick()
+    expect(has('draw-tool')).toBe(true)
+    expect(has('draw-overlay')).toBe(true)
+    expect(has('adjust-tool')).toBe(false)
+    expect(has('crop-frame')).toBe(false)
+    const order = [...wrapper.element.querySelectorAll('[data-testid$="-action"]')].map((el) =>
+      el.getAttribute('data-testid'),
+    )
+    expect(order.indexOf('draw-action')).toBe(order.indexOf('adjust-action') + 1)
+    const labels = [...wrapper.element.querySelectorAll('button')].map((b) => b.textContent?.trim())
+    expect(labels.indexOf('Export')).toBe(labels.indexOf('Draw') + 1)
+  })
+
+  it.each([
+    ['c', 'KeyC'],
+    ['a', 'KeyA'],
+  ])('%s while draw is open says to apply or cancel it first (AC-16)', async (k, code) => {
+    editor.openTool('draw')
+    await nextTick()
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: k, code, bubbles: true }))
+    expect(useNotices().items.map((n) => n.text)).toContain('Apply or cancel the open tool first.')
+    expect(editor.activeTool).toBe('draw')
   })
 })
