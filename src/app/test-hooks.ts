@@ -97,6 +97,8 @@ export interface ImglyTestHooks {
    * empty array with no layer.
    */
   drawingAlpha(): number[]
+  /** The open draw tool's Draft alpha, as `drawingAlpha`; empty with no Draft or tool. */
+  draftAlpha(): number[]
   /** Drawing layers created and released by the app (draw sad.md §7); retained is their difference. */
   layers(): { created: number; released: number; retained: number }
   /** Bitmaps received from the decode worker and closed by the app; retained should be 1. */
@@ -213,6 +215,12 @@ function paintPath(layer: Layer, points: Point[], style: BrushStyle, g: Geometry
   }
 }
 
+/** A layer's alpha channel, row by row; empty with no layer. */
+function alphaOf(layer: Layer | null | undefined): number[] {
+  const pixels = layer && readRect(layer, { x: 0, y: 0, width: layer.width, height: layer.height })
+  return pixels ? Array.from(pixels.data.filter((_, i) => i % 4 === 3)) : []
+}
+
 export function installTestHooks(pinia: Pinia): void {
   const editor = useEditorStore(pinia)
   const exporter = useExportStore(pinia)
@@ -313,12 +321,8 @@ export function installTestHooks(pinia: Pinia): void {
       releaseLayer(layer)
       return { frameIntervals, latencies }
     },
-    drawingAlpha: () => {
-      const layer = editor.work?.drawing as Layer | null | undefined
-      const pixels =
-        layer && readRect(layer, { x: 0, y: 0, width: layer.width, height: layer.height })
-      return pixels ? Array.from(pixels.data.filter((_, i) => i % 4 === 3)) : []
-    },
+    drawingAlpha: () => alphaOf(editor.work?.drawing as Layer | null | undefined),
+    draftAlpha: () => (editor.activeTool === 'draw' ? alphaOf(editor.previewLayer) : []),
     layers: () => ({
       created: bitmapLedger.layersCreated,
       released: bitmapLedger.layersReleased,

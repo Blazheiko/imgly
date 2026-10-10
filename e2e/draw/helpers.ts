@@ -112,3 +112,24 @@ export async function jpegPanel(page: Page) {
 }
 
 export const TRANSPARENCY_HINT = 'JPEG has no transparency'
+
+export { openPixels } from '../adjust/helpers'
+
+export const drawingAlpha = (page: Page) => page.evaluate(() => window.__imglyTest!.drawingAlpha())
+export const draftAlpha = (page: Page) => page.evaluate(() => window.__imglyTest!.draftAlpha())
+export const layers = (page: Page) => page.evaluate(() => window.__imglyTest!.layers())
+export const view = (page: Page) => page.evaluate(() => window.__imglyTest!.view())
+
+/** Opens a plain white opaque image of the given size. */
+export async function openWhite(page: Page, width: number, height: number) {
+  const { openPixels } = await import('../adjust/helpers')
+  await openPixels(page, width, height, () => [255, 255, 255, 255])
+}
+
+/** Moves focus off the control that has it, to the page itself. */
+export const leaveField = (page: Page) =>
+  page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+
+/** How many pixels of the Draft have some alpha, counted in the page. */
+export const draftMarks = (page: Page) =>
+  page.evaluate(() => window.__imglyTest!.draftAlpha().filter((v) => v > 0).length)

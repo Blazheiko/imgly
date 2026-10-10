@@ -63,6 +63,7 @@ declare global {
         hz?: number,
       ): Promise<{ frameIntervals: number[]; latencies: number[] }>
       drawingAlpha(): number[]
+      draftAlpha(): number[]
       layers(): { created: number; released: number; retained: number }
       bitmaps(): { received: number; closed: number; retained: number }
       holdNextOpen(): void
