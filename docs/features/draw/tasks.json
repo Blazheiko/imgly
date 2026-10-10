@@ -780,6 +780,105 @@
       ],
       "file": "docs/features/draw/tasks/t33-review-fix.md",
       "source": "docs/features/draw/_review/review-2026-10-10.md S7, S8"
+    },
+    {
+      "id": "T34",
+      "title": "With Draw open only an unshifted + on either key right of P steps the width; = and Shift+ + still zoom; AC-18 records the exception",
+      "layer": "wiring",
+      "deps": [],
+      "acs": [
+        "AC-18",
+        "AC-19"
+      ],
+      "dod": "EditorView tests: '+' on BracketLeft and BracketRight steps the width with Draw open, '=' and Shift+'+' on BracketRight zoom; spec AC-18 names the exception",
+      "files_hint": [
+        "src/features/editor/EditorView.vue",
+        "src/features/editor/EditorView.test.ts",
+        "src/features/draw/DrawTool.test.ts",
+        "docs/features/draw/spec.md"
+      ],
+      "file": "docs/features/draw/tasks/t34-review-fix.md",
+      "source": "docs/features/draw/_review/review-2026-10-10-2.md R1"
+    },
+    {
+      "id": "T35",
+      "title": "Test the clip at a straightened Crop: a painter unit row with a Straighten Geometry and an e2e drag across a straightened Crop edge",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-09"
+      ],
+      "dod": "painter.test asserts setTransform = frameToOriginal(g) and the clip rect = the Crop under a Straighten angle; an e2e shows layer alpha outside the turned Crop at most 1 px deep; the test-plan note points to them",
+      "files_hint": [
+        "src/render/drawing/painter.test.ts",
+        "e2e/draw/tool.spec.ts",
+        "docs/features/draw/test-plan.md"
+      ],
+      "file": "docs/features/draw/tasks/t35-review-fix.md",
+      "source": "docs/features/draw/_review/review-2026-10-10-2.md R3"
+    },
+    {
+      "id": "T36",
+      "title": "Docs: carry AC-18's re-fit wording into ux-flows, screens and sad; claim the remaining SCR states in tasks.json; correct the AC-04 note",
+      "layer": "docs",
+      "deps": [
+        "T34",
+        "T35"
+      ],
+      "acs": [
+        "AC-04",
+        "AC-13",
+        "AC-15",
+        "AC-18"
+      ],
+      "dod": "ux-flows.md, screens.md SCR-03 and sad.md match AC-18; every draw SCR state is in some task's screens; the AC-04 note names the Export check",
+      "files_hint": [
+        "docs/features/draw/ux-flows.md",
+        "docs/features/draw/screens.md",
+        "docs/features/draw/sad.md",
+        "docs/features/draw/tasks.json",
+        "docs/features/draw/test-plan.md"
+      ],
+      "file": "docs/features/draw/tasks/t36-review-fix.md",
+      "source": "docs/features/draw/_review/review-2026-10-10-2.md R4, R5, R6"
+    },
+    {
+      "id": "T37",
+      "title": "Quality: layerChanged's comment back in place, a forced-colors selected ring, and the swatch CSS test asserting the invariant only",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-02"
+      ],
+      "dod": "The comment sits on layerChanged; under forced-colors the selected swatch has an outline; the CSS test checks no outline in the selected rule and a --color-text ring",
+      "files_hint": [
+        "src/features/editor/store.ts",
+        "src/shared/ui/SegmentedControl.vue",
+        "src/shared/ui/primitives.test.ts"
+      ],
+      "file": "docs/features/draw/tasks/t37-review-fix.md",
+      "source": "docs/features/draw/_review/review-2026-10-10-2.md Q9, Q10, Q11"
+    },
+    {
+      "id": "T38",
+      "title": "Re-run the drawing rows (spec §6 rows 1–2) on a 60 Hz display with stable Chrome and record them",
+      "layer": "tests",
+      "deps": [
+        "T34",
+        "T35",
+        "T36",
+        "T37"
+      ],
+      "acs": [
+        "AC-01"
+      ],
+      "dod": "With the display at 60 Hz and channel chrome, every drawing row is within target, recorded in _epic.md; T20 then done",
+      "files_hint": [
+        "e2e/draw/perf.spec.ts",
+        "docs/features/draw/tasks/_epic.md"
+      ],
+      "file": "docs/features/draw/tasks/t38-review-fix.md",
+      "source": "docs/features/draw/_review/review-2026-10-10-2.md R2"
     }
   ]
 }
