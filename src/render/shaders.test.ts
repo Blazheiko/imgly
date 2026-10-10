@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { createPreviewRenderer } from './preview-renderer'
 import { createFakeCanvas, createFakeFrames, createFakeGl } from './fake-gl'
 import { NEUTRAL_ADJUSTMENTS, toUniforms } from '@/core'
-import { buildProgram, FRAGMENT_SHADER, setAdjustmentUniforms, VERTEX_SHADER } from './shaders'
+import {
+  buildProgram,
+  FRAGMENT_SHADER,
+  setAdjustmentUniforms,
+  setLayerUniforms,
+  VERTEX_SHADER,
+} from './shaders'
 
 describe('shared shaders (export ADR-0002)', () => {
   it('flattens premultiplied colour onto white behind a uniform', () => {
@@ -112,5 +118,31 @@ describe('the colour block (adjust ADR-0002)', () => {
     fake.calls.length = 0
     setAdjustmentUniforms(fake.gl, gpu, NEUTRAL_ADJUSTMENTS)
     expect(fake.calls).toContainEqual(['uniform1i', { uniform: 'u_adjust' }, 0])
+  })
+})
+
+describe('the Drawing layer composite (draw ADR-0003)', () => {
+  it('declares u_layer and u_draw', () => {
+    expect(FRAGMENT_SHADER).toContain('uniform sampler2D u_layer;')
+    expect(FRAGMENT_SHADER).toContain('uniform bool u_draw;')
+  })
+
+  it('composites the layer premultiplied "over", after the Adjustments and before the flatten', () => {
+    const over =
+      'if (u_draw) {\n    vec4 m = texture(u_layer, v_uv);\n    color = m + (1.0 - m.a) * color;\n  }'
+    expect(FRAGMENT_SHADER).toContain(over)
+    const at = FRAGMENT_SHADER.indexOf(over)
+    expect(at).toBeGreaterThan(FRAGMENT_SHADER.indexOf('if (u_adjust) {'))
+    expect(at).toBeLessThan(FRAGMENT_SHADER.indexOf('outColor = u_flatten'))
+  })
+
+  it('binds u_layer to texture unit 1 and starts with u_draw off', () => {
+    const fake = createFakeGl()
+    const gpu = buildProgram(fake.gl)
+    expect(fake.calls).toContainEqual(['uniform1i', { uniform: 'u_layer' }, 1])
+    expect(fake.calls).toContainEqual(['uniform1i', { uniform: 'u_draw' }, 0])
+    fake.calls.length = 0
+    setLayerUniforms(fake.gl, gpu, true)
+    expect(fake.calls).toEqual([['uniform1i', { uniform: 'u_draw' }, 1]])
   })
 })

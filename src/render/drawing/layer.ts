@@ -59,14 +59,20 @@ export function releaseLayer(layer: Layer): void {
   bitmapLedger.noteLayerReleased()
 }
 
-/** The layer's pixels under `rect`, widened to whole pixels and clamped to the layer; null if empty. */
-export function readRect(layer: Layer, rect: LayerRect): ImageData | null {
+/** `rect` widened to whole pixels and clamped to the layer; null when nothing is left. */
+export function clampToLayer(layer: Layer, rect: LayerRect): LayerRect | null {
   const x0 = Math.max(0, Math.floor(rect.x))
   const y0 = Math.max(0, Math.floor(rect.y))
   const x1 = Math.min(layer.width, Math.ceil(rect.x + rect.width))
   const y1 = Math.min(layer.height, Math.ceil(rect.y + rect.height))
   if (x1 <= x0 || y1 <= y0) return null
-  return layerContext(layer).getImageData(x0, y0, x1 - x0, y1 - y0)
+  return { x: x0, y: y0, width: x1 - x0, height: y1 - y0 }
+}
+
+/** The layer's pixels under `rect`, widened to whole pixels and clamped to the layer; null if empty. */
+export function readRect(layer: Layer, rect: LayerRect): ImageData | null {
+  const r = clampToLayer(layer, rect)
+  return r && layerContext(layer).getImageData(r.x, r.y, r.width, r.height)
 }
 
 /** Whether any pixel of the layer has some alpha. */

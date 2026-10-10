@@ -19,6 +19,8 @@ export function createFakeRenderer() {
     sampleCrop: vi.fn<PreviewRenderer['sampleCrop']>(() =>
       ok<ImageSample>({ width: 1, height: 1, data: new Uint8Array([128, 128, 128, 255]) }),
     ),
+    setLayer: vi.fn<PreviewRenderer['setLayer']>(),
+    updateLayer: vi.fn<PreviewRenderer['updateLayer']>(),
     resize: vi.fn<(width: number, height: number) => void>(),
     dispose: vi.fn(),
     onStatus(listener: (status: RendererStatus) => void) {

@@ -112,3 +112,41 @@ describe('preview renderer — context loss (AC-19, AC-19b)', () => {
     expect(fake.names()).not.toContain('drawArrays')
   })
 })
+
+describe('preview renderer — context loss with a Drawing layer (draw ADR-0003)', () => {
+  it('re-uploads the layer from its canvas after a restore', async () => {
+    const { createLayer, setLayerCanvasFactory } = await import('./drawing')
+    const { createFakeCanvas: createFakeLayerCanvas } = await import('./drawing/fake-canvas')
+    const previous = setLayerCanvasFactory(
+      (w, h) => createFakeLayerCanvas(w, h) as unknown as OffscreenCanvas,
+    )
+    const fake = createFakeGl()
+    const canvas = createFakeCanvas(fake.gl)
+    const frames = createFakeFrames()
+    const result = createPreviewRenderer(canvas as unknown as HTMLCanvasElement, {
+      ...frames,
+      mark: () => {},
+    })
+    if (!result.ok) throw new Error('renderer failed')
+    const renderer = result.value
+    renderer.resize(800, 600)
+    renderer.setOriginal({ width: 16, height: 8 } as unknown as ImageBitmap)
+    renderer.setView(view)
+    renderer.setLayer(createLayer({ width: 16, height: 8 }))
+    frames.flush()
+    fake.calls.length = 0
+
+    canvas.dispatch('webglcontextlost')
+    canvas.dispatch('webglcontextrestored')
+    frames.flush()
+    const layerUploads = fake.calls.filter(
+      ([n, , , , , , data]) =>
+        n === 'texImage2D' && (data as ImageData)?.width === 16 && 'data' in (data as object),
+    )
+    expect(layerUploads).toHaveLength(1)
+    expect(
+      fake.calls.filter(([n, unit]) => n === 'activeTexture' && unit === 'TEXTURE1').length,
+    ).toBeGreaterThan(0)
+    setLayerCanvasFactory(previous)
+  })
+})

@@ -18,10 +18,12 @@ import {
   buildProgram,
   IDENTITY_GEOMETRY,
   setAdjustmentUniforms,
+  setLayerUniforms,
   uploadTexture,
   type GpuProgram,
 } from './shaders'
 import { viewToTransform } from './view-transform'
+import { clampToLayer, readRect, type Layer, type LayerRect } from './drawing'
 
 /** Marked on the first frame drawn after a new Original; the @perf suite times opens to it. */
 export const FIRST_FRAME_MARK = 'imgly:first-frame'
@@ -62,6 +64,14 @@ export interface PreviewRenderer {
    * `DISPLAY_LOST` while the context is not ready.
    */
   sampleCrop(g: Geometry, maxSide: number): Result<ImageSample, AppError>
+  /**
+   * Shows `layer` over the image (draw ADR-0003), or no marks for null. The whole layer is uploaded
+   * only when its canvas differs from the one held, so an Apply (same canvas, new id) uploads
+   * nothing. Requests one frame. The caller keeps ownership of the layer.
+   */
+  setLayer(layer: Layer | null): void
+  /** Uploads one dirty rectangle of the held layer (ADR-0002) and requests one frame. */
+  updateLayer(rect: LayerRect): void
   /** Sets the backing store size in device pixels. */
   resize(width: number, height: number): void
   readonly status: RendererStatus
@@ -102,6 +112,10 @@ export function createPreviewRenderer(
   const listeners = new Set<(status: RendererStatus) => void>()
   let bitmap: ImageBitmap | undefined
   let texture: WebGLTexture | null = null
+  let layer: Layer | null = null
+  let layerTexture: WebGLTexture | null = null
+  // The layer changed at 100% or above without new mipmaps; regenerated before a draw below 100%.
+  let layerMipmapsStale = false
   let view: View | undefined
   let shown: { geometry: Geometry; mode: GeometryMode } | undefined
   let adjustments: Adjustments = NEUTRAL_ADJUSTMENTS
@@ -135,12 +149,25 @@ export function createPreviewRenderer(
     try {
       gpu = buildProgram(gl!)
       texture = bitmap ? uploadTexture(gl!, bitmap) : null
+      layerTexture = null
+      uploadLayer()
     } catch {
       setStatus('lost')
       return
     }
     setStatus('ready')
     invalidate()
+  }
+
+  /** Uploads the whole held layer on unit 1 as straight `ImageData` with the premultiply flag. */
+  function uploadLayer() {
+    const pixels =
+      layer && readRect(layer, { x: 0, y: 0, width: layer.width, height: layer.height })
+    if (!pixels) return
+    gl!.activeTexture(gl!.TEXTURE1)
+    layerTexture = uploadTexture(gl!, pixels)
+    layerMipmapsStale = false
+    gl!.activeTexture(gl!.TEXTURE0)
   }
 
   canvas.addEventListener('webglcontextlost', onContextLost)
@@ -170,13 +197,22 @@ export function createPreviewRenderer(
     gl!.clear(gl!.COLOR_BUFFER_BIT)
     gl!.useProgram(gpu.program)
     gl!.bindVertexArray(gpu.vao)
+    const magFilter = view.zoom >= 1 && !straightened ? gl!.NEAREST : gl!.LINEAR
+    const drawing = layer !== null && layerTexture !== null
+    if (drawing) {
+      // The same filters as the Original's unit, so marks and image line up texel for texel.
+      gl!.activeTexture(gl!.TEXTURE1)
+      gl!.bindTexture(gl!.TEXTURE_2D, layerTexture)
+      if (layerMipmapsStale && view.zoom < 1) {
+        gl!.generateMipmap(gl!.TEXTURE_2D)
+        layerMipmapsStale = false
+      }
+      gl!.texParameteri(gl!.TEXTURE_2D, gl!.TEXTURE_MAG_FILTER, magFilter)
+    }
+    setLayerUniforms(gl!, gpu, drawing)
     gl!.activeTexture(gl!.TEXTURE0)
     gl!.bindTexture(gl!.TEXTURE_2D, texture)
-    gl!.texParameteri(
-      gl!.TEXTURE_2D,
-      gl!.TEXTURE_MAG_FILTER,
-      view.zoom >= 1 && !straightened ? gl!.NEAREST : gl!.LINEAR,
-    )
+    gl!.texParameteri(gl!.TEXTURE_2D, gl!.TEXTURE_MAG_FILTER, magFilter)
     gl!.uniformMatrix3fv(gpu.geometry, false, uvMatrix)
     gl!.uniformMatrix3fv(gpu.transform, false, viewToTransform(view, image, size))
     setAdjustmentUniforms(gl!, gpu, adjustments)
@@ -242,6 +278,7 @@ export function createPreviewRenderer(
         )
         gl.uniformMatrix3fv(gpu.transform, false, SAMPLE_TRANSFORM)
         gl.uniform1i(gpu.flatten, 0)
+        setLayerUniforms(gl, gpu, false)
         setAdjustmentUniforms(gl, gpu, NEUTRAL_ADJUSTMENTS)
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
         const data = new Uint8Array(width * height * 4)
@@ -256,6 +293,31 @@ export function createPreviewRenderer(
         gl.bindTexture(gl.TEXTURE_2D, texture)
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
       }
+    },
+    setLayer(next) {
+      if (next?.pixels !== layer?.pixels) {
+        if (layerTexture) gl.deleteTexture(layerTexture)
+        layerTexture = null
+        layer = next
+        if (status === 'ready') uploadLayer()
+      } else {
+        layer = next
+      }
+      invalidate()
+    },
+    updateLayer(rect) {
+      if (!layer || !layerTexture || status !== 'ready' || !view) return
+      const r = clampToLayer(layer, rect)
+      const pixels = r && readRect(layer, r)
+      if (!r || !pixels) return
+      gl.activeTexture(gl.TEXTURE1)
+      gl.bindTexture(gl.TEXTURE_2D, layerTexture)
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true)
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, r.x, r.y, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+      if (view.zoom < 1) gl.generateMipmap(gl.TEXTURE_2D)
+      else layerMipmapsStale = true
+      gl.activeTexture(gl.TEXTURE0)
+      invalidate()
     },
     setAdjustments(next) {
       if (adjustmentsEquals(next, adjustments)) return
@@ -284,7 +346,10 @@ export function createPreviewRenderer(
       if (frame !== undefined) cancelFrame(frame)
       frame = undefined
       if (texture) gl.deleteTexture(texture)
+      if (layerTexture) gl.deleteTexture(layerTexture)
       texture = null
+      layerTexture = null
+      layer = null
       bitmap = undefined
       gl.deleteBuffer(gpu.buffer)
       gl.deleteVertexArray(gpu.vao)

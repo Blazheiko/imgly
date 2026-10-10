@@ -24,10 +24,14 @@ void main() {
  * stored values in their fixed order with a clamp after each; alpha is never written (AC-06).
  * `adjust()` mirrors `applyAdjustmentsToPixel` in `src/core/adjust/formula.ts` step for step, and
  * each step is skipped at its neutral value so that value is an exact identity.
+ * With `u_draw` the Drawing layer (premultiplied, unit 1) is composited "over" after the
+ * Adjustments and before the flatten, so it is never adjusted (draw ADR-0003).
  */
 export const FRAGMENT_SHADER = `#version 300 es
 precision highp float;
 uniform sampler2D u_image;
+uniform sampler2D u_layer;
+uniform bool u_draw;
 uniform bool u_flatten;
 uniform bool u_adjust;
 uniform float u_exponent;
@@ -67,6 +71,10 @@ void main() {
   if (u_adjust) {
     color = color.a > 0.0 ? vec4(adjust(color.rgb / color.a) * color.a, color.a) : vec4(0.0);
   }
+  if (u_draw) {
+    vec4 m = texture(u_layer, v_uv);
+    color = m + (1.0 - m.a) * color;
+  }
   outColor = u_flatten ? vec4(color.rgb + (1.0 - color.a), 1.0) : color;
 }`
 
@@ -78,6 +86,8 @@ export interface GpuProgram {
   /** The unit quad → Original texture coordinates (`cropToOriginalUv`, crop-rotate ADR-0001). */
   geometry: WebGLUniformLocation | null
   flatten: WebGLUniformLocation | null
+  /** Whether the Drawing layer on unit 1 is composited (draw ADR-0003). */
+  draw: WebGLUniformLocation | null
   /** The colour block's switch and its seven step uniforms (adjust ADR-0002). */
   adjust: AdjustLocations
 }
@@ -129,6 +139,9 @@ export function buildProgram(gl: WebGL2RenderingContext): GpuProgram {
 
   gl.useProgram(program)
   gl.uniform1i(gl.getUniformLocation(program, 'u_image'), 0)
+  gl.uniform1i(gl.getUniformLocation(program, 'u_layer'), 1)
+  const draw = gl.getUniformLocation(program, 'u_draw')
+  gl.uniform1i(draw, 0)
   const geometry = gl.getUniformLocation(program, 'u_geometry')
   gl.uniformMatrix3fv(geometry, false, IDENTITY_GEOMETRY)
   return {
@@ -138,6 +151,7 @@ export function buildProgram(gl: WebGL2RenderingContext): GpuProgram {
     transform: gl.getUniformLocation(program, 'u_transform'),
     geometry,
     flatten: gl.getUniformLocation(program, 'u_flatten'),
+    draw,
     adjust: {
       enabled: gl.getUniformLocation(program, 'u_adjust'),
       exponent: gl.getUniformLocation(program, 'u_exponent'),
@@ -166,6 +180,11 @@ export function setAdjustmentUniforms(gl: WebGL2RenderingContext, gpu: GpuProgra
   gl.uniform1f(loc.tint, u.tint)
   gl.uniform1f(loc.grayscale, u.grayscale)
   gl.uniform1f(loc.sepia, u.sepia)
+}
+
+/** Turns the Drawing layer composite on or off; off whenever the layer is null (draw ADR-0003). */
+export function setLayerUniforms(gl: WebGL2RenderingContext, gpu: GpuProgram, on: boolean) {
+  gl.uniform1i(gpu.draw, on ? 1 : 0)
 }
 
 /**
