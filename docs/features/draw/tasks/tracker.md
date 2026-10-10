@@ -14,7 +14,7 @@
 | T7 | Give the tool slot the 'draw' tool: keep Crop and View on open, previewLayer and setPreviewLayer, layerChanged, applyDrawing with the change flag, ExportSnapshot.drawing and the export refusal text | app | Blazheiko | M | T1, T4 | done |
 | T8 | Make PreviewCanvas show the Draft or the Work's layer, and give the e2e hooks a reference drawing, a scripted Stroke, a layered previewAt100 and the layer ledger | wiring | Blazheiko | M | T5, T6, T7 | done |
 | T9 | Spike the hot path: a @perf e2e that paints scripted Strokes through the hooks at 1 px and 200 px, at Fit and at 100%, and records the frame interval and the pointer-to-frame latency | tests | Blazheiko | S | T8 | done |
-| T10 | Send the applied layer to the export worker and its window fallback, render it in one or two passes, and make the crop-transparency check include the layer | infra | Blazheiko | M | T6, T7 | todo |
+| T10 | Send the applied layer to the export worker and its window fallback, render it in one or two passes, and make the crop-transparency check include the layer | infra | Blazheiko | M | T6, T7 | done |
 | T11 | Add the draw store: open with a copy of the layer, mode reset to Brush, colour and width kept until reload, width field and steps, Clear with the change flag, Apply, Cancel and release on replace | app | Blazheiko | M | T2, T4, T7 | todo |
 | T12 | Add the Stroke session: map coalesced positions through the View, paint Catmull–Rom segments and dots, set the change flag, flush the dirty rectangle once per frame, and hold input until the pointer is released | app | Blazheiko | M | T3, T5, T9, T11 | todo |
 | T13 | Add the 'Draw' toolbar action with its hints, the D shortcut and the message catalog, mounted after 'Adjust' | ui | Blazheiko | M | T11 | todo |

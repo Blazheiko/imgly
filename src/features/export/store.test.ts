@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { nextTick } from 'vue'
 import {
@@ -17,6 +17,8 @@ import { useEditorStore } from '@/features/editor'
 import type { SaveFileHandle } from '@/infra/platform'
 import type { AlphaRequest, ExportRequest, FormatAvailabilityCheck } from '@/render'
 import { bitmapLedger, useNotices } from '@/shared'
+import { createLayer, setLayerCanvasFactory, type Layer } from '@/render'
+import { createFakeLayerCanvas, setPixel, type FakeLayerCanvas } from '@/render/testing'
 import { useExportStore, type SavePlatform } from './store'
 
 type Checker = () => Promise<FormatAvailabilityCheck>
@@ -859,5 +861,109 @@ describe('export store — tools and the active panel (crop-rotate AC-16, AC-20)
     expect(store.openPanel()).toBe(false)
     expect(store.panelOpen).toBe(false)
     expect(editor.activePanel).toBeNull()
+  })
+})
+
+describe('export store — the Drawing layer (draw AC-10)', () => {
+  let editor: ReturnType<typeof useEditorStore>
+  let store: ReturnType<typeof useExportStore>
+  let restoreFactory: ReturnType<typeof setLayerCanvasFactory>
+
+  beforeEach(async () => {
+    setActivePinia(createPinia())
+    restoreFactory = setLayerCanvasFactory(
+      (w, h) => createFakeLayerCanvas(w, h) as unknown as OffscreenCanvas,
+    )
+    editor = useEditorStore()
+    store = useExportStore()
+    store.setFormatChecker(async () => ALL)
+    store.setSaveDialogProbe(() => true)
+    store.setBitmapCopier(async (source) => ({ ...source, close() {} }) as unknown as ImageBitmap)
+  })
+  afterEach(() => {
+    setLayerCanvasFactory(restoreFactory)
+  })
+
+  const drawn = (width = 8, height = 6): Layer => {
+    const layer = createLayer({ width, height })
+    setPixel(layer.pixels as unknown as FakeLayerCanvas, 1, 1, [255, 0, 0, 255])
+    return layer
+  }
+
+  it('sends the applied layer read whole, and null with none', async () => {
+    const exporter = vi.fn<(r: ExportRequest) => Promise<Result<Blob, AppError>>>(async () =>
+      ok(new Blob()),
+    )
+    store.setExporter(exporter)
+    store.setSavePlatform({
+      pickSaveTarget: vi.fn(async () => ok({ kind: 'cancelled' as const })),
+    })
+    openWork(editor, { width: 8, height: 6 })
+    await flush()
+    store.openPanel()
+    await store.confirm()
+    expect(exporter.mock.calls[0]![0].layer).toBeNull()
+
+    editor.applyDrawing(drawn(), true)
+    store.openPanel()
+    await store.confirm()
+    const layer = exporter.mock.calls[1]![0].layer!
+    expect(layer.width).toBe(8)
+    expect(layer.height).toBe(6)
+    expect([...layer.data.subarray((1 * 8 + 1) * 4, (1 * 8 + 1) * 4 + 4)]).toEqual([255, 0, 0, 255])
+  })
+
+  describe('transparency hint', () => {
+    let checks: { request: AlphaRequest; answer: (r: Result<boolean, AppError>) => void }[]
+
+    beforeEach(() => {
+      checks = []
+      store.setTransparencyChecker(
+        (request) =>
+          new Promise((resolve) => {
+            checks.push({ request, answer: resolve })
+          }),
+      )
+    })
+
+    async function jpegPanel(hasTransparency: boolean) {
+      openWork(editor, { width: 8, height: 6, hasTransparency })
+      await flush()
+      store.openPanel()
+      store.selectFormat('jpeg')
+      await flush()
+    }
+
+    it('skips the check for an opaque Original with a layer', async () => {
+      await jpegPanel(false)
+      editor.applyDrawing(drawn(), true)
+      await flush()
+      expect(checks).toHaveLength(0)
+      expect(store.transparencyHint).toBeNull()
+    })
+
+    it('runs the check with the layer for a transparent Original at the identity Geometry', async () => {
+      await jpegPanel(true)
+      expect(store.transparencyHint).not.toBeNull() // the short-cut, with no layer
+      editor.applyDrawing(drawn(), true)
+      await flush()
+      expect(checks).toHaveLength(1)
+      expect(checks[0]!.request.layer?.width).toBe(8)
+      expect(store.transparencyHint).toBeNull()
+      checks[0]!.answer(ok(false))
+      await flush()
+      expect(store.transparencyHint).toBeNull()
+    })
+
+    it('reruns the check after a new Apply (a new layer id)', async () => {
+      await jpegPanel(true)
+      editor.applyDrawing(drawn(), true)
+      await flush()
+      checks[0]!.answer(ok(true))
+      await flush()
+      editor.applyDrawing(drawn(), true)
+      await flush()
+      expect(checks).toHaveLength(2)
+    })
   })
 })

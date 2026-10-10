@@ -20,6 +20,7 @@ import {
   buildProgram,
   IDENTITY_GEOMETRY,
   setAdjustmentUniforms,
+  setLayerUniforms,
   uploadTexture,
   type GpuProgram,
 } from '../shaders'
@@ -37,12 +38,19 @@ export interface ExportRequest {
   geometry: Geometry
   /** The Work's applied Adjustments (adjust ADR-0001); never an open tool's Draft. */
   adjustments: Adjustments
+  /**
+   * The Work's applied Drawing layer as straight RGBA on the Original's grid, transferred, or null
+   * (draw ADR-0003); never the draw tool's Draft.
+   */
+  layer: ImageData | null
 }
 
 /** Whether any pixel inside the Crop is not fully opaque (crop-rotate ADR-0004). */
 export interface AlphaRequest {
   bitmap: ImageBitmap
   geometry: Geometry
+  /** The applied Drawing layer, composited before the check (draw ADR-0003), or null. */
+  layer: ImageData | null
 }
 
 /** The browser APIs the export needs, injected so it runs under unit tests too. */
@@ -163,6 +171,7 @@ export async function handleCheck(env: ExportEnv): Promise<FormatCheck> {
           quality: 90,
           geometry: identityGeometry({ width: 2, height: 2 }),
           adjustments: NEUTRAL_ADJUSTMENTS,
+          layer: null,
         },
         env,
       )
@@ -199,10 +208,11 @@ function readPixels(bitmap: ImageBitmap, env: ExportEnv): ImageData {
 }
 
 /**
- * Draws the Work through its Geometry and Adjustments into the canvas; the context, or null when
- * there is no usable WebGL2 context. A smaller Export with Adjustments takes two passes (adjust
- * sad.md §5): the Crop at full size with the Adjustments into a texture, then that texture reduced
- * through its mipmaps, flattened for JPEG in that last pass. Otherwise one pass, as before.
+ * Draws the Work through its Geometry and Adjustments, with its Drawing layer on top, into the
+ * canvas; the context, or null when there is no usable WebGL2 context. A smaller Export with
+ * Adjustments or a layer takes two passes (adjust sad.md §5, draw ADR-0003): the Crop at full size
+ * with the Adjustments and the layer into a texture, then that texture reduced through its mipmaps,
+ * flattened for JPEG in that last pass. Otherwise one pass, as before.
  */
 function render(
   canvas: OffscreenCanvas,
@@ -218,6 +228,12 @@ function render(
   if (!gl) return null
   const { bitmap, width, height, geometry, adjustments } = request
   const gpu = buildProgram(gl)
+  let layer: WebGLTexture | null = null
+  if (request.layer) {
+    gl.activeTexture(gl.TEXTURE1)
+    layer = uploadTexture(gl, request.layer)
+    gl.activeTexture(gl.TEXTURE0)
+  }
   const texture = uploadTexture(gl, readPixels(bitmap, env))
   const original = { width: bitmap.width, height: bitmap.height }
   const uv = new Float32Array(cropToOriginalUv(geometry, original))
@@ -225,8 +241,16 @@ function render(
   const full = width === geometry.crop.width && height === geometry.crop.height
   const unturned = geometry.straighten === 0
 
-  if (full || isNeutral(adjustments)) {
-    draw(gl, gpu, texture, { width, height, uv, adjustments, flatten, exact: full && unturned })
+  if (full || (isNeutral(adjustments) && !layer)) {
+    draw(gl, gpu, texture, {
+      width,
+      height,
+      uv,
+      adjustments,
+      flatten,
+      exact: full && unturned,
+      layer,
+    })
   } else {
     const { width: cw, height: ch } = geometry.crop
     const pass = gl.createTexture()
@@ -246,6 +270,7 @@ function render(
         flatten: false,
         exact: unturned,
         transform: PASS_QUAD,
+        layer,
       })
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
       gl.bindTexture(gl.TEXTURE_2D, pass)
@@ -257,6 +282,7 @@ function render(
         adjustments: NEUTRAL_ADJUSTMENTS,
         flatten,
         exact: false,
+        layer: null,
       })
     } finally {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null)
@@ -265,6 +291,7 @@ function render(
     }
   }
   gl.finish()
+  if (layer) gl.deleteTexture(layer)
   return gl.isContextLost() ? null : gl
 }
 
@@ -281,17 +308,28 @@ interface Pass {
    */
   exact: boolean
   transform?: Float32Array
+  /** The Drawing layer's texture, composited on unit 1 with the same filters, or null. */
+  layer: WebGLTexture | null
 }
 
 /** One textured quad over the bound framebuffer at `width`×`height`. */
 function draw(gl: WebGL2RenderingContext, gpu: GpuProgram, source: WebGLTexture | null, p: Pass) {
+  const filters = () => {
+    gl.texParameteri(
+      gl.TEXTURE_2D,
+      gl.TEXTURE_MIN_FILTER,
+      p.exact ? gl.NEAREST : gl.LINEAR_MIPMAP_LINEAR,
+    )
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, p.exact ? gl.NEAREST : gl.LINEAR)
+  }
+  if (p.layer) {
+    gl.activeTexture(gl.TEXTURE1)
+    gl.bindTexture(gl.TEXTURE_2D, p.layer)
+    filters()
+    gl.activeTexture(gl.TEXTURE0)
+  }
   gl.bindTexture(gl.TEXTURE_2D, source)
-  gl.texParameteri(
-    gl.TEXTURE_2D,
-    gl.TEXTURE_MIN_FILTER,
-    p.exact ? gl.NEAREST : gl.LINEAR_MIPMAP_LINEAR,
-  )
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, p.exact ? gl.NEAREST : gl.LINEAR)
+  filters()
 
   gl.viewport(0, 0, p.width, p.height)
   gl.clearColor(0, 0, 0, 0)
@@ -303,6 +341,7 @@ function draw(gl: WebGL2RenderingContext, gpu: GpuProgram, source: WebGLTexture 
   gl.uniformMatrix3fv(gpu.transform, false, p.transform ?? FULL_QUAD)
   gl.uniformMatrix3fv(gpu.geometry, false, p.uv)
   gl.uniform1i(gpu.flatten, p.flatten ? 1 : 0)
+  setLayerUniforms(gl, gpu, p.layer !== null)
   setAdjustmentUniforms(gl, gpu, p.adjustments)
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
 }

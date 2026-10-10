@@ -68,6 +68,10 @@ export interface InWindowExport {
   checkAlpha?(request: AlphaRequest): Promise<Result<boolean, AppError>>
 }
 
+/** What an export or alpha request transfers: the bitmap copy and the layer's pixels, if any. */
+const transferOf = (request: { bitmap: ImageBitmap; layer: ImageData | null }): Transferable[] =>
+  request.layer ? [request.bitmap, request.layer.data.buffer] : [request.bitmap]
+
 /**
  * Runs one message in a fresh worker and settles with `parse(reply)` or `fallback` on any crash.
  * The worker is terminated in every branch, which frees its WebGL2 context (export ADR-0002).
@@ -122,7 +126,7 @@ export function createExportClient(createWorker: () => Worker, inWindow?: InWind
       const { value, posted } = await runInWorker(
         createWorker,
         { kind: 'export', request },
-        [request.bitmap],
+        transferOf(request),
         parseExportReply,
         err(appError('EXPORT_FAILED')),
         EXPORT_TIMEOUT_MS,
@@ -141,7 +145,7 @@ export function createExportClient(createWorker: () => Worker, inWindow?: InWind
       const { value, posted } = await runInWorker(
         createWorker,
         { kind: 'alpha', request },
-        [request.bitmap],
+        transferOf(request),
         parseAlphaReply,
         err(appError('EXPORT_FAILED')),
         ALPHA_TIMEOUT_MS,

@@ -34,6 +34,8 @@ import {
   checkCropTransparency,
   checkExportFormats,
   exportImage,
+  readRect,
+  type Layer,
   type AlphaRequest,
   type ExportRequest,
   type FormatAvailabilityCheck,
@@ -240,19 +242,25 @@ export const useExportStore = defineStore('export', () => {
   const showsQuality = computed(() => format.value !== 'png')
 
   /**
-   * Whether the JPEG hint has a pixel to warn about: the Original's flag when it is opaque or the
-   * Geometry is the identity, else the GPU check over the Crop (crop-rotate ADR-0004), `running`
-   * until it answers.
+   * Whether the JPEG hint has a pixel to warn about: the Original's flag when it is opaque (marks
+   * are opaque, so they add no transparency) or, with no Drawing layer, when the Geometry is the
+   * identity; else the GPU check over the Crop with the layer (crop-rotate ADR-0004, draw ADR-0003),
+   * `running` until it answers.
    */
   const cropTransparency = computed<'running' | boolean>(() => {
     const work = editor.work
     if (!work || !work.original.hasTransparency) return false
-    if (geometryEquals(work.geometry, identityGeometry(work.original))) return true
+    if (!work.drawing && geometryEquals(work.geometry, identityGeometry(work.original))) return true
     const answer = cropAlpha.value
     return answer && answer.key === alphaKey(work) ? answer.state : 'running'
   })
 
-  const alphaKey = (work: Work) => `${work.id}@${JSON.stringify(work.geometry)}`
+  const alphaKey = (work: Work) =>
+    `${work.id}@${JSON.stringify(work.geometry)}@${work.drawing?.id ?? 'none'}`
+
+  /** The applied layer's pixels, read once per export or check and transferred (draw ADR-0003). */
+  const readLayer = (layer: Layer | null) =>
+    layer && readRect(layer, { x: 0, y: 0, width: layer.width, height: layer.height })
 
   /** Runs only when the open panel needs the answer, never on every Apply (ADR-0004). */
   async function runCropAlphaCheck() {
@@ -266,7 +274,11 @@ export const useExportStore = defineStore('export', () => {
     try {
       const copy = await copyBitmap(work.original.pixels)
       bitmapLedger.noteReceived()
-      const result = await checkTransparency({ bitmap: copy, geometry: work.geometry })
+      const result = await checkTransparency({
+        bitmap: copy,
+        geometry: work.geometry,
+        layer: readLayer(work.drawing as Layer | null),
+      })
       closeBitmap(copy) // already transferred and closed in the worker; this records it
       answer = result.ok ? result.value : true // a failed check shows the hint: the safe side
     } catch {
@@ -276,7 +288,14 @@ export const useExportStore = defineStore('export', () => {
   }
 
   watch(
-    () => [panelOpen.value, format.value, editor.work?.id, editor.work?.geometry] as const,
+    () =>
+      [
+        panelOpen.value,
+        format.value,
+        editor.work?.id,
+        editor.work?.geometry,
+        editor.work?.drawing,
+      ] as const,
     () => void runCropAlphaCheck(),
   )
 
@@ -381,6 +400,7 @@ export const useExportStore = defineStore('export', () => {
       quality: lossyQuality,
       geometry: snapshot.geometry,
       adjustments: snapshot.adjustments,
+      layer: readLayer(snapshot.drawing),
     })
     closeBitmap(copy) // already transferred and closed in the worker; this records it
     if (!result.ok) {
