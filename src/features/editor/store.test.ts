@@ -1116,6 +1116,19 @@ describe('editor store — the draw tool in the slot (draw AC-12, AC-13, AC-15, 
     expect(editor.previewLayer).toBeNull()
   })
 
+  it('setPreviewLayer hands the Draft to the renderer at once, before a Stroke paints it', async () => {
+    const { factory, renderer } = createFakeRenderer()
+    editor.setRendererFactory(factory)
+    editor.createRenderer({} as HTMLCanvasElement)
+    await open()
+    editor.openTool('draw')
+    const layer = draft()
+    editor.setPreviewLayer(layer)
+    // Synchronously: the Preview's watcher runs only after the first segment is painted, too late
+    // to allocate the new, blank Draft without reading it back (spec §6 latency).
+    expect(renderer.setLayer).toHaveBeenLastCalledWith(layer)
+  })
+
   it('layerChanged forwards the dirty rectangle to the renderer', async () => {
     const { factory, renderer } = createFakeRenderer()
     editor.setRendererFactory(factory)

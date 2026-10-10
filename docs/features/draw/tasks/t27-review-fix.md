@@ -7,7 +7,7 @@ acs: ["AC-01"]
 files_hint: ["src/render/drawing/layer.ts", "src/render/drawing/layer.test.ts", "src/render/preview-renderer.ts", "src/render/preview-renderer.test.ts"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 source: "review-2026-10-10 S3 (part), Q6"
 ---
 

@@ -19,11 +19,12 @@ import {
   IDENTITY_GEOMETRY,
   setAdjustmentUniforms,
   setLayerUniforms,
+  allocateBlankTexture,
   uploadTexture,
   type GpuProgram,
 } from './shaders'
 import { viewToTransform } from './view-transform'
-import { clampToLayer, readRect, type Layer, type LayerRect } from './drawing'
+import { clampToLayer, isBlankLayer, readRect, type Layer, type LayerRect } from './drawing'
 
 const union = (a: LayerRect, b: LayerRect): LayerRect => {
   const x = Math.min(a.x, b.x)
@@ -179,8 +180,18 @@ export function createPreviewRenderer(
     invalidate()
   }
 
-  /** Uploads the whole held layer on unit 1 as straight `ImageData` with the premultiply flag. */
+  /**
+   * Uploads the whole held layer on unit 1 as straight `ImageData` with the premultiply flag. A
+   * blank layer (the first mark's new Draft) is allocated zero-filled instead: no readback.
+   */
   function uploadLayer() {
+    if (layer && isBlankLayer(layer)) {
+      gl!.activeTexture(gl!.TEXTURE1)
+      layerTexture = allocateBlankTexture(gl!, layer.width, layer.height)
+      layerMipmapsStale = false
+      gl!.activeTexture(gl!.TEXTURE0)
+      return
+    }
     const pixels =
       layer && readRect(layer, { x: 0, y: 0, width: layer.width, height: layer.height })
     if (!pixels) return

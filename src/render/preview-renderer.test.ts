@@ -11,7 +11,13 @@ import {
 import { viewToTransform } from './view-transform'
 import { createPreviewRenderer, type PreviewRenderer } from './preview-renderer'
 import { createFakeCanvas, createFakeFrames, createFakeGl, type FakeGl } from './fake-gl'
-import { createLayer, setLayerCanvasFactory, type CanvasFactory, type Layer } from './drawing'
+import {
+  createLayer,
+  layerContext,
+  setLayerCanvasFactory,
+  type CanvasFactory,
+  type Layer,
+} from './drawing'
 import { createFakeCanvas as createFakeLayerCanvas } from './drawing/fake-canvas'
 
 const bitmap = (width: number, height: number) => ({ width, height }) as unknown as ImageBitmap
@@ -463,6 +469,7 @@ describe('PreviewRenderer.setLayer / updateLayer (draw ADR-0003)', () => {
   })
 
   it('uploads the whole layer premultiplied on unit 1 and draws with u_draw on', () => {
+    layerContext(layer) // drawn into: not a blank layer
     renderer.setLayer(layer)
     expect(frames.pending).toBe(1)
     frames.flush()
@@ -471,6 +478,23 @@ describe('PreviewRenderer.setLayer / updateLayer (draw ADR-0003)', () => {
     expect(fake.calls).toContainEqual(['pixelStorei', 'UNPACK_PREMULTIPLY_ALPHA_WEBGL', true])
     const upload = uploads().at(-1)!
     expect((upload.at(-1) as ImageData).width).toBe(64)
+    expect(drawFlag()).toBe(1)
+  })
+
+  it('allocates a blank layer zero-filled: no readback and no pixel upload (spec §6 latency)', () => {
+    const pixels = layer.pixels as unknown as ReturnType<typeof createFakeLayerCanvas>
+    pixels.calls.length = 0
+    renderer.setLayer(layer)
+    frames.flush()
+    expect(pixels.calls.filter((c) => c[0] === 'getImageData')).toEqual([])
+    const pixelUploads = fake.calls.filter(
+      (c) => (c[0] === 'texImage2D' || c[0] === 'texSubImage2D') && c.at(-1) !== null,
+    )
+    expect(pixelUploads).toEqual([])
+    const blank = fake.calls.find(
+      ([n, , , , , , , , , data]) => n === 'texImage2D' && data === null,
+    )
+    expect(blank?.slice(4, 6)).toEqual([64, 32])
     expect(drawFlag()).toBe(1)
   })
 

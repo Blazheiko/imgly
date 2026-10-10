@@ -115,7 +115,7 @@ describe('preview renderer — context loss (AC-19, AC-19b)', () => {
 
 describe('preview renderer — context loss with a Drawing layer (draw ADR-0003)', () => {
   it('re-uploads the layer from its canvas after a restore', async () => {
-    const { createLayer, setLayerCanvasFactory } = await import('./drawing')
+    const { createLayer, layerContext, setLayerCanvasFactory } = await import('./drawing')
     const { createFakeCanvas: createFakeLayerCanvas } = await import('./drawing/fake-canvas')
     const previous = setLayerCanvasFactory(
       (w, h) => createFakeLayerCanvas(w, h) as unknown as OffscreenCanvas,
@@ -132,7 +132,9 @@ describe('preview renderer — context loss with a Drawing layer (draw ADR-0003)
     renderer.resize(800, 600)
     renderer.setOriginal({ width: 16, height: 8 } as unknown as ImageBitmap)
     renderer.setView(view)
-    renderer.setLayer(createLayer({ width: 16, height: 8 }))
+    const layer = createLayer({ width: 16, height: 8 })
+    layerContext(layer) // drawn into: a blank layer is allocated zero-filled, not read back
+    renderer.setLayer(layer)
     frames.flush()
     fake.calls.length = 0
 

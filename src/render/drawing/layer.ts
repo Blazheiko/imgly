@@ -25,17 +25,32 @@ export function setLayerCanvasFactory(next: CanvasFactory): CanvasFactory {
 }
 
 const released = new WeakSet<OffscreenCanvas>()
+// Canvases made by `createLayer` whose context has not yet been taken to draw: still all zero.
+const blank = new WeakSet<OffscreenCanvas>()
 
-/** The layer's 2D context. The first call (in `createLayer`) fixes `willReadFrequently`. */
+/** The canvas's 2D context. The first call (in `createLayer`) fixes `willReadFrequently`. */
+const context = (pixels: OffscreenCanvas) => pixels.getContext('2d', { willReadFrequently: true })!
+
+/** The layer's 2D context, to draw with: from here on the layer may hold marks. */
 export function layerContext(layer: Layer): OffscreenCanvasRenderingContext2D {
-  return layer.pixels.getContext('2d', { willReadFrequently: true })!
+  blank.delete(layer.pixels)
+  return context(layer.pixels)
+}
+
+/**
+ * Whether the layer is as `createLayer` made it, fully transparent, so the renderer can allocate
+ * its texture zero-filled instead of reading back and uploading every pixel (spec §6 latency).
+ */
+export function isBlankLayer(layer: Layer): boolean {
+  return blank.has(layer.pixels)
 }
 
 /** A new, fully transparent layer of `size` with a new id, counted in the ledger. */
 export function createLayer(size: Size): Layer {
   const pixels = canvasFactory(size.width, size.height)
   const layer: Layer = { id: newId(), width: size.width, height: size.height, pixels }
-  layerContext(layer)
+  context(pixels)
+  blank.add(pixels)
   bitmapLedger.noteLayerCreated()
   return layer
 }
@@ -59,12 +74,15 @@ export function releaseLayer(layer: Layer): void {
   bitmapLedger.noteLayerReleased()
 }
 
-/** `rect` widened to whole pixels and clamped to the layer; null when nothing is left. */
+/**
+ * `rect` widened to whole pixels and clamped to the layer; null when nothing is left. A released
+ * layer's canvas is 0×0, so nothing is left of any rectangle on it.
+ */
 export function clampToLayer(layer: Layer, rect: LayerRect): LayerRect | null {
   const x0 = Math.max(0, Math.floor(rect.x))
   const y0 = Math.max(0, Math.floor(rect.y))
-  const x1 = Math.min(layer.width, Math.ceil(rect.x + rect.width))
-  const y1 = Math.min(layer.height, Math.ceil(rect.y + rect.height))
+  const x1 = Math.min(layer.width, layer.pixels.width, Math.ceil(rect.x + rect.width))
+  const y1 = Math.min(layer.height, layer.pixels.height, Math.ceil(rect.y + rect.height))
   if (x1 <= x0 || y1 <= y0) return null
   return { x: x0, y: y0, width: x1 - x0, height: y1 - y0 }
 }
@@ -72,7 +90,7 @@ export function clampToLayer(layer: Layer, rect: LayerRect): LayerRect | null {
 /** The layer's pixels under `rect`, widened to whole pixels and clamped to the layer; null if empty. */
 export function readRect(layer: Layer, rect: LayerRect): ImageData | null {
   const r = clampToLayer(layer, rect)
-  return r && layerContext(layer).getImageData(r.x, r.y, r.width, r.height)
+  return r && context(layer.pixels).getImageData(r.x, r.y, r.width, r.height)
 }
 
 /** Whether any pixel of the layer has some alpha. */

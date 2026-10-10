@@ -219,6 +219,16 @@ export const useEditorStore = defineStore('editor', () => {
   }
 
   /** The open draw tool's dirty rectangle, straight to the renderer (draw ADR-0002 hot path). */
+  /**
+   * The draw tool's Draft for the Preview. The renderer gets it at once, not on the Preview's next
+   * watcher flush: a new Draft is still blank then, so its texture is allocated without a readback
+   * before the first segment paints into it (spec §6 latency).
+   */
+  function setPreviewLayer(next: Layer | null) {
+    slot.setPreviewLayer(next)
+    if (activeTool.value === 'draw') renderer?.setLayer(next)
+  }
+
   function layerChanged(rect: LayerRect) {
     renderer?.updateLayer(rect)
   }
@@ -450,7 +460,7 @@ export const useEditorStore = defineStore('editor', () => {
     applyGeometry,
     setPreviewAdjustments: slot.setPreviewAdjustments,
     applyAdjustments,
-    setPreviewLayer: slot.setPreviewLayer,
+    setPreviewLayer,
     layerChanged,
     applyDrawing,
     setActivePanel,

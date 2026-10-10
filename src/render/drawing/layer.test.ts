@@ -4,6 +4,8 @@ import {
   copyLayer,
   createLayer,
   hasAnyMark,
+  isBlankLayer,
+  layerContext,
   readRect,
   releaseLayer,
   setLayerCanvasFactory,
@@ -53,6 +55,26 @@ describe('render/drawing layer (ADR-0001)', () => {
     expect(fake(layer).height).toBe(0)
     releaseLayer(layer)
     expect(bitmapLedger.layersReleased).toBe(1)
+  })
+
+  it('reads a released layer as empty, allocating nothing', () => {
+    const layer = createLayer({ width: 4, height: 4 })
+    setPixel(fake(layer), 1, 1, [0, 0, 0, 255])
+    releaseLayer(layer)
+    fake(layer).calls.length = 0
+    expect(readRect(layer, { x: 0, y: 0, width: 4, height: 4 })).toBeNull()
+    expect(hasAnyMark(layer)).toBe(false)
+    expect(fake(layer).calls.filter((c) => c[0] === 'getImageData')).toEqual([])
+  })
+
+  it('a new layer is blank until its context is taken to draw; a copy is not', () => {
+    const layer = createLayer({ width: 4, height: 4 })
+    expect(isBlankLayer(layer)).toBe(true)
+    readRect(layer, { x: 0, y: 0, width: 4, height: 4 }) // a read keeps it blank
+    expect(isBlankLayer(layer)).toBe(true)
+    expect(isBlankLayer(copyLayer(layer))).toBe(false)
+    layerContext(layer)
+    expect(isBlankLayer(layer)).toBe(false)
   })
 
   it('resets the layer counters with the ledger', () => {

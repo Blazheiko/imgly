@@ -444,7 +444,9 @@ describe('handleAlpha (crop transparency check, crop-rotate ADR-0004)', () => {
   it('fails and still closes the bitmap without WebGL2 or after a lost context', async () => {
     const none = setup({ gl: null })
     const a = bitmap(40, 30)
-    await expect(handleAlpha({ bitmap: a, geometry, layer: null }, none.env)).resolves.toMatchObject({
+    await expect(
+      handleAlpha({ bitmap: a, geometry, layer: null }, none.env),
+    ).resolves.toMatchObject({
       ok: false,
     })
     expect(a.close).toHaveBeenCalledTimes(1)
@@ -452,7 +454,9 @@ describe('handleAlpha (crop transparency check, crop-rotate ADR-0004)', () => {
     const lost = withPixels(null)
     lost.fake!.returns.isContextLost = () => true
     const b = bitmap(40, 30)
-    await expect(handleAlpha({ bitmap: b, geometry, layer: null }, lost.env)).resolves.toMatchObject({
+    await expect(
+      handleAlpha({ bitmap: b, geometry, layer: null }, lost.env),
+    ).resolves.toMatchObject({
       ok: false,
     })
     expect(b.close).toHaveBeenCalledTimes(1)

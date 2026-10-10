@@ -188,6 +188,25 @@ export function setLayerUniforms(gl: WebGL2RenderingContext, gpu: GpuProgram, on
 }
 
 /**
+ * A zero-filled texture of the given size with the same parameters as `uploadTexture`: a blank
+ * Drawing layer, allocated without reading back or uploading its pixels.
+ */
+export function allocateBlankTexture(
+  gl: WebGL2RenderingContext,
+  width: number,
+  height: number,
+): WebGLTexture | null {
+  const texture = gl.createTexture()
+  gl.bindTexture(gl.TEXTURE_2D, texture)
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+  gl.generateMipmap(gl.TEXTURE_2D)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+  return texture
+}
+
+/**
  * Uploads pixels as a premultiplied, mipmapped sRGB texture (open-and-view ADR-0003). The premultiply
  * flag is honoured for `ImageData`; for an `ImageBitmap` the bitmap's own state decides, and WebKit
  * gets that wrong for bitmap copies, so the export uploads `ImageData`.
