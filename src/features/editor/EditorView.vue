@@ -65,15 +65,24 @@ function keepsSpace(target: EventTarget | null): boolean {
   )
 }
 
+/** An unshifted + typed on a key right of P while Draw is open: that tool's width key. */
+function drawWidthKey(e: KeyboardEvent): boolean {
+  return (
+    editor.activeTool === 'draw' &&
+    e.key === '+' &&
+    !e.shiftKey &&
+    (e.code === 'BracketLeft' || e.code === 'BracketRight')
+  )
+}
+
 /** SCR-02 zoom shortcuts. Ctrl/Cmd + / - / 0 stay the browser's page zoom (never intercepted). */
 const zoomShortcuts: { matches: (e: KeyboardEvent) => boolean; run: () => void }[] = [
   { matches: (e) => e.shiftKey && e.code === 'Digit1', run: () => editor.fit() },
   { matches: (e) => e.shiftKey && e.code === 'Digit0', run: () => editor.actualSize() },
   {
-    // With Draw open, the key right of P (+ on a German layout) steps the width (draw AC-19).
-    matches: (e) =>
-      (e.key === '+' || e.key === '=') &&
-      !(editor.activeTool === 'draw' && e.code === 'BracketRight'),
+    // With Draw open, an unshifted + on a key right of P (German, Spanish: BracketRight;
+    // Portuguese: BracketLeft) steps the width instead; = and Shift+ + still zoom (draw AC-18, AC-19).
+    matches: (e) => (e.key === '+' || e.key === '=') && !drawWidthKey(e),
     run: () => editor.stepZoom(1),
   },
   { matches: (e) => e.key === '-', run: () => editor.stepZoom(-1) },

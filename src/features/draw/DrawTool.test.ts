@@ -148,6 +148,12 @@ describe('DrawTool (SCR-03)', () => {
     expect(editor.view.zoom).toBe(zoom)
     key({ key: 'ü', code: 'BracketLeft' }, document.body)
     expect(draw.width).toBe(12)
+    key({ key: '+', code: 'BracketLeft' }, document.body) // Portuguese: + is left of the two
+    expect(draw.width).toBe(11)
+    expect(editor.view.zoom).toBe(zoom)
+    key({ key: '=', code: 'BracketRight' }, document.body) // Dvorak: = zooms in
+    expect(draw.width).toBe(11)
+    expect(editor.view.zoom).toBeGreaterThan(zoom)
     view.unmount()
   })
 

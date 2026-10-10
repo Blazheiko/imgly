@@ -183,14 +183,30 @@ describe('EditorView — zoom shortcuts (SCR-02)', () => {
     expect(editor.view.zoom).toBeCloseTo(1 / 3)
   })
 
-  it('with Draw open, the key right of P steps the width instead of zooming (draw AC-19)', () => {
+  it('with Draw open, an unshifted + on a key right of P is left to the tool (draw AC-19)', () => {
     editor.openTool('draw')
     const zoom = editor.view.zoom
-    const german = press({ key: '+', code: 'BracketRight' })
-    expect(editor.view.zoom).toBe(zoom)
-    expect(german.defaultPrevented).toBe(false) // left for the tool's own key handler
-    press({ key: '+', code: 'Equal', shiftKey: true })
-    expect(editor.view.zoom).toBeGreaterThan(zoom)
+    for (const code of ['BracketRight', 'BracketLeft']) {
+      // German and Spanish type + on BracketRight, Portuguese on BracketLeft.
+      const key = press({ key: '+', code })
+      expect(editor.view.zoom).toBe(zoom)
+      expect(key.defaultPrevented).toBe(false) // for the tool's own key handler
+    }
+  })
+
+  it('with Draw open, = and Shift+ + still zoom, also on the key right of P (Dvorak, AC-18)', () => {
+    editor.openTool('draw')
+    let zoom = editor.view.zoom
+    for (const init of [
+      { key: '=', code: 'BracketRight' }, // Dvorak
+      { key: '+', code: 'BracketRight', shiftKey: true }, // Dvorak's Shift+=
+      { key: '+', code: 'Equal', shiftKey: true }, // US
+    ]) {
+      const key = press(init)
+      expect(editor.view.zoom).toBeGreaterThan(zoom)
+      expect(key.defaultPrevented).toBe(true)
+      zoom = editor.view.zoom
+    }
   })
 
   it('with no tool open, + on the key right of P still zooms', () => {

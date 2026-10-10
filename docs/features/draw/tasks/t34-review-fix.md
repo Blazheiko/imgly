@@ -7,7 +7,7 @@ acs: ["AC-18", "AC-19"]
 files_hint: ["src/features/editor/EditorView.vue", "src/features/editor/EditorView.test.ts", "src/features/draw/DrawTool.test.ts", "docs/features/draw/spec.md"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 source: "review-2026-10-10-2 R1"
 ---
 
