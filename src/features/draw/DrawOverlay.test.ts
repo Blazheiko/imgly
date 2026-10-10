@@ -82,6 +82,37 @@ describe('DrawOverlay (SCR-03, sad.md §8 Input)', () => {
     expect(draw.strokeActive).toBe(false)
   })
 
+  describe('focus (AC-03, AC-18, AC-19)', () => {
+    function focusedField() {
+      const field = document.createElement('input')
+      document.body.append(field)
+      field.focus()
+      expect(document.activeElement).toBe(field)
+      return field
+    }
+
+    it('a main-button press moves focus off the control that has it, as a click would', () => {
+      focusedField()
+      el().dispatchEvent(pointer('pointerdown', { clientX: 310, clientY: 260 }))
+      expect(document.activeElement).toBe(document.body)
+    })
+
+    it('leaves the control before the Stroke begins, so a typed width commits first', () => {
+      const field = focusedField()
+      let strokeOnBlur: boolean | undefined
+      field.addEventListener('blur', () => (strokeOnBlur = draw.strokeActive))
+      el().dispatchEvent(pointer('pointerdown', { clientX: 310, clientY: 260 }))
+      expect(strokeOnBlur).toBe(false)
+      expect(draw.strokeActive).toBe(true)
+    })
+
+    it('keeps focus where it is for a press that makes no Stroke', () => {
+      const field = focusedField()
+      el().dispatchEvent(pointer('pointerdown', { clientX: 310, clientY: 260, button: 2 }))
+      expect(document.activeElement).toBe(field)
+    })
+  })
+
   it('feeds every coalesced position of a move into the Stroke', () => {
     el().dispatchEvent(pointer('pointerdown', { clientX: 310, clientY: 260 }))
     el().dispatchEvent(

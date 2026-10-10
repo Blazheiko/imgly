@@ -126,9 +126,9 @@ export async function openWhite(page: Page, width: number, height: number) {
   await openPixels(page, width, height, () => [255, 255, 255, 255])
 }
 
-/** Moves focus off the control that has it, to the page itself. */
-export const leaveField = (page: Page) =>
-  page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+/** Clicks the tool panel's "Width" heading: focus leaves the control that has it, as a user's click does. */
+export const clickPanelBackground = (page: Page) =>
+  tool(page).getByRole('heading', { name: 'Width' }).click()
 
 /** How many pixels of the Draft have some alpha, counted in the page. */
 export const draftMarks = (page: Page) =>

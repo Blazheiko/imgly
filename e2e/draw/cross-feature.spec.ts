@@ -12,7 +12,7 @@ import {
   fixture,
   gotoReady,
   layers,
-  leaveField,
+  clickPanelBackground,
   openNamed,
   openTool,
   screenPoint,
@@ -103,7 +103,6 @@ test.describe('with an image', () => {
     test('a mark drawn and erased again in one Draft is an edit', async ({ page }) => {
       await openTool(page)
       await setWidth(page, 20)
-      await leaveField(page)
       await click(page, 160, 120)
       await page.keyboard.press('e')
       await setWidth(page, 60)
@@ -166,7 +165,6 @@ test.describe('with an image', () => {
       await cropAction(page).click({ force: true })
       await adjustAction(page).click({ force: true })
       await expect(toasts(page, OTHER_TOOL_HINT)).toHaveCount(2)
-      await leaveField(page)
       await page.keyboard.press('c')
       await page.keyboard.press('a')
       await expect(toasts(page, OTHER_TOOL_HINT)).toHaveCount(4)
@@ -188,7 +186,6 @@ test.describe('with an image', () => {
         await expect(opened(page)).toBeVisible()
         await action(page).click({ force: true })
         await expect(toast(page, OTHER_TOOL_HINT)).toBeVisible()
-        await leaveField(page)
         await page.keyboard.press('d')
         await expect(toasts(page, OTHER_TOOL_HINT)).toHaveCount(2)
         await expect(tool(page)).toHaveCount(0)
@@ -343,7 +340,8 @@ test('AC-18 — the View is kept on open, works inside, and stays after Apply an
     const cx = a.left + a.width / a.dpr / 2
     const cy = a.top + a.height / a.dpr / 2
     if (space) {
-      await leaveField(page)
+      // Focus opens on Brush, where Space presses the radio (screens.md §Keyboard)
+      await clickPanelBackground(page)
       await page.keyboard.down('Space')
     }
     await page.mouse.move(cx, cy)

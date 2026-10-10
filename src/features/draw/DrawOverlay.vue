@@ -68,6 +68,9 @@ function onPointerDown(event: PointerEvent) {
   if (event.button !== 0 || editor.spacePan) return
   event.preventDefault()
   event.stopPropagation() // the overlay, not the canvas under it, takes the drag
+  // The cancelled press would leave focus on a panel control, so Enter, Space and the tool keys
+  // would go to it. Leave it as a click would; a typed width commits before the Stroke (AC-03).
+  ;(document.activeElement as HTMLElement | null)?.blur?.()
   strokePointer = event.pointerId
   overlay.value?.setPointerCapture?.(event.pointerId)
   tool.beginStroke(devicePoint(event.clientX, event.clientY), editor.view)

@@ -10,7 +10,6 @@ import {
   drawingAlpha,
   gotoReady,
   layers,
-  leaveField,
   openTool,
   openWhite,
   screenPoint,
@@ -197,8 +196,7 @@ test('Escape mid-Stroke cancels at once and keeps the layer from before (AC-06, 
 
 test('a mode or width change mid-Stroke applies from the next Stroke (AC-18)', async ({ page }) => {
   await openTool(page)
-  await setWidth(page, 10)
-  await leaveField(page) // B, E, [ and ] type normally in the field
+  await setWidth(page, 10) // the press below leaves the field, so B, E, [ and ] reach the tool
   const a = await screenPoint(page, 20, 40)
   const b = await screenPoint(page, 180, 40)
   await page.mouse.move(a.x, a.y)
@@ -280,8 +278,7 @@ test('in the tool a drag draws, a Space-drag pans and Ctrl+wheel zooms (AC-18)',
   const drawn = await draftMarks(page)
   expect(drawn).toBeGreaterThan(0)
 
-  await leaveField(page)
-  await page.keyboard.down('Space')
+  await page.keyboard.down('Space') // the drag above took focus off the panel
   await dragBy(-60, -40)
   await page.keyboard.up('Space')
   expect(await view(page)).not.toEqual(zoomed)
@@ -316,10 +313,14 @@ test('keyboard path: D opens, B/E and [ ] change settings, Enter applies (AC-19)
   await expect(tool(page).getByRole('textbox', { name: 'Width' })).toHaveValue('13')
   await page.keyboard.press('Shift+BracketLeft')
   await expect(tool(page).getByRole('textbox', { name: 'Width' })).toHaveValue('3')
-  await leaveField(page) // Enter on the focused Brush radio would press it instead
+  await drag(page, [
+    [40, 40],
+    [120, 90],
+  ]) // the drag takes focus off the Brush radio, so Enter applies rather than pressing it
   await page.keyboard.press('Enter')
   await expect(tool(page)).toBeHidden()
   await expect(action(page)).toBeFocused()
+  expect(marked(await drawingAlpha(page))).toBeGreaterThan(0)
 })
 
 test('the layer ledger keeps exactly one applied layer, or none (sad.md §7)', async ({ page }) => {

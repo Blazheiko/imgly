@@ -7,7 +7,7 @@ acs: ["AC-03", "AC-18", "AC-19"]
 files_hint: ["src/features/draw/DrawOverlay.vue", "src/features/draw/DrawOverlay.test.ts", "e2e/draw/helpers.ts", "e2e/draw/tool.spec.ts", "e2e/draw/cross-feature.spec.ts"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 source: "review-2026-10-10 S1"
 ---
 
