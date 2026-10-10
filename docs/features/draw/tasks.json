@@ -881,13 +881,15 @@
     },
     {
       "id": "T38",
-      "title": "Re-run the drawing rows (spec §6 rows 1–2) on a 60 Hz display with stable Chrome and record them",
+      "title": "Re-run the drawing rows (spec §6 rows 1–2) on a 60 Hz display with stable Chrome and record them; the run fails below 60 Hz-like frame intervals and records the browser version (Q13)",
       "layer": "tests",
       "deps": [
         "T34",
         "T35",
         "T36",
-        "T37"
+        "T37",
+        "T39",
+        "T40"
       ],
       "acs": [
         "AC-01"
@@ -899,6 +901,43 @@
       ],
       "file": "docs/features/draw/tasks/t38-review-fix.md",
       "source": "docs/features/draw/_review/review-2026-10-10-2.md R2"
+    },
+    {
+      "id": "T39",
+      "title": "Docs: AC-18 and screens.md name the layouts whose zoom-in is numpad + and the controls; an AC-18 test-plan row; claim SCR-03 Stroke ended early and SCR-08 cancelled",
+      "layer": "docs",
+      "deps": [],
+      "acs": [
+        "AC-13",
+        "AC-18",
+        "AC-19"
+      ],
+      "dod": "AC-18 and screens.md §Keyboard match the code on every layout; test-plan has the row; every draw-built state is claimed",
+      "files_hint": [
+        "docs/features/draw/spec.md",
+        "docs/features/draw/screens.md",
+        "docs/features/draw/test-plan.md",
+        "docs/features/draw/tasks.json"
+      ],
+      "file": "docs/features/draw/tasks/t39-review-fix.md",
+      "source": "docs/features/draw/_review/review-2026-10-10-3.md S1, S2"
+    },
+    {
+      "id": "T40",
+      "title": "Palette swatch fills keep their colour in forced-colors mode",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-02"
+      ],
+      "dod": "forced-color-adjust: none on the swatch fills, with a test",
+      "files_hint": [
+        "src/shared/ui/SegmentedControl.vue",
+        "src/shared/ui/primitives.test.ts",
+        "src/features/draw/DrawControls.vue"
+      ],
+      "file": "docs/features/draw/tasks/t40-review-fix.md",
+      "source": "docs/features/draw/_review/review-2026-10-10-3.md Q12"
     }
   ]
 }

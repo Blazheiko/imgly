@@ -43,5 +43,7 @@
 | T36 | Docs: carry AC-18's re-fit wording into ux-flows, screens and sad; claim the remaining SCR states in tasks.json; correct the AC-04 note | docs | Blazheiko | S | T34, T35 | done |
 | T37 | Quality: layerChanged's comment back in place, a forced-colors selected ring, and the swatch CSS test asserting the invariant only | ui | Blazheiko | S | — | done |
 | T38 | Re-run the drawing rows (spec §6 rows 1–2) on a 60 Hz display with stable Chrome and record them | tests | Blazheiko | S | T34, T35, T36, T37 | todo |
+| T39 | Docs: AC-18 and screens.md name the layouts whose zoom-in is numpad + and the controls; an AC-18 test-plan row; claim SCR-03 Stroke ended early and SCR-08 cancelled | docs | Blazheiko | S | — | todo |
+| T40 | Palette swatch fills keep their colour in forced-colors mode | ui | Blazheiko | S | — | todo |
 
-**Total:** 38 tasks, ~29 person-days (S ≈ ½ day, M ≈ 1 day).
+**Total:** 40 tasks, ~30 person-days (S ≈ ½ day, M ≈ 1 day).
