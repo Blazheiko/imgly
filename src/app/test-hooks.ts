@@ -92,6 +92,11 @@ export interface ImglyTestHooks {
     style: BrushStyle,
     hz?: number,
   ): Promise<{ frameIntervals: number[]; latencies: number[] }>
+  /**
+   * The applied Drawing layer's alpha on the Original's grid, row by row (draw QG-2c mask); an
+   * empty array with no layer.
+   */
+  drawingAlpha(): number[]
   /** Drawing layers created and released by the app (draw sad.md §7); retained is their difference. */
   layers(): { created: number; released: number; retained: number }
   /** Bitmaps received from the decode worker and closed by the app; retained should be 1. */
@@ -307,6 +312,12 @@ export function installTestHooks(pinia: Pinia): void {
       editor.closeTool()
       releaseLayer(layer)
       return { frameIntervals, latencies }
+    },
+    drawingAlpha: () => {
+      const layer = editor.work?.drawing as Layer | null | undefined
+      const pixels =
+        layer && readRect(layer, { x: 0, y: 0, width: layer.width, height: layer.height })
+      return pixels ? Array.from(pixels.data.filter((_, i) => i % 4 === 3)) : []
     },
     layers: () => ({
       created: bitmapLedger.layersCreated,
