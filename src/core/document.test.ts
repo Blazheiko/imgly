@@ -57,6 +57,18 @@ describe('Work source facts (export AC-08, AC-15)', () => {
   })
 })
 
+describe('Work Drawing layer (draw ADR-0001, AC-13)', () => {
+  it('starts every new Work with an empty Drawing layer', () => {
+    expect(createWork(original, 'w-1', source).drawing).toBeNull()
+  })
+
+  it('keeps the Drawing layer across an edit', () => {
+    const layer = { id: 'l-1', width: 4096, height: 2731, pixels: 'canvas' }
+    const drawn = { ...createWork(original, 'w-1', source), drawing: layer }
+    expect(withEdit(drawn).drawing).toBe(layer)
+  })
+})
+
 describe('Work Adjustments (adjust ADR-0001, AC-17)', () => {
   it('starts every new Work with neutral Adjustments', () => {
     const work = createWork(original, 'w-1', source, 1000)
