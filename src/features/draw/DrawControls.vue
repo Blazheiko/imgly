@@ -48,14 +48,14 @@ const preset = computed(() => (PALETTE.some((c) => c.hex === tool.colour) ? tool
           <input
             class="draw-controls__picker"
             type="color"
-            :value="tool.colour.toLowerCase()"
+            :value="(tool.customColour ?? tool.colour).toLowerCase()"
             :aria-label="CUSTOM_COLOUR"
             @input="tool.setColour(($event.target as HTMLInputElement).value)"
           />
           <span
             class="draw-controls__custom-swatch"
-            :class="{ 'draw-controls__custom-swatch--empty': preset !== null }"
-            :style="preset === null ? { background: tool.colour } : undefined"
+            :class="{ 'draw-controls__custom-swatch--empty': tool.customColour === null }"
+            :style="tool.customColour ? { background: tool.customColour } : undefined"
           />
           <span class="draw-controls__custom-label">{{ CUSTOM_COLOUR }}</span>
         </label>

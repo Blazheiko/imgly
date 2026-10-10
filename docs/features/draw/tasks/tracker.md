@@ -29,7 +29,7 @@
 | T22 | With Draw open the key right of P (German +) steps the width instead of zooming | wiring | Blazheiko | S | T21 | done |
 | T23 | Enter on the focused Custom colour input opens the picker instead of applying the tool | ui | Blazheiko | S | T22 | done |
 | T24 | Value-equal points paint a dot, so a tap with a zero-length move leaves a mark on every engine; dot and Eraser-click e2e on all three engines | app | Blazheiko | S | T21 | done |
-| T25 | The custom swatch keeps the last custom colour after a preset is picked; the Custom colour accessible-name test can fail | ui | Blazheiko | S | T23 | todo |
+| T25 | The custom swatch keeps the last custom colour after a preset is picked; the Custom colour accessible-name test can fail | ui | Blazheiko | S | T23 | done |
 | T26 | A focused, selected swatch shows both the selected ring and the focus ring | ui | Blazheiko | S | T25 | todo |
 | T27 | Released layers read as empty without allocating; a fresh empty layer is uploaded zero-filled with no readback | infra | Blazheiko | S | — | todo |
 | T28 | Context-loss tests cover setLayer and updateLayer while the context is restoring | tests | Blazheiko | S | T27 | todo |

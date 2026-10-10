@@ -7,7 +7,7 @@ acs: ["AC-02"]
 files_hint: ["src/features/draw/DrawControls.vue", "src/features/draw/DrawControls.test.ts"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 source: "review-2026-10-10 Q2, Q4"
 ---
 

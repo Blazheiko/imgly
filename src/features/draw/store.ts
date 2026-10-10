@@ -5,6 +5,7 @@ import {
   DEFAULT_WIDTH,
   MAX_WIDTH,
   MIN_WIDTH,
+  PALETTE,
   parseWidth,
   stepWidth as stepped,
   type DrawMode,
@@ -31,6 +32,8 @@ export const useDrawStore = defineStore('draw', () => {
   const draft = shallowRef<Layer | null>(null)
   const mode = ref<DrawMode>('brush')
   const colour = ref(DEFAULT_COLOUR)
+  /** The last picked colour that is no preset, shown on the custom swatch; kept until reload. */
+  const customColour = ref<string | null>(null)
   const width = ref(DEFAULT_WIDTH)
   /** A pointer is pressed on the image: input that would change the Stroke waits (AC-18). */
   const strokeActive = ref(false)
@@ -98,7 +101,9 @@ export const useDrawStore = defineStore('draw', () => {
 
   /** A palette or picker colour; anything but a full `#RRGGBB` is ignored (AC-02). */
   function setColour(next: string) {
-    if (HEX_COLOUR.test(next)) colour.value = next.toUpperCase()
+    if (!HEX_COLOUR.test(next)) return
+    colour.value = next.toUpperCase()
+    if (!PALETTE.some((c) => c.hex === colour.value)) customColour.value = colour.value
   }
 
   /** A slider value, made a whole number within 1…200. */
@@ -192,6 +197,7 @@ export const useDrawStore = defineStore('draw', () => {
     draft,
     mode,
     colour,
+    customColour,
     width,
     strokeActive,
     isOpen,

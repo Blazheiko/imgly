@@ -108,10 +108,22 @@ describe('DrawControls (SCR-03)', () => {
     expect(wrapper.get('.draw-controls__custom').classes()).toContain(
       'draw-controls__custom--selected',
     )
-    expect(wrapper.get('.draw-controls__custom').attributes('aria-label') ?? CUSTOM_COLOUR).toBe(
-      CUSTOM_COLOUR,
-    )
+    expect(custom().attributes('aria-label')).toBe(CUSTOM_COLOUR)
     expect(wrapper.text()).toContain(CUSTOM_COLOUR)
+  })
+
+  it('the custom swatch keeps the last custom colour after a preset is picked', async () => {
+    const swatch = () => wrapper.get('.draw-controls__custom-swatch')
+    expect(swatch().classes()).toContain('draw-controls__custom-swatch--empty')
+    await custom().setValue('#123456')
+    await radio('Colour', 'Blue').trigger('click')
+    expect(draw.colour).toBe('#1E88E5')
+    expect(swatch().classes()).not.toContain('draw-controls__custom-swatch--empty')
+    expect(swatch().attributes('style')).toContain('background: #123456')
+    expect((custom().element as HTMLInputElement).value).toBe('#123456')
+    expect(wrapper.get('.draw-controls__custom').classes()).not.toContain(
+      'draw-controls__custom--selected',
+    )
   })
 
   it('has a Width slider 1 to 200 in px with its tooltip', () => {
