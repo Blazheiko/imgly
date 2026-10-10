@@ -57,6 +57,7 @@ declare global {
       setGeometry(geometry: Geometry): void
       setAdjustments(adjustments: Adjustments): void
       setReferenceDrawing(): void
+      setFullDrawing(): void
       paintStroke(
         points: { x: number; y: number }[],
         style: BrushStyle,

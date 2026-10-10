@@ -161,6 +161,20 @@ See [tracker.md](./tracker.md) for status. Machine contract: [tasks.json](../tas
     *Decision:* latency passes everywhere, and 100% passes with room. Below 100% every frame costs two display frames: regenerating the whole layer's mipmaps each frame dominates (width barely matters). On a machine faster than the M1 Air reference that is at the 33 ms line, so it counts as a miss. **T12 takes fallback 1**: during a Stroke below 100%, regenerate the mipmaps at most every other frame, and once more on release. The renderer already coalesces each frame's dirty rectangles into one upload inside its own frame (T8), which also covers the intent of fallback 2.
 
     *T12 follow-up (same machine and run shape), with fallback 1 in the renderer:* 1 px at Fit 29.9 ms / 10.6 ms, 200 px at Fit 30.1 ms / 10.4 ms, 1 px at 100% 17.9 ms / 7.4 ms, 200 px at 100% 17.6 ms / 7.5 ms (frame interval p95 / move-to-frame p95). All four pass. Caveat: Playwright's headless Chromium renders WebGL with SwiftShader (software), so these numbers are a pessimistic proxy; the T20 run on the reference machine's GPU Chrome stays the gate.
+  - *T20 result (2026-10-10, same machine, Playwright headless Chromium, 4096×3072; `e2e/draw/perf.spec.ts`, `e2e/export/perf.spec.ts`):*
+
+    | Row | Measured | Target | |
+    |---|---|---|---|
+    | Tool ready after "Draw" | 73 ms | ≤ 150 ms | pass |
+    | Apply / Cancel / Clear over a full layer | 28 / 111 / 29 ms | ≤ 150 ms | pass |
+    | Apply in "Crop and rotate" with a full layer | 29 ms | ≤ 150 ms | pass |
+    | Export with a full layer, JPEG q90 / PNG | 509 / 593 ms | ≤ 1000 / 2000 ms | pass |
+    | Memory after 50 Applies | 102 % of the first, 1 layer retained | ≤ 110 % | pass |
+    | Overlay drawing, 200 px at Fit / 100%: frame interval p95 | 34.7 / 36.0 ms | ≤ 33 ms | **miss** |
+    | Overlay drawing, 200 px: move-to-frame p95 | 0.5–1.0 ms | ≤ 50 ms | pass |
+    | Overlay drawing, 1 px at Fit / 100% | — (timed out in Playwright `mouse.move`) | ≤ 33 / 50 ms | **not measured** |
+
+    *Open:* the overlay rows drive the real overlay with CDP mouse moves awaited one by one, so the Preview's draw intervals may follow the input pacing rather than the renderer (the in-page T9 spike measured 17.6 ms at 100% on the same path). That is unproven. The 1 px timeouts are unexplained. T20 stays in `review` until the overlay rows are measured on the reference machine's GPU Chrome, or the harness is shown to be the cause; no threshold was changed.
 - **Image pixels never change** (AC-07): the painter only ever touches the layer. The Eraser is `destination-out` on the layer alone (repo ADR 0004).
 - **The Draft never counts as Unsaved edits** (AC-12, AC-13): only `editor.applyDrawing(layer, changed)` raises the revision, and only when the per-Draft change flag is true. No pixel comparison is used.
 - **An Export never holds a Draft** (AC-14, AC-15): Export is unavailable while the tool is open, and the tool is refused during an export.

@@ -24,6 +24,6 @@
 | T17 | Add the e2e fidelity suite: reference drawing vs Preview at 100% for each Geometry case and with Adjustments, empty layer = 0, Geometry round trips = 0, image pixels unchanged outside marks, smaller sizes and the transparency hint | tests | Blazheiko | M | T8, T10 | done |
 | T18 | Add the e2e tool-flow suite: the live line through every position, a dot, the Eraser, Clear, Apply and Cancel, the clip at the Crop, drag vs pan and zoom in the tool, the keyboard path and the layer ledger | tests | Blazheiko | M | T16 | done |
 | T19 | Add the e2e cross-feature suite: Unsaved edits rules, export and Ctrl/Cmd+S refused while drawing, one tool at a time in both directions, Draw refused during an export and with no image, replace while open, and marks in Crop and rotate and Adjust | tests | Blazheiko | M | T10, T16 | done |
-| T20 | Complete the @perf suite: drawing frame interval and latency through the real overlay, tool-ready, Apply / Cancel / Clear and Crop-and-rotate Apply over a full layer, export time with a full layer, and memory after 50 Applies | tests | Blazheiko | M | T9, T17, T18, T19 | todo |
+| T20 | Complete the @perf suite: drawing frame interval and latency through the real overlay, tool-ready, Apply / Cancel / Clear and Crop-and-rotate Apply over a full layer, export time with a full layer, and memory after 50 Applies | tests | Blazheiko | M | T9, T17, T18, T19 | review |
 
 **Total:** 20 tasks, ~19 person-days (S ≈ ½ day, M ≈ 1 day).

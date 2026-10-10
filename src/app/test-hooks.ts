@@ -81,6 +81,11 @@ export interface ImglyTestHooks {
    */
   setReferenceDrawing(): void
   /**
+   * Applies a layer covered by marks over the whole image (spec §6): 200 px Brush Strokes 100 px
+   * apart, edge to edge. A no-op with no Work.
+   */
+  setFullDrawing(): void
+  /**
    * The T9 hot-path spike: opens the draw tool on a fresh Draft and paints `points` (in the Crop's
    * frame) through the painter at `hz` moves per second, one segment behind the newest point as
    * the Stroke session does, handing each dirty rectangle to the Preview. Then cancels the tool.
@@ -272,6 +277,26 @@ export function installTestHooks(pinia: Pinia): void {
     setReferenceDrawing: () => {
       const work = editor.work
       if (work) editor.applyDrawing(referenceDrawing(work.original), true)
+    },
+    setFullDrawing: () => {
+      const work = editor.work
+      if (!work) return
+      const layer = createLayer(work.original)
+      const g = identityGeometry(work.original)
+      const { width: W, height: H } = work.original
+      for (let y = 0, i = 0; y <= H + 100; y += 100, i++) {
+        const colour = PALETTE[i % PALETTE.length]!.hex
+        paintPath(
+          layer,
+          [
+            { x: -100, y },
+            { x: W + 100, y },
+          ],
+          { mode: 'brush', colour, width: 200 },
+          g,
+        )
+      }
+      editor.applyDrawing(layer, true)
     },
     paintStroke: async (points, style, hz = 120) => {
       const work = editor.work
