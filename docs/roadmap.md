@@ -103,4 +103,4 @@ flowchart LR
 | 3 — Export the current image | 2026-10-06 (merged to main via PR #1) | [changelog](features/export/_ship/changelog.md) · [PR #1](https://github.com/Blazheiko/imgly/pull/1) |
 | 4 — Crop and rotate | 2026-10-08 (merged to main via PR #4) | [changelog](features/crop-rotate/_ship/changelog.md) · [PR #4](https://github.com/Blazheiko/imgly/pull/4) |
 | 5 — Adjust light and colour | 2026-10-09 (merged to main via PRs #5 and #6) | [changelog](features/adjust/_ship/changelog.md) · [PR #5](https://github.com/Blazheiko/imgly/pull/5) · [PR #6](https://github.com/Blazheiko/imgly/pull/6) |
-| 6 — Draw freehand | 2026-10-10 (PR open) | [changelog](features/draw/_ship/changelog.md) |
+| 6 — Draw freehand | 2026-10-10 (PR #7 open) | [changelog](features/draw/_ship/changelog.md) · [PR #7](https://github.com/Blazheiko/imgly/pull/7) |
