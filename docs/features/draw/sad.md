@@ -351,7 +351,7 @@ sequenceDiagram
     Note over U,R: Postcondition: with the tool open the Work is unchanged, the View is as before, and Export is unavailable
 ```
 
-Opening needs an image (AC-17) and no export in progress, and a refused request is not queued (AC-14). While "Crop and rotate" or "Adjust" is open, Draw and D show "apply or cancel the open tool first", and D stays silent in a text field (AC-16). D is also silent while the export panel is open or the tool is already open (AC-19). On opening, the tool starts on the Brush with the colour and width last chosen in this session (red #E53935 and 12 px the first time), copies the Work's applied layer into the Draft or starts empty, and keeps the View (AC-01, AC-18).
+Opening needs an image (AC-17) and no export in progress, and a refused request is not queued (AC-14). While "Crop and rotate" or "Adjust" is open, Draw and D show "apply or cancel the open tool first", and D stays silent in a text field (AC-16). D is also silent while the export panel is open or the tool is already open (AC-19). On opening, the tool starts on the Brush with the colour and width last chosen in this session (red #E53935 and 12 px the first time), copies the Work's applied layer into the Draft or starts empty, and keeps the View, apart from the layout re-fit or pan clamp the narrower canvas area needs (AC-01, AC-18).
 
 ### F2 — Draw a Stroke with the Brush
 

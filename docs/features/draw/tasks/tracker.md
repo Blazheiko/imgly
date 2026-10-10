@@ -40,7 +40,7 @@
 | T33 | Docs: reword AC-18 to allow the layout re-fit when the panel opens; add SCR ids and the missing AC-04 / AC-06 claims to tasks.json | docs | Blazheiko | S | — | done |
 | T34 | With Draw open only an unshifted + on either key right of P steps the width; = and Shift+ + still zoom; AC-18 records the exception | wiring | Blazheiko | S | — | done |
 | T35 | Test the clip at a straightened Crop: a painter unit row with a Straighten Geometry and an e2e drag across a straightened Crop edge | tests | Blazheiko | S | — | done |
-| T36 | Docs: carry AC-18's re-fit wording into ux-flows, screens and sad; claim the remaining SCR states in tasks.json; correct the AC-04 note | docs | Blazheiko | S | T34, T35 | todo |
+| T36 | Docs: carry AC-18's re-fit wording into ux-flows, screens and sad; claim the remaining SCR states in tasks.json; correct the AC-04 note | docs | Blazheiko | S | T34, T35 | done |
 | T37 | Quality: layerChanged's comment back in place, a forced-colors selected ring, and the swatch CSS test asserting the invariant only | ui | Blazheiko | S | — | done |
 | T38 | Re-run the drawing rows (spec §6 rows 1–2) on a 60 Hz display with stable Chrome and record them | tests | Blazheiko | S | T34, T35, T36, T37 | todo |
 

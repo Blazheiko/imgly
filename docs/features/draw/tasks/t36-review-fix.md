@@ -7,7 +7,7 @@ acs: ["AC-04", "AC-13", "AC-15", "AC-18"]
 files_hint: ["docs/features/draw/ux-flows.md", "docs/features/draw/screens.md", "docs/features/draw/sad.md", "docs/features/draw/tasks.json", "docs/features/draw/test-plan.md"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 source: "review-2026-10-10-2 R4, R5, R6"
 ---
 

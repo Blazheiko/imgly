@@ -49,7 +49,7 @@ updated_at: "2026-10-09"
 ```mermaid
 flowchart TD
     E["SCR-02 Empty editor"] -->|"look for Draw or press D"| EH["SCR-02 Draw unavailable, hint: open an image first"]
-    W["SCR-01 Editor with Work"] -->|"Draw, or D"| T["SCR-03 tool opens on the Brush, last colour and width, the applied Drawing layer, View unchanged"]
+    W["SCR-01 Editor with Work"] -->|"Draw, or D"| T["SCR-03 tool opens on the Brush, last colour and width, the applied Drawing layer, View unchanged but for the panel’s layout re-fit"]
     T -->|"zoom or pan: wheel, pinch, Space-drag, zoom keys"| T
     T -->|"press and drag over the image"| S["SCR-03 Stroke grows under the pointer at 30 or more updates a second, through every pointer position"]
     T -->|"click without moving"| DOT["SCR-03 one round dot of the width"]

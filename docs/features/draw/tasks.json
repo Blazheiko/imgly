@@ -153,7 +153,15 @@
         "src/features/export/messages.ts",
         "src/features/export/messages.test.ts"
       ],
-      "file": "docs/features/draw/tasks/t07-editor-draw-slot.md"
+      "file": "docs/features/draw/tasks/t07-editor-draw-slot.md",
+      "screens": [
+        "SCR-03 export refused",
+        "SCR-03 loading (reading a new image)",
+        "SCR-03 error (new image can't open)",
+        "SCR-03 replace confirmation",
+        "SCR-07 default",
+        "SCR-07 replaced"
+      ]
     },
     {
       "id": "T8",
@@ -225,7 +233,11 @@
         "src/features/export/store.ts",
         "src/features/export/store.test.ts"
       ],
-      "file": "docs/features/draw/tasks/t10-export-with-layer.md"
+      "file": "docs/features/draw/tasks/t10-export-with-layer.md",
+      "screens": [
+        "SCR-06 default",
+        "SCR-06 transparency hint"
+      ]
     },
     {
       "id": "T11",
@@ -484,7 +496,15 @@
         "e2e/draw/cross-feature.spec.ts",
         "e2e/draw/helpers.ts"
       ],
-      "file": "docs/features/draw/tasks/t19-e2e-cross-feature.md"
+      "file": "docs/features/draw/tasks/t19-e2e-cross-feature.md",
+      "screens": [
+        "SCR-03 export refused",
+        "SCR-03 loading (reading a new image)",
+        "SCR-03 error (new image can't open)",
+        "SCR-03 replace confirmation",
+        "SCR-07 default",
+        "SCR-07 replaced"
+      ]
     },
     {
       "id": "T20",
