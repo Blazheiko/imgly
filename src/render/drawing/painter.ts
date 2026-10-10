@@ -36,7 +36,7 @@ export function paintSegment(layer: Layer, s: Segment, style: BrushStyle, g: Geo
   ctx.strokeStyle = style.colour
   ctx.stroke()
   ctx.restore()
-  return dirtyRect(layer, s, style.width, g)
+  return segmentDirtyRect(layer, s, style.width, g)
 }
 
 /** Paints a press without movement: one round dot of the width, clipped to the Crop (AC-01, AC-04). */
@@ -47,7 +47,7 @@ export function paintDot(layer: Layer, p: Point, style: BrushStyle, g: Geometry)
   ctx.fillStyle = style.colour
   ctx.fill()
   ctx.restore()
-  return dirtyRect(layer, dotSegment(p), style.width, g)
+  return segmentDirtyRect(layer, dotSegment(p), style.width, g)
 }
 
 function begin(layer: Layer, style: BrushStyle, g: Geometry): OffscreenCanvasRenderingContext2D {
@@ -61,8 +61,11 @@ function begin(layer: Layer, style: BrushStyle, g: Geometry): OffscreenCanvasRen
   return ctx
 }
 
-/** The segment's bounds mapped onto the Original's grid, widened to whole pixels and clamped to it. */
-function dirtyRect(layer: Layer, s: Segment, width: number, g: Geometry): Rect {
+/**
+ * What painting `s` may change: its bounds mapped onto the Original's grid, widened to whole
+ * pixels and clamped to the layer. Known before painting, so a caller can read it first.
+ */
+export function segmentDirtyRect(layer: Layer, s: Segment, width: number, g: Geometry): Rect {
   const b = segmentBounds(s, width)
   const [a, bb, c, d, e, f] = frameToOriginal(g, layer)
   const corners = [

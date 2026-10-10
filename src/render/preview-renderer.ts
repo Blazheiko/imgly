@@ -130,6 +130,9 @@ export function createPreviewRenderer(
   let layerTexture: WebGLTexture | null = null
   // The layer changed at 100% or above without new mipmaps; regenerated before a draw below 100%.
   let layerMipmapsStale = false
+  // Below 100% the whole layer's mipmaps cost most of a frame (T9 spike), so a run of changed
+  // frames regenerates them at most every other frame, with a follow-up frame to catch up.
+  let regeneratedLastFrame = false
   // The union of the layer rectangles changed since the last frame, uploaded when it is drawn.
   let layerDirty: LayerRect | null = null
   let view: View | undefined
@@ -187,8 +190,8 @@ export function createPreviewRenderer(
     gl!.activeTexture(gl!.TEXTURE0)
   }
 
-  /** Uploads the dirty union to the bound layer texture; mipmaps are refreshed below 100% only. */
-  function uploadDirtyLayer(zoom: number) {
+  /** Uploads the dirty union to the bound layer texture and marks its mipmaps stale. */
+  function uploadDirtyLayer() {
     const r = layer && layerDirty && clampToLayer(layer, layerDirty)
     layerDirty = null
     const pixels = r && readRect(layer!, r)
@@ -196,10 +199,21 @@ export function createPreviewRenderer(
     gl!.pixelStorei(gl!.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true)
     gl!.texSubImage2D(gl!.TEXTURE_2D, 0, r.x, r.y, gl!.RGBA, gl!.UNSIGNED_BYTE, pixels)
     layerMipmapsStale = true
-    if (zoom < 1) {
+  }
+
+  /** Regenerates stale mipmaps below 100%, skipping a frame right after a regeneration. */
+  function refreshLayerMipmaps(zoom: number) {
+    const due = layerMipmapsStale && zoom < 1
+    if (due && regeneratedLastFrame) {
+      regeneratedLastFrame = false
+      invalidate()
+      return
+    }
+    if (due) {
       gl!.generateMipmap(gl!.TEXTURE_2D)
       layerMipmapsStale = false
     }
+    regeneratedLastFrame = due
   }
 
   canvas.addEventListener('webglcontextlost', onContextLost)
@@ -235,11 +249,8 @@ export function createPreviewRenderer(
       // The same filters as the Original's unit, so marks and image line up texel for texel.
       gl!.activeTexture(gl!.TEXTURE1)
       gl!.bindTexture(gl!.TEXTURE_2D, layerTexture)
-      uploadDirtyLayer(view.zoom)
-      if (layerMipmapsStale && view.zoom < 1) {
-        gl!.generateMipmap(gl!.TEXTURE_2D)
-        layerMipmapsStale = false
-      }
+      uploadDirtyLayer()
+      refreshLayerMipmaps(view.zoom)
       gl!.texParameteri(gl!.TEXTURE_2D, gl!.TEXTURE_MAG_FILTER, magFilter)
     }
     setLayerUniforms(gl!, gpu, drawing)

@@ -8,9 +8,12 @@ import {
   parseWidth,
   stepWidth as stepped,
   type DrawMode,
+  type Point,
+  type View,
 } from '@/core'
 import { useEditorStore } from '@/features/editor'
 import { copyLayer, createLayer, hasAnyMark, releaseLayer, type Layer } from '@/render'
+import { StrokeSession } from './stroke-session'
 
 const HEX_COLOUR = /^#[0-9a-f]{6}$/i
 
@@ -34,6 +37,10 @@ export const useDrawStore = defineStore('draw', () => {
   // AC-12: a Brush footprint inside the Crop, an Eraser that lowered some alpha, or a Clear of
   // a Draft with a mark. Never a pixel comparison.
   let changed = false
+  // The Stroke in progress; a plain field, so a pointer move makes no reactive write.
+  let session: StrokeSession | null = null
+  // Enter or Apply while the pointer is pressed applies right after the release (AC-18).
+  let applyAfterRelease = false
 
   const isOpen = computed(() => editor.activeTool === 'draw')
 
@@ -43,6 +50,9 @@ export const useDrawStore = defineStore('draw', () => {
     () => editor.activeTool,
     (tool) => {
       if (tool === 'draw') return
+      // Escape or a replace mid-Stroke drops the partial Stroke with the Draft (AC-06, AC-13).
+      session = null
+      applyAfterRelease = false
       if (draft.value) releaseLayer(draft.value)
       draft.value = null
       strokeActive.value = false
@@ -106,6 +116,48 @@ export const useDrawStore = defineStore('draw', () => {
     width.value = stepped(width.value, delta)
   }
 
+  /**
+   * A press on the image starts a Stroke with the mode, colour and width chosen at that moment;
+   * a change during it applies from the next one (AC-18).
+   */
+  function beginStroke(point: Point, view: View) {
+    const work = editor.work
+    if (!isOpen.value || !work || session) return
+    session = new StrokeSession(
+      { mode: mode.value, colour: colour.value, width: width.value },
+      work.geometry,
+      {
+        layer: () => draft.value,
+        ensureLayer: ensureDraft,
+        isChanged: () => changed,
+        markChanged,
+        layerChanged: (rect) => editor.layerChanged(rect),
+      },
+    )
+    strokeActive.value = true
+    session.begin(point, view)
+  }
+
+  /** One pointer event's positions, coalesced ones included, each with the View at that event. */
+  function moveStroke(points: readonly Point[], view: View) {
+    session?.move(points, view)
+  }
+
+  /**
+   * Release, a pointer cancel, losing focus or a second touch: the Stroke ends where it is and is
+   * kept (AC-01, AC-18). An Apply asked for meanwhile runs now.
+   */
+  function endStroke() {
+    if (!session) return
+    session.end()
+    session = null
+    strokeActive.value = false
+    if (applyAfterRelease) {
+      applyAfterRelease = false
+      apply()
+    }
+  }
+
   /** Empties the whole Draft at once, without a confirmation (AC-05). */
   function clear() {
     const current = draft.value
@@ -118,6 +170,10 @@ export const useDrawStore = defineStore('draw', () => {
   /** Hands the Draft to the Work (an edit only with the change flag, AC-12) and closes the tool. */
   function apply() {
     if (!isOpen.value || !editor.work) return
+    if (session) {
+      applyAfterRelease = true
+      return
+    }
     const handed = draft.value
     draft.value = null // the Work owns it now: the close below must not release it
     editor.applyDrawing(handed, changed)
@@ -144,6 +200,9 @@ export const useDrawStore = defineStore('draw', () => {
     setWidth,
     commitWidthText,
     stepWidth,
+    beginStroke,
+    moveStroke,
+    endStroke,
     clear,
     apply,
     cancel,

@@ -547,6 +547,24 @@ describe('PreviewRenderer.setLayer / updateLayer (draw ADR-0003)', () => {
     expect(fake.names()).toContain('generateMipmap')
   })
 
+  it('below 100% regenerates the mipmaps at most every other frame, and once more after (T9 fallback 1)', () => {
+    renderer.setLayer(layer)
+    frames.flush()
+    const regens = () => fake.names().filter((n) => n === 'generateMipmap').length
+    fake.calls.length = 0
+    renderer.updateLayer({ x: 0, y: 0, width: 4, height: 4 })
+    frames.flush()
+    expect(regens()).toBe(1)
+    renderer.updateLayer({ x: 4, y: 0, width: 4, height: 4 })
+    frames.flush()
+    expect(regens()).toBe(1) // skipped: the frame before regenerated
+    expect(fake.names().filter((n) => n === 'texSubImage2D')).toHaveLength(2)
+    expect(frames.pending).toBe(1) // a follow-up frame catches the mipmaps up
+    frames.flush()
+    expect(regens()).toBe(2)
+    expect(frames.pending).toBe(0)
+  })
+
   it('regenerates stale mipmaps once the View goes below 100% after updates at 100%', () => {
     renderer.setLayer(layer)
     renderer.setView(view(1))

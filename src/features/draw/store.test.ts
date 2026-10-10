@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { createWork, ok } from '@/core'
 import type { DecodeOutcome } from '@/infra/image-decode'
@@ -301,6 +301,108 @@ describe('draw store (draw ADR-0004, sad.md §4)', () => {
       expect(draw.isOpen).toBe(true)
       expect(draw.draft).toBe(draft)
       expect(retained()).toBe(1)
+    })
+  })
+
+  describe('Strokes (AC-01, AC-04, AC-12, AC-18)', () => {
+    const view = { zoom: 1, panX: 0, panY: 0, autoFit: false }
+
+    beforeEach(() => {
+      openWork(editor)
+      draw.open()
+    })
+
+    it('a Brush Stroke creates the Draft, shows it, sets the change flag and holds input', () => {
+      draw.beginStroke({ x: 5, y: 5 }, view)
+      expect(draw.strokeActive).toBe(true)
+      draw.moveStroke([{ x: 15, y: 10 }], view)
+      draw.endStroke()
+      expect(draw.strokeActive).toBe(false)
+      expect(draw.draft).not.toBeNull()
+      expect(editor.previewLayer).toBe(draw.draft)
+      draw.apply()
+      expect(editor.hasUnsavedEdits).toBe(true)
+    })
+
+    it('paints with the style at the Stroke’s start; a change mid-Stroke applies from the next', () => {
+      draw.beginStroke({ x: 5, y: 5 }, view)
+      draw.setColour('#1E88E5')
+      draw.setWidth(30)
+      draw.endStroke()
+      const calls = (draw.draft!.pixels as unknown as FakeLayerCanvas).calls
+      expect(calls).toContainEqual(['set fillStyle', '#E53935'])
+      expect(calls).toContainEqual(['arc', 5, 5, 6, 0, Math.PI * 2])
+      draw.beginStroke({ x: 20, y: 20 }, view)
+      draw.endStroke()
+      expect(calls).toContainEqual(['set fillStyle', '#1E88E5'])
+      expect(calls).toContainEqual(['arc', 20, 20, 15, 0, Math.PI * 2])
+    })
+
+    it('Enter mid-Stroke applies right after the release', () => {
+      draw.beginStroke({ x: 5, y: 5 }, view)
+      draw.apply()
+      expect(draw.isOpen).toBe(true)
+      draw.endStroke()
+      expect(draw.isOpen).toBe(false)
+      expect(editor.work!.drawing).not.toBeNull()
+      expect(editor.hasUnsavedEdits).toBe(true)
+    })
+
+    it('Escape mid-Stroke cancels at once, the partial Stroke included', () => {
+      draw.beginStroke({ x: 5, y: 5 }, view)
+      draw.moveStroke(
+        [
+          { x: 15, y: 10 },
+          { x: 25, y: 12 },
+        ],
+        view,
+      )
+      draw.cancel()
+      expect(draw.isOpen).toBe(false)
+      expect(draw.strokeActive).toBe(false)
+      expect(editor.work!.drawing).toBeNull()
+      expect(retained()).toBe(0)
+      draw.moveStroke([{ x: 35, y: 15 }], view)
+      draw.endStroke()
+      expect(retained()).toBe(0)
+    })
+
+    it('an end (pointer cancel, blur, second touch) keeps what was drawn so far', () => {
+      draw.beginStroke({ x: 5, y: 5 }, view)
+      draw.moveStroke(
+        [
+          { x: 15, y: 10 },
+          { x: 25, y: 12 },
+        ],
+        view,
+      )
+      draw.endStroke()
+      expect(draw.draft).not.toBeNull()
+      expect(draw.isOpen).toBe(true)
+    })
+
+    it('an Eraser Stroke on an empty Draft changes nothing', () => {
+      draw.setMode('eraser')
+      draw.beginStroke({ x: 5, y: 5 }, view)
+      draw.moveStroke([{ x: 15, y: 10 }], view)
+      draw.endStroke()
+      expect(draw.draft).toBeNull()
+      draw.apply()
+      expect(editor.hasUnsavedEdits).toBe(false)
+    })
+
+    it('hands each pointer event’s dirty rectangle to the editor, which forwards it', () => {
+      const layerChanged = vi.spyOn(editor, 'layerChanged')
+      draw.beginStroke({ x: 5, y: 5 }, view)
+      draw.moveStroke(
+        [
+          { x: 15, y: 10 },
+          { x: 25, y: 12 },
+          { x: 35, y: 14 },
+        ],
+        view,
+      )
+      expect(layerChanged).toHaveBeenCalledTimes(1)
     })
   })
 })
