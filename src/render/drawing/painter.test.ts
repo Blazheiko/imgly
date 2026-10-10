@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { catmullRomSegments, identityGeometry, type Geometry } from '@/core'
+import {
+  catmullRomSegments,
+  frameToOriginal,
+  identityGeometry,
+  setStraighten,
+  type Geometry,
+} from '@/core'
 import { createLayer, setLayerCanvasFactory, type CanvasFactory, type Layer } from './layer'
 import { alphaLowered, paintDot, paintSegment, unionRect, type BrushStyle } from './painter'
 import { createFakeCanvas, type FakeCanvas } from './fake-canvas'
@@ -78,6 +84,29 @@ describe('render/drawing painter (ADR-0002)', () => {
     paintSegment(layer, segment, brush, g)
     // A 90° turn: frame (x, y) → Original (y, H0 − x).
     expect(calls(layer)).toContainEqual(['setTransform', 0, -1, 1, 0, 0, 300])
+  })
+
+  it('under a Straighten angle, clips to the Crop in the turned frame before painting (AC-09)', () => {
+    const straight = setStraighten(identityGeometry(original), 70, original)
+    const crop = { x: straight.crop.x + 40, y: straight.crop.y + 30, width: 120, height: 80 }
+    const g: Geometry = { ...straight, crop }
+    for (const paint of [
+      () => paintSegment(layer, segment, brush, g),
+      () => paintDot(layer, { x: crop.x - 3, y: crop.y + 10 }, eraser, g),
+    ]) {
+      calls(layer).length = 0
+      paint()
+      const seq = names(layer)
+      // The clip is the Crop's rectangle in the frame, under the straightened transform: on the
+      // Original it is the turned Crop, so nothing outside it is painted (sad.md §11 fringe).
+      expect(calls(layer)).toContainEqual(['setTransform', ...frameToOriginal(g, original)])
+      expect(calls(layer)).toContainEqual(['rect', crop.x, crop.y, crop.width, crop.height])
+      expect(seq.indexOf('setTransform')).toBeLessThan(seq.indexOf('rect'))
+      expect(seq.indexOf('clip')).toBeLessThan(Math.max(seq.indexOf('stroke'), seq.indexOf('fill')))
+    }
+    const [a, b] = frameToOriginal(g, original)
+    expect(Math.abs(b)).toBeGreaterThan(0) // a real angle, not a quarter turn
+    expect(a).not.toBe(1)
   })
 
   it('paints a dot as a filled circle of the width, clipped to the Crop (AC-09)', () => {

@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { dropGeneratedImage, waitForWork } from '../open-and-view/helpers'
-import { pixelsAt } from '../crop-rotate/helpers'
+import { pixelsAt, setStraighten, identityGeometry } from '../crop-rotate/helpers'
+import { frameToOriginal } from '../../src/core/geometry'
 import {
   action,
   button,
@@ -521,6 +522,50 @@ test.describe('AC-09 — a Stroke at the Crop edge', () => {
     expect(at(alpha, crop.x + 2, 75)).toBe(255)
     expect(outsideCrop(alpha)).toBe(0)
   })
+})
+
+test('AC-09 — under a Straighten angle a Stroke across the Crop edge marks nothing beyond a 1 px fringe', async ({
+  page,
+}) => {
+  const straight = setStraighten(identityGeometry(SIZE), 70, SIZE)
+  const crop = { x: straight.crop.x + 40, y: straight.crop.y + 30, width: 80, height: 50 }
+  const g = { ...straight, crop }
+  await page.evaluate((next) => window.__imglyTest!.setGeometry(next), g)
+  await openTool(page)
+  await setWidth(page, 20)
+  // In the Crop's frame: from 15 px outside the left edge to 15 px outside the right one.
+  await drag(page, [
+    [-15, 25],
+    [crop.width + 15, 25],
+  ])
+  await button(page, 'Apply').click()
+  const alpha = await drawingAlpha(page)
+  // Each marked Original pixel's centre, mapped back into the turned frame, lies inside the Crop
+  // or at most 1 px outside it (sad.md §11: the antialiased edge of the turned clip).
+  const [a, b, c, d, e, f] = frameToOriginal(g, SIZE)
+  const det = a * d - b * c
+  let marked = 0
+  let worst = 0
+  for (let y = 0; y < SIZE.height; y++) {
+    for (let x = 0; x < SIZE.width; x++) {
+      if (at(alpha, x, y) === 0) continue
+      marked++
+      const px = x + 0.5 - e
+      const py = y + 0.5 - f
+      const fx = (d * px - c * py) / det
+      const fy = (-b * px + a * py) / det
+      const outside = Math.max(
+        0,
+        crop.x - fx,
+        fx - (crop.x + crop.width),
+        crop.y - fy,
+        fy - (crop.y + crop.height),
+      )
+      worst = Math.max(worst, outside)
+    }
+  }
+  expect(marked).toBeGreaterThan(crop.width * 15) // the Stroke is there, across the whole Crop
+  expect(worst).toBeLessThanOrEqual(1)
 })
 
 test.describe('AC-19 — reaching and leaving the tool by keyboard', () => {

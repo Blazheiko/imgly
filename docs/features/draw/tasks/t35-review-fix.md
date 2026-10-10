@@ -7,7 +7,7 @@ acs: ["AC-09"]
 files_hint: ["src/render/drawing/painter.test.ts", "e2e/draw/tool.spec.ts", "docs/features/draw/test-plan.md"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 source: "review-2026-10-10-2 R3"
 ---
 
