@@ -281,6 +281,15 @@ test.describe('with an image', () => {
       await adjustTool(page).getByRole('textbox', { name: 'Grayscale' }).press('Enter')
       const [r, g, b] = await pixelAt(page, 40, 40)
       expect(r! - Math.max(g!, b!)).toBeGreaterThan(100)
+      // Compare held shows the image "Before" the Draft Adjustments, the marks still on it.
+      const compare = adjustTool(page).getByRole('button', { name: 'Compare' })
+      const box = (await compare.boundingBox())!
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+      await page.mouse.down()
+      await expect(compare).toHaveAttribute('aria-pressed', 'true')
+      const [cr, cg, cb] = await pixelAt(page, 40, 40)
+      expect(cr! - Math.max(cg!, cb!)).toBeGreaterThan(100)
+      await page.mouse.up()
     })
 
     test('Crop and rotate shows marks outside the crop frame, and a wider Crop brings them back', async ({

@@ -1,6 +1,13 @@
 import { expect, test } from '@playwright/test'
 import { compareWithPreview } from '../export/helpers'
-import { identityGeometry, setStraighten, type Geometry } from '../crop-rotate/helpers'
+import {
+  identityGeometry,
+  openTool as openCropRotate,
+  setStraighten,
+  tool as cropRotateTool,
+  type Geometry,
+} from '../crop-rotate/helpers'
+import { turnedSize } from '../../src/core/geometry'
 import {
   button,
   changedOutside,
@@ -8,6 +15,9 @@ import {
   decodePng,
   diff,
   dilatedMask,
+  drawingAlpha,
+  expectedMarkAlpha,
+  expectedTurnedExport,
   exportPng,
   gotoReady,
   jpegPanel,
@@ -101,25 +111,33 @@ test('the Drawing layer is never adjusted: a mark keeps its colour at grayscale 
   expect(Array.from(out.data.slice(at, at + 4))).toEqual([216, 27, 96, 255])
 })
 
-test('an empty layer changes nothing: Clear and Apply give the Export from before (spec §6)', async ({
-  page,
-  browserName,
-}) => {
-  test.setTimeout(60_000)
-  await gotoReady(page)
-  await openNamed(page, 'photo.png', PHOTO.width, PHOTO.height)
-  const before = await decodePng(page, await exportPng(page, browserName))
-  await referenceDrawing(page)
-  await openTool(page)
-  await button(page, 'Clear').click()
-  await button(page, 'Apply').click()
-  await expect(tool(page)).toBeHidden()
-  expect((await work(page))!.hasUnsavedEdits).toBe(true)
-  const after = await decodePng(page, await exportPng(page, browserName))
-  const d = diff(after.data, before.data, after.width)
-  expect(d.alpha).toBe(0)
-  expect(d.colour, d.where).toBe(0)
-})
+for (const [fixture, size] of [
+  ['photo.png', PHOTO],
+  ['alpha-patches.png', { width: 24, height: 16 }],
+] as const) {
+  test(`an empty layer changes nothing: Clear and Apply give the Export from before, ${fixture} (spec §6)`, async ({
+    page,
+    browserName,
+  }) => {
+    test.setTimeout(60_000)
+    await gotoReady(page)
+    await openNamed(page, fixture, size.width, size.height)
+    const before = await decodePng(page, await exportPng(page, browserName))
+    await referenceDrawing(page)
+    await openTool(page)
+    await button(page, 'Clear').click()
+    await button(page, 'Apply').click()
+    await expect(tool(page)).toBeHidden()
+    expect((await work(page))!.hasUnsavedEdits).toBe(true)
+    const after = await decodePng(page, await exportPng(page, browserName))
+    // Every channel, transparent pixels included: alpha 0 must stay alpha 0.
+    let worst = 0
+    for (let i = 0; i < after.data.length; i++) {
+      worst = Math.max(worst, Math.abs(after.data[i]! - before.data[i]!))
+    }
+    expect(worst).toBe(0)
+  })
+}
 
 test.describe('marks stay on the image through Geometry round trips (AC-08, spec §6)', () => {
   const trips: [string, Geometry[]][] = [
@@ -155,6 +173,138 @@ test.describe('marks stay on the image through Geometry round trips (AC-08, spec
   }
 })
 
+// QG-2b: the expected Export is computed from the identity Export through frameToOriginal, not
+// through the shader, so a layer mapped differently from the image would fail it (spec §7 KPI).
+test.describe('QG-2b — marks turn, flip and straighten with the image (AC-08, spec §7)', () => {
+  /** A Geometry whose Crop is the whole turned image. */
+  const whole = (g: Omit<Geometry, 'crop'>): Geometry => {
+    const size = turnedSize(g, PHOTO)
+    return { ...g, crop: { x: 0, y: 0, ...size } }
+  }
+  const plain = { flipH: false, flipV: false, rotation: 0 as const, straighten: 0 }
+  const turns: [string, Geometry][] = [
+    ['90°', whole({ ...plain, rotation: 90 })],
+    ['180°', whole({ ...plain, rotation: 180 })],
+    ['270°', whole({ ...plain, rotation: 270 })],
+    ['a horizontal Flip', whole({ ...plain, flipH: true })],
+    ['a vertical Flip', whole({ ...plain, flipV: true })],
+    ['a Flip and 90°', whole({ ...plain, flipH: true, rotation: 90 })],
+    [
+      'a Crop after 270°',
+      { ...whole({ ...plain, rotation: 270 }), crop: { x: 30, y: 50, width: 150, height: 200 } },
+    ],
+  ]
+  test('with no Geometry, the marks land exactly where the layer holds them', async ({
+    page,
+    browserName,
+  }) => {
+    test.setTimeout(60_000)
+    await gotoReady(page)
+    await openNamed(page, 'photo.png', PHOTO.width, PHOTO.height)
+    const base = await decodePng(page, await exportPng(page, browserName))
+    // One dot off every axis of symmetry, so a mirrored or turned layer would miss it.
+    await openTool(page)
+    await setWidth(page, 20)
+    await click(page, 40, 30)
+    await button(page, 'Apply').click()
+    const drawn = await decodePng(page, await exportPng(page, browserName))
+    const alpha = await drawingAlpha(page)
+    expect(
+      changedOutside(drawn.data, base.data, dilatedMask(alpha, PHOTO.width, PHOTO.height, 0)),
+    ).toBe(0)
+    let core = 0
+    let coreChanged = 0
+    for (let p = 0; p < alpha.length; p++) {
+      if (alpha[p] !== 255) continue
+      core++
+      for (let c = 0; c < 3; c++) {
+        if (Math.abs(drawn.data[p * 4 + c]! - base.data[p * 4 + c]!) > TOLERANCE) {
+          coreChanged++
+          break
+        }
+      }
+    }
+    expect(core).toBeGreaterThan(200)
+    expect(coreChanged / core).toBeGreaterThan(0.99)
+  })
+
+  for (const [name, g] of turns) {
+    test(name, async ({ page, browserName }) => {
+      test.setTimeout(60_000)
+      await gotoReady(page)
+      await openNamed(page, 'photo.png', PHOTO.width, PHOTO.height)
+      await referenceDrawing(page)
+      const identity = await decodePng(page, await exportPng(page, browserName))
+      await setGeometry(page, g)
+      const turned = await decodePng(page, await exportPng(page, browserName))
+      const expected = expectedTurnedExport(identity, g)
+      expect([turned.width, turned.height]).toEqual([expected.width, expected.height])
+      const d = diff(turned.data, expected.data, turned.width)
+      expect(d.alpha).toBeLessThanOrEqual(TOLERANCE)
+      expect(d.colour, d.where).toBeLessThanOrEqual(TOLERANCE)
+    })
+  }
+
+  test('through the real "Crop and rotate" Apply', async ({ page, browserName }) => {
+    test.setTimeout(60_000)
+    await gotoReady(page)
+    await openNamed(page, 'photo.png', PHOTO.width, PHOTO.height)
+    await referenceDrawing(page)
+    const identity = await decodePng(page, await exportPng(page, browserName))
+    await openCropRotate(page)
+    await cropRotateTool(page).getByRole('button', { name: 'Rotate right' }).click()
+    await cropRotateTool(page).getByRole('button', { name: 'Apply', exact: true }).click()
+    await expect(cropRotateTool(page)).toBeHidden()
+    const g = (await work(page))!.geometry as Geometry
+    expect(g.rotation).toBe(90)
+    const turned = await decodePng(page, await exportPng(page, browserName))
+    const d = diff(turned.data, expectedTurnedExport(identity, g).data, turned.width)
+    expect(d.alpha).toBeLessThanOrEqual(TOLERANCE)
+    expect(d.colour, d.where).toBeLessThanOrEqual(TOLERANCE)
+  })
+
+  test('a Straighten angle: the marks land where the layer, turned with the image, puts them', async ({
+    page,
+    browserName,
+  }) => {
+    test.setTimeout(60_000)
+    const g = setStraighten(identityGeometry(PHOTO), 70, PHOTO)
+    await gotoReady(page)
+    await openNamed(page, 'photo.png', PHOTO.width, PHOTO.height)
+    await setGeometry(page, g)
+    const unmarked = await decodePng(page, await exportPng(page, browserName))
+    await referenceDrawing(page)
+    const marked = await decodePng(page, await exportPng(page, browserName))
+    const alpha = expectedMarkAlpha(await drawingAlpha(page), PHOTO, g)
+    const { width, height } = g.crop
+    const near = dilatedMask(
+      Array.from(alpha, (a) => (a > 0 ? 255 : 0)),
+      width,
+      height,
+      2,
+    )
+    let strayChanges = 0
+    let inside = 0
+    let insideChanged = 0
+    for (let p = 0; p < width * height; p++) {
+      let change = 0
+      for (let c = 0; c < 4; c++) {
+        change = Math.max(change, Math.abs(marked.data[p * 4 + c]! - unmarked.data[p * 4 + c]!))
+      }
+      const changed = change > TOLERANCE
+      if (changed && !near[p]) strayChanges++
+      if (alpha[p]! >= 250) {
+        inside++
+        if (changed) insideChanged++
+      }
+    }
+    // No mark outside where the turned layer puts them, and the marks are there.
+    expect(strayChanges).toBe(0)
+    expect(inside).toBeGreaterThan(1000)
+    expect(insideChanged / inside).toBeGreaterThan(0.99)
+  })
+})
+
 test('QG-2c — outside the marks the image keeps its exact pixels (AC-07)', async ({
   page,
   browserName,
@@ -181,14 +331,31 @@ test('a smaller Export is the full-size one, marks included, reduced (AC-10)', a
   await gotoReady(page)
   await openNamed(page, 'photo.png', PHOTO.width, PHOTO.height)
   await referenceDrawing(page)
+  const full = await decodePng(page, await exportPng(page, browserName))
   const half = await decodePng(page, await exportPng(page, browserName, '50%'))
   expect([half.width, half.height]).toEqual([160, 120])
-  // The 12 px pink dot at (0.95 W, 0.95 H) is 6 px at half size: its centre stays pink.
-  const at = (Math.round(0.95 * 120) * half.width + Math.round(0.95 * 160)) * 4
-  const pink = [216, 27, 96]
-  for (let c = 0; c < 3; c++) {
-    expect(Math.abs(half.data[at + c]! - pink[c]!)).toBeLessThanOrEqual(TOLERANCE)
+  // At exactly half size the reduction reads the full-size result's first mipmap level: each
+  // pixel is the mean of the 2×2 block under it (the photo and the marks are opaque).
+  const reduced = new Uint8ClampedArray(half.data.length)
+  for (let y = 0; y < half.height; y++) {
+    for (let x = 0; x < half.width; x++) {
+      for (let c = 0; c < 4; c++) {
+        let sum = 0
+        for (const [dx, dy] of [
+          [0, 0],
+          [1, 0],
+          [0, 1],
+          [1, 1],
+        ]) {
+          sum += full.data[((2 * y + dy!) * full.width + 2 * x + dx!) * 4 + c]!
+        }
+        reduced[(y * half.width + x) * 4 + c] = Math.round(sum / 4)
+      }
+    }
   }
+  const d = diff(half.data, reduced, half.width)
+  expect(d.alpha).toBeLessThanOrEqual(TOLERANCE)
+  expect(d.colour, d.where).toBeLessThanOrEqual(TOLERANCE)
 })
 
 test.describe('the JPEG transparency hint follows the drawn result (AC-07, AC-10, QG-1d)', () => {

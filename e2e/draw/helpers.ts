@@ -1,5 +1,7 @@
 import { expect, type Page } from '@playwright/test'
 import { choose, panel } from '../export/helpers'
+import { frameToOriginal, type Geometry } from '../../src/core/geometry'
+import type { Size } from '../../src/core/geometry/types'
 import {
   decodePng,
   diff,
@@ -133,3 +135,69 @@ export const clickPanelBackground = (page: Page) =>
 /** How many pixels of the Draft have some alpha, counted in the page. */
 export const draftMarks = (page: Page) =>
   page.evaluate(() => window.__imglyTest!.draftAlpha().filter((v) => v > 0).length)
+
+/** A decoded image: straight RGBA, row by row. */
+export interface Rgba {
+  width: number
+  height: number
+  data: ArrayLike<number>
+}
+
+/** Each Export pixel's centre in the Crop's frame, mapped to an Original pixel position. */
+function originalPoints(g: Geometry, original: Size) {
+  const [a, b, c, d, e, f] = frameToOriginal(g, original)
+  const { width, height } = g.crop
+  return (x: number, y: number) => {
+    const fx = g.crop.x + x + 0.5
+    const fy = g.crop.y + y + 0.5
+    return { x: a * fx + c * fy + e, y: b * fx + d * fy + f, width, height }
+  }
+}
+
+/**
+ * QG-2b's expected Export after a Rotation or Flip, computed without the shader: every Export
+ * pixel is the identity Export's pixel under it, found through `frameToOriginal`. For quarter
+ * turns and Flips each pixel centre lands on an Original pixel centre, so it is a pure copy.
+ */
+export function expectedTurnedExport(identity: Rgba, g: Geometry): Rgba {
+  const at = originalPoints(g, identity)
+  const { width, height } = g.crop
+  const data = new Uint8ClampedArray(width * height * 4)
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const p = at(x, y)
+      const i = (Math.floor(p.y) * identity.width + Math.floor(p.x)) * 4
+      for (let k = 0; k < 4; k++) data[(y * width + x) * 4 + k] = identity.data[i + k]!
+    }
+  }
+  return { width, height, data }
+}
+
+/**
+ * The Drawing layer's alpha (on the Original's grid) as an Export with Geometry `g` would show it,
+ * sampled bilinearly through `frameToOriginal`: where the marks must and must not appear.
+ */
+export function expectedMarkAlpha(alpha: number[], original: Size, g: Geometry): Float32Array {
+  const at = originalPoints(g, original)
+  const { width, height } = g.crop
+  const out = new Float32Array(width * height)
+  const texel = (x: number, y: number) =>
+    x < 0 || y < 0 || x >= original.width || y >= original.height
+      ? 0
+      : alpha[y * original.width + x]!
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const p = at(x, y)
+      const sx = p.x - 0.5
+      const sy = p.y - 0.5
+      const x0 = Math.floor(sx)
+      const y0 = Math.floor(sy)
+      const tx = sx - x0
+      const ty = sy - y0
+      out[y * width + x] =
+        (1 - ty) * ((1 - tx) * texel(x0, y0) + tx * texel(x0 + 1, y0)) +
+        ty * ((1 - tx) * texel(x0, y0 + 1) + tx * texel(x0 + 1, y0 + 1))
+    }
+  }
+  return out
+}

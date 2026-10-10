@@ -291,6 +291,22 @@ describe('PreviewCanvas', () => {
       },
     )
 
+    it('draws the Draft over the Work’s Geometry and Adjustments while draw is open (AC-11)', async () => {
+      const adjusted = { ...NEUTRAL_ADJUSTMENTS, grayscale: 100, contrast: 25 }
+      const cropped = {
+        ...editor.work!.geometry,
+        crop: { x: 100, y: 200, width: 1000, height: 800 },
+      }
+      editor.applyAdjustments(adjusted)
+      editor.applyGeometry(cropped)
+      mount(PreviewCanvas)
+      editor.openTool('draw')
+      editor.setPreviewLayer(layer('draft'))
+      await nextTick()
+      expect(fake.renderer.setAdjustments.mock.lastCall?.[0]).toEqual(adjusted)
+      expect(fake.renderer.setGeometry).toHaveBeenLastCalledWith(cropped, 'crop')
+    })
+
     it('follows an Apply', async () => {
       mount(PreviewCanvas)
       editor.applyDrawing(layer('applied'), true)

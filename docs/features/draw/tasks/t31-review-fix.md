@@ -7,7 +7,7 @@ acs: ["AC-08"]
 files_hint: ["e2e/draw/fidelity.spec.ts", "e2e/draw/helpers.ts", "src/features/editor/store.test.ts"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 source: "review-2026-10-10 S5"
 ---
 

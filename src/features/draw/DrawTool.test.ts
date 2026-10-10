@@ -103,6 +103,29 @@ describe('DrawTool (SCR-03)', () => {
     expect(document.activeElement?.getAttribute('data-testid')).toBe('draw-action')
   })
 
+  it('Enter in the width field commits the width by the AC-03 rule and leaves the tool open', async () => {
+    await openTool()
+    const field = wrapper.get<HTMLInputElement>('[data-testid="draw-width"] input[type="text"]')
+    await field.setValue('250')
+    expect(draw.width).toBe(12) // nothing is checked while typing
+    key({ key: 'Enter' }, field.element)
+    await nextTick()
+    expect(draw.width).toBe(200)
+    expect(draw.isOpen).toBe(true)
+  })
+
+  it('leaving the width field commits it; an invalid value returns to the previous width', async () => {
+    await openTool()
+    const field = wrapper.get<HTMLInputElement>('[data-testid="draw-width"] input[type="text"]')
+    await field.setValue('2.5')
+    await field.trigger('blur')
+    expect(draw.width).toBe(3)
+    await field.setValue('1e2')
+    await field.trigger('blur')
+    expect(draw.width).toBe(3)
+    expect(field.element.value).toBe('3')
+  })
+
   it('Escape in the width field with pending text cancels the tool', async () => {
     await openTool()
     const field = wrapper.get<HTMLInputElement>('[data-testid="draw-width"] input[type="text"]')

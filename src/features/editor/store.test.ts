@@ -1138,6 +1138,23 @@ describe('editor store — the draw tool in the slot (draw AC-12, AC-13, AC-15, 
     expect(renderer.updateLayer).toHaveBeenCalledWith({ x: 1, y: 2, width: 3, height: 4 })
   })
 
+  it('a Geometry Apply keeps the applied layer itself: same object, id and pixels (AC-08)', async () => {
+    await open()
+    editor.applyDrawing(draft(), true)
+    const applied = editor.work!.drawing!
+    const { width, height } = editor.work!.original
+    editor.applyGeometry({
+      flipH: true,
+      flipV: false,
+      rotation: 90,
+      straighten: 0,
+      crop: { x: 0, y: 0, width: height, height: width },
+    })
+    expect(editor.work!.geometry.rotation).toBe(90)
+    expect(editor.work!.drawing).toBe(applied) // never resampled or copied (draw ADR-0001)
+    expect(released(applied)).toBe(false)
+  })
+
   describe('applyDrawing (AC-12)', () => {
     it('stores the Draft with a new id and keeps the revision when nothing changed', async () => {
       await open()

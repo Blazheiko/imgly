@@ -35,8 +35,8 @@
 | T28 | Context-loss tests cover setLayer and updateLayer while the context is restoring | tests | Blazheiko | S | T27 | done |
 | T29 | Work.drawing is typed by the layer's pixel holder, and a refused applyDrawing leaves the Draft with its caller | domain | Blazheiko | S | T27 | done |
 | T30 | Fix the @perf drawing measurement: latency to the frame after the renderer draws, move i matched to the draw after i+1, Eraser runs, the 1 px timeouts explained; re-measure | tests | Blazheiko | S | T27, T29 | done |
-| T31 | QG-2b oracle: Export after each Rotation, Flip and Straighten equals the layer mapped through frameToOriginal; one case through the real Crop and rotate Apply; a Geometry Apply keeps the layer | tests | Blazheiko | S | T29 | todo |
-| T32 | Write the missing test-plan rows for AC-02, 03, 04, 07, 09, 10, 11 and 19, or mark them Narrowed on purpose | tests | Blazheiko | S | T22, T24, T31 | todo |
+| T31 | QG-2b oracle: Export after each Rotation, Flip and Straighten equals the layer mapped through frameToOriginal; one case through the real Crop and rotate Apply; a Geometry Apply keeps the layer | tests | Blazheiko | S | T29 | done |
+| T32 | Write the missing test-plan rows for AC-02, 03, 04, 07, 09, 10, 11 and 19, or mark them Narrowed on purpose | tests | Blazheiko | S | T22, T24, T31 | done |
 | T33 | Docs: reword AC-18 to allow the layout re-fit when the panel opens; add SCR ids and the missing AC-04 / AC-06 claims to tasks.json | docs | Blazheiko | S | — | done |
 
 **Total:** 33 tasks, ~26 person-days (S ≈ ½ day, M ≈ 1 day).

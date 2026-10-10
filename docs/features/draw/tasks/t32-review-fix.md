@@ -7,7 +7,7 @@ acs: ["AC-02", "AC-03", "AC-04", "AC-07", "AC-09", "AC-10", "AC-11", "AC-19"]
 files_hint: ["e2e/draw/tool.spec.ts", "e2e/draw/fidelity.spec.ts", "e2e/draw/cross-feature.spec.ts", "src/features/draw/DrawControls.test.ts", "src/features/draw/DrawTool.test.ts", "docs/features/draw/test-plan.md"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 source: "review-2026-10-10 S6"
 ---
 

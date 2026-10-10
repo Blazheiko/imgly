@@ -1,13 +1,16 @@
 import { expect, test } from '@playwright/test'
 import { dropGeneratedImage, waitForWork } from '../open-and-view/helpers'
+import { pixelsAt } from '../crop-rotate/helpers'
 import {
   action,
   button,
   click,
+  decodePng,
   draftAlpha,
   draftMarks,
   drag,
   drawingAlpha,
+  exportPng,
   gotoReady,
   layers,
   openTool,
@@ -15,6 +18,7 @@ import {
   screenPoint,
   setWidth,
   tool,
+  widthField,
   view,
   work,
 } from './helpers'
@@ -377,4 +381,169 @@ test('the layer ledger keeps exactly one applied layer, or none (sad.md §7)', a
   await openTool(page)
   await page.keyboard.press('Escape')
   expect((await layers(page)).retained).toBe(1)
+})
+
+test.describe('AC-02 — the width on the image and on screen', () => {
+  /** Rows of a column whose colour is the red Brush (#E53935), opaque core and edge alike. */
+  const redRun = (rgba: ArrayLike<number>, width: number, x: number, height: number) => {
+    let n = 0
+    for (let y = 0; y < height; y++) {
+      const i = (y * width + x) * 4
+      if (rgba[i]! - Math.max(rgba[i + 1]!, rgba[i + 2]!) > 100) n++
+    }
+    return n
+  }
+
+  test('a 20 px Stroke is 20 px wide in a full-size Export, and twice as wide on screen at 200%', async ({
+    page,
+    browserName,
+  }) => {
+    test.setTimeout(60_000)
+    await openTool(page)
+    await setWidth(page, 20)
+    await drag(page, [
+      [20, 75],
+      [180, 75],
+    ])
+    await button(page, 'Apply').click()
+    const out = await decodePng(page, await exportPng(page, browserName))
+    // The opaque core is 20 px; the antialiased edge adds at most 1 px each side.
+    expect(redRun(out.data, out.width, 100, out.height)).toBeGreaterThanOrEqual(19)
+    expect(redRun(out.data, out.width, 100, out.height)).toBeLessThanOrEqual(22)
+
+    const onScreen = async () => {
+      const top = await screenPoint(page, 100, 40)
+      const bottom = await screenPoint(page, 100, 110)
+      const shot = await pixelsAt(page, {
+        x: Math.round(top.x),
+        y: Math.round(top.y),
+        width: 1,
+        height: Math.round(bottom.y - top.y),
+      })
+      return redRun(shot.data, 1, 0, shot.height)
+    }
+    const atActual = await onScreen()
+    await page.keyboard.press('+')
+    await expect.poll(async () => (await view(page)).zoom).toBeGreaterThan(1)
+    while ((await view(page)).zoom < 2) await page.keyboard.press('+')
+    expect((await view(page)).zoom).toBe(2)
+    const zoomed = await onScreen()
+    expect(Math.abs(zoomed - 2 * atActual)).toBeLessThanOrEqual(2)
+  })
+})
+
+test('AC-03 — an invalid width typed in the field is corrected, and the tool stays open', async ({
+  page,
+}) => {
+  await openTool(page)
+  const field = widthField(page)
+  await field.fill('250')
+  await field.press('Enter')
+  await expect(field).toHaveValue('200')
+  await field.fill('2.5')
+  await field.press('Tab')
+  await expect(field).toHaveValue('3')
+  await field.focus()
+  await field.fill('1e2')
+  await field.press('Tab')
+  await expect(field).toHaveValue('3')
+  await field.focus()
+  await field.fill('20 PX')
+  await field.press('Enter')
+  await expect(field).toHaveValue('20')
+  await expect(tool(page)).toBeVisible()
+})
+
+test('AC-04 — erasing where nothing is drawn changes no pixel and is no edit', async ({ page }) => {
+  await openTool(page)
+  await page.keyboard.press('e')
+  await drag(page, [
+    [20, 20],
+    [180, 130],
+  ])
+  expect(await draftMarks(page)).toBe(0)
+  await button(page, 'Apply').click()
+  expect(await drawingAlpha(page)).toEqual([])
+  expect((await work(page))!.hasUnsavedEdits).toBe(false)
+})
+
+test.describe('AC-09 — a Stroke at the Crop edge', () => {
+  const crop = { x: 50, y: 40, width: 100, height: 70 }
+
+  test.beforeEach(async ({ page }) => {
+    await page.evaluate(
+      (c) =>
+        window.__imglyTest!.setGeometry({
+          flipH: false,
+          flipV: false,
+          rotation: 0,
+          straighten: 0,
+          crop: c,
+        }),
+      crop,
+    )
+    await openTool(page)
+  })
+
+  const outsideCrop = (alpha: number[]) => {
+    let n = 0
+    for (let y = 0; y < SIZE.height; y++) {
+      for (let x = 0; x < SIZE.width; x++) {
+        const out =
+          x < crop.x || x >= crop.x + crop.width || y < crop.y || y >= crop.y + crop.height
+        if (out && at(alpha, x, y) > 0) n++
+      }
+    }
+    return n
+  }
+
+  test('a wide Stroke whose pointer path runs just outside an edge paints its band inside', async ({
+    page,
+  }) => {
+    await setWidth(page, 30)
+    // In the Crop's frame: 5 px above its top edge, so 10 px of the 30 px band reach inside.
+    await drag(page, [
+      [10, -5],
+      [90, -5],
+    ])
+    await button(page, 'Apply').click()
+    const alpha = await drawingAlpha(page)
+    expect(at(alpha, 100, crop.y + 4)).toBe(255)
+    expect(at(alpha, 100, crop.y + 13)).toBe(0)
+    expect(outsideCrop(alpha)).toBe(0)
+  })
+
+  test('a press just outside paints the inside part of its dot', async ({ page }) => {
+    await setWidth(page, 20)
+    await click(page, -5, 35) // Original (45, 75): 5 px left of the Crop
+    await button(page, 'Apply').click()
+    const alpha = await drawingAlpha(page)
+    expect(at(alpha, crop.x + 2, 75)).toBe(255)
+    expect(outsideCrop(alpha)).toBe(0)
+  })
+})
+
+test.describe('AC-19 — reaching and leaving the tool by keyboard', () => {
+  for (const key of ['Enter', 'Space'] as const) {
+    test(`Tab reaches "Draw" and ${key} opens it`, async ({ page }) => {
+      await page.getByTestId('adjust-action').focus()
+      // WebKit's Tab reaches buttons only with Alt (Safari's "Press Tab to highlight" off).
+      await page.keyboard.press(test.info().project.name === 'webkit' ? 'Alt+Tab' : 'Tab')
+      await expect(action(page)).toBeFocused()
+      await page.keyboard.press(key)
+      await expect(tool(page)).toBeVisible()
+    })
+  }
+
+  test('Space on the focused Apply applies the tool', async ({ page }) => {
+    await openTool(page)
+    await drag(page, [
+      [40, 40],
+      [120, 90],
+    ])
+    await button(page, 'Apply').focus()
+    await page.keyboard.press('Space')
+    await expect(tool(page)).toBeHidden()
+    expect(marked(await drawingAlpha(page))).toBeGreaterThan(0)
+  })
 })
