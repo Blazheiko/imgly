@@ -52,6 +52,7 @@ export function infoNoImage(): string {
 const TOOL_OPEN: Record<ToolId, string> = {
   'crop-rotate': 'Apply or cancel the crop first, then export.',
   adjust: 'Apply or cancel the adjustments first, then export.',
+  draw: 'Apply or cancel the drawing first, then export.',
 }
 
 /** Export or Ctrl/Cmd+S while an editing tool is open, naming that tool (crop-rotate AC-16, adjust AC-16). */

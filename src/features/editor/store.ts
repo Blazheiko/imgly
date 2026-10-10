@@ -41,6 +41,9 @@ import {
 import {
   createPreviewRenderer,
   probeCapabilities,
+  releaseLayer,
+  type Layer,
+  type LayerRect,
   type PreviewRenderer,
   type RendererStatus,
 } from '@/render'
@@ -87,6 +90,8 @@ export interface ExportSnapshot {
   geometry: Geometry
   /** The Work's applied Adjustments when the export was confirmed (adjust AC-14). */
   adjustments: Adjustments
+  /** The Work's applied Drawing layer when the export was confirmed, or null (draw AC-10). */
+  drawing: Layer | null
   sourceName: string
   sourceFormat: ImageFormat
 }
@@ -132,7 +137,7 @@ export const useEditorStore = defineStore('editor', () => {
   const display = ref<DisplayState>('checking')
   const activePanel = ref<PanelId | null>(null)
   const slot = createToolSlot({ work, phase, activePanel, view, fitIfSized })
-  const { activeTool, previewGeometry, previewAdjustments } = slot
+  const { activeTool, previewGeometry, previewAdjustments, previewLayer } = slot
   /** Space is held for space-pan: a tool's overlay lets the drag through to the canvas. */
   const spacePan = ref(false)
   let latestOpenId = 0
@@ -204,6 +209,31 @@ export const useEditorStore = defineStore('editor', () => {
     if (!current || phase.value === 'exporting') return
     const updated = { ...current, adjustments: { ...next } }
     work.value = adjustmentsEquals(next, current.adjustments) ? updated : withEdit(updated)
+  }
+
+  /** The Work's applied Drawing layer as the browser holds it, or null. */
+  function appliedLayer(): Layer | null {
+    return (work.value?.drawing as Layer | null | undefined) ?? null
+  }
+
+  /** The open draw tool's dirty rectangle, straight to the renderer (draw ADR-0002 hot path). */
+  function layerChanged(rect: LayerRect) {
+    renderer?.updateLayer(rect)
+  }
+
+  /**
+   * Applies the draw tool's Draft as the Work's Drawing layer with a new id (draw ADR-0004). It
+   * counts as an edit only when the Draft's change flag says so (AC-12), and the applied layer it
+   * replaces is released unless it is the same canvas. Refused while exporting.
+   */
+  function applyDrawing(draft: Layer | null, changed: boolean) {
+    const current = work.value
+    if (!current || phase.value === 'exporting') return
+    const previous = appliedLayer()
+    const drawing = draft && { ...draft, id: newId() }
+    const updated = { ...current, drawing }
+    work.value = changed ? withEdit(updated) : updated
+    if (previous && previous.pixels !== draft?.pixels) releaseLayer(previous)
   }
 
   /**
@@ -331,6 +361,7 @@ export const useEditorStore = defineStore('editor', () => {
    */
   function replace(image: DecodedImage, fileName: string): OpenOutcome {
     const old = work.value?.original.pixels
+    const oldLayer = appliedLayer()
     // The open tool's Draft is discarded with the old Work (AC-17).
     slot.discard()
     const { bitmap, ...facts } = image
@@ -347,6 +378,7 @@ export const useEditorStore = defineStore('editor', () => {
     const ctx = context()
     view.value = ctx ? fitView(ctx) : UNSIZED_VIEW
     if (old) void nextTick(() => closeBitmap(old))
+    if (oldLayer) releaseLayer(oldLayer)
     return { kind: 'replaced', image: facts }
   }
 
@@ -372,6 +404,7 @@ export const useEditorStore = defineStore('editor', () => {
       original: current.original,
       geometry: current.geometry,
       adjustments: current.adjustments,
+      drawing: appliedLayer(),
       sourceName: current.sourceName,
       sourceFormat: current.sourceFormat,
     }
@@ -404,6 +437,7 @@ export const useEditorStore = defineStore('editor', () => {
     activeTool,
     previewGeometry,
     previewAdjustments,
+    previewLayer,
     activePanel,
     spacePan,
     hasUnsavedEdits,
@@ -413,6 +447,9 @@ export const useEditorStore = defineStore('editor', () => {
     applyGeometry,
     setPreviewAdjustments: slot.setPreviewAdjustments,
     applyAdjustments,
+    setPreviewLayer: slot.setPreviewLayer,
+    layerChanged,
+    applyDrawing,
     setActivePanel,
     setSpacePan: (on: boolean) => (spacePan.value = on),
     setDecoder,

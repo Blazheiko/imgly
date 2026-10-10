@@ -1,9 +1,10 @@
 import { ref, shallowRef, type Ref, type ShallowRef } from 'vue'
 import { turnedBounds, type Adjustments, type Geometry, type View, type Work } from '@/core'
+import type { Layer } from '@/render'
 import type { EditorPhase, PanelId } from './store'
 
 /** A tool that edits the Work in the tool slot; one at a time (crop-rotate ADR-0003). */
-export type ToolId = 'crop-rotate' | 'adjust'
+export type ToolId = 'crop-rotate' | 'adjust' | 'draw'
 
 /** Why a tool may not open: no image (AC-18), an export running (AC-15), or one already open. */
 export type ToolRefusal = 'no-work' | 'exporting' | 'tool-open' | 'panel-open' | 'confirming'
@@ -28,10 +29,14 @@ export function createToolSlot({ work, phase, activePanel, view, fitIfSized }: T
   // What the Preview colours with while the adjust tool is open: its Draft, or neutral values while
   // Compare is held. Null otherwise, so the Preview uses the Work's Adjustments.
   const previewAdjustments = shallowRef<Adjustments | null>(null)
+  // The draw tool's Draft for the Preview while that tool is open; null there is an empty Draft
+  // (after Clear), not "show the Work's layer" (draw sad.md §5).
+  const previewLayer = shallowRef<Layer | null>(null)
 
   /**
    * Opens a tool over the Work. Crop and rotate shows the whole turned image, fitted (crop-rotate
-   * AC-19); Adjust keeps the Work's Crop and the View as they are (adjust AC-20). Refused, not
+   * AC-19); Adjust and Draw keep the Work's Crop and the View as they are (adjust AC-20, draw
+   * AC-18). Refused, not
    * queued, with no Work, during an export, while a tool is open, or under another feature's panel
    * or the replace dialog (AC-15, AC-16, AC-18, AC-20).
    */
@@ -54,6 +59,7 @@ export function createToolSlot({ work, phase, activePanel, view, fitIfSized }: T
     activeTool.value = null
     previewGeometry.value = null
     previewAdjustments.value = null
+    previewLayer.value = null
   }
 
   /** Closes the tool slot; after Crop and rotate the View fits the Work again (AC-19). */
@@ -68,6 +74,12 @@ export function createToolSlot({ work, phase, activePanel, view, fitIfSized }: T
   function setPreviewAdjustments(next: Adjustments | null) {
     if (activeTool.value !== 'adjust') return
     previewAdjustments.value = next && { ...next }
+  }
+
+  /** The draw tool's Draft for the Preview, or null for an empty one; never an edit. */
+  function setPreviewLayer(next: Layer | null) {
+    if (activeTool.value !== 'draw') return
+    previewLayer.value = next
   }
 
   /**
@@ -103,10 +115,12 @@ export function createToolSlot({ work, phase, activePanel, view, fitIfSized }: T
     activeTool,
     previewGeometry,
     previewAdjustments,
+    previewLayer,
     openTool,
     closeTool,
     discard,
     setPreviewAdjustments,
     setPreviewGeometry,
+    setPreviewLayer,
   }
 }

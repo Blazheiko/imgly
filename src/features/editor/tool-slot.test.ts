@@ -8,16 +8,21 @@ import {
   type View,
   type Work,
 } from '@/core'
+import type { Layer } from '@/render'
 import { createToolSlot } from './tool-slot'
 import type { EditorPhase, PanelId } from './store'
 
 const bitmap = (width: number, height: number) => ({ width, height }) as unknown as ImageBitmap
 
 function makeWork(width = 400, height = 200): Work<ImageBitmap> {
-  return createWork({ width, height, pixels: bitmap(width, height), hasTransparency: false }, 'w1', {
-    sourceName: 'photo',
-    sourceFormat: 'jpeg',
-  })
+  return createWork(
+    { width, height, pixels: bitmap(width, height), hasTransparency: false },
+    'w1',
+    {
+      sourceName: 'photo',
+      sourceFormat: 'jpeg',
+    },
+  )
 }
 
 function setup({ withWork = true } = {}) {
@@ -128,5 +133,57 @@ describe('tool slot — per-tool side effects', () => {
     expect(slot.activeTool.value).toBeNull()
     expect(slot.previewGeometry.value).toBeNull()
     expect(fitIfSized).not.toHaveBeenCalled()
+  })
+})
+
+describe('tool slot — the draw tool (draw sad.md §5)', () => {
+  const layer = { id: 'l', width: 400, height: 200, pixels: {} } as unknown as Layer
+
+  it('opens keeping the Crop and the View: no preview Geometry, no fit (AC-18)', () => {
+    const { slot, fitIfSized, view } = setup()
+    expect(slot.openTool('draw')).toEqual({ ok: true })
+    expect(slot.previewGeometry.value).toBeNull()
+    expect(fitIfSized).not.toHaveBeenCalled()
+    slot.closeTool()
+    expect(fitIfSized).not.toHaveBeenCalled()
+    expect(view.value).toEqual({ zoom: 2, panX: 10, panY: 20, autoFit: false })
+  })
+
+  it('takes a preview layer only while draw is open; null means an empty Draft', () => {
+    const { slot } = setup()
+    slot.setPreviewLayer(layer)
+    expect(slot.previewLayer.value).toBeNull()
+    slot.openTool('adjust')
+    slot.setPreviewLayer(layer)
+    expect(slot.previewLayer.value).toBeNull()
+    slot.closeTool()
+    slot.openTool('draw')
+    slot.setPreviewLayer(layer)
+    expect(slot.previewLayer.value).toBe(layer)
+    slot.setPreviewLayer(null)
+    expect(slot.previewLayer.value).toBeNull()
+  })
+
+  it('clears the preview layer on close and on discard', () => {
+    const { slot } = setup()
+    slot.openTool('draw')
+    slot.setPreviewLayer(layer)
+    slot.closeTool()
+    expect(slot.previewLayer.value).toBeNull()
+    slot.openTool('draw')
+    slot.setPreviewLayer(layer)
+    slot.discard()
+    expect(slot.previewLayer.value).toBeNull()
+    expect(slot.activeTool.value).toBeNull()
+  })
+
+  it('keeps one tool at a time with draw as the third tool (AC-16)', () => {
+    const { slot } = setup()
+    slot.openTool('draw')
+    expect(slot.openTool('adjust')).toEqual({ ok: false, reason: 'tool-open' })
+    expect(slot.openTool('crop-rotate')).toEqual({ ok: false, reason: 'tool-open' })
+    slot.closeTool()
+    slot.openTool('adjust')
+    expect(slot.openTool('draw')).toEqual({ ok: false, reason: 'tool-open' })
   })
 })
