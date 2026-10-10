@@ -7,7 +7,7 @@ acs: ["AC-19"]
 files_hint: ["src/features/editor/EditorView.vue", "src/features/editor/EditorView.test.ts", "src/features/draw/shortcuts.ts"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 source: "review-2026-10-10 S2"
 ---
 

@@ -183,6 +183,22 @@ describe('EditorView — zoom shortcuts (SCR-02)', () => {
     expect(editor.view.zoom).toBeCloseTo(1 / 3)
   })
 
+  it('with Draw open, the key right of P steps the width instead of zooming (draw AC-19)', () => {
+    editor.openTool('draw')
+    const zoom = editor.view.zoom
+    const german = press({ key: '+', code: 'BracketRight' })
+    expect(editor.view.zoom).toBe(zoom)
+    expect(german.defaultPrevented).toBe(false) // left for the tool's own key handler
+    press({ key: '+', code: 'Equal', shiftKey: true })
+    expect(editor.view.zoom).toBeGreaterThan(zoom)
+  })
+
+  it('with no tool open, + on the key right of P still zooms', () => {
+    const zoom = editor.view.zoom
+    press({ key: '+', code: 'BracketRight' })
+    expect(editor.view.zoom).toBeGreaterThan(zoom)
+  })
+
   it('never intercepts the browser’s Ctrl/Cmd + / - / 0', () => {
     for (const init of [
       { key: '=', code: 'Equal', ctrlKey: true },

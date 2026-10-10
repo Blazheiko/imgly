@@ -2,10 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { defineComponent, h, nextTick } from 'vue'
-import { createWork } from '@/core'
-import { useEditorStore } from '@/features/editor'
+import { createWork, ok } from '@/core'
+import { EditorView, useEditorStore } from '@/features/editor'
 import { setLayerCanvasFactory, type CanvasFactory } from '@/render'
 import { createFakeLayerCanvas } from '@/render/testing'
+import { createFakeRenderer } from '@/features/editor/fake-renderer'
 import DrawAction from './DrawAction.vue'
 import DrawOverlay from './DrawOverlay.vue'
 import DrawTool, { TOOL_READY_MARK } from './DrawTool.vue'
@@ -110,6 +111,21 @@ describe('DrawTool (SCR-03)', () => {
     await nextTick()
     expect(draw.isOpen).toBe(false)
     expect(draw.width).toBe(12)
+  })
+
+  it('with the editor mounted too, the German + key steps the width and keeps the zoom', async () => {
+    editor.setRendererFactory(createFakeRenderer().factory)
+    await editor.runCapabilityGate(async () => ok(undefined))
+    const view = mount(EditorView, { attachTo: document.body })
+    await openTool()
+    expect(editor.display).toBe('ok') // the editor's own keys are live
+    const zoom = editor.view.zoom
+    key({ key: '+', code: 'BracketRight' }, document.body)
+    expect(draw.width).toBe(13)
+    expect(editor.view.zoom).toBe(zoom)
+    key({ key: 'ü', code: 'BracketLeft' }, document.body)
+    expect(draw.width).toBe(12)
+    view.unmount()
   })
 
   it('B in the width field types b', async () => {

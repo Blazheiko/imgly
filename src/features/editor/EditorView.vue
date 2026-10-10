@@ -69,7 +69,13 @@ function keepsSpace(target: EventTarget | null): boolean {
 const zoomShortcuts: { matches: (e: KeyboardEvent) => boolean; run: () => void }[] = [
   { matches: (e) => e.shiftKey && e.code === 'Digit1', run: () => editor.fit() },
   { matches: (e) => e.shiftKey && e.code === 'Digit0', run: () => editor.actualSize() },
-  { matches: (e) => e.key === '+' || e.key === '=', run: () => editor.stepZoom(1) },
+  {
+    // With Draw open, the key right of P (+ on a German layout) steps the width (draw AC-19).
+    matches: (e) =>
+      (e.key === '+' || e.key === '=') &&
+      !(editor.activeTool === 'draw' && e.code === 'BracketRight'),
+    run: () => editor.stepZoom(1),
+  },
   { matches: (e) => e.key === '-', run: () => editor.stepZoom(-1) },
 ]
 
