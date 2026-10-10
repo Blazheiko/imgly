@@ -149,7 +149,16 @@ See [tracker.md](./tracker.md) for status. Machine contract: [tasks.json](../tas
 - **The tool slot is extracted first** (`sad.md` §5): T1 is a pure refactor, and every existing test must pass unchanged before T7 adds `'draw'`.
 - **Fidelity ±2/255 on every engine** (`sad.md` §11, High): the layer is uploaded as straight `ImageData` with the premultiply flag, the same filters apply on both units, and one shader serves every renderer. T17 runs on all three engines. A gap is recorded as an engine deviation, never a silent loosening.
 - **Hot path** (`sad.md` §11, Medium): T9 measures 1 px and 200 px at Fit and at 100% before the tool UI exists. If it misses, T12 implements the fallbacks in order: mipmaps every other frame below 100%, then one coalesced batch per frame, then a painter worker.
-  - *T9 result:* _(filled in by T9: the p95s and the decision)_
+  - *T9 result (2026-10-10, Apple M1 Pro, Chrome via Playwright, 4096×3072, 2 + 20 runs of 240 moves at 120 Hz; `e2e/draw/perf.spec.ts`):*
+
+    | Case | Frame interval p95 | Move-to-frame p95 |
+    |---|---|---|
+    | 1 px at Fit | 32.1 ms (a second run: 33.3 ms, a miss) | 12.3 ms |
+    | 200 px at Fit | 32.7 ms | 12.1 ms |
+    | 1 px at 100% | 17.6 ms | 7.5 ms |
+    | 200 px at 100% | 17.5 ms | 7.2 ms |
+
+    *Decision:* latency passes everywhere, and 100% passes with room. Below 100% every frame costs two display frames: regenerating the whole layer's mipmaps each frame dominates (width barely matters). On a machine faster than the M1 Air reference that is at the 33 ms line, so it counts as a miss. **T12 takes fallback 1**: during a Stroke below 100%, regenerate the mipmaps at most every other frame, and once more on release. The renderer already coalesces each frame's dirty rectangles into one upload inside its own frame (T8), which also covers the intent of fallback 2.
 - **Image pixels never change** (AC-07): the painter only ever touches the layer. The Eraser is `destination-out` on the layer alone (repo ADR 0004).
 - **The Draft never counts as Unsaved edits** (AC-12, AC-13): only `editor.applyDrawing(layer, changed)` raises the revision, and only when the per-Draft change flag is true. No pixel comparison is used.
 - **An Export never holds a Draft** (AC-14, AC-15): Export is unavailable while the tool is open, and the tool is refused during an export.
