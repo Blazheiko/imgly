@@ -177,140 +177,155 @@ The diagram shows the Editor using the Editor SPA. The SPA records Steps and und
 
 ## 6. Runtime view
 
-<!-- 🎯 Why: the RUNTIME FLOW of 1–2 critical scenarios — who talks to whom, when, in what order.
-     Without §6, §5 is just boxes with no life.
-     📋 Write: a Mermaid sequenceDiagram. Participants are names from §5 (don't invent new ones).
-     Messages are semantic («saves a draft»), NO HTTP verbs / paths / status codes — endpoint-level
-     sequences arrive at the `api` stage.
-     📌 e.g. «author → web: composes draft → web → content API: save». Seed the primary flow(s) here;
-     the `sequences` stage then covers every §5 AC (no cap). Never N/A for M+; XS/S keeps ≥1 happy-path flow. -->
+design seeds the two flows that carry the new mechanics. The `sequences` stage then covers every §5 AC, including the export save point (AC-09), the refusal during an export (AC-07) and replacing the Work (AC-10). Participants are the §5 containers and the modules inside the Editor SPA.
 
-**Critical flow 1: <flow name>**
+**Critical flow 1: Undo a Step** (AC-01, AC-05, AC-07, AC-08, AC-12, AC-13). Redo is the same flow with `redo` and the next state.
 
 ```mermaid
 sequenceDiagram
-    actor Actor
-    participant Web
-    participant Service
-    participant Store
-    Actor->>Web: <action>
-    Web->>Service: <call>
-    Service->>Store: <write>
-    Store-->>Service: ok
-    Service-->>Web: result
-    Web-->>Actor: confirmation
+    actor Editor
+    participant UI as Undo-redo controls
+    participant Store as Editor store
+    participant Core as Editing core
+    participant Renderer as Preview renderer
+    Editor->>UI: Ctrl or Cmd plus Z, or the Undo button
+    alt a tool is open or an export runs
+        UI-->>Editor: info notice to apply or cancel the tool first, or that an export is in progress
+    else no kept Step to undo
+        UI-->>Editor: nothing happens, the Undo button is unavailable
+    else a kept Step is there
+        UI->>Store: undo
+        Store->>Core: undo the history
+        Core-->>Store: the earlier state and the new cursor
+        Store->>Store: Work takes the earlier Geometry, Adjustments, Drawing layer and revision
+        opt the image size changed
+            Store->>Store: fit the View
+        end
+        Store->>Renderer: draw the restored state
+        Renderer-->>Editor: the Preview shows the Work as before the Step
+        UI-->>Editor: the hints name the next Undo and Redo tools
+    end
 ```
 
-**Critical flow 2: <e.g. async event propagation>** — <if applicable, otherwise N/A>.
+The Editor presses Ctrl/Cmd+Z or chooses the Undo button. If a tool is open or an export runs, the shortcut shows an info notice and nothing changes. If no kept Step is left, nothing happens, because the button is already unavailable. Otherwise the editor store asks the Editing core to undo, puts the returned earlier state into the Work, revision included, fits the View only when the image size changed, and the renderer redraws the restored state, uploading the earlier layer once. The hints then name the tools of the next Undo and Redo.
+
+**Critical flow 2: Apply after an Undo — discard, trim, release** (AC-04, AC-11, §6 release). Shown for "Draw", the only tool whose Steps hold layers; "Crop and rotate" and "Adjust" take the same path with nothing to release.
+
+```mermaid
+sequenceDiagram
+    actor Editor
+    participant Tool as Draw tool
+    participant Store as Editor store
+    participant Core as Editing core
+    participant Layer as Drawing layer
+    Editor->>Tool: Apply after one or more Undos
+    Tool->>Store: apply the drawing with its Draft and change flag
+    alt the Apply changed nothing
+        Store->>Layer: release the Draft, keep the layer the Work shows
+        Store-->>Tool: applied, no Step
+    else the Apply is an edit
+        Store->>Core: record a draw Step with the next revision
+        Core->>Core: discard the redoable entries, append, drop the oldest beyond 50 Steps or 512 MB
+        Core-->>Store: the new history and the evicted entries
+        Store->>Layer: release each evicted layer that no kept entry refers to
+        Store-->>Tool: applied, Redo is unavailable
+    end
+```
+
+After one or more Undos the Editor applies "Draw". If the Draft changed nothing, the store releases the Draft, keeps the Work's current layer and records no Step. Otherwise the store records a draw Step with a fresh revision. The core discards the redoable entries, appends the new state, and drops the oldest entries while there are more than 50 Steps or more than 512 MB of held layers. The store then releases every evicted layer that no kept entry still refers to, and Redo becomes unavailable.
 
 ## 7. Deployment view
 
-<!-- 🎯 Why: the TOPOLOGY DevOps must know without reading the deploy charts — how many replicas,
-     where the background worker lives, AT WHAT NUMBERS we scale.
-     📋 Write: 2–3 sentences on topology + monitoring + concrete threshold numbers.
-     📌 e.g. «500 authors → partition by quarter» (not «we'll think about scale later»).
-     🎯 N/A allowed for XS/S that reuses an existing deployment unit with no change.
-     Deployment-diagram scaffold → templates/deployment.md. -->
+<!-- N/A: reuses existing deployment unit, no infra change -->
 
-<Topology in 2–3 sentences. Where it runs, replicas, scaling thresholds.>
-
-**Monitoring:**
-- <Metrics — e.g. `<metric_name>`>
-- <Alerts — e.g. «worker lag > 10 min → page on-call»>
-- <Tracing — e.g. spans on the request boundary>
-
-**Scaling thresholds:**
-- <e.g. comfortable in one table up to N rows/year>
-- <e.g. partition by quarter above N rows/year>
-
-<!-- For XS/S with no deployment change: <!-- N/A: reuses existing deployment unit, no infra change --> -->
+undo-redo ships inside the same static bundle on GitHub Pages under `/imgly/`. It adds no worker, no service-worker route, no storage and no build step. The memory budget is a per-tab bound on the client (§10 QG-2), not a deployment threshold.
 
 ## 8. Crosscutting concepts
 
-<!-- 🎯 Why: CROSS-CUTTING PATTERNS spanning several modules: logging, errors, authorization, ID
-     strategy, events, caching. ⭐ The second-densest section. A pattern inside one module is NOT
-     here; a project-wide convention belongs in the convention file.
-     📋 Write: a table — concept / convention / where defined. One row per concept.
-     📌 e.g. «sortable time-based IDs generated in the app layer» as a default from the convention file. -->
-
 | Concept | Convention | Where defined |
 |---|---|---|
-| Logging | <e.g. structured, fields `module=<name>`> | <convention file §X or here> |
-| Authentication | <e.g. token-based via middleware> | <convention file §X> |
-| Error handling | <e.g. domain sentinel → ports error mapping → JSON> | <convention file §X> |
-| ID strategy | <e.g. sortable time-based ID in the app layer> | <convention file §X> |
-| Internationalisation | <e.g. N/A, single language> | — |
-| Observability | <e.g. tracing on the request boundary> | — |
-| Events | <module-specific patterns, if any> | <here> |
+| Error handling | No new `AppErrorCode`: Undo and Redo cannot fail. Refusals are app rules (a tool is open, an export runs), not errors. They show as unavailable buttons and, for the shortcuts, as info notices | `CLAUDE.md` Errors; `src/core/result.ts` |
+| Notices | Shortcut refusals raise an `info` notice through `useNotices`, as draw AC-15 and AC-16 do. A successful Undo or Redo and the silent drop of old Steps raise none (AC-11, ux-flows §Platform decisions) | `src/shared/notices/store.ts` |
+| Revision strategy | `Work.revision` is a never-reused state id taken from the history's high-water mark. `withEdit(work, revision, now)` requires it, and Undo and Redo restore a state's own revision. `cleanRevision` is set only by a finished Export | ADR-0003 |
+| ID strategy | Unchanged. Layer ids come from `newId()` (UUIDv7) at Apply. History entries need no id of their own, because their position is their identity | `src/shared/ids.ts` |
+| Resource lifetime | Layers referred to by the history are released only by the `edit-history` composable, for evicted entries that no kept entry refers to, and for the whole history on replace. `applyDrawing` no longer releases the previous layer. The bitmap ledger counts every create and release | ADR-0002; `src/render/drawing/layer.ts:69`; `src/shared/bitmap-ledger.ts` |
+| Memory accounting | `heldLayerBytes` = Σ w × h × 4 over the distinct layers (by id) of the kept entries, leaving out the layer the Work shows. Bound: ≤ 50 Steps and ≤ 512 000 000 B, oldest dropped first | ADR-0002; `src/core/history/budget.ts` |
+| Keyboard | A `keydown` handler in `undo-redo/shortcuts.ts`. Undo is Ctrl/Cmd+Z (`ctrlKey` or `metaKey`, no Shift or Alt). Redo is Shift+Ctrl/Cmd+Z, or Ctrl+Y (`ctrlKey` only, so Cmd+Y stays the browser's). It skips `isTextTarget` fields (now in `src/shared/keyboard.ts`) and held-key repeats, and calls `preventDefault` on keys it handles. No platform sniffing, as the export's Ctrl/Cmd+S | `src/features/export/shortcuts.ts` precedent; ADR-0004 |
+| Accessibility | The two buttons are `BaseButton`s reachable with Tab and used with Enter or Space. Their hints name the action, the Step's tool and the shortcut (AC-14), and they are unavailable in the same way as the tools' top-bar actions | `docs/design-system.md`; `src/shared/ui/` |
+| Persistence | None. The Edit history is never written to IndexedDB or any storage, and is discarded on replace or page close | spec §3, §6.1 |
+| Internationalisation | N/A. English only, with copy in `src/features/undo-redo/messages.ts` | — |
+| Observability | No logging, as in the rest of the app. In e2e builds `window.__imglyTest` exposes the history's held bytes and Step count next to the bitmap ledger | `src/app/test-hooks.ts` |
 
 ## 9. Architecture decisions
 
-<!-- 🎯 Why: the REVERSE INDEX onto the adr/ folder. `ls adr/` gives the files; §9 gives the
-     semantics — why they exist, which SAD section they attach to, what status.
-     📋 Write: a 4-column table, one row per ADR. Mixed status is fine.
-     📌 e.g. «0001 | Store content as a table of typed blocks | Accepted | §4». -->
-
 | # | Title | Status | Section |
 |---|---|---|---|
-| <NNNN> | <imperative — e.g. "Use a sliding-window counter for rate limiting"> | Accepted | §<N> |
-| <NNNN> | <imperative — e.g. "Co-locate the worker in the API process"> | Accepted | §<N> |
+| 0001 | Record the Edit history as snapshots of the Work's edited state | Accepted | §4 |
+| 0002 | Keep whole applied layers by reference, and bound the history by 50 Steps and 512 MB | Accepted | §4 |
+| 0003 | Make the revision a never-reused state id that Undo and Redo restore | Accepted | §4 |
+| 0004 | Run the history rules in core, own the history in the editor store, and add an undo-redo feature for the controls | Accepted | §4 |
 
-ADR files live under `docs/features/<slug>/adr/NNNN-<title>.md`.
+ADR files live under `docs/features/undo-redo/adr/NNNN-<title>.md`.
 
 ## 10. Quality requirements
 
-<!-- 🎯 Why: the QUALITY TREE — take a goal from §1 and break it into concrete leaves: tests,
-     metrics, configs, drills. ⭐ Without §10, §1 is a manifesto. With §10 each declaration maps
-     to something PROVABLE.
-     📋 Write: per §1 goal — When / Then / How-verify. Numbers from spec §6 NFR VERBATIM (don't
-     round ≤250ms to ≤300ms — that's a critic F6 hit).
-     📌 e.g. «p95 ≤ 500 ms on a block update, verified by a 100 req/s load test». -->
+Reference machine and protocol from spec §6: Apple M1 MacBook Air with the latest stable Chrome; the reference Work is 4096 × 3072 px; each p95 is taken over 20 runs after 2 warm-up runs; "a drawing over the whole image" is a Drawing layer covered by marks over the whole image, as draw §6 defines it.
 
-Each top-3 goal from §1 expanded into a full scenario:
+**QG-1. Exact undo and redo** (AC-03, AC-13)
+- **When:** a Step of each tool ("Crop and rotate" with a Straighten angle, "Adjust" with all seven Adjustments away from neutral, "Draw") is undone, and undone then redone.
+- **Then:** difference 0 per channel between a full-size PNG Export after Undo (or Redo) and the Export of the same state made before it.
+- **How verify:** e2e pixel comparison on Chromium, Firefox and WebKit, for Steps of each tool. Below it, a `core` unit test asserts that `withState` restores the very Geometry, Adjustments and layer object of the kept state (ADR-0001), and the AC-03 sequence (Crop, Adjust, Draw, three Undos, three Redos) runs as an editor store test.
 
-**QG-1. <quality attribute>**
-- **When:** <trigger condition>
-- **Then:** <expected behaviour with numbers from spec §6 NFR>
-- **How verify:** <test / chaos drill / load test / metric>
+**QG-2. Bounded, leak-free memory** (AC-04, AC-10, AC-11)
+- **When:** 100 Applies of a new drawing over the whole image on the reference Work, and separately 50 Crops or Adjustments, and the three release cases with 10 drawing Steps (replacing the Work, a new Step discarding redoable Steps, the oldest Steps being dropped).
+- **Then:**
+  - ≤ 512 MB of image data held by the Edit history (kept layers or their differences, counted as width × height × 4 bytes), whatever the number and kind of Steps.
+  - Steps kept: at most 50; at least the last 10 when each is a drawing over the whole image on the reference Work; all 50 when they are Crops or Adjustments.
+  - Whole-page memory after 100 Applies of a new drawing over the whole image ≤ whole-page memory after the 10th such Apply + 10%.
+  - 0 retained layers that no kept Step, the Work or an open Draft refers to, after each of the three release cases.
+- **How verify:** the DEV resource ledger (`heldLayerBytes` and the bitmap ledger through `window.__imglyTest`), asserted in a unit test and in e2e after 100 Applies of a new drawing over the whole image. A unit test of the history bound covers 50 Crops or Adjustments and the 10-drawing minimum, and the memory e2e counts the Undos available. Whole-page memory is measured as export §6 measures it, in Chromium e2e. The release rows are asserted in e2e for each of the three cases with 10 drawing Steps.
 
-**QG-2. <quality attribute>**
-- **When:** <trigger>
-- **Then:** <expected>
-- **How verify:** <how>
+**QG-3. Responsive Undo and Redo**
+- **When:** the Editor chooses Undo or Redo for a Step of each tool, with a drawing over the whole image on the reference Work.
+- **Then:** from choosing Undo or Redo to the updated Preview, p95 ≤ 150 ms (the same target as an Apply in draw §6).
+- **How verify:** e2e performance test on the reference machine (`@perf`, run with `PERF=1`), 20 runs after 2 warm-ups, timed from the shortcut's `keydown` to the next presented frame of the Preview.
 
-**QG-3. <quality attribute>**
-- **When:** <trigger>
-- **Then:** <expected>
-- **How verify:** <how>
+**QG-4. Honest Unsaved edits** (AC-09, AC-10, spec §2)
+- **When:** the AC-09 sequence: two Steps, a successful Export, a third Step, then Undo, Undo, Redo. Also: undoing every Step of a never-exported Work; a cancelled or failed export; and an Export at revision 1, an Undo, then a new Step.
+- **Then:** no Unsaved edits exactly at the save point (after the first Undo and after the Redo, and at the opened state of a never-exported Work), so opening another image replaces the Work without confirmation. There are Unsaved edits everywhere else, including after the new Step that follows Undo past the exported state. A cancelled or failed export never moves the save point.
+- **How verify:** `core` unit tests of the revision rule (ADR-0003), including the reused-revision sequence. Editor store tests drive the sequences through `applyGeometry`, `applyAdjustments`, `applyDrawing`, `beginExport` and `finishExport`, and check `hasUnsavedEdits` and whether `openImage` returns `replaced` or `confirming`.
 
 ## 11. Risks and technical debt
 
-<!-- 🎯 Why: ⭐ collects EVERYTHING that can break — not only the technical. Without §11 risks get
-     discussed at standups and lost; debt lives only in the head of whoever accepted it.
-     📋 Write: a risk/debt table — severity — mitigation — owner. Accepted debt in its own block.
-     📌 The first risk is often a product risk, not a technical one. That's normal. -->
-
-<!-- Severity literals: Low / Medium / High for regular risks; "Open question" for rows created by
-     a Save-as-OQ resolution during the Socratic walk (see references/socratic.md). -->
-
 | Risk / debt | Severity | Mitigation | Owner |
 |---|---|---|---|
-| <e.g. Worker lag may reach hours during a downstream outage> | Medium | <alert >10 min, on-call playbook, retry backoff> | <DevOps> |
-| <e.g. No event-schema versioning in v1> | Medium | <ADR-NNNN planned for v2, tolerate unknown fields> | <Backend> |
-| Open architectural decision: <decision-headline> | Open question | Resolve before <stage trigger or YYYY-MM-DD>; <inline rationale from the Save-as-OQ> | <owner> |
+| Brownfield: `applyDrawing` releases the previous layer as soon as a new one is applied (`src/features/editor/store.ts:249`), and `replace()` releases the Work's layer (`:395`). Once the history keeps earlier layers, a release on either path would leave a kept entry pointing at a 0×0 canvas, and an Undo would silently show no marks | High | One release path (ADR-0002): the first editor task changes `applyDrawing` and `replace()` together with the composable, in the same PR. In DEV the composable asserts that no kept entry's layer has been released. The QG-2 release rows and the QG-1 exactness e2e for a "Draw" Step catch a miss | Blazheiko |
+| A path that still computes `revision + 1` reissues a revision and reports a changed Work as saved, so replacing it would skip the confirmation and lose edits (ADR-0003) | Medium | `withEdit` takes the revision as a required argument, so an old call fails `vue-tsc`. The reused-revision sequence is a `core` unit test (QG-4) | Blazheiko |
+| The whole-page memory row (≤ +10% between the 10th and the 100th drawing Apply) is tight. In the steady state the page holds one more layer than after the 10th Apply (+50 331 648 B, the Work's own layer), on top of about 10 layers, the Original and the GPU textures, which is roughly +7–8%. Allocator and GC timing can add more | Medium | The memory e2e is the first e2e task, measured as export §6 does (`settledKiB` in `e2e/perf-memory.ts`: renderer and GPU processes after a forced garbage collection). If it misses, release evicted layers before the new layer's texture upload. If it still misses, raise it to the owner as a spec §6 clarification rather than loosen the ≥ 10-Step rule | Blazheiko |
+| Undoing a "Draw" Step re-uploads a whole layer: a readback of 50 MB plus a texture upload, and mipmaps below 100% (draw ADR-0003). This may miss p95 ≤ 150 ms (QG-3) | Medium | It is the same re-upload path as the draw tool's Cancel, which draw §10 holds to the same 150 ms. The `@perf` test runs in the first UI task. If it misses, the fallback is to keep the GPU texture of the most recently replaced layer for one Step, keyed by layer id, which costs one more texture | Blazheiko |
+| Undo under the open export panel (ledger L7): an Undo that changes the image's size can leave the panel's chosen size above the restored Work's long side | Low | `ExportPanel` already derives `workSize` from `editor.work` through a `computed` and normalizes the long side against it. A component test in `tasks` covers an Undo of a size-changing Crop under the open panel | Blazheiko |
+| A 4096 × 4096 Work keeps only 7 drawing Steps, because 8 layers of 67 108 864 B exceed 512 000 000 B (ADR-0002). AC-11's minimum of 10 is stated for the 4096 × 3072 reference Work only | Low | Accepted. The history drops the oldest Steps silently, as AC-11 allows. Raising the Downscale limit or the budget means re-checking this row | Blazheiko |
+| Other features' documents now describe the old behaviour. open-and-view ADR-0005 says undo and redo raise the revision and accepts a confirmation after a full undo. draw `spec.md` §6 has the 50-Apply memory row this spec replaces, and draw `sad.md` §11 has the undo-stack row this SAD resolves. export §8 and crop-rotate §8 checkboxes are unticked (spec §1) | Low | The owner adds "partly superseded by undo-redo ADR-0003" to open-and-view ADR-0005, marks the two draw rows as replaced or resolved by undo-redo, and ticks the two checkboxes. Resolve before `/sdd:ship undo-redo` | Blazheiko — before `/sdd:ship undo-redo` |
+| Shortcut collisions: Shift+Ctrl/Cmd+Z and Ctrl+Y have no default action in the target browsers outside text fields, but Cmd+Y opens Safari's History | Low | Redo handles Ctrl+Y with `ctrlKey` only and never Cmd+Y. Handled keys call `preventDefault`. A shortcut test per engine in e2e | Blazheiko |
+| Brownfield: the editor store is the hub (495 lines) and gains the history wiring | Low | The history is a composable (`edit-history.ts`) composed like `tool-slot.ts`, and the store gains only the three `record` calls and the public getters and actions (ADR-0004) | Blazheiko |
 
 **Accepted debt (acceptable in v1, plan to fix later):**
-- <e.g. the entity is immutable / unversioned — OK for v1, may need audit versioning in v2>
+- A small mark costs a whole layer in the Edit history, so far fewer than 50 drawing Steps fit (ADR-0002). Storing differences stays possible inside `core/history` and `render/drawing`.
+- The Edit history is not persisted and is lost on reload or replace (spec §3). The Gallery (step 8) persists the Work's editable state, not its Steps.
+- `isTextTarget` now exists in `src/shared/keyboard.ts` and as copies in `adjust`, `crop-rotate` and `draw`. The copies switch to the shared one when those features are next touched.
+- Draw spec §6's row "memory after 50 Applies ≤ 110% of memory after the first Apply" no longer holds by design. This spec's §6 rows replace it (spec §1).
 
 ## 12. Glossary
 
-<!-- 🎯 Why: ⭐ the DOMAIN GLOSSARY that ends arguments a year later («checkpoint — weekly or
-     biweekly? quarter — calendar or fiscal?»).
-     📋 Write: a term / meaning table. Business + technical terms mixed.
-     📌 e.g. «Lesson | a unit inside a course made of blocks (text, video)». -->
-
 | Term | Meaning |
 |---|---|
-| <e.g. domain object A> | <its meaning in this domain> |
-| <e.g. domain object B> | <its meaning> |
-| <e.g. domain invariant name> | <the rule, in plain language> |
+| Edit history | The ordered Steps of the open Work that the Editor can undo and redo. It lasts only while the Work is open, is cleared when the Work is replaced, and is never saved. NOT the Gallery of recent works (CONTEXT) |
+| Step | One applied change to the Work: one Apply of "Crop and rotate", "Adjust" or "Draw" that counts as an edit. Undo takes back exactly one Step and Redo restores it. NOT a Stroke or a slider move inside an open tool (CONTEXT, draw ADR-0005) |
+| Unsaved edits | Changes to the open Work made since it was opened or last exported successfully. Undoing or redoing back to the save point clears them (CONTEXT) |
+| Save point | The state of the last successful Export, or the state at open when nothing was exported. Here, the state whose revision equals `cleanRevision` (ADR-0003). Defined inside "Unsaved edits" in CONTEXT, not as its own term |
+| Work, Original, Geometry, Adjustments, Drawing layer, Preview, View, Export | As in CONTEXT |
+| Draft | An open tool's unapplied changes. For "Draw", a full copy of the layer owned by the `draw` store (draw ADR-0004). Used by the CONTEXT definition of Step but not defined there. Flagged for `/sdd:glossary` |
+| Edited state (`WorkState`) | The part of the Work that a Step changes and Undo restores: Geometry, Adjustments, the Drawing layer reference and the revision (ADR-0001). Technical term |
+| Kept entry | One state in the Edit history, with the tool of the Step that produced it. `entries[cursor]` is the Work's current state (ADR-0001). Technical term |
+| High-water mark | The highest revision ever issued for the open Work. Each new Step takes the next number, so a revision is never reused (ADR-0003). Technical term |
+| Held layer bytes | w × h × 4 summed over the distinct layers of the kept entries, leaving out the layer the Work shows. The quantity bounded by the 512 MB budget (ADR-0002). Technical term |
