@@ -1,6 +1,6 @@
 ---
 status: living
-updated_at: "2026-10-09"
+updated_at: "2026-10-11"
 ---
 
 # Roadmap — imgly-editor
@@ -26,7 +26,7 @@ draw on and export an image, then reopen any recent work later and re-edit it wi
 | 4 | Crop and rotate: 90° turns, flip, straighten, crop by frame, proportion or pixel size ([`crop-rotate`](features/crop-rotate/)) | idea-brief.md §7 Recommendation | M | shipped |
 | 5 | Adjust brightness, contrast, saturation, temperature/tint, grayscale and sepia with a live preview, plus Compare and Auto adjust ([`adjust`](features/adjust/)) | idea-brief.md §7 Recommendation | M | shipped |
 | 6 | Draw freehand with a brush and an eraser, choosing colour and width, on a separate drawing layer ([`draw`](features/draw/)) | idea-brief.md §7 Recommendation | M | shipped |
-| 7 | Undo and redo every crop, adjust and draw action while the image is open | idea-brief.md §7 Recommendation | S | idea |
+| 7 | Undo and redo every crop, adjust and draw action while the image is open ([`undo-redo`](features/undo-redo/)) | idea-brief.md §7 Recommendation | S | spec'd |
 | 8 | Gallery of recent works: autosave, reopen and re-edit without loss, about 20 works with the oldest evicted, an honest notice that browser storage can be evicted | idea-brief.md §7 Recommendation + §6 Risks | M | idea |
 | 9 | Install and update experience: an install prompt and a "new version available" toast | idea-brief.md §1 Raw idea (PWA) | S | idea |
 | 10 | OS integration: paste and copy to the clipboard, and "Open with…" as the system image handler (drag-and-drop moved to step 2) | idea-brief.md §7 Recommendation | M | idea |
