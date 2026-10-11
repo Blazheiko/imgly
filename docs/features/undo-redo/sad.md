@@ -235,6 +235,236 @@ sequenceDiagram
 
 After one or more Undos the Editor applies "Draw". If the Draft changed nothing, the store releases the Draft, keeps the Work's current layer and records no Step. Otherwise the store records a draw Step with a fresh revision. The core discards the redoable entries, appends the new state, and drops the oldest entries while there are more than 50 Steps or more than 512 MB of held layers. The store then releases every evicted layer that no kept entry still refers to, and Redo becomes unavailable.
 
+The flows below were added by the `sequences` stage. They are UI-driven, because the declared surface is `web-frontend`, and use generic participants: `<user>` is the Editor or the Portfolio reviewer, `<ui>` the top-bar controls, shortcuts and Preview, and `<service>` the editor store with the Editing core's history. They draw no `<data-store>`: the Edit history lives in session memory only and is never persisted (spec §3, §6.1), so no flow gives `data-model` an index to plan.
+
+### Flow 3: Redo, and what a new Apply does to it (US-02)
+
+Covers AC-02, AC-04, AC-05 (nothing to redo) and AC-06.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant UI as <ui>
+    participant S as <service>
+    Note over U,S: Precondition: a Work is open, no tool is open, no export runs (SCR-01)
+    U->>UI: Redo button, Shift plus Ctrl or Cmd plus Z, or Ctrl plus Y
+    UI->>S: redo
+    alt nothing was undone since the last Step
+        S-->>UI: refused, nothing to redo
+        UI-->>U: Redo stays unavailable with the hint that there is nothing to redo, the shortcut does nothing
+    else undone Steps are waiting
+        S->>S: move forward and put the next kept state into the Work with its own revision
+        Note over S: in memory only, nothing is persisted
+        S-->>UI: the restored state and the tools of the next Undo and Redo
+        UI-->>U: the Preview shows the Step applied again exactly, Redo stays available while undone Steps remain
+    end
+    U->>UI: zooms, pans, cancels a tool, exports, or opens a tool and chooses Apply
+    UI->>S: the action, with the tool's Draft for an Apply
+    alt the action is not a Step, or the Apply changes nothing
+        S-->>UI: no Step, the Edit history is unchanged
+        UI-->>U: Undo and Redo stay as they were
+    else the Apply is an edit
+        S->>S: discard the redoable entries and record the new Step with the next revision
+        Note over S: in memory only, nothing is persisted
+        S-->>UI: the new Step is the last one, nothing to redo
+        UI-->>U: Redo is unavailable with the hint that there is nothing to redo
+    end
+    Note over U,S: Postcondition: the Edit history is one line, with never more than one way forward
+```
+
+The user chooses Redo with the button, Shift+Ctrl/Cmd+Z or Ctrl+Y. If nothing was undone since the last Step, nothing happens and Redo stays unavailable with its "nothing to redo" hint. Otherwise the service moves forward one Step and puts that kept state back into the Work, with its own revision, and the Preview shows the Step applied again exactly. Redo stays available while undone Steps remain. Zooming, panning, cancelling a tool, exporting or an Apply that changes nothing makes no Step and leaves Undo and Redo as they were. An Apply that is an edit discards the redoable Steps and becomes the last Step, so Redo becomes unavailable.
+
+### Flow 4: Step back through several changes (US-03)
+
+Covers AC-03, AC-11 (the oldest kept Step), AC-12 and AC-13.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant UI as <ui>
+    participant S as <service>
+    Note over U,S: Precondition: the user opened an image, then applied a Crop or Rotation, Adjustments and a drawing (SCR-01)
+    loop each Undo while an older kept Step is left
+        U->>UI: Undo
+        UI->>S: undo
+        S->>S: put the earlier kept state into the Work, Geometry, Adjustments, Drawing layer and revision together
+        Note over S: in memory only, nothing is persisted
+        alt the restored image has another size
+            S->>S: fit the View to the restored image
+        else the size is the same
+            S->>S: keep the View
+        end
+        S-->>UI: the restored state, its Drawing layer under the Geometry it was applied with
+        UI-->>U: the Preview shows the earlier state exactly, every mark on the same image content
+    end
+    opt back at the opened state, or at the oldest kept Step after the history limit dropped older ones
+        UI-->>U: Undo is unavailable
+    end
+    loop each Redo up to the last Step
+        U->>UI: Redo
+        UI->>S: redo
+        S-->>UI: the next kept state
+        UI-->>U: the Preview shows that state exactly
+    end
+    Note over U,S: Postcondition: an Export at any point equals, pixel for pixel, an Export of that state made before any Undo
+```
+
+Starting from a Crop or Rotation, Adjustments and a drawing, each Undo puts the earlier kept state back whole: Geometry, Adjustments, Drawing layer and revision together. So every mark stays on the image content it was drawn on and follows the restored orientation and Crop. The View is fitted only when the restored image has another size, and is kept otherwise. When the opened state is reached, or the oldest kept Step after the history limit dropped older ones, Undo becomes unavailable. Redo then walks forward one Step at a time, each state exactly as before, so an Export at any point equals the Export of that state made before any Undo.
+
+### Flow 5: The save point, and replacing the Work (US-04)
+
+Covers AC-09 and AC-10.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant UI as <ui>
+    participant S as <service>
+    Note over U,S: Precondition: two Steps applied, the Work has Unsaved edits
+    U->>UI: confirms an export
+    UI->>S: begin the export with a snapshot of the current state
+    alt the file is saved
+        S->>S: the save point becomes the snapshot's revision
+        UI-->>U: no Unsaved edits
+    else the export is cancelled or fails
+        S->>S: the save point stays where it was
+        UI-->>U: the Unsaved edits remain
+    end
+    U->>UI: applies a third Step
+    UI->>S: apply
+    S->>S: record the Step with a fresh revision, the Work has Unsaved edits
+    U->>UI: Undo
+    UI->>S: undo
+    S->>S: restore the exported state's revision, equal to the save point, no Unsaved edits
+    U->>UI: Undo again
+    UI->>S: undo
+    S->>S: restore an older revision, Unsaved edits again
+    U->>UI: Redo
+    UI->>S: redo
+    S->>S: back at the save point, no Unsaved edits
+    Note over S: in memory only, the Edit history is never saved. On a Work never exported, undoing every Step reaches the opened revision, which is the save point
+    U->>UI: opens another image
+    UI->>S: open the image that was read
+    alt the Work has no Unsaved edits
+        S->>S: replace the Work, start an empty Edit history and release every layer of the old one
+        S-->>UI: the new Work
+        UI-->>U: the new image at once, Undo and Redo unavailable
+    else the Work has Unsaved edits
+        S-->>UI: ask for confirmation
+        UI-->>U: the replace confirmation (SCR-05)
+        alt the user replaces
+            U->>UI: Replace
+            UI->>S: confirm the replacement
+            S->>S: replace the Work, start an empty Edit history and release every layer of the old one
+            UI-->>U: the new image, Undo and Redo unavailable
+        else the user cancels
+            U->>UI: Cancel
+            UI->>S: cancel the replacement
+            S-->>UI: the Work and its Edit history unchanged
+            UI-->>U: the same Work, with Undo and Redo as before
+        end
+    end
+```
+
+A successful export moves the save point to the exported state's revision and clears Unsaved edits. A cancelled or failed export leaves the save point and the Unsaved edits where they were. A third Step takes a fresh revision and sets Unsaved edits. Undo brings back the exported state's revision, so the Work has no Unsaved edits. A second Undo sets them again, and Redo clears them. On a Work never exported, undoing every Step reaches the opened state, which is the save point. Opening another image at the save point replaces the Work at once, starts an empty Edit history and releases the old history's layers. With Unsaved edits the replace confirmation comes first: Replace does the same, and Cancel keeps the Work and its Edit history exactly as they were.
+
+### Flow 6: Undo refused while a tool is open, an export runs, or a text field has focus (US-05)
+
+Covers AC-07 and AC-08.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant UI as <ui>
+    participant S as <service>
+    Note over U,S: Precondition: a Work with at least one Step
+    alt a tool is open with unapplied changes (SCR-03)
+        U->>UI: Undo or Redo, by button or shortcut
+        UI-->>U: buttons unavailable, the shortcut shows a hint to apply or cancel the open tool first
+        Note over UI,S: nothing reaches the history, the tool keeps its Draft and the Work is unchanged
+    else an export is in progress (SCR-04)
+        U->>UI: Undo or Redo, by button or shortcut
+        UI-->>U: buttons unavailable, the shortcut shows a hint that an export is in progress
+        Note over UI,S: refused, not queued, the service also refuses if asked
+    else a text or number field has focus
+        U->>UI: Ctrl or Cmd plus Z in the field
+        UI-->>U: the field's own text undo, the Edit history is untouched
+    end
+    U->>UI: Apply or Cancel the tool, or the export ends
+    UI->>S: apply or close the tool, or finish the export
+    S-->>UI: the same Edit history, plus the tool's Step when its Apply was an edit
+    UI-->>U: Undo and Redo work on the Edit history again
+    Note over U,S: Postcondition: the exported file is the Work as it was at confirm
+```
+
+While a tool is open, Undo and Redo are unavailable and their shortcuts show a hint to apply or cancel the tool first. The tool keeps its unapplied changes and the Work does not change. While an export runs they are refused, not queued, with a hint that an export is in progress, and the service refuses as well if it is asked. Inside a focused text or number field, Ctrl/Cmd+Z is the field's own text undo and never reaches the Edit history. After Apply, Cancel or the end of the export, Undo and Redo work on the same Edit history again, now with the tool's Step when its Apply was an edit.
+
+### Flow 7: Find Undo on the first try (US-06)
+
+Covers AC-14, AC-01 (the hints) and AC-05 (no image).
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant UI as <ui>
+    participant S as <service>
+    alt no image is open (SCR-02)
+        UI-->>U: Undo and Redo shown unavailable, their shortcuts do nothing
+    else the reviewer opened an image and applied one change (SCR-01)
+        UI->>S: read whether Undo and Redo are possible and the tools of their Steps
+        S-->>UI: Undo possible for the tool that made the Step, nothing to redo
+        UI-->>U: two buttons in the top bar, hints name the action, the tool and the shortcut
+        alt by mouse
+            U->>UI: clicks Undo
+        else by keyboard on the button
+            U->>UI: Tab to Undo, then Enter or Space
+        else by shortcut anywhere outside a text field
+            U->>UI: Ctrl or Cmd plus Z
+        end
+        UI->>S: undo
+        S-->>UI: the opened state, Redo possible for that tool
+        UI-->>U: the change is taken back in one action, the Redo hint names the tool
+    end
+```
+
+With no image open, both buttons are shown as unavailable and the shortcuts do nothing. After the Portfolio reviewer opens an image and applies one change, the top bar shows Undo and Redo, each with a hint naming the action, the tool of the Step and the shortcut. A click, Tab to the button followed by Enter or Space, or Ctrl/Cmd+Z anywhere outside a text field each take the change back in one action, and the Redo hint then names that tool.
+
+### AC coverage
+
+| AC | Shown by |
+|---|---|
+| AC-01 | Critical flow 1 (the happy path and its hints); Flow 7 (hints name action, tool, shortcut) |
+| AC-02 | Flow 3, "undone Steps are waiting" branch; Flow 4, the Redo loop |
+| AC-03 | Flow 4, the Undo and Redo loops and the postcondition |
+| AC-04 | Critical flow 2, "the Apply is an edit" branch; Flow 3, the second "Apply is an edit" branch |
+| AC-05 | Critical flow 1, "no kept Step to undo"; Flow 3, "nothing was undone"; Flow 7, "no image is open" |
+| AC-06 | Flow 3, "the action is not a Step, or the Apply changes nothing" branch |
+| AC-07 | Flow 6, "an export is in progress" branch; Critical flow 1, the refusal branch |
+| AC-08 | Flow 6, "a tool is open" and "a text or number field has focus" branches, and the return after Apply or Cancel |
+| AC-09 | Flow 5, the export branches and the Undo, Undo, Redo sequence |
+| AC-10 | Flow 5, the replace branches |
+| AC-11 | Critical flow 2, the trim to 50 Steps and 512 MB; Flow 4, the stop at the oldest kept Step |
+| AC-12 | Critical flow 1, the fit option; Flow 4, the size branch |
+| AC-13 | Flow 4, the Drawing layer restored with its Geometry |
+| AC-14 | Flow 7, the three ways to Undo |
+| §6 NFR rows | Not runtime flows: latency, memory, steps kept, exactness and release are measured by the tests named in §10 |
+
+| User story | Flows |
+|---|---|
+| US-01 | Critical flow 1 |
+| US-02 | Flow 3; Critical flow 2 |
+| US-03 | Flow 4 |
+| US-04 | Flow 5 |
+| US-05 | Flow 6; Critical flow 2 (the bound); Flow 5 (replacing the Work) |
+| US-06 | Flow 7 |
+
+**Flags for design:** none. Every flow uses the §5 containers; no new participant, no async step, no decision that needs an ADR.
+
 ## 7. Deployment view
 
 <!-- N/A: reuses existing deployment unit, no infra change -->
