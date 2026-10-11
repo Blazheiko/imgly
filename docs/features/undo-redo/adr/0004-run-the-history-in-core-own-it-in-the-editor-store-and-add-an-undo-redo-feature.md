@@ -37,7 +37,7 @@ How it works:
 
 - `src/core/history/` (`history.ts`, `budget.ts`, `index.ts`) is exported through `src/core/index.ts`. It is generic over the Step label and knows no tool names (ADR-0001, ADR-0002).
 - `src/features/editor/edit-history.ts` is composed by the store like `createToolSlot`. It holds the history (`shallowRef`, because states refer to `OffscreenCanvas` layers) and the revision high-water mark (ADR-0003). `record(tool, work)` is called by the three `apply*` actions when they count as an edit. `undo()` and `redo()` set the Work with `withState`, fit the View when the image's size changed (AC-12), and refuse when a tool is open, an export runs or the replace dialog is open. `clear(work)` is called by `replace()`. It releases evicted layers (ADR-0002).
-- The store exposes `canUndo`, `canRedo`, `undoTool`, `redoTool`, `undo` and `redo`. The three tool features don't change.
+- The store exposes five getters, `canUndo`, `canRedo`, `undoTool`, `redoTool` and `historyStats` (`{ heldBytes, steps }`, read by `src/app/test-hooks.ts` through `@/features/editor` for the e2e memory checks), and two actions, `undo` and `redo`. The three tool features don't change.
 - `src/features/undo-redo/` has `UndoRedoActions.vue` (two `BaseButton`s in the `top-bar-actions` slot, placed first), `shortcuts.ts` (a window `keydown` handler), `messages.ts` and `index.ts`. It reads and calls only the editor store's public API, through `@/features/editor`.
 - `isTextTarget` moves to `src/shared/keyboard.ts`, so the new feature can skip text and number fields (AC-08, AC-14) without importing another feature. The existing copies in `adjust`, `crop-rotate` and `draw` stay until they are next touched (sad.md §11).
 

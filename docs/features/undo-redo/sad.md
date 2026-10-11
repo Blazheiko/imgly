@@ -20,7 +20,7 @@ target_surfaces: [web-frontend]  # filled in §4 — subset of: backend-service 
 **Top-3 quality goals (1-liners; full scenarios in §10):**
 
 1. **Exact undo and redo**: an Undo or Redo restores the Work exactly. A full-size PNG Export afterwards differs by 0 per channel from the Export of the same state made before, on Chromium, Firefox and WebKit, for Steps of each tool.
-2. **Bounded, leak-free memory**: the Edit history holds ≤ 512 MB of image data, keeps at least the last 10 Steps that draw over the whole image (and up to 50 Steps), and releases every layer that no kept Step, the Work or an open Draft refers to.
+2. **Bounded, leak-free memory**: the Edit history holds ≤ 512 MB of image data, keeps at least the last 10 Steps that draw over the whole image on the 4096 × 3072 reference Work (and up to 50 Steps), and releases every layer that no kept Step, the Work or an open Draft refers to.
 3. **Responsive Undo and Redo**: from choosing Undo or Redo to the updated Preview, p95 ≤ 150 ms for a Step of each tool, with a drawing over the whole image.
 
 A fourth goal is a correctness rule rather than a quality trade-off, and §10 covers it as QG-4: what the app says about saving stays honest. The Work has no Unsaved edits only at its save point (spec §2).
@@ -137,7 +137,8 @@ src/features/editor/
 │                           apply*, undo()/redo() into the Work, fit on a size change, clear on
 │                           replace, releaseLayer() for evicted layers that no kept state refers to
 └── store.ts                apply* record a Step when they count as an edit; replace() clears the history;
-                            exposes canUndo, canRedo, undoTool, redoTool, undo, redo
+                            exposes canUndo, canRedo, undoTool, redoTool, historyStats
+                            ({ heldBytes, steps }), undo, redo
 src/features/undo-redo/     new feature: the controls only
 ├── UndoRedoActions.vue     two BaseButtons in the top bar; hints name the tool and the shortcut
 ├── shortcuts.ts            Ctrl/Cmd+Z, Shift+Ctrl/Cmd+Z, Ctrl+Y off Mac; skips text fields and repeats;
@@ -146,7 +147,7 @@ src/features/undo-redo/     new feature: the controls only
 └── index.ts
 src/shared/keyboard.ts      isTextTarget, moved to shared so undo-redo can use it (ledger L8)
 src/app/App.vue             mounts <UndoRedoActions /> in the top-bar-actions slot
-src/app/test-hooks.ts       exposes the history's held bytes and Step count for e2e (ledger L11)
+src/app/test-hooks.ts       reads editor.historyStats through @/features/editor for e2e (ledger L11)
 ```
 
 **C4 Container (L2):** the `web-frontend` surface is the Editor SPA container. Every other container already exists (architecture map). This feature adds the Edit history to the Editing core and changes how the SPA and the Drawing layer lifecycle release layers.
@@ -254,7 +255,7 @@ undo-redo ships inside the same static bundle on GitHub Pages under `/imgly/`. I
 | Accessibility | The two buttons are `BaseButton`s reachable with Tab and used with Enter or Space. Their hints name the action, the Step's tool and the shortcut (AC-14), and they are unavailable in the same way as the tools' top-bar actions | `docs/design-system.md`; `src/shared/ui/` |
 | Persistence | None. The Edit history is never written to IndexedDB or any storage, and is discarded on replace or page close | spec §3, §6.1 |
 | Internationalisation | N/A. English only, with copy in `src/features/undo-redo/messages.ts` | — |
-| Observability | No logging, as in the rest of the app. In e2e builds `window.__imglyTest` exposes the history's held bytes and Step count next to the bitmap ledger | `src/app/test-hooks.ts` |
+| Observability | No logging, as in the rest of the app. In e2e builds `window.__imglyTest` exposes the editor store's `historyStats` (held bytes and Step count) next to the bitmap ledger | `src/app/test-hooks.ts` |
 
 ## 9. Architecture decisions
 
