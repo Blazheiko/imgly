@@ -7,6 +7,14 @@ import {
   type RendererStatus,
 } from './preview-renderer'
 import { createFakeCanvas, createFakeFrames, createFakeGl, type FakeGl } from './fake-gl'
+import {
+  createLayer,
+  layerContext,
+  setLayerCanvasFactory,
+  type CanvasFactory,
+  type Layer,
+} from './drawing'
+import { createFakeCanvas as createFakeLayerCanvas } from './drawing/fake-canvas'
 
 const bitmap = { width: 4096, height: 2731 } as unknown as ImageBitmap
 const view: View = { zoom: 0.5, panX: -100, panY: -50, autoFit: false }
@@ -110,5 +118,102 @@ describe('preview renderer — context loss (AC-19, AC-19b)', () => {
     renderer.setView({ ...view, zoom: 1 })
     frames.flush()
     expect(fake.names()).not.toContain('drawArrays')
+  })
+})
+
+describe('preview renderer — context loss with a Drawing layer (draw ADR-0003)', () => {
+  let fake: FakeGl
+  let canvas: ReturnType<typeof createFakeCanvas>
+  let frames: ReturnType<typeof createFakeFrames>
+  let renderer: PreviewRenderer
+  let previous: CanvasFactory
+
+  beforeEach(() => {
+    previous = setLayerCanvasFactory(
+      (w, h) => createFakeLayerCanvas(w, h) as unknown as OffscreenCanvas,
+    )
+    fake = createFakeGl()
+    canvas = createFakeCanvas(fake.gl)
+    frames = createFakeFrames()
+    const result = createPreviewRenderer(canvas as unknown as HTMLCanvasElement, {
+      ...frames,
+      mark: () => {},
+    })
+    if (!result.ok) throw new Error('renderer failed')
+    renderer = result.value
+    renderer.resize(800, 600)
+    renderer.setOriginal({ width: 16, height: 8 } as unknown as ImageBitmap)
+    renderer.setView(view)
+    frames.flush()
+  })
+  afterEach(() => setLayerCanvasFactory(previous))
+
+  /** A layer that has been drawn into, so it is uploaded from its canvas, not allocated blank. */
+  function marked(width = 16, height = 8): Layer {
+    const layer = createLayer({ width, height })
+    layerContext(layer)
+    return layer
+  }
+  /** Full uploads of a layer's pixels, by their width. */
+  const layerUploads = () =>
+    fake.calls
+      .filter(
+        ([n, , , , , , data]) => n === 'texImage2D' && data instanceof Object && 'data' in data,
+      )
+      .map(([, , , , , , data]) => (data as ImageData).width)
+  const subUploads = () => fake.calls.filter(([n]) => n === 'texSubImage2D')
+  const blankAllocations = () =>
+    fake.calls.filter(([n, , , , , , , , , data]) => n === 'texImage2D' && data === null)
+
+  it('re-uploads the layer from its canvas after a restore', () => {
+    renderer.setLayer(marked())
+    frames.flush()
+    fake.calls.length = 0
+
+    canvas.dispatch('webglcontextlost')
+    canvas.dispatch('webglcontextrestored')
+    frames.flush()
+    expect(layerUploads()).toEqual([16])
+    expect(
+      fake.calls.filter(([n, unit]) => n === 'activeTexture' && unit === 'TEXTURE1').length,
+    ).toBeGreaterThan(0)
+  })
+
+  it('a layer set while restoring is uploaded once, on restore, and not before', () => {
+    renderer.setLayer(marked())
+    frames.flush()
+    canvas.dispatch('webglcontextlost')
+    fake.calls.length = 0
+    renderer.setLayer(marked(12, 6)) // e.g. Apply or a new Draft during the loss
+    frames.flush()
+    expect(layerUploads()).toEqual([])
+
+    canvas.dispatch('webglcontextrestored')
+    frames.flush()
+    expect(layerUploads()).toEqual([12])
+  })
+
+  it('a dirty rectangle reported during the loss is dropped for one full upload on restore', () => {
+    renderer.setLayer(marked())
+    frames.flush()
+    canvas.dispatch('webglcontextlost')
+    fake.calls.length = 0
+    renderer.updateLayer({ x: 1, y: 1, width: 4, height: 4 }) // the stale texture handle
+    frames.flush()
+    canvas.dispatch('webglcontextrestored')
+    frames.flush()
+    expect(layerUploads()).toEqual([16])
+    expect(subUploads()).toEqual([])
+  })
+
+  it('a blank layer is allocated zero-filled again on restore', () => {
+    renderer.setLayer(createLayer({ width: 16, height: 8 }))
+    frames.flush()
+    fake.calls.length = 0
+    canvas.dispatch('webglcontextlost')
+    canvas.dispatch('webglcontextrestored')
+    frames.flush()
+    expect(layerUploads()).toEqual([])
+    expect(blankAllocations()).toHaveLength(1)
   })
 })

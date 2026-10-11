@@ -3,6 +3,7 @@ import { onMounted } from 'vue'
 import { EditorView, useEditorStore } from '@/features/editor'
 import { CropOverlay, CropRotateAction, CropRotateTool } from '@/features/crop-rotate'
 import { AdjustAction, AdjustBeforeLabel, AdjustTool } from '@/features/adjust'
+import { DrawAction, DrawOverlay, DrawTool } from '@/features/draw'
 import { ExportAction } from '@/features/export'
 
 // Start-up order: EditorView's setup installs the window drop guard first; the capability gate
@@ -13,15 +14,19 @@ onMounted(() => void editor.runCapabilityGate())
 
 <template>
   <EditorView>
-    <template #top-bar-actions><CropRotateAction /><AdjustAction /><ExportAction /></template>
+    <template #top-bar-actions
+      ><CropRotateAction /><AdjustAction /><DrawAction /><ExportAction
+    /></template>
     <!-- Each tool's halves mount only for its own tool in the slot. -->
     <template #tool-canvas>
       <CropOverlay v-if="editor.activeTool === 'crop-rotate'" />
       <AdjustBeforeLabel v-else-if="editor.activeTool === 'adjust'" />
+      <DrawOverlay v-else-if="editor.activeTool === 'draw'" />
     </template>
     <template #tool-panel>
       <CropRotateTool v-if="editor.activeTool === 'crop-rotate'" />
       <AdjustTool v-else-if="editor.activeTool === 'adjust'" />
+      <DrawTool v-else-if="editor.activeTool === 'draw'" />
     </template>
   </EditorView>
 </template>

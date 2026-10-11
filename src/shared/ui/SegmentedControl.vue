@@ -7,6 +7,13 @@ export interface SegmentedOption<V> {
   disabled?: boolean
   /** One line shown under the group, e.g. why the option is unavailable. */
   hint?: string
+  /** The option's tooltip, such as "Brush (B)". A swatch option uses its label. */
+  title?: string
+  /**
+   * A CSS colour shown as a filled square instead of the label text (draw's palette). The label
+   * stays the accessible name and the tooltip.
+   */
+  swatch?: string
 }
 
 const props = defineProps<{
@@ -23,6 +30,7 @@ const tabStop = computed(() => {
   const selected = props.options.findIndex((o) => o.value === props.modelValue && !o.disabled)
   return selected >= 0 ? selected : props.options.findIndex((o) => !o.disabled)
 })
+const swatches = computed(() => props.options.some((o) => o.swatch !== undefined))
 const hints = computed(() => props.options.flatMap((option) => (option.hint ? [option.hint] : [])))
 
 function select(index: number) {
@@ -51,7 +59,12 @@ function onKeydown(event: KeyboardEvent, from: number) {
 
 <template>
   <div class="segmented">
-    <div class="segmented__group" role="radiogroup" :aria-label="label">
+    <div
+      class="segmented__group"
+      :class="{ 'segmented__group--swatches': swatches }"
+      role="radiogroup"
+      :aria-label="label"
+    >
       <button
         v-for="(option, index) in options"
         :key="String(option.value)"
@@ -59,6 +72,9 @@ function onKeydown(event: KeyboardEvent, from: number) {
         type="button"
         role="radio"
         class="segmented__option"
+        :class="{ 'segmented__option--swatch': option.swatch !== undefined }"
+        :aria-label="option.swatch !== undefined ? option.label : undefined"
+        :title="option.swatch !== undefined ? option.label : option.title"
         :aria-checked="option.value === modelValue ? 'true' : 'false'"
         :aria-disabled="option.disabled ? 'true' : undefined"
         :disabled="option.disabled"
@@ -66,7 +82,12 @@ function onKeydown(event: KeyboardEvent, from: number) {
         @click="select(index)"
         @keydown="onKeydown($event, index)"
       >
-        {{ option.label }}
+        <span
+          v-if="option.swatch !== undefined"
+          class="segmented__swatch"
+          :style="{ background: option.swatch }"
+        />
+        <template v-else>{{ option.label }}</template>
       </button>
     </div>
     <p v-for="hint in hints" :key="hint" class="segmented__hint">{{ hint }}</p>
@@ -102,6 +123,48 @@ function onKeydown(event: KeyboardEvent, from: number) {
 .segmented__option[aria-checked='true'] {
   background: var(--color-surface-raised);
   color: var(--color-text);
+}
+
+.segmented__group--swatches {
+  display: grid;
+  grid-template-columns: repeat(5, max-content);
+}
+
+.segmented__option--swatch {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: var(--control-height);
+  padding: 0;
+}
+
+/* An inset shadow, not an outline: :focus-visible owns the outline, and both rings show. */
+.segmented__option--swatch[aria-checked='true'] {
+  box-shadow: inset 0 0 0 2px var(--color-text);
+}
+
+/* Forced colours drop box-shadow: draw the selected ring as an outline in the system text colour
+   (a system colour keyword, as forced-colors mode replaces every author colour). */
+@media (forced-colors: active) {
+  .segmented__option--swatch[aria-checked='true'] {
+    outline: 2px solid CanvasText;
+    outline-offset: -4px;
+  }
+
+  /* The fill keeps its colour (forced-color-adjust: none), so the frame must be forced by hand. */
+  .segmented__swatch {
+    border-color: CanvasText;
+  }
+}
+
+/* The fill is data (the palette colour); the frame comes from the tokens. */
+.segmented__swatch {
+  width: var(--space-4);
+  height: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  /* The fill is the colour itself: forced-colors mode must not replace it with Canvas. */
+  forced-color-adjust: none;
 }
 
 .segmented__option:focus-visible {

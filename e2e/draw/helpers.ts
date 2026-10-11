@@ -1,0 +1,203 @@
+import { expect, type Page } from '@playwright/test'
+import { choose, panel } from '../export/helpers'
+import { frameToOriginal, type Geometry } from '../../src/core/geometry'
+import type { Size } from '../../src/core/geometry/types'
+import {
+  decodePng,
+  diff,
+  exportPng,
+  fixture,
+  gotoReady,
+  openFile,
+  openNamed,
+  previewAt100,
+  waitForWork,
+  work,
+} from '../adjust/helpers'
+
+export { choose, decodePng, diff, exportPng, fixture, gotoReady, openFile, openNamed, panel }
+export { previewAt100, waitForWork, work }
+
+/** The draw tool, its action and its controls. */
+export const tool = (page: Page) => page.getByTestId('draw-tool')
+export const action = (page: Page) => page.getByTestId('draw-action')
+export const overlay = (page: Page) => page.getByTestId('draw-overlay')
+export const button = (page: Page, name: 'Clear' | 'Cancel' | 'Apply') =>
+  tool(page).getByRole('button', { name, exact: true })
+export const widthField = (page: Page) =>
+  tool(page).getByRole('textbox', { name: 'Width', exact: true })
+
+/** Opens the tool with its action and waits for the mode group to take focus on "Brush". */
+export async function openTool(page: Page) {
+  await action(page).click()
+  await expect(tool(page)).toBeVisible()
+  await expect(tool(page).getByRole('radio', { name: 'Brush' })).toBeFocused()
+}
+
+/** Types a width and commits it with Enter (AC-03). */
+export async function setWidth(page: Page, width: number | string) {
+  await widthField(page).fill(String(width))
+  await widthField(page).press('Enter')
+}
+
+/** Applies the reference drawing directly, as the tool's Apply does (sad.md §8 Test hooks). */
+export async function referenceDrawing(page: Page) {
+  await page.evaluate(() => window.__imglyTest!.setReferenceDrawing())
+  await expect
+    .poll(() => page.evaluate(() => window.__imglyTest!.drawingAlpha().length))
+    .toBeGreaterThan(0)
+}
+
+/** The CSS-pixel point on the page of an image pixel (x, y) of the Work as the View shows it. */
+export async function screenPoint(page: Page, x: number, y: number) {
+  const box = (await page.getByTestId('preview-canvas').boundingBox())!
+  const { zoom, panX, panY } = await page.evaluate(() => window.__imglyTest!.view())
+  const dpr = await page.evaluate(() => devicePixelRatio)
+  return {
+    x: box.x + (Math.round(panX) + (x + 0.5) * zoom) / dpr,
+    y: box.y + (Math.round(panY) + (y + 0.5) * zoom) / dpr,
+  }
+}
+
+/** A drag through image pixels with the main button, one mouse move per point. */
+export async function drag(page: Page, points: [number, number][]) {
+  const first = await screenPoint(page, points[0]![0], points[0]![1])
+  await page.mouse.move(first.x, first.y)
+  await page.mouse.down()
+  for (const [x, y] of points.slice(1)) {
+    const p = await screenPoint(page, x, y)
+    await page.mouse.move(p.x, p.y)
+  }
+  await page.mouse.up()
+}
+
+/** A click without movement at an image pixel. */
+export async function click(page: Page, x: number, y: number) {
+  await drag(page, [[x, y]])
+}
+
+/** The Drawing-layer alpha mask, dilated by `by` pixels: true where a mark may lie. */
+export function dilatedMask(alpha: number[], width: number, height: number, by: number) {
+  const mask = new Uint8Array(width * height)
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if (alpha[y * width + x] === 0) continue
+      for (let dy = -by; dy <= by; dy++) {
+        for (let dx = -by; dx <= by; dx++) {
+          const nx = x + dx
+          const ny = y + dy
+          if (nx >= 0 && ny >= 0 && nx < width && ny < height) mask[ny * width + nx] = 1
+        }
+      }
+    }
+  }
+  return mask
+}
+
+/** Pixels (straight RGBA) that differ between two images outside `mask`. */
+export function changedOutside(a: ArrayLike<number>, b: ArrayLike<number>, mask: Uint8Array) {
+  let changed = 0
+  for (let p = 0; p < mask.length; p++) {
+    if (mask[p]) continue
+    for (let c = 0; c < 4; c++) if (a[p * 4 + c] !== b[p * 4 + c]) changed++
+  }
+  return changed
+}
+
+/** Opens the export panel on JPEG and waits for the format check. */
+export async function jpegPanel(page: Page) {
+  await choose(page)
+  await expect(panel(page).getByRole('radio', { name: 'JPEG', exact: true })).toBeEnabled({
+    timeout: 15_000,
+  })
+  await choose(page, { format: 'JPEG' })
+}
+
+export const TRANSPARENCY_HINT = 'JPEG has no transparency'
+
+export { openPixels } from '../adjust/helpers'
+
+export const drawingAlpha = (page: Page) => page.evaluate(() => window.__imglyTest!.drawingAlpha())
+export const draftAlpha = (page: Page) => page.evaluate(() => window.__imglyTest!.draftAlpha())
+export const layers = (page: Page) => page.evaluate(() => window.__imglyTest!.layers())
+export const view = (page: Page) => page.evaluate(() => window.__imglyTest!.view())
+
+/** Opens a plain white opaque image of the given size. */
+export async function openWhite(page: Page, width: number, height: number) {
+  const { openPixels } = await import('../adjust/helpers')
+  await openPixels(page, width, height, () => [255, 255, 255, 255])
+}
+
+/** Clicks the tool panel's "Width" heading: focus leaves the control that has it, as a user's click does. */
+export const clickPanelBackground = (page: Page) =>
+  tool(page).getByRole('heading', { name: 'Width' }).click()
+
+/** How many pixels of the Draft have some alpha, counted in the page. */
+export const draftMarks = (page: Page) =>
+  page.evaluate(() => window.__imglyTest!.draftAlpha().filter((v) => v > 0).length)
+
+/** A decoded image: straight RGBA, row by row. */
+export interface Rgba {
+  width: number
+  height: number
+  data: ArrayLike<number>
+}
+
+/** Each Export pixel's centre in the Crop's frame, mapped to an Original pixel position. */
+function originalPoints(g: Geometry, original: Size) {
+  const [a, b, c, d, e, f] = frameToOriginal(g, original)
+  const { width, height } = g.crop
+  return (x: number, y: number) => {
+    const fx = g.crop.x + x + 0.5
+    const fy = g.crop.y + y + 0.5
+    return { x: a * fx + c * fy + e, y: b * fx + d * fy + f, width, height }
+  }
+}
+
+/**
+ * QG-2b's expected Export after a Rotation or Flip, computed without the shader: every Export
+ * pixel is the identity Export's pixel under it, found through `frameToOriginal`. For quarter
+ * turns and Flips each pixel centre lands on an Original pixel centre, so it is a pure copy.
+ */
+export function expectedTurnedExport(identity: Rgba, g: Geometry): Rgba {
+  const at = originalPoints(g, identity)
+  const { width, height } = g.crop
+  const data = new Uint8ClampedArray(width * height * 4)
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const p = at(x, y)
+      const i = (Math.floor(p.y) * identity.width + Math.floor(p.x)) * 4
+      for (let k = 0; k < 4; k++) data[(y * width + x) * 4 + k] = identity.data[i + k]!
+    }
+  }
+  return { width, height, data }
+}
+
+/**
+ * The Drawing layer's alpha (on the Original's grid) as an Export with Geometry `g` would show it,
+ * sampled bilinearly through `frameToOriginal`: where the marks must and must not appear.
+ */
+export function expectedMarkAlpha(alpha: number[], original: Size, g: Geometry): Float32Array {
+  const at = originalPoints(g, original)
+  const { width, height } = g.crop
+  const out = new Float32Array(width * height)
+  const texel = (x: number, y: number) =>
+    x < 0 || y < 0 || x >= original.width || y >= original.height
+      ? 0
+      : alpha[y * original.width + x]!
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const p = at(x, y)
+      const sx = p.x - 0.5
+      const sy = p.y - 0.5
+      const x0 = Math.floor(sx)
+      const y0 = Math.floor(sy)
+      const tx = sx - x0
+      const ty = sy - y0
+      out[y * width + x] =
+        (1 - ty) * ((1 - tx) * texel(x0, y0) + tx * texel(x0 + 1, y0)) +
+        ty * ((1 - tx) * texel(x0, y0 + 1) + tx * texel(x0 + 1, y0 + 1))
+    }
+  }
+  return out
+}

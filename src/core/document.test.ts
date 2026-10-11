@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { createWork, hasUnsavedEdits, withEdit } from './document'
+import { describe, expect, expectTypeOf, it } from 'vitest'
+import { createWork, hasUnsavedEdits, withEdit, type DrawingLayer } from './document'
 import { NEUTRAL_ADJUSTMENTS } from './adjust'
 
 const original = { width: 4096, height: 2731, pixels: 'bitmap', hasTransparency: false }
@@ -57,6 +57,18 @@ describe('Work source facts (export AC-08, AC-15)', () => {
   })
 })
 
+describe('Work Drawing layer (draw ADR-0001, AC-13)', () => {
+  it('starts every new Work with an empty Drawing layer', () => {
+    expect(createWork(original, 'w-1', source).drawing).toBeNull()
+  })
+
+  it('keeps the Drawing layer across an edit', () => {
+    const layer = { id: 'l-1', width: 4096, height: 2731, pixels: 'canvas' }
+    const drawn = { ...createWork(original, 'w-1', source), drawing: layer }
+    expect(withEdit(drawn).drawing).toBe(layer)
+  })
+})
+
 describe('Work Adjustments (adjust ADR-0001, AC-17)', () => {
   it('starts every new Work with neutral Adjustments', () => {
     const work = createWork(original, 'w-1', source, 1000)
@@ -69,5 +81,13 @@ describe('Work Adjustments (adjust ADR-0001, AC-17)', () => {
     const adjusted = { ...work, adjustments: { ...work.adjustments, contrast: 20 } }
 
     expect(withEdit(adjusted).adjustments.contrast).toBe(20)
+  })
+})
+
+describe('Work.drawing typing (draw ADR-0001)', () => {
+  it('types the Drawing layer by its own pixel holder, kept through withEdit', () => {
+    const work = createWork<string, { canvas: true }>(original, 'w-1', source)
+    expectTypeOf(work.drawing).toEqualTypeOf<DrawingLayer<{ canvas: true }> | null>()
+    expectTypeOf(withEdit(work).drawing).toEqualTypeOf<DrawingLayer<{ canvas: true }> | null>()
   })
 })

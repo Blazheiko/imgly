@@ -104,6 +104,7 @@ const request = (overrides: Partial<ExportRequest> = {}): ExportRequest => ({
   quality: 90,
   geometry: identityGeometry({ width: 4096, height: 3072 }),
   adjustments: NEUTRAL_ADJUSTMENTS,
+  layer: null,
   ...overrides,
 })
 
@@ -418,7 +419,7 @@ describe('handleAlpha (crop transparency check, crop-rotate ADR-0004)', () => {
   it('renders the Crop at its size without flattening and answers false when every pixel is opaque', async () => {
     const { fake, env, canvases } = withPixels(null)
     const bmp = bitmap(40, 30)
-    await expect(handleAlpha({ bitmap: bmp, geometry }, env)).resolves.toEqual({
+    await expect(handleAlpha({ bitmap: bmp, geometry, layer: null }, env)).resolves.toEqual({
       ok: true,
       value: false,
     })
@@ -433,7 +434,7 @@ describe('handleAlpha (crop transparency check, crop-rotate ADR-0004)', () => {
   it('answers true when any pixel inside the Crop is not fully opaque', async () => {
     const { env } = withPixels(79)
     const bmp = bitmap(40, 30)
-    await expect(handleAlpha({ bitmap: bmp, geometry }, env)).resolves.toEqual({
+    await expect(handleAlpha({ bitmap: bmp, geometry, layer: null }, env)).resolves.toEqual({
       ok: true,
       value: true,
     })
@@ -443,7 +444,9 @@ describe('handleAlpha (crop transparency check, crop-rotate ADR-0004)', () => {
   it('fails and still closes the bitmap without WebGL2 or after a lost context', async () => {
     const none = setup({ gl: null })
     const a = bitmap(40, 30)
-    await expect(handleAlpha({ bitmap: a, geometry }, none.env)).resolves.toMatchObject({
+    await expect(
+      handleAlpha({ bitmap: a, geometry, layer: null }, none.env),
+    ).resolves.toMatchObject({
       ok: false,
     })
     expect(a.close).toHaveBeenCalledTimes(1)
@@ -451,7 +454,9 @@ describe('handleAlpha (crop transparency check, crop-rotate ADR-0004)', () => {
     const lost = withPixels(null)
     lost.fake!.returns.isContextLost = () => true
     const b = bitmap(40, 30)
-    await expect(handleAlpha({ bitmap: b, geometry }, lost.env)).resolves.toMatchObject({
+    await expect(
+      handleAlpha({ bitmap: b, geometry, layer: null }, lost.env),
+    ).resolves.toMatchObject({
       ok: false,
     })
     expect(b.close).toHaveBeenCalledTimes(1)
@@ -527,9 +532,78 @@ describe('handleExport with Adjustments (adjust ADR-0002, AC-14)', () => {
   it('runs the transparency check without Adjustments', async () => {
     const { fake, env } = setup()
     await handleAlpha(
-      { bitmap: bitmap(4, 4), geometry: identityGeometry({ width: 4, height: 4 }) },
+      { bitmap: bitmap(4, 4), geometry: identityGeometry({ width: 4, height: 4 }), layer: null },
       env,
     )
     expect(adjustOn(fake!)).toEqual([0])
+  })
+})
+
+describe('handleExport with a Drawing layer (draw ADR-0003, AC-10)', () => {
+  const marks = (width: number, height: number) =>
+    ({ width, height, data: new Uint8ClampedArray(width * height * 4) }) as unknown as ImageData
+  const draws = (fake: FakeGl) => fake.names().filter((n) => n === 'drawArrays').length
+  const drawOn = (fake: FakeGl) =>
+    uniformCalls(fake, 'u_draw').map(([, , value]) => value as number)
+
+  it('uploads the layer premultiplied on unit 1 and composites it at full size in one pass', async () => {
+    const { fake, env } = setup()
+    const layer = marks(4096, 3072)
+    const result = await handleExport(request({ layer }), env)
+    expect(result.ok).toBe(true)
+    expect(draws(fake!)).toBe(1)
+    // u_draw starts off in buildProgram, then the pass turns it on.
+    expect(drawOn(fake!)).toEqual([0, 1])
+    const unit1 = fake!.calls.findIndex(([n, u]) => n === 'activeTexture' && u === 'TEXTURE1')
+    expect(unit1).toBeGreaterThanOrEqual(0)
+    const upload = fake!.calls.find(([n, , , , , , data]) => n === 'texImage2D' && data === layer)
+    expect(upload).toBeDefined()
+    expect(fake!.calls).toContainEqual(['pixelStorei', 'UNPACK_PREMULTIPLY_ALPHA_WEBGL', true])
+  })
+
+  it('takes two passes for a smaller Export with a layer, neutral Adjustments included', async () => {
+    const { fake, env } = setup()
+    const result = await handleExport(
+      request({ width: 1024, height: 768, layer: marks(4096, 3072) }),
+      env,
+    )
+    expect(result.ok).toBe(true)
+    expect(draws(fake!)).toBe(2)
+    // The layer is composited in the first pass only, at full size.
+    expect(drawOn(fake!)).toEqual([0, 1, 0])
+  })
+
+  it('keeps one pass for a smaller Export with no layer and neutral Adjustments', async () => {
+    const { fake, env } = setup()
+    await handleExport(request({ width: 1024, height: 768 }), env)
+    expect(draws(fake!)).toBe(1)
+    expect(drawOn(fake!)).toEqual([0, 0])
+  })
+
+  it('frees the layer texture', async () => {
+    const { fake, env } = setup()
+    const layer = marks(4096, 3072)
+    await handleExport(request({ layer }), env)
+    const upload = fake!.calls.findIndex(
+      ([n, , , , , , data]) => n === 'texImage2D' && data === layer,
+    )
+    const bound = fake!.calls
+      .slice(0, upload)
+      .filter(([n]) => n === 'bindTexture')
+      .at(-1)![2]
+    expect(fake!.calls).toContainEqual(['deleteTexture', bound])
+  })
+
+  it('checks the Crop’s transparency with the layer composited', async () => {
+    const { fake, env } = setup()
+    await handleAlpha(
+      {
+        bitmap: bitmap(4, 4),
+        geometry: identityGeometry({ width: 4, height: 4 }),
+        layer: marks(4, 4),
+      },
+      env,
+    )
+    expect(drawOn(fake!)).toEqual([0, 1])
   })
 })

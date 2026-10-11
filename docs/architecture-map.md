@@ -1,8 +1,8 @@
 ---
 status: current
 mode: current   # current (brownfield scan) | greenfield-bootstrap (target foundation)
-updated_at: "2026-10-08"
-reflects_commit: "71f9628"
+updated_at: "2026-10-09"
+reflects_commit: "29eaf3a"
 # machine-readable keys — on greenfield they encode the DECIDED toolchain; "" = not yet decided.
 language: "typescript 5.9 (node 24, pnpm)"
 build_cmd: "pnpm build"
@@ -14,8 +14,9 @@ frontend: "vue 3 + pinia + vite + plain css custom properties"
 
 # Architecture map — imgly-editor
 
-> **Current architecture.** The full re-survey of 2026-10-08 at `71f9628` produced this map, after
-> roadmap steps 1–4 shipped: the skeleton, `open-and-view`, `export` and `crop-rotate`. Where the
+> **Current architecture.** The full re-survey of 2026-10-09 at `29eaf3a` produced this map, after
+> roadmap steps 1–5 shipped: the skeleton, `open-and-view`, `export`, `crop-rotate` and `adjust`.
+> Step 6 (`draw`) is designed (`docs/features/draw/`) but has no code yet. Where the
 > code differs from the plan, the map describes the code. Steps that are still planned are marked
 > *(planned)*. The foundational decisions are in `docs/adr/`, and the feature decisions are in
 > `docs/features/<slug>/adr/`.
@@ -24,7 +25,7 @@ frontend: "vue 3 + pinia + vite + plain css custom properties"
 
 - Language and runtime: TypeScript 5.9 (`strict`), Node 24 toolchain, **pnpm** (`package.json`). See ADR [0001](adr/0001-build-a-client-only-vue-pwa.md)
 - Frameworks: **Vue 3.5** (Composition API, `<script setup>`), **Pinia 4** (setup stores), **Vite 8**, **vite-plugin-pwa 2** (Workbox 7 service worker and web manifest)
-- Rendering: one shared **WebGL2** program draws both the preview and the export (`src/render/shaders.ts:51`). It applies the geometry and the view transform in one pass (crop-rotate ADR-0002). The export renders and encodes in a dedicated **worker** on `OffscreenCanvas`, and falls back to the window when the worker has no WebGL2 (export ADR-0002/0003). Canvas 2D drawing is *(planned)*, see ADR [0004](adr/0004-render-adjustments-on-webgl2-and-drawing-on-canvas2d.md)
+- Rendering: one shared **WebGL2** program draws both the preview and the export (`src/render/shaders.ts`). In one pass it applies the geometry and the view transform (`u_geometry`, `u_transform`, crop-rotate ADR-0002), then the seven Adjustments under `u_adjust` (adjust ADR-0002), then the JPEG flatten under `u_flatten`. The export renders and encodes in a dedicated **worker** on `OffscreenCanvas`, and falls back to the window when the worker has no WebGL2 (export ADR-0002/0003). A smaller Export with Adjustments renders in two passes, full size then reduced (`src/render/export/worker-handler.ts:228`). Canvas 2D drawing is *(designed, not built: `docs/features/draw/` ADR-0001..0005)*, see ADR [0004](adr/0004-render-adjustments-on-webgl2-and-drawing-on-canvas2d.md)
 - Decoding: browser-native `createImageBitmap` in a dedicated decode worker, with no third-party codec libraries. Headers are parsed in `core` before decoding (open-and-view ADR-0001/0002)
 - Persistence: **IndexedDB** via `idb` 8 (schema only so far) and **UUIDv7** IDs (`uuid` package). See ADR [0003](adr/0003-persist-works-in-indexeddb-as-original-plus-params-plus-layer.md)
 - Build, test and lint:
@@ -42,14 +43,14 @@ There is no server. The whole system runs in the browser, and GitHub Pages only 
 
 ```mermaid
 C4Container
-    title Containers — imgly-editor (client-only PWA, as of 71f9628)
-    Person(user, "Desktop user", "Opens, crops, rotates and exports an image")
+    title Containers — imgly-editor (client-only PWA, as of 29eaf3a)
+    Person(user, "Desktop user", "Opens, crops, rotates, adjusts and exports an image")
     System_Ext(os, "Operating system", "File picker, save dialog, drag and drop")
     System_Ext(pages, "GitHub Pages", "Static hosting of the built app over HTTPS")
     Container_Boundary(browser, "Browser") {
-        Container(spa, "Editor SPA", "Vue 3, Pinia, TypeScript", "Editor shell plus the crop-rotate and export features")
-        Container(core, "Editing core", "Pure TypeScript", "Work document, geometry, view, header sniffing, open and export rules")
-        Container(gpu, "Preview renderer", "WebGL2", "Draws the Preview with the geometry and view transform, restores lost contexts")
+        Container(spa, "Editor SPA", "Vue 3, Pinia, TypeScript", "Editor shell plus the crop-rotate, adjust and export features")
+        Container(core, "Editing core", "Pure TypeScript", "Work document, geometry, adjustments, view, header sniffing, open and export rules")
+        Container(gpu, "Preview renderer", "WebGL2", "Draws the Preview with the geometry, adjustments and view transform, samples for Auto, restores lost contexts")
         Container(dworker, "Decode worker", "Web Worker", "Sniffs, decodes, orients and downscales the Original")
         Container(eworker, "Export worker", "Web Worker, OffscreenCanvas WebGL2", "Renders and encodes the Export, checks crop transparency")
         Container(sw, "Service worker", "Workbox via vite-plugin-pwa", "Precaches the app shell for offline use")
@@ -75,22 +76,23 @@ import each other. They coordinate through the `editor` store.
 | Module | Path | Layers | Wired at | Responsibility |
 |---|---|---|---|---|
 | app shell | `src/app/` | entry, router-less shell, PWA registration, e2e hooks | `src/main.ts`, `src/app/App.vue` | Creates the app and installs Pinia. Mounts `EditorView` and fills its slots with feature components. Runs the capability gate. Registers the SW in production. Installs `window.__imglyTest` only in the `VITE_E2E_HOOKS` build (`src/main.ts:11`) |
-| core | `src/core/` | domain (pure TS) | `src/core/index.ts` | `document.ts` holds the Work, the Original, the revision and unsaved edits. `result.ts` holds `Result` and `AppError`. `geometry/` holds flip, turn, straighten, crop and proportions and their one forward transform. `view/` holds zoom, pan and fit. `image-header/` sniffs JPEG, PNG, GIF, WebP and ISOBMFF (AVIF/HEIC). `open/` holds the open policy, target size and drop rules. `export/` holds naming, format, quality, size and metadata |
-| render | `src/render/` | infra (GPU) | `src/render/index.ts` | `capabilities.ts` runs the startup gate. `preview-renderer.ts` draws the WebGL2 Preview and handles context loss and restore. `shaders.ts` is the shared program. `view-transform.ts` builds the view transform. `export/` is the export worker and client with a window fallback. `fake-gl.ts` is a test stub |
+| core | `src/core/` | domain (pure TS) | `src/core/index.ts` | `document.ts` holds the Work, the Original, the revision and unsaved edits. `result.ts` holds `Result` and `AppError`. `geometry/` holds flip, turn, straighten, crop and proportions and their one forward transform. `view/` holds zoom, pan and fit. `image-header/` sniffs JPEG, PNG, GIF, WebP and ISOBMFF (AVIF/HEIC). `open/` holds the open policy, target size and drop rules. `export/` holds naming, format, quality, size and metadata. `adjust/` holds the seven Adjustments (types, ranges, neutral values, equality, field parsing, the CPU reference formula, `toUniforms`, and Auto's algorithm) |
+| render | `src/render/` | infra (GPU) | `src/render/index.ts` | `capabilities.ts` runs the startup gate. `preview-renderer.ts` draws the WebGL2 Preview, handles context loss and restore, and has `sampleCrop` for Auto adjust. `shaders.ts` is the shared program (geometry, Adjustments, flatten). `view-transform.ts` builds the view transform. `export/` is the export worker and client with a window fallback. `fake-gl.ts` is a test stub |
 | infra/db | `src/infra/db/` | infra (persistence) | `src/infra/db/index.ts` | `openDb()` with versioned upgrade steps. The `WorkRecord` schema is `{id, name, createdAt, updatedAt}`. **There is no repository and no caller yet**; the Gallery step *(planned)* adds them |
 | infra/platform | `src/infra/platform/` | infra (OS APIs) | `src/infra/platform/index.ts` | `file-picker.ts` (open), `save-file.ts` (`showSaveFilePicker` with a download fallback), `data-transfer.ts` (drop intake) and `drop-guard.ts` (window drop guard). The clipboard and `launchQueue` are *(planned)* in the OS-integration step |
 | infra/image-decode | `src/infra/image-decode/` | infra (worker) | `src/infra/image-decode/index.ts:8` | The decode worker runs `pipeline.ts`: header sniff → policy → `createImageBitmap` → orient → sRGB → alpha check → stepwise downscale. The `decodeImage` client handles supersede and error mapping. `probes.ts` checks format support |
 | shared | `src/shared/` | ui primitives, notices, styles, utils | `src/shared/index.ts` | Tokens (`styles/tokens.css`), 10 UI primitives (`ui/`), the toast queue (`notices/`), `ids.ts` (UUIDv7) and `bitmap-ledger.ts` (ImageBitmap leak tracking) |
-| feature: editor | `src/features/editor/` | ui + store | `src/features/editor/index.ts` | The shell screen (`EditorView.vue` with the `top-bar-actions`, `tool-canvas` and `tool-panel` slots). `components/` holds the preview canvas, empty canvas, drop overlay, replace dialog, status bar, zoom bar and gestures. `store.ts` holds the Work, View, phase, display state, active-tool slot and export snapshot. This is where open-and-view lives |
+| feature: editor | `src/features/editor/` | ui + store | `src/features/editor/index.ts` | The shell screen (`EditorView.vue` with the `top-bar-actions`, `tool-canvas` and `tool-panel` slots). `components/` holds the preview canvas, empty canvas, drop overlay, replace dialog, status bar, zoom bar and gestures. `store.ts` (515 lines) holds the Work, View, phase, display state, the active-tool slot with `previewGeometry` and `previewAdjustments`, `applyGeometry`, `applyAdjustments`, `sampleWork` and the export snapshot (Work id, revision, Original, Geometry, Adjustments, source name and format). This is where open-and-view lives |
 | feature: crop-rotate | `src/features/crop-rotate/` | ui + store | `src/features/crop-rotate/index.ts` | `CropRotateAction` (top bar, `C`), `CropRotateTool` and `CropRotateControls` (panel), and `CropOverlay` (DOM frame over the Preview). The draft geometry lives in `store.ts` and is committed through `editor.applyGeometry` |
-| feature: export | `src/features/export/` | ui + store | `src/features/export/index.ts` | `ExportAction` (top bar, `E`) and `ExportPanel` (Popover: format, quality, size). `store.ts` takes the editor's export snapshot, encodes it, verifies it, then saves it |
+| feature: adjust | `src/features/adjust/` | ui + store | `src/features/adjust/index.ts` | `AdjustAction` (top bar, `A`), `AdjustTool` and `AdjustControls` (panel: seven `SliderField`s, Compare, Auto, Reset) and `AdjustBeforeLabel` (canvas pill while Compare is held). The Draft lives in `store.ts` and reaches the Preview through `editor.setPreviewAdjustments`; Apply goes through `editor.applyAdjustments`; Auto samples through `editor.sampleWork` |
+| feature: export | `src/features/export/` | ui + store | `src/features/export/index.ts` | `ExportAction` (top bar, `Ctrl/Cmd+S`) and `ExportPanel` (Popover: format, quality, size). `store.ts` takes the editor's export snapshot, encodes it, verifies it, then saves it |
 
-Features that are not built yet: adjust (step 5), draw (6), undo/redo (7), gallery (8), install and
-update (9), and OS integration (10). See `docs/roadmap.md`.
+Features that are not built yet: draw (6, designed in `docs/features/draw/`), undo/redo (7), gallery (8),
+install and update (9), and OS integration (10). See `docs/roadmap.md`.
 
 ## Conventions (cited — the rules a new feature must match)
 
-- **Module wiring and registration:** each feature exposes only `index.ts` (components, store and public types), as in `src/features/editor/index.ts:1`. `src/app/App.vue` fills the `EditorView` slots with feature components (top-bar action, canvas overlay, tool panel). A new tool adds a `ToolId` (`src/features/editor/store.ts:70`) and opens through `openTool()` (`store.ts:188`) into the single active-tool slot (crop-rotate ADR-0003)
+- **Module wiring and registration:** each feature exposes only `index.ts` (components, store and public types), as in `src/features/editor/index.ts:1`. `src/app/App.vue` fills the `EditorView` slots with feature components (top-bar action, canvas overlay, tool panel). A new tool adds a `ToolId` (`src/features/editor/store.ts:76`, `'crop-rotate' | 'adjust'` today) and opens through `openTool()` (`store.ts:210`) into the single active-tool slot (crop-rotate ADR-0003). Its halves mount in `App.vue` on `editor.activeTool`
 - **Error handling:** `core` and `infra` return `Result<T, AppError>`. The `AppErrorCode` union is `src/core/result.ts:5`: `STORAGE_QUOTA`, `FILE_NOT_PERMITTED`, `NOT_AN_IMAGE`, `UNREADABLE`, `DECODE_FAILED`, `UNSUPPORTED_FORMAT`, `TOO_LARGE`, `UNSUPPORTED_BROWSER`, `DISPLAY_LOST` and the four `EXPORT_*` codes. They throw only for programmer errors. Each feature maps codes to text in its own `messages.ts`, and the UI shows them through the single notice boundary
 - **Notices (the toast boundary):** one Pinia store, `useNotices` (`src/shared/notices/store.ts:21`). `info` notices dismiss themselves after 6 s, and `failure` notices stay until the user dismisses them. `ToastStack` renders them. Canvas-level states (unsupported browser, display lost) use `CanvasMessage` instead
 - **IDs:** `newId()` returns a time-sortable UUIDv7 (`src/shared/ids.ts:4`)
@@ -101,7 +103,7 @@ update (9), and OS integration (10). See `docs/roadmap.md`.
 - **Persistence and DB access:** only `src/infra/db/*` touches IndexedDB, through repository functions that return `Result`. Images are stored as `Blob`s, never as data URLs. There are no repositories yet (`src/infra/db/open-db.ts:8`)
 - **Migrations:** forward-only steps live in `src/infra/db/migrations/NNNN-<name>.ts`, each exporting `{ version, upgrade(db, tx) }`, and are appended to `migrations/index.ts`. The only step so far is `0001-init`, which creates `works` with keyPath `id` and an index on `updatedAt` (`src/infra/db/migrations/0001-init.ts:5`). `src/infra/db/migrations.test.ts` covers it with `fake-indexeddb/auto`
 - **Tests:** Vitest unit and component tests sit next to the source as `*.test.ts` (`@vue/test-utils` on happy-dom). GPU code is tested against `src/render/fake-gl.ts`, and the editor against `src/features/editor/fake-renderer.ts` and `testing.ts`. e2e tests are `e2e/<feature>/*.spec.ts`, with fixtures generated by `e2e/fixtures/generate.sh`. They cover only what happy-dom can't: WebGL, the SW and offline reload, downloads and real decoding. e2e reads and prepares state only through `window.__imglyTest` (`src/app/test-hooks.ts:98`). WebGL pixel checks run only on Chromium
-- **Inter-module communication:** direct imports in the allowed direction. Features coordinate through `useEditorStore` (`src/features/editor/store.ts:120`), for example `applyGeometry()` (`:241`), the export snapshot and the `phase` guards. There is no event bus
+- **Inter-module communication:** direct imports in the allowed direction. Features coordinate through `useEditorStore` (`src/features/editor/store.ts:120`), for example `applyGeometry()` (`:284`), `applyAdjustments()` (`:244`), `sampleWork()` (`:177`), the export snapshot and the `phase` guards. There is no event bus
 - **UI and styling:** plain CSS, `<style scoped>` and only `var(--…)` tokens. See §Frontend / UI foundation
 - **Formatting and linting:** Prettier (single quotes, no semicolons, width 100) and the ESLint flat config (`eslint.config.js`). `vue-tsc --noEmit` must pass
 - **Git and CI:** `.github/workflows/ci.yml` runs install → lint → typecheck → unit → build → Playwright on all three engines (Mesa GL under `xvfb-run`). On `main` it also deploys `dist/` to GitHub Pages
@@ -122,12 +124,12 @@ No `localStorage` or `sessionStorage` is used.
 - **Styling approach:** plain CSS and `<style scoped>` only. There is no Tailwind, no CSS-in-JS and no UI kit
 - **Shared primitives** (`src/shared/ui/`, exported from `ui/index.ts`, tested in `primitives.test.ts`): `BaseButton` (primary, secondary, ghost, toggle with `pressed`), `Spinner`, `Toast`, `ToastStack`, `Dialog` (alertdialog), `CanvasMessage`, `Popover` (non-modal, lockable), `SegmentedControl` (radiogroup with roving tabindex), `NumberField` and `SliderField` (a clamped slider with a number field and marks)
 - **State:** Pinia setup stores, one per feature (`src/features/<f>/store.ts`), plus the shared `notices` store. There is no server cache
-- **Closest UI precedents:** for a tool panel, `src/features/crop-rotate/CropRotateTool.vue` and `CropRotateControls.vue` (`SegmentedControl` and `SliderField` in the `tool-panel` slot). For a top-bar popover, `src/features/export/ExportPanel.vue`. For the screen shell, `src/features/editor/EditorView.vue`
+- **Closest UI precedents:** for a tool panel, `src/features/adjust/AdjustTool.vue` and `AdjustControls.vue` (`SliderField` ×7 and `BaseButton` in the `tool-panel` slot, keeping the Crop and View), and `src/features/crop-rotate/CropRotateTool.vue` (`SegmentedControl` and `SliderField`, with a canvas overlay). For a top-bar popover, `src/features/export/ExportPanel.vue`. For the screen shell, `src/features/editor/EditorView.vue`
 
 ## Where things live / closest precedents
 
-- **A new editing tool** (adjust, draw…) goes in `src/features/<tool>/` with `<Tool>Action.vue`, `<Tool>Tool.vue`, `store.ts` (the draft), `messages.ts`, `shortcuts.ts` and `index.ts`. Add a `ToolId` in the editor store, fill the slots in `App.vue`, and put pure rules in `src/core/<tool>/`. The model is `crop-rotate`.
-- **A new GPU effect** (adjustments) extends the shared program in `src/render/shaders.ts`, so the preview and the export stay pixel-identical (crop-rotate ADR-0002, export ADR-0002). It also adds a field to the Work in `src/core/document.ts` and to `ExportSnapshot`.
+- **A new editing tool** (adjust, draw…) goes in `src/features/<tool>/` with `<Tool>Action.vue`, `<Tool>Tool.vue`, `store.ts` (the draft), `messages.ts`, `shortcuts.ts` and `index.ts`. Add a `ToolId` in the editor store, fill the slots in `App.vue`, and put pure rules in `src/core/<tool>/`. The models are `crop-rotate` (a tool with a canvas overlay that shows the whole turned image) and `adjust` (a tool that keeps the Crop and View).
+- **A new GPU effect** (as adjust did; draw's layer is next) extends the shared program in `src/render/shaders.ts`, so the preview and the export stay pixel-identical (crop-rotate ADR-0002, export ADR-0002). It also adds a field to the Work in `src/core/document.ts` and to `ExportSnapshot`.
 - **A new image format or open rule** goes in `src/core/image-header/` (parser and sniff) and `src/core/open/policy.ts`, then into the decode `pipeline.ts`. The model is `open-and-view`.
 - **A new output option** goes in `src/core/export/` (rule) and `src/render/export/` (worker), surfaced in `ExportPanel.vue`. The model is `export`.
 - **A new persisted field or store** needs a new `src/infra/db/migrations/NNNN-*.ts` step, a repository function in `src/infra/db/` and a `fake-indexeddb` test. The first one arrives with Gallery.
@@ -142,7 +144,7 @@ No `localStorage` or `sessionStorage` is used.
 - **GitHub Pages sub-path**: the Vite `base`, the manifest `scope` and `start_url`, and the SW scope all use `/imgly/`.
 - **No persistence yet**: a reload loses the open Work, and Export is the only save. IndexedDB is not durable when it arrives either. `navigator.storage.persist()` and the gallery cap are open (roadmap D2).
 - **No undo/redo yet**: edits are applied to the Work directly. Step 7 adds a command stack in `core`.
-- **The editor store is the hub**: `src/features/editor/store.ts` (466 lines) owns the Work, View, phase, tool slot and export snapshot. Watch how big it grows as adjust, draw and undo land.
+- **The editor store is the hub**: `src/features/editor/store.ts` (515 lines) owns the Work, View, phase, tool slot, both tool previews and the export snapshot. draw's design (`docs/features/draw/sad.md` §5) extracts the tool slot into `tool-slot.ts` before adding a third tool.
 - **OS integration** (`file_handlers`, `launchQueue`, clipboard) is not built and is Chromium-leaning (roadmap D5).
 
 ## Reconciliation with the authored architecture doc
@@ -151,5 +153,6 @@ There is no separate authored architecture doc. The root `CLAUDE.md` (module bou
 conventions) and ADRs 0001–0004 are the authored inputs. This map matches them, with these updates
 to the previous map version:
 - `src/render/adjust.frag` doesn't exist: the GPU code lives in `src/render/shaders.ts`.
-- The scaffold-era feature list (`crop`, `adjust`, `draw`, `gallery`, `os-integration`) is replaced by the real features `editor`, `crop-rotate` and `export`.
+- The scaffold-era feature list (`crop`, `adjust`, `draw`, `gallery`, `os-integration`) is replaced by the real features `editor`, `crop-rotate`, `adjust` and `export`.
+- Re-survey at `29eaf3a` (full re-scan: the diff since `71f9628` touched 7 of 10 modules): `adjust` added to `core`, `render`, `features` and the export path; the editor store, export snapshot, Work and test hooks (`setAdjustments`) widened; line anchors refreshed. `ExportAction` has no letter shortcut (only `Ctrl/Cmd+S`).
 - `works-repository.ts` doesn't exist, and nothing persists yet.

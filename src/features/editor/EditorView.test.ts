@@ -183,6 +183,39 @@ describe('EditorView — zoom shortcuts (SCR-02)', () => {
     expect(editor.view.zoom).toBeCloseTo(1 / 3)
   })
 
+  it('with Draw open, an unshifted + on a key right of P is left to the tool (draw AC-19)', () => {
+    editor.openTool('draw')
+    const zoom = editor.view.zoom
+    for (const code of ['BracketRight', 'BracketLeft']) {
+      // German and Spanish type + on BracketRight, Portuguese on BracketLeft.
+      const key = press({ key: '+', code })
+      expect(editor.view.zoom).toBe(zoom)
+      expect(key.defaultPrevented).toBe(false) // for the tool's own key handler
+    }
+  })
+
+  it('with Draw open, = and Shift+ + still zoom, also on the key right of P (Dvorak, AC-18)', () => {
+    editor.openTool('draw')
+    let zoom = editor.view.zoom
+    for (const init of [
+      { key: '=', code: 'BracketRight' }, // Dvorak
+      { key: '+', code: 'BracketRight', shiftKey: true }, // Dvorak's Shift+=
+      { key: '+', code: 'Equal', shiftKey: true }, // US
+      { key: '+', code: 'NumpadAdd' }, // German, Spanish, Italian, Portuguese: numpad +
+    ]) {
+      const key = press(init)
+      expect(editor.view.zoom).toBeGreaterThan(zoom)
+      expect(key.defaultPrevented).toBe(true)
+      zoom = editor.view.zoom
+    }
+  })
+
+  it('with no tool open, + on the key right of P still zooms', () => {
+    const zoom = editor.view.zoom
+    press({ key: '+', code: 'BracketRight' })
+    expect(editor.view.zoom).toBeGreaterThan(zoom)
+  })
+
   it('never intercepts the browser’s Ctrl/Cmd + / - / 0', () => {
     for (const init of [
       { key: '=', code: 'Equal', ctrlKey: true },
@@ -241,6 +274,19 @@ describe('EditorView — zoom shortcuts (SCR-02)', () => {
     canvas.dispatchEvent(new KeyboardEvent('keydown', init))
     window.dispatchEvent(new Event('blur'))
     expect(editor.spacePan).toBe(false)
+  })
+
+  it('starts no space-pan while a Stroke is in progress (draw AC-18)', () => {
+    const canvas = wrapper.get('[data-testid="preview-canvas"]').element
+    const init = { key: ' ', code: 'Space', bubbles: true, cancelable: true }
+    editor.setStrokeActive(true)
+    const down = new KeyboardEvent('keydown', init)
+    canvas.dispatchEvent(down)
+    expect(editor.spacePan).toBe(false)
+    expect(down.defaultPrevented).toBe(true) // nor does it scroll or press anything
+    editor.setStrokeActive(false)
+    canvas.dispatchEvent(new KeyboardEvent('keydown', init))
+    expect(editor.spacePan).toBe(true)
   })
 
   it('ignores shortcuts typed into a text field', () => {

@@ -23,6 +23,18 @@ export interface Original<TPixels = unknown> {
   hasTransparency: boolean
 }
 
+/**
+ * The Work's one Drawing layer (draw ADR-0001): a bitmap on the Original's pixel grid, always the
+ * Original's size. `id` is new for every applied layer; `pixels` is the platform's bitmap holder
+ * (an `OffscreenCanvas` in the browser), which core never reads.
+ */
+export interface DrawingLayer<TPixels = unknown> {
+  id: string
+  width: number
+  height: number
+  pixels: TPixels
+}
+
 /** Where the Work came from: names Exports and picks their default format (export AC-07, AC-19). */
 export interface WorkSource {
   /** The opened file's name with a known image extension removed; '' for a nameless Blob. */
@@ -31,7 +43,7 @@ export interface WorkSource {
   sourceFormat: ImageFormat
 }
 
-export interface Work<TPixels = unknown> extends WorkSource {
+export interface Work<TPixels = unknown, TLayer = unknown> extends WorkSource {
   id: string
   createdAt: number
   updatedAt: number
@@ -40,17 +52,19 @@ export interface Work<TPixels = unknown> extends WorkSource {
   geometry: Geometry
   /** The seven colour values (adjust ADR-0001); neutral on every new Work. */
   adjustments: Adjustments
+  /** The applied marks over the adjusted image; null while nothing is drawn (draw ADR-0001). */
+  drawing: DrawingLayer<TLayer> | null
   revision: number
   /** The revision at open (later also at save). */
   cleanRevision: number
 }
 
-export function createWork<TPixels>(
+export function createWork<TPixels, TLayer = unknown>(
   original: Original<TPixels>,
   id: string,
   source: WorkSource,
   now: number = Date.now(),
-): Work<TPixels> {
+): Work<TPixels, TLayer> {
   return {
     id,
     sourceName: source.sourceName,
@@ -60,6 +74,7 @@ export function createWork<TPixels>(
     original,
     geometry: identityGeometry(original),
     adjustments: NEUTRAL_ADJUSTMENTS,
+    drawing: null,
     revision: 0,
     cleanRevision: 0,
   }
@@ -70,6 +85,9 @@ export function hasUnsavedEdits(work: Work): boolean {
 }
 
 /** The one rule every edit follows: the changed Work carries `revision + 1`. */
-export function withEdit<TPixels>(work: Work<TPixels>, now: number = Date.now()): Work<TPixels> {
+export function withEdit<TPixels, TLayer>(
+  work: Work<TPixels, TLayer>,
+  now: number = Date.now(),
+): Work<TPixels, TLayer> {
   return { ...work, revision: work.revision + 1, updatedAt: now }
 }

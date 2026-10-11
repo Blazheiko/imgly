@@ -46,6 +46,7 @@ const request = (): ExportRequest => ({
   // Not neutral, so the pass-through checks below prove the Adjustments reach the worker and the
   // window fallback (adjust AC-14).
   adjustments: { ...NEUTRAL_ADJUSTMENTS, contrast: 20, sepia: 40 },
+  layer: null,
 })
 
 describe('exportImage (export client)', () => {
@@ -288,6 +289,7 @@ describe('checkCropTransparency (crop-rotate ADR-0004)', () => {
   const alphaRequest = () => ({
     bitmap: { width: 40, height: 30, close: vi.fn() } as unknown as ImageBitmap,
     geometry: identityGeometry({ width: 40, height: 30 }),
+    layer: null as ImageData | null,
   })
 
   it('transfers the bitmap to a fresh worker and answers its boolean', async () => {
@@ -345,5 +347,28 @@ describe('checkCropTransparency (crop-rotate ADR-0004)', () => {
     await expect(client.checkCropTransparency(req)).resolves.toEqual({ ok: true, value: false })
     expect(inWindow.checkAlpha).toHaveBeenCalledWith(req)
     expect(FakeWorker.created).toHaveLength(1)
+  })
+})
+
+describe('the Drawing layer in the export client (draw ADR-0003)', () => {
+  const layer = () =>
+    ({ width: 4, height: 4, data: new Uint8ClampedArray(64) }) as unknown as ImageData
+
+  it('transfers the layer’s buffer with the bitmap for an export', () => {
+    const { client, workers } = setup()
+    const req = { ...request(), layer: layer() }
+    void client.exportImage(req)
+    expect(workers[0]!.posted[0]!.transfer).toEqual([req.bitmap, req.layer.data.buffer])
+  })
+
+  it('transfers the layer’s buffer with the bitmap for an alpha check', () => {
+    const { client, workers } = setup()
+    const req = {
+      bitmap: { width: 4, height: 4, close: vi.fn() } as unknown as ImageBitmap,
+      geometry: identityGeometry({ width: 4, height: 4 }),
+      layer: layer(),
+    }
+    void client.checkCropTransparency(req)
+    expect(workers[0]!.posted[0]!.transfer).toEqual([req.bitmap, req.layer.data.buffer])
   })
 })

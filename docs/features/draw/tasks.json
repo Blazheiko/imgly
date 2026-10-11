@@ -1,0 +1,980 @@
+{
+  "slug": "draw",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Extract the tool slot from the editor store into tool-slot.ts, with the store's public API and its tests unchanged",
+      "layer": "app",
+      "deps": [],
+      "acs": [
+        "AC-16"
+      ],
+      "dod": "src/features/editor/tool-slot.ts holds activeTool, openTool, closeTool and the per-tool previews, the editor store composes it, and every existing editor, crop-rotate and adjust test passes unchanged",
+      "files_hint": [
+        "src/features/editor/tool-slot.ts",
+        "src/features/editor/tool-slot.test.ts",
+        "src/features/editor/store.ts"
+      ],
+      "file": "docs/features/draw/tasks/t01-editor-extract-tool-slot.md"
+    },
+    {
+      "id": "T2",
+      "title": "Add src/core/draw: palette and defaults, parseWidth and stepWidth, Catmull–Rom segments, segment bounds and footprintReachesCrop",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-02",
+        "AC-03",
+        "AC-09",
+        "AC-12",
+        "AC-19"
+      ],
+      "dod": "Vitest proves the AC-02 palette order and defaults, the AC-03 width-field table, stepWidth clamping (195 + 10 = 200), Catmull–Rom control points passing through every point, and footprintReachesCrop for paths inside, outside and grazing the Crop",
+      "files_hint": [
+        "src/core/draw/settings.ts",
+        "src/core/draw/width.ts",
+        "src/core/draw/stroke.ts",
+        "src/core/draw/draw.test.ts",
+        "src/core/draw/index.ts",
+        "src/core/index.ts"
+      ],
+      "file": "docs/features/draw/tasks/t02-core-draw-rules.md"
+    },
+    {
+      "id": "T3",
+      "title": "Add frameToOriginal to the Geometry transform and deviceToFrame to the View, both unit-tested against the existing UV transform",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-08",
+        "AC-09",
+        "AC-18"
+      ],
+      "dod": "Vitest proves frameToOriginal agrees with cropToOriginalUv scaled to pixels for every Rotation, a Flip, a Straighten angle and a Crop, keeps lengths, and that deviceToFrame inverts the View at any zoom and pan",
+      "files_hint": [
+        "src/core/geometry/transform.ts",
+        "src/core/geometry/transform.test.ts",
+        "src/core/geometry/index.ts",
+        "src/core/view/frame.ts",
+        "src/core/view/view.test.ts",
+        "src/core/view/index.ts"
+      ],
+      "file": "docs/features/draw/tasks/t03-core-coordinate-maps.md"
+    },
+    {
+      "id": "T4",
+      "title": "Add Work.drawing (DrawingLayer | null) and the render/drawing layer module: create, copy, release with ledger counts, readRect and hasAnyMark",
+      "layer": "infra",
+      "deps": [],
+      "acs": [
+        "AC-05",
+        "AC-13"
+      ],
+      "dod": "createWork sets drawing null; layer tests prove create is W₀×H₀ transparent, copy is independent, release sets the canvas to 0×0 and is counted, readRect returns straight pixels and hasAnyMark detects one alpha>0 pixel",
+      "files_hint": [
+        "src/core/document.ts",
+        "src/core/document.test.ts",
+        "src/render/drawing/layer.ts",
+        "src/render/drawing/layer.test.ts",
+        "src/render/drawing/index.ts",
+        "src/render/index.ts",
+        "src/shared/bitmap-ledger.ts"
+      ],
+      "file": "docs/features/draw/tasks/t04-work-drawing-and-layer-lifecycle.md"
+    },
+    {
+      "id": "T5",
+      "title": "Add the painter: paintSegment and paintDot with Brush source-over and Eraser destination-out under setTransform(frameToOriginal) and clip(crop), the dirty rectangle and the alpha-lowered check",
+      "layer": "infra",
+      "deps": [
+        "T2",
+        "T3",
+        "T4"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-04",
+        "AC-07",
+        "AC-09"
+      ],
+      "dod": "Painter tests with a recording 2D context prove the composite mode per mode, round caps and joins, the transform and clip set per segment inside save/restore, the dirty rectangle grows by bounds + width/2 + 2 px clamped to the layer, and alphaLowered compares the rectangle before and after",
+      "files_hint": [
+        "src/render/drawing/painter.ts",
+        "src/render/drawing/painter.test.ts",
+        "src/render/drawing/index.ts"
+      ],
+      "file": "docs/features/draw/tasks/t05-render-drawing-painter.md"
+    },
+    {
+      "id": "T6",
+      "title": "Composite the layer in the shared shader (u_layer, u_draw) and add PreviewRenderer.setLayer and updateLayer with context-loss restore",
+      "layer": "infra",
+      "deps": [
+        "T4"
+      ],
+      "acs": [
+        "AC-07",
+        "AC-10",
+        "AC-11"
+      ],
+      "dod": "Shader and renderer tests prove u_draw false skips the block, the layer binds to unit 1 with the same filters as the Original, setLayer uploads only when the bitmap differs, updateLayer uploads one texSubImage2D rect and regenerates mipmaps below 100%, a lost context re-uploads the layer, and sampleCrop keeps u_draw off",
+      "files_hint": [
+        "src/render/shaders.ts",
+        "src/render/shaders.test.ts",
+        "src/render/preview-renderer.ts",
+        "src/render/preview-renderer.test.ts",
+        "src/render/context-loss.test.ts",
+        "src/render/fake-gl.ts",
+        "src/features/editor/fake-renderer.ts"
+      ],
+      "file": "docs/features/draw/tasks/t06-render-shader-layer-composite.md"
+    },
+    {
+      "id": "T7",
+      "title": "Give the tool slot the 'draw' tool: keep Crop and View on open, previewLayer and setPreviewLayer, layerChanged, applyDrawing with the change flag, ExportSnapshot.drawing and the export refusal text",
+      "layer": "app",
+      "deps": [
+        "T1",
+        "T4"
+      ],
+      "acs": [
+        "AC-12",
+        "AC-13",
+        "AC-15",
+        "AC-18"
+      ],
+      "dod": "Editor store tests prove openTool('draw') leaves the View and previewGeometry untouched, setPreviewLayer is accepted only while draw is open, applyDrawing stores the layer with a new id, raises the revision only when changed, releases the previous layer and is ignored during an export, replace and closeTool clear previewLayer, and beginExport snapshots the applied layer",
+      "files_hint": [
+        "src/features/editor/tool-slot.ts",
+        "src/features/editor/tool-slot.test.ts",
+        "src/features/editor/store.ts",
+        "src/features/editor/store.test.ts",
+        "src/features/editor/index.ts",
+        "src/features/export/messages.ts",
+        "src/features/export/messages.test.ts"
+      ],
+      "file": "docs/features/draw/tasks/t07-editor-draw-slot.md",
+      "screens": [
+        "SCR-03 export refused",
+        "SCR-03 loading (reading a new image)",
+        "SCR-03 error (new image can't open)",
+        "SCR-03 replace confirmation",
+        "SCR-07 default",
+        "SCR-07 replaced",
+        "SCR-08 cancelled"
+      ]
+    },
+    {
+      "id": "T8",
+      "title": "Make PreviewCanvas show the Draft or the Work's layer, and give the e2e hooks a reference drawing, a scripted Stroke, a layered previewAt100 and the layer ledger",
+      "layer": "wiring",
+      "deps": [
+        "T5",
+        "T6",
+        "T7"
+      ],
+      "acs": [
+        "AC-05",
+        "AC-10",
+        "AC-11"
+      ],
+      "dod": "PreviewCanvas tests prove the renderer gets previewLayer while draw is open and work.drawing otherwise (null after Clear shows no marks), and the e2e hooks expose setReferenceDrawing, paintStroke, layer ledger counts and a previewAt100 that includes the layer",
+      "files_hint": [
+        "src/features/editor/components/PreviewCanvas.vue",
+        "src/features/editor/components/PreviewCanvas.test.ts",
+        "src/app/test-hooks.ts",
+        "e2e/test-hooks.d.ts"
+      ],
+      "file": "docs/features/draw/tasks/t08-preview-layer-and-test-hooks.md",
+      "screens": [
+        "SCR-01 marks applied",
+        "SCR-03 default",
+        "SCR-03 cleared",
+        "SCR-04 default, Work with marks",
+        "SCR-05 default, Work with marks",
+        "SCR-05 comparing, Work with marks",
+        "SCR-06 transparency hint"
+      ]
+    },
+    {
+      "id": "T9",
+      "title": "Spike the hot path: a @perf e2e that paints scripted Strokes through the hooks at 1 px and 200 px, at Fit and at 100%, and records the frame interval and the pointer-to-frame latency",
+      "layer": "tests",
+      "deps": [
+        "T8"
+      ],
+      "acs": [
+        "AC-01"
+      ],
+      "dod": "e2e/draw/perf.spec.ts (@perf, PERF=1) reports p95 frame interval and pointer-to-frame latency for the four cases on the reference machine, the numbers and any chosen fallback are written into the epic Risks section, and the suite is skipped without PERF=1",
+      "files_hint": [
+        "e2e/draw/perf.spec.ts",
+        "docs/features/draw/tasks/_epic.md"
+      ],
+      "file": "docs/features/draw/tasks/t09-perf-spike-hot-path.md"
+    },
+    {
+      "id": "T10",
+      "title": "Send the applied layer to the export worker and its window fallback, render it in one or two passes, and make the crop-transparency check include the layer",
+      "layer": "infra",
+      "deps": [
+        "T6",
+        "T7"
+      ],
+      "acs": [
+        "AC-07",
+        "AC-10"
+      ],
+      "dod": "Worker-handler, client and export-store tests prove ExportRequest and AlphaRequest carry the layer as transferred ImageData, single pass only at full size or with neutral Adjustments and no layer, the identity short-cut applies only when work.drawing is null, and the alpha cache key includes the layer id",
+      "files_hint": [
+        "src/render/export/worker-handler.ts",
+        "src/render/export/worker-handler.test.ts",
+        "src/render/export/client.ts",
+        "src/render/export/client.test.ts",
+        "src/features/export/store.ts",
+        "src/features/export/store.test.ts"
+      ],
+      "file": "docs/features/draw/tasks/t10-export-with-layer.md",
+      "screens": [
+        "SCR-06 default",
+        "SCR-06 transparency hint"
+      ]
+    },
+    {
+      "id": "T11",
+      "title": "Add the draw store: open with a copy of the layer, mode reset to Brush, colour and width kept until reload, width field and steps, Clear with the change flag, Apply, Cancel and release on replace",
+      "layer": "app",
+      "deps": [
+        "T2",
+        "T4",
+        "T7"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-02",
+        "AC-03",
+        "AC-05",
+        "AC-06",
+        "AC-12",
+        "AC-13"
+      ],
+      "dod": "Draw store tests with a real editor store prove the open state (Brush, last colour and width, Red 12 px first), the Draft is a copy or null, the width field rules and steps, Clear sets the flag only when a mark existed, Apply hands the Draft with the flag, Cancel releases it, and a replace releases it — with the layer ledger balanced",
+      "files_hint": [
+        "src/features/draw/store.ts",
+        "src/features/draw/store.test.ts",
+        "src/features/draw/index.ts"
+      ],
+      "file": "docs/features/draw/tasks/t11-draw-store-draft-settings.md"
+    },
+    {
+      "id": "T12",
+      "title": "Add the Stroke session: map coalesced positions through the View, paint Catmull–Rom segments and dots, set the change flag, flush the dirty rectangle once per frame, and hold input until the pointer is released",
+      "layer": "app",
+      "deps": [
+        "T3",
+        "T5",
+        "T9",
+        "T11"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-04",
+        "AC-09",
+        "AC-12",
+        "AC-18"
+      ],
+      "dod": "Stroke-session tests with a fake painter and a fake rAF prove each position maps with the View current at its event, segments paint one point behind and the last on release, a click paints one dot, an empty Draft gets a layer only for the Brush, the flag follows footprint and alphaLowered, one layerChanged per frame, deferred settings apply from the next Stroke, Enter waits for release, and Escape, cancel, blur and a second pointer behave as AC-18 says",
+      "files_hint": [
+        "src/features/draw/stroke-session.ts",
+        "src/features/draw/stroke-session.test.ts",
+        "src/features/draw/store.ts",
+        "src/features/draw/store.test.ts"
+      ],
+      "file": "docs/features/draw/tasks/t12-draw-stroke-session.md"
+    },
+    {
+      "id": "T13",
+      "title": "Add the 'Draw' toolbar action with its hints, the D shortcut and the message catalog, mounted after 'Adjust'",
+      "layer": "ui",
+      "deps": [
+        "T11"
+      ],
+      "acs": [
+        "AC-14",
+        "AC-16",
+        "AC-17",
+        "AC-19"
+      ],
+      "dod": "DrawAction and shortcut tests prove the action's pressed, disabled-during-export and aria-disabled-with-hint states, D opens the tool letter-first then by key position, D is silent under the export panel, with the tool open, in a text field and during an export, and shows the open-an-image and apply-or-cancel hints",
+      "files_hint": [
+        "src/features/draw/DrawAction.vue",
+        "src/features/draw/DrawAction.test.ts",
+        "src/features/draw/messages.ts",
+        "src/features/draw/shortcuts.ts",
+        "src/features/draw/shortcuts.test.ts",
+        "src/features/draw/index.ts",
+        "src/app/App.vue"
+      ],
+      "file": "docs/features/draw/tasks/t13-draw-action-d-key-messages.md",
+      "screens": [
+        "SCR-01 default",
+        "SCR-01 tool open",
+        "SCR-01 exporting",
+        "SCR-02 default",
+        "SCR-02 hint",
+        "SCR-04 draw refused",
+        "SCR-05 draw refused"
+      ]
+    },
+    {
+      "id": "T14",
+      "title": "Add an optional swatch to SegmentedControl, register it, and build DrawControls: mode, palette, custom colour, width slider and field, Clear, Cancel and Apply",
+      "layer": "ui",
+      "deps": [
+        "T11"
+      ],
+      "acs": [
+        "AC-02",
+        "AC-03",
+        "AC-04",
+        "AC-05",
+        "AC-06",
+        "AC-19"
+      ],
+      "dod": "Primitive tests prove a swatch option renders a filled square with label as accessible name and null selects nothing; DrawControls tests prove the panel order, the palette order and marking, custom colour selection, the width field rules on blur and Enter without applying, and Clear / Cancel / Apply calling the store",
+      "files_hint": [
+        "src/shared/ui/SegmentedControl.vue",
+        "src/shared/ui/primitives.test.ts",
+        "docs/design-system.md",
+        "src/features/draw/DrawControls.vue",
+        "src/features/draw/DrawControls.test.ts",
+        "src/features/draw/messages.ts"
+      ],
+      "file": "docs/features/draw/tasks/t14-swatch-and-draw-controls.md",
+      "screens": [
+        "SCR-03 default",
+        "SCR-03 empty (no marks)",
+        "SCR-03 erasing",
+        "SCR-03 colour chosen",
+        "SCR-03 custom colour",
+        "SCR-03 width changed",
+        "SCR-03 typing (pending)",
+        "SCR-03 validation",
+        "SCR-03 cleared",
+        "SCR-03 closed"
+      ]
+    },
+    {
+      "id": "T15",
+      "title": "Build DrawOverlay: pointer capture with coalesced positions into the Stroke session, the width circle at width × zoom, the hidden cursor over the image, Space-drag pass-through and a second touch",
+      "layer": "ui",
+      "deps": [
+        "T12"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-02",
+        "AC-09",
+        "AC-18"
+      ],
+      "dod": "Overlay tests prove a main-button press captures the pointer and feeds begin/move/end with coalesced points (or the event when unsupported), pointercancel / blur / a second pointer end the Stroke, Space held lets the drag through, and the circle diameter is width × zoom and hidden outside the shown image",
+      "files_hint": [
+        "src/features/draw/DrawOverlay.vue",
+        "src/features/draw/DrawOverlay.test.ts"
+      ],
+      "file": "docs/features/draw/tasks/t15-draw-overlay.md",
+      "screens": [
+        "SCR-03 drawing",
+        "SCR-03 dot",
+        "SCR-03 erasing",
+        "SCR-03 input during a Stroke",
+        "SCR-03 zoom and pan",
+        "SCR-03 display lost",
+        "SCR-03 Stroke ended early"
+      ]
+    },
+    {
+      "id": "T16",
+      "title": "Mount DrawTool in the tool slot with the overlay, add the in-tool keys B, E, [ ], Enter and Escape, focus on open and close, and the tool-ready mark",
+      "layer": "wiring",
+      "deps": [
+        "T8",
+        "T13",
+        "T14",
+        "T15"
+      ],
+      "acs": [
+        "AC-04",
+        "AC-06",
+        "AC-16",
+        "AC-18",
+        "AC-19"
+      ],
+      "dod": "DrawTool and shortcut tests prove the tool mounts only while 'draw' is open, B/E/[ ]/Enter/Escape follow screens.md §Keyboard including the text-field and focused-button rules and key-position fallbacks, focus goes to the mode group on open and back to Draw on close, and a 'tool ready' performance mark is set on first draw",
+      "files_hint": [
+        "src/features/draw/DrawTool.vue",
+        "src/features/draw/DrawTool.test.ts",
+        "src/features/draw/shortcuts.ts",
+        "src/features/draw/shortcuts.test.ts",
+        "src/features/draw/index.ts",
+        "src/app/App.vue"
+      ],
+      "file": "docs/features/draw/tasks/t16-draw-tool-mount-and-keys.md",
+      "screens": [
+        "SCR-03 default",
+        "SCR-03 erasing",
+        "SCR-03 width changed",
+        "SCR-03 input during a Stroke",
+        "SCR-03 tool refused",
+        "SCR-03 closed",
+        "SCR-07 declined"
+      ]
+    },
+    {
+      "id": "T17",
+      "title": "Add the e2e fidelity suite: reference drawing vs Preview at 100% for each Geometry case and with Adjustments, empty layer = 0, Geometry round trips = 0, image pixels unchanged outside marks, smaller sizes and the transparency hint",
+      "layer": "tests",
+      "deps": [
+        "T8",
+        "T10"
+      ],
+      "acs": [
+        "AC-07",
+        "AC-08",
+        "AC-10",
+        "AC-11"
+      ],
+      "dod": "e2e/draw/fidelity.spec.ts passes on Chromium, Firefox and WebKit: ±2/255 Export vs previewAt100 for every case, difference 0 for the empty-layer and round-trip rows, exact pixels outside the mark mask, a red mark stays red at grayscale 100%, and the JPEG hint matches the drawn result",
+      "files_hint": [
+        "e2e/draw/fidelity.spec.ts",
+        "e2e/draw/helpers.ts",
+        "e2e/fixtures/README.md"
+      ],
+      "file": "docs/features/draw/tasks/t17-e2e-fidelity-and-invariants.md",
+      "screens": [
+        "SCR-04 Geometry applied"
+      ]
+    },
+    {
+      "id": "T18",
+      "title": "Add the e2e tool-flow suite: the live line through every position, a dot, the Eraser, Clear, Apply and Cancel, the clip at the Crop, drag vs pan and zoom in the tool, the keyboard path and the layer ledger",
+      "layer": "tests",
+      "deps": [
+        "T16"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-02",
+        "AC-04",
+        "AC-05",
+        "AC-06",
+        "AC-09",
+        "AC-18",
+        "AC-19"
+      ],
+      "dod": "e2e/draw/tool.spec.ts passes on all three engines (path rules on Chromium): the line passes every scripted position and is unchanged after release, a click paints a dot, the Eraser and Clear uncover the image, Cancel and Escape restore the layer, a Stroke outside the Crop leaves no mark later, drag draws while Space-drag and wheel pan and zoom, the keyboard-only path works, and the ledger retains one or zero layers",
+      "files_hint": [
+        "e2e/draw/tool.spec.ts",
+        "e2e/draw/helpers.ts"
+      ],
+      "file": "docs/features/draw/tasks/t18-e2e-tool-flows.md"
+    },
+    {
+      "id": "T19",
+      "title": "Add the e2e cross-feature suite: Unsaved edits rules, export and Ctrl/Cmd+S refused while drawing, one tool at a time in both directions, Draw refused during an export and with no image, replace while open, and marks in Crop and rotate and Adjust",
+      "layer": "tests",
+      "deps": [
+        "T10",
+        "T16"
+      ],
+      "acs": [
+        "AC-11",
+        "AC-12",
+        "AC-13",
+        "AC-14",
+        "AC-15",
+        "AC-16",
+        "AC-17"
+      ],
+      "dod": "e2e/draw/cross-feature.spec.ts passes on all three engines for every AC listed, including the Unsaved-edits table of AC-12, Ctrl/Cmd+S never opening Save page, and Crop and rotate showing marks outside the frame",
+      "files_hint": [
+        "e2e/draw/cross-feature.spec.ts",
+        "e2e/draw/helpers.ts"
+      ],
+      "file": "docs/features/draw/tasks/t19-e2e-cross-feature.md",
+      "screens": [
+        "SCR-03 export refused",
+        "SCR-03 loading (reading a new image)",
+        "SCR-03 error (new image can't open)",
+        "SCR-03 replace confirmation",
+        "SCR-07 default",
+        "SCR-07 replaced",
+        "SCR-08 cancelled"
+      ]
+    },
+    {
+      "id": "T20",
+      "title": "Complete the @perf suite: drawing frame interval and latency through the real overlay, tool-ready, Apply / Cancel / Clear and Crop-and-rotate Apply over a full layer, export time with a full layer, and memory after 50 Applies",
+      "layer": "tests",
+      "deps": [
+        "T9",
+        "T17",
+        "T18",
+        "T19"
+      ],
+      "acs": [
+        "AC-01"
+      ],
+      "dod": "With PERF=1 on the reference machine every spec §6 timing and memory row is measured and within target at Fit and at 100%, and the export perf test passes repeated with a full Drawing layer",
+      "files_hint": [
+        "e2e/draw/perf.spec.ts",
+        "e2e/export/perf.spec.ts"
+      ],
+      "file": "docs/features/draw/tasks/t20-perf-suite.md"
+    },
+    {
+      "id": "T21",
+      "title": "A Stroke takes focus from the tool panel: blur a focused panel control on a main-button pointerdown, committing pending width text; e2e drives real drags instead of leaveField",
+      "layer": "ui",
+      "deps": [
+        "T16"
+      ],
+      "acs": [
+        "AC-03",
+        "AC-18",
+        "AC-19"
+      ],
+      "dod": "After a drag on the overlay, Enter applies, B/E/[ ] act, Space-drag pans and a typed width is used by the Stroke; no e2e uses a scripted blur",
+      "files_hint": [
+        "src/features/draw/DrawOverlay.vue",
+        "src/features/draw/DrawOverlay.test.ts",
+        "e2e/draw/helpers.ts",
+        "e2e/draw/tool.spec.ts",
+        "e2e/draw/cross-feature.spec.ts"
+      ],
+      "file": "docs/features/draw/tasks/t21-review-fix.md",
+      "source": "docs/features/draw/_review/review-2026-10-10.md S1",
+      "screens": [
+        "SCR-03 drawing",
+        "SCR-03 typing (pending)",
+        "SCR-03 zoom and pan"
+      ]
+    },
+    {
+      "id": "T22",
+      "title": "With Draw open the key right of P (German +) steps the width instead of zooming",
+      "layer": "wiring",
+      "deps": [
+        "T21"
+      ],
+      "acs": [
+        "AC-19"
+      ],
+      "dod": "A component test with EditorView and DrawTool mounted shows key '+' with code BracketRight steps the width and leaves zoom unchanged; '+' elsewhere still zooms",
+      "files_hint": [
+        "src/features/editor/EditorView.vue",
+        "src/features/editor/EditorView.test.ts",
+        "src/features/draw/shortcuts.ts"
+      ],
+      "file": "docs/features/draw/tasks/t22-review-fix.md",
+      "source": "docs/features/draw/_review/review-2026-10-10.md S2",
+      "screens": [
+        "SCR-03 width changed"
+      ]
+    },
+    {
+      "id": "T23",
+      "title": "Enter on the focused Custom colour input opens the picker instead of applying the tool",
+      "layer": "ui",
+      "deps": [
+        "T22"
+      ],
+      "acs": [
+        "AC-19"
+      ],
+      "dod": "shortcuts.test asserts Enter on input[type=color] neither applies nor is prevented",
+      "files_hint": [
+        "src/features/draw/shortcuts.ts",
+        "src/features/draw/shortcuts.test.ts"
+      ],
+      "file": "docs/features/draw/tasks/t23-review-fix.md",
+      "source": "docs/features/draw/_review/review-2026-10-10.md Q1",
+      "screens": [
+        "SCR-03 custom colour"
+      ]
+    },
+    {
+      "id": "T24",
+      "title": "Value-equal points paint a dot, so a tap with a zero-length move leaves a mark on every engine; dot and Eraser-click e2e on all three engines",
+      "layer": "app",
+      "deps": [
+        "T21"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-04"
+      ],
+      "dod": "Unit row 'two equal points give a dot' passes; the dot and Eraser-click e2e run outside the Chromium-only block",
+      "files_hint": [
+        "src/features/draw/stroke-session.ts",
+        "src/features/draw/stroke-session.test.ts",
+        "e2e/draw/tool.spec.ts"
+      ],
+      "file": "docs/features/draw/tasks/t24-review-fix.md",
+      "source": "docs/features/draw/_review/review-2026-10-10.md S4"
+    },
+    {
+      "id": "T25",
+      "title": "The custom swatch keeps the last custom colour after a preset is picked; the Custom colour accessible-name test can fail",
+      "layer": "ui",
+      "deps": [
+        "T23"
+      ],
+      "acs": [
+        "AC-02"
+      ],
+      "dod": "Pick #123456 then Red: the custom swatch shows #123456 and the picker opens on it; the aria-label assertion reads the input",
+      "files_hint": [
+        "src/features/draw/DrawControls.vue",
+        "src/features/draw/DrawControls.test.ts"
+      ],
+      "file": "docs/features/draw/tasks/t25-review-fix.md",
+      "source": "docs/features/draw/_review/review-2026-10-10.md Q2, Q4",
+      "screens": [
+        "SCR-03 custom colour"
+      ]
+    },
+    {
+      "id": "T26",
+      "title": "A focused, selected swatch shows both the selected ring and the focus ring",
+      "layer": "ui",
+      "deps": [
+        "T25"
+      ],
+      "acs": [
+        "AC-02"
+      ],
+      "dod": "The selected ring is drawn so :focus-visible no longer replaces it; primitives test covers it",
+      "files_hint": [
+        "src/shared/ui/SegmentedControl.vue",
+        "src/shared/ui/primitives.test.ts"
+      ],
+      "file": "docs/features/draw/tasks/t26-review-fix.md",
+      "source": "docs/features/draw/_review/review-2026-10-10.md Q3",
+      "screens": [
+        "SCR-03 colour chosen"
+      ]
+    },
+    {
+      "id": "T27",
+      "title": "Released layers read as empty without allocating; a fresh empty layer is uploaded zero-filled with no readback",
+      "layer": "infra",
+      "deps": [],
+      "acs": [
+        "AC-01"
+      ],
+      "dod": "readRect/hasAnyMark on a released layer allocate nothing; setLayer on a fresh empty layer calls texImage2D with null data and no getImageData",
+      "files_hint": [
+        "src/render/drawing/layer.ts",
+        "src/render/drawing/layer.test.ts",
+        "src/render/preview-renderer.ts",
+        "src/render/preview-renderer.test.ts"
+      ],
+      "file": "docs/features/draw/tasks/t27-review-fix.md",
+      "source": "docs/features/draw/_review/review-2026-10-10.md S3 (part), Q6"
+    },
+    {
+      "id": "T28",
+      "title": "Context-loss tests cover setLayer and updateLayer while the context is restoring",
+      "layer": "tests",
+      "deps": [
+        "T27"
+      ],
+      "acs": [],
+      "dod": "Two context-loss cases assert one full upload of the held layer on restore and no texSubImage2D",
+      "files_hint": [
+        "src/render/context-loss.test.ts"
+      ],
+      "file": "docs/features/draw/tasks/t28-review-fix.md",
+      "source": "docs/features/draw/_review/review-2026-10-10.md Q8"
+    },
+    {
+      "id": "T29",
+      "title": "Work.drawing is typed by the layer's pixel holder, and a refused applyDrawing leaves the Draft with its caller",
+      "layer": "domain",
+      "deps": [
+        "T27"
+      ],
+      "acs": [],
+      "dod": "No 'as Layer' cast on Work.drawing; applyDrawing returns whether it applied and the draw store releases a refused Draft",
+      "files_hint": [
+        "src/core/document.ts",
+        "src/features/editor/store.ts",
+        "src/features/editor/store.test.ts",
+        "src/features/draw/store.ts",
+        "src/features/export/store.ts",
+        "src/app/test-hooks.ts"
+      ],
+      "file": "docs/features/draw/tasks/t29-review-fix.md",
+      "source": "docs/features/draw/_review/review-2026-10-10.md Q5, Q7"
+    },
+    {
+      "id": "T30",
+      "title": "Fix the @perf drawing measurement: latency to the frame after the renderer draws, move i matched to the draw after i+1, Eraser runs, the 1 px timeouts explained; re-measure",
+      "layer": "tests",
+      "deps": [
+        "T27",
+        "T29"
+      ],
+      "acs": [
+        "AC-01"
+      ],
+      "dod": "The perf rows time the right frame, cover Brush and Eraser at 1 px and 200 px at Fit and 100%, and run to completion; results recorded in _epic.md",
+      "files_hint": [
+        "src/app/test-hooks.ts",
+        "e2e/draw/perf.spec.ts",
+        "e2e/test-hooks.d.ts",
+        "docs/features/draw/tasks/_epic.md"
+      ],
+      "file": "docs/features/draw/tasks/t30-review-fix.md",
+      "source": "docs/features/draw/_review/review-2026-10-10.md S3"
+    },
+    {
+      "id": "T31",
+      "title": "QG-2b oracle: Export after each Rotation, Flip and Straighten equals the layer mapped through frameToOriginal; one case through the real Crop and rotate Apply; a Geometry Apply keeps the layer",
+      "layer": "tests",
+      "deps": [
+        "T29"
+      ],
+      "acs": [
+        "AC-08"
+      ],
+      "dod": "A fidelity e2e compares the Export with an expected image built independently of the shader; the editor-store row asserts the layer object/id survives a Geometry Apply",
+      "files_hint": [
+        "e2e/draw/fidelity.spec.ts",
+        "e2e/draw/helpers.ts",
+        "src/features/editor/store.test.ts"
+      ],
+      "file": "docs/features/draw/tasks/t31-review-fix.md",
+      "source": "docs/features/draw/_review/review-2026-10-10.md S5",
+      "screens": [
+        "SCR-04 Geometry applied"
+      ]
+    },
+    {
+      "id": "T32",
+      "title": "Write the missing test-plan rows for AC-02, 03, 04, 07, 09, 10, 11 and 19, or mark them Narrowed on purpose",
+      "layer": "tests",
+      "deps": [
+        "T22",
+        "T24",
+        "T31"
+      ],
+      "acs": [
+        "AC-02",
+        "AC-03",
+        "AC-04",
+        "AC-07",
+        "AC-09",
+        "AC-10",
+        "AC-11",
+        "AC-19"
+      ],
+      "dod": "Every listed test-plan row has a test or a 'Narrowed on purpose' note naming the lower-level test",
+      "files_hint": [
+        "e2e/draw/tool.spec.ts",
+        "e2e/draw/fidelity.spec.ts",
+        "e2e/draw/cross-feature.spec.ts",
+        "src/features/draw/DrawControls.test.ts",
+        "src/features/draw/DrawTool.test.ts",
+        "docs/features/draw/test-plan.md"
+      ],
+      "file": "docs/features/draw/tasks/t32-review-fix.md",
+      "source": "docs/features/draw/_review/review-2026-10-10.md S6"
+    },
+    {
+      "id": "T33",
+      "title": "Docs: reword AC-18 to allow the layout re-fit when the panel opens; add SCR ids and the missing AC-04 / AC-06 claims to tasks.json",
+      "layer": "docs",
+      "deps": [],
+      "acs": [
+        "AC-04",
+        "AC-06",
+        "AC-18"
+      ],
+      "dod": "spec.md AC-18 says the View changes only by the panel's layout re-fit; T14/T16 claim AC-04, T14 claims AC-06; ui/wiring tasks list their SCR states",
+      "files_hint": [
+        "docs/features/draw/spec.md",
+        "docs/features/draw/tasks.json"
+      ],
+      "file": "docs/features/draw/tasks/t33-review-fix.md",
+      "source": "docs/features/draw/_review/review-2026-10-10.md S7, S8"
+    },
+    {
+      "id": "T34",
+      "title": "With Draw open only an unshifted + on either key right of P steps the width; = and Shift+ + still zoom; AC-18 records the exception",
+      "layer": "wiring",
+      "deps": [],
+      "acs": [
+        "AC-18",
+        "AC-19"
+      ],
+      "dod": "EditorView tests: '+' on BracketLeft and BracketRight steps the width with Draw open, '=' and Shift+'+' on BracketRight zoom; spec AC-18 names the exception",
+      "files_hint": [
+        "src/features/editor/EditorView.vue",
+        "src/features/editor/EditorView.test.ts",
+        "src/features/draw/DrawTool.test.ts",
+        "docs/features/draw/spec.md"
+      ],
+      "file": "docs/features/draw/tasks/t34-review-fix.md",
+      "source": "docs/features/draw/_review/review-2026-10-10-2.md R1"
+    },
+    {
+      "id": "T35",
+      "title": "Test the clip at a straightened Crop: a painter unit row with a Straighten Geometry and an e2e drag across a straightened Crop edge",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-09"
+      ],
+      "dod": "painter.test asserts setTransform = frameToOriginal(g) and the clip rect = the Crop under a Straighten angle; an e2e shows layer alpha outside the turned Crop at most 1 px deep; the test-plan note points to them",
+      "files_hint": [
+        "src/render/drawing/painter.test.ts",
+        "e2e/draw/tool.spec.ts",
+        "docs/features/draw/test-plan.md"
+      ],
+      "file": "docs/features/draw/tasks/t35-review-fix.md",
+      "source": "docs/features/draw/_review/review-2026-10-10-2.md R3"
+    },
+    {
+      "id": "T36",
+      "title": "Docs: carry AC-18's re-fit wording into ux-flows, screens and sad; claim the remaining SCR states in tasks.json; correct the AC-04 note",
+      "layer": "docs",
+      "deps": [
+        "T34",
+        "T35"
+      ],
+      "acs": [
+        "AC-04",
+        "AC-13",
+        "AC-15",
+        "AC-18"
+      ],
+      "dod": "ux-flows.md, screens.md SCR-03 and sad.md match AC-18; every draw SCR state is in some task's screens; the AC-04 note names the Export check",
+      "files_hint": [
+        "docs/features/draw/ux-flows.md",
+        "docs/features/draw/screens.md",
+        "docs/features/draw/sad.md",
+        "docs/features/draw/tasks.json",
+        "docs/features/draw/test-plan.md"
+      ],
+      "file": "docs/features/draw/tasks/t36-review-fix.md",
+      "source": "docs/features/draw/_review/review-2026-10-10-2.md R4, R5, R6"
+    },
+    {
+      "id": "T37",
+      "title": "Quality: layerChanged's comment back in place, a forced-colors selected ring, and the swatch CSS test asserting the invariant only",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-02"
+      ],
+      "dod": "The comment sits on layerChanged; under forced-colors the selected swatch has an outline; the CSS test checks no outline in the selected rule and a --color-text ring",
+      "files_hint": [
+        "src/features/editor/store.ts",
+        "src/shared/ui/SegmentedControl.vue",
+        "src/shared/ui/primitives.test.ts"
+      ],
+      "file": "docs/features/draw/tasks/t37-review-fix.md",
+      "source": "docs/features/draw/_review/review-2026-10-10-2.md Q9, Q10, Q11"
+    },
+    {
+      "id": "T38",
+      "title": "Re-run the drawing rows (spec §6 rows 1–2) on a 60 Hz display with stable Chrome and record them; the run fails below 60 Hz-like frame intervals and records the browser version (Q13)",
+      "layer": "tests",
+      "deps": [
+        "T34",
+        "T35",
+        "T36",
+        "T37",
+        "T39",
+        "T40"
+      ],
+      "acs": [
+        "AC-01"
+      ],
+      "dod": "With the display at 60 Hz and channel chrome, every drawing row is within target, recorded in _epic.md; T20 then done",
+      "files_hint": [
+        "e2e/draw/perf.spec.ts",
+        "docs/features/draw/tasks/_epic.md"
+      ],
+      "file": "docs/features/draw/tasks/t38-review-fix.md",
+      "source": "docs/features/draw/_review/review-2026-10-10-2.md R2"
+    },
+    {
+      "id": "T39",
+      "title": "Docs: AC-18 and screens.md name the layouts whose zoom-in is numpad + and the controls; an AC-18 test-plan row; claim SCR-03 Stroke ended early and SCR-08 cancelled",
+      "layer": "docs",
+      "deps": [],
+      "acs": [
+        "AC-13",
+        "AC-18",
+        "AC-19"
+      ],
+      "dod": "AC-18 and screens.md §Keyboard match the code on every layout; test-plan has the row; every draw-built state is claimed",
+      "files_hint": [
+        "docs/features/draw/spec.md",
+        "docs/features/draw/screens.md",
+        "docs/features/draw/test-plan.md",
+        "docs/features/draw/tasks.json"
+      ],
+      "file": "docs/features/draw/tasks/t39-review-fix.md",
+      "source": "docs/features/draw/_review/review-2026-10-10-3.md S1, S2"
+    },
+    {
+      "id": "T40",
+      "title": "Palette swatch fills keep their colour in forced-colors mode",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-02"
+      ],
+      "dod": "forced-color-adjust: none on the swatch fills, with a test",
+      "files_hint": [
+        "src/shared/ui/SegmentedControl.vue",
+        "src/shared/ui/primitives.test.ts",
+        "src/features/draw/DrawControls.vue"
+      ],
+      "file": "docs/features/draw/tasks/t40-review-fix.md",
+      "source": "docs/features/draw/_review/review-2026-10-10-3.md Q12"
+    },
+    {
+      "id": "T41",
+      "title": "AC-18 states its zoom exception as a rule (Italian included); a numpad + test; claim SCR-04 Geometry applied",
+      "layer": "docs",
+      "deps": [],
+      "acs": [
+        "AC-08",
+        "AC-18",
+        "AC-19"
+      ],
+      "dod": "AC-18 states its zoom exception as a rule (Italian included); a numpad + test; claim SCR-04 Geometry applied",
+      "files_hint": [],
+      "file": "docs/features/draw/tasks/t41-review-fix.md",
+      "source": "docs/features/draw/_review/review-2026-10-10-4.md N1, N2, N3"
+    },
+    {
+      "id": "T42",
+      "title": "Swatch frames use the system text colour in forced-colors mode",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-02"
+      ],
+      "dod": "Swatch frames use the system text colour in forced-colors mode",
+      "files_hint": [],
+      "file": "docs/features/draw/tasks/t42-review-fix.md",
+      "source": "docs/features/draw/_review/review-2026-10-10-4.md N4"
+    }
+  ]
+}

@@ -33,6 +33,14 @@ const shown = computed(() => {
  */
 const shownAdjustments = computed(() => editor.previewAdjustments ?? editor.work?.adjustments)
 
+/**
+ * The marks the Preview shows: the draw tool's Draft while it is open (null after Clear shows none,
+ * AC-05), else the Work's applied layer, also in the other tools (draw sad.md §5, AC-11).
+ */
+const shownLayer = computed(() =>
+  editor.activeTool === 'draw' ? editor.previewLayer : (editor.work?.drawing ?? null),
+)
+
 /** The shown image overflows the canvas area on some axis, so it can be panned (AC-13). */
 const pannable = computed(() => {
   const { work, view, canvasSize } = editor
@@ -128,6 +136,7 @@ onMounted(() => {
     immediate: true,
   })
   watch(shownAdjustments, (next) => next && renderer?.setAdjustments(next), { immediate: true })
+  watch(shownLayer, (next) => renderer?.setLayer(next), { immediate: true })
   watch(
     () => editor.view,
     (view) => renderer?.setView(view),

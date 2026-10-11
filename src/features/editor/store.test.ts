@@ -16,6 +16,7 @@ import {
 } from '@/core'
 import { SUPERSEDED, type DecodedImage, type DecodeOutcome } from '@/infra/image-decode'
 import { useNotices } from '@/shared'
+import type { Layer } from '@/render'
 import { useEditorStore } from './store'
 import { createFakeRenderer } from './fake-renderer'
 
@@ -457,6 +458,7 @@ describe('editor store — exporting phase and save point (export AC-09, AC-10, 
       original: work.original,
       geometry: work.geometry,
       adjustments: work.adjustments,
+      drawing: null,
       sourceName: 'IMG_4021',
       sourceFormat: 'jpeg',
     })
@@ -1064,5 +1066,176 @@ describe('editor store — sampleWork for Auto (adjust ADR-0004)', () => {
     const result = editor.sampleWork()
     expect(fake.renderer.sampleCrop).toHaveBeenCalledWith(g, 512)
     expect(result).toEqual(fake.renderer.sampleCrop.mock.results[0]!.value)
+  })
+})
+
+describe('editor store — the draw tool in the slot (draw AC-12, AC-13, AC-15, AC-18)', () => {
+  let decoder: ReturnType<typeof fakeDecoder>
+  let editor: ReturnType<typeof useEditorStore>
+
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    decoder = fakeDecoder()
+    editor = useEditorStore()
+    editor.setDecoder(decoder.decode)
+    editor.setCanvasSize(1000, 800)
+  })
+
+  async function open(width = 400, height = 200) {
+    const pending = editor.openImage(file())
+    decoder.answer(decoder.decode.mock.calls.length - 1, ok(decoded(width, height)))
+    return pending
+  }
+
+  /** A Draft as the draw store hands it over: a canvas the size of the Original. */
+  const draft = (width = 400, height = 200) =>
+    ({ id: 'draft', width, height, pixels: { width, height } }) as unknown as Layer
+  const released = (layer: Layer) => layer.pixels.width === 0
+
+  it('opens without touching the View (AC-18)', async () => {
+    await open()
+    editor.zoomAt(2, { x: 300, y: 200 })
+    editor.panBy(40, -25)
+    const before = { ...editor.view }
+    expect(editor.openTool('draw')).toEqual({ ok: true })
+    expect(editor.view).toEqual(before)
+    expect(editor.previewGeometry).toBeNull()
+    editor.closeTool()
+    expect(editor.view).toEqual(before)
+  })
+
+  it('setPreviewLayer shows the Draft while draw is open; closeTool clears it', async () => {
+    await open()
+    const layer = draft()
+    editor.setPreviewLayer(layer)
+    expect(editor.previewLayer).toBeNull()
+    editor.openTool('draw')
+    editor.setPreviewLayer(layer)
+    expect(editor.previewLayer).toBe(layer)
+    editor.closeTool()
+    expect(editor.previewLayer).toBeNull()
+  })
+
+  it('setPreviewLayer hands the Draft to the renderer at once, before a Stroke paints it', async () => {
+    const { factory, renderer } = createFakeRenderer()
+    editor.setRendererFactory(factory)
+    editor.createRenderer({} as HTMLCanvasElement)
+    await open()
+    editor.openTool('draw')
+    const layer = draft()
+    editor.setPreviewLayer(layer)
+    // Synchronously: the Preview's watcher runs only after the first segment is painted, too late
+    // to allocate the new, blank Draft without reading it back (spec §6 latency).
+    expect(renderer.setLayer).toHaveBeenLastCalledWith(layer)
+  })
+
+  it('layerChanged forwards the dirty rectangle to the renderer', async () => {
+    const { factory, renderer } = createFakeRenderer()
+    editor.setRendererFactory(factory)
+    editor.createRenderer({} as HTMLCanvasElement)
+    await open()
+    editor.layerChanged({ x: 1, y: 2, width: 3, height: 4 })
+    expect(renderer.updateLayer).toHaveBeenCalledWith({ x: 1, y: 2, width: 3, height: 4 })
+  })
+
+  it('a Geometry Apply keeps the applied layer itself: same object, id and pixels (AC-08)', async () => {
+    await open()
+    editor.applyDrawing(draft(), true)
+    const applied = editor.work!.drawing!
+    const { width, height } = editor.work!.original
+    editor.applyGeometry({
+      flipH: true,
+      flipV: false,
+      rotation: 90,
+      straighten: 0,
+      crop: { x: 0, y: 0, width: height, height: width },
+    })
+    expect(editor.work!.geometry.rotation).toBe(90)
+    expect(editor.work!.drawing).toBe(applied) // never resampled or copied (draw ADR-0001)
+    expect(released(applied)).toBe(false)
+  })
+
+  describe('applyDrawing (AC-12)', () => {
+    it('stores the Draft with a new id and keeps the revision when nothing changed', async () => {
+      await open()
+      const layer = draft()
+      editor.applyDrawing(layer, false)
+      expect(editor.work!.drawing!.pixels).toBe(layer.pixels)
+      expect(editor.work!.drawing!.id).not.toBe('draft')
+      expect(editor.work!.drawing!.id).toMatch(/^[0-9a-f-]{36}$/)
+      expect(editor.hasUnsavedEdits).toBe(false)
+      expect(released(layer)).toBe(false)
+    })
+
+    it('raises the revision when changed, also for a Clear to null', async () => {
+      await open()
+      editor.applyDrawing(draft(), true)
+      expect(editor.work!.revision).toBe(1)
+      editor.applyDrawing(null, true)
+      expect(editor.work!.drawing).toBeNull()
+      expect(editor.work!.revision).toBe(2)
+    })
+
+    it('releases the applied layer it replaces, but not one with the same canvas', async () => {
+      await open()
+      const first = draft()
+      editor.applyDrawing(first, true)
+      editor.applyDrawing({ ...editor.work!.drawing!, id: 'again' } as Layer, false)
+      expect(released(first)).toBe(false)
+      const second = draft()
+      editor.applyDrawing(second, true)
+      expect(released(first)).toBe(true)
+      expect(released(second)).toBe(false)
+    })
+
+    it('is ignored during an export', async () => {
+      await open()
+      editor.beginExport()
+      const layer = draft()
+      expect(editor.applyDrawing(layer, true)).toBe(false) // the caller keeps the Draft
+      expect(editor.work!.drawing).toBeNull()
+      expect(editor.work!.revision).toBe(0)
+    })
+
+    it('says it applied', async () => {
+      await open()
+      expect(editor.applyDrawing(draft(), true)).toBe(true)
+    })
+  })
+
+  it('snapshots the applied layer for the export (AC-10)', async () => {
+    await open()
+    expect(editor.beginExport()!.drawing).toBeNull()
+    editor.finishExport(editor.beginExport()!, false)
+    editor.applyDrawing(draft(), true)
+    const snapshot = editor.beginExport()!
+    expect(snapshot.drawing).toBe(editor.work!.drawing)
+  })
+
+  it('a successful replace closes draw, clears the preview and releases the old layer (AC-13)', async () => {
+    await open()
+    const applied = draft()
+    editor.applyDrawing(applied, false)
+    editor.openTool('draw')
+    editor.setPreviewLayer(draft())
+    await open(300, 300)
+    expect(editor.activeTool).toBeNull()
+    expect(editor.previewLayer).toBeNull()
+    expect(editor.work!.drawing).toBeNull()
+    expect(released(applied)).toBe(true)
+  })
+
+  it('keeps draw open with its preview while the replace waits for confirmation (AC-13)', async () => {
+    await open()
+    editor.applyDrawing(draft(), true)
+    editor.openTool('draw')
+    const layer = draft()
+    editor.setPreviewLayer(layer)
+    await open(300, 300)
+    expect(editor.phase).toBe('confirming')
+    expect(editor.activeTool).toBe('draw')
+    expect(editor.previewLayer).toBe(layer)
+    editor.cancelReplace()
+    expect(editor.activeTool).toBe('draw')
   })
 })

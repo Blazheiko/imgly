@@ -15,6 +15,7 @@ import {
   ToastStack,
 } from './index'
 import type { SegmentedOption } from './SegmentedControl.vue'
+import segmentedSource from './SegmentedControl.vue?raw'
 import { useNotices } from '../notices'
 
 describe('Spinner', () => {
@@ -686,5 +687,79 @@ describe('BaseButton pressed (crop-rotate SCR-03)', () => {
     const off = mount(BaseButton, { props: { pressed: false } }).get('button')
     expect(off.attributes('aria-pressed')).toBe('false')
     expect(off.classes()).not.toContain('base-button--pressed')
+  })
+})
+
+describe('SegmentedControl swatches (draw screens.md §New components)', () => {
+  afterEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  it('renders a swatch option as a filled square, its label as accessible name and tooltip', () => {
+    const wrapper = mount(SegmentedControl, {
+      props: {
+        modelValue: '#E53935',
+        label: 'Colour',
+        options: [
+          { value: '#000000', label: 'Black', swatch: '#000000' },
+          { value: '#E53935', label: 'Red', swatch: '#E53935' },
+        ],
+      },
+    })
+    const radios = wrapper.findAll('[role="radio"]')
+    expect(radios[1]!.attributes('aria-label')).toBe('Red')
+    expect(radios[1]!.attributes('title')).toBe('Red')
+    expect(radios[1]!.attributes('aria-checked')).toBe('true')
+    expect(radios[1]!.text()).toBe('')
+    const fill = radios[1]!.get('.segmented__swatch')
+    expect(fill.attributes('style')).toContain('background: #E53935')
+    expect(wrapper.get('.segmented__group').classes()).toContain('segmented__group--swatches')
+  })
+
+  it('draws the selected ring apart from the outline, so a focused selected swatch shows both', () => {
+    // happy-dom resolves no cascade: read the rule. :focus-visible owns `outline`; the selected
+    // ring must use another property or the later focus rule replaces it (screens.md SCR-03).
+    const rule = /\.segmented__option--swatch\[aria-checked='true'\]\s*\{([^}]*)\}/.exec(
+      segmentedSource,
+    )
+    expect(rule).not.toBeNull()
+    expect(rule![1]).not.toMatch(/\boutline\b/)
+    expect(rule![1]).toMatch(/box-shadow:[^;]*var\(--color-text\)/)
+  })
+
+  it('keeps the selected ring in forced-colors mode, where box-shadow is dropped', () => {
+    const forced = /@media \(forced-colors: active\)\s*\{([\s\S]*?)\n\}/.exec(segmentedSource)
+    expect(forced).not.toBeNull()
+    expect(forced![1]).toMatch(
+      /\.segmented__option--swatch\[aria-checked='true'\]\s*\{[^}]*\boutline:[^;]*CanvasText/,
+    )
+  })
+
+  it('keeps each swatch fill in forced-colors mode: the colour is data, not decoration', () => {
+    const rule = /^\.segmented__swatch\s*\{([^}]*)\}/m.exec(segmentedSource)
+    expect(rule![1]).toMatch(/forced-color-adjust:\s*none/)
+  })
+
+  it('frames each swatch in the system text colour in forced-colors mode', () => {
+    const forced = /@media \(forced-colors: active\)\s*\{([\s\S]*?)\n\}/.exec(segmentedSource)
+    expect(forced![1]).toMatch(/\.segmented__swatch\s*\{[^}]*border-color:\s*CanvasText/)
+  })
+
+  it('shows an option’s title as its tooltip, and none for a plain option without one', () => {
+    const wrapper = mount(SegmentedControl, {
+      props: {
+        modelValue: 'brush',
+        label: 'Mode',
+        options: [
+          { value: 'brush', label: 'Brush', title: 'Brush (B)' },
+          { value: 'eraser', label: 'Eraser' },
+        ],
+      },
+    })
+    const radios = wrapper.findAll('[role="radio"]')
+    expect(radios[0]!.attributes('title')).toBe('Brush (B)')
+    expect(radios[0]!.text()).toBe('Brush')
+    expect(radios[1]!.attributes('title')).toBeUndefined()
+    expect(radios[1]!.attributes('aria-label')).toBeUndefined()
   })
 })

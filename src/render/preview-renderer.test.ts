@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   cropToOriginalUv,
   identityGeometry,
@@ -11,6 +11,14 @@ import {
 import { viewToTransform } from './view-transform'
 import { createPreviewRenderer, type PreviewRenderer } from './preview-renderer'
 import { createFakeCanvas, createFakeFrames, createFakeGl, type FakeGl } from './fake-gl'
+import {
+  createLayer,
+  layerContext,
+  setLayerCanvasFactory,
+  type CanvasFactory,
+  type Layer,
+} from './drawing'
+import { createFakeCanvas as createFakeLayerCanvas } from './drawing/fake-canvas'
 
 const bitmap = (width: number, height: number) => ({ width, height }) as unknown as ImageBitmap
 const uniformCalls = (fake: FakeGl, name: string) =>
@@ -417,5 +425,196 @@ describe('PreviewRenderer.sampleCrop (adjust ADR-0004)', () => {
     renderer.dispose()
     expect(renderer.sampleCrop(crop(300, 200), 512).ok).toBe(false)
     expect(fake.names()).not.toContain('createFramebuffer')
+  })
+})
+
+describe('PreviewRenderer.setLayer / updateLayer (draw ADR-0003)', () => {
+  const original = { width: 64, height: 32 }
+  let fake: FakeGl
+  let frames: ReturnType<typeof createFakeFrames>
+  let renderer: PreviewRenderer
+  let previousFactory: CanvasFactory
+  let layer: Layer
+
+  beforeEach(() => {
+    previousFactory = setLayerCanvasFactory(
+      (w, h) => createFakeLayerCanvas(w, h) as unknown as OffscreenCanvas,
+    )
+    layer = createLayer(original)
+    fake = createFakeGl()
+    frames = createFakeFrames()
+    const canvas = createFakeCanvas(fake.gl) as unknown as HTMLCanvasElement
+    const result = createPreviewRenderer(canvas, frames)
+    if (!result.ok) throw new Error('renderer failed')
+    renderer = result.value
+    renderer.resize(800, 600)
+    renderer.setOriginal(bitmap(original.width, original.height))
+    renderer.setView(view(0.5))
+    frames.flush()
+    fake.calls.length = 0
+  })
+  afterEach(() => {
+    setLayerCanvasFactory(previousFactory)
+  })
+
+  const drawFlag = () => uniformCalls(fake, 'u_draw').at(-1)?.[2]
+  const uploads = () =>
+    fake.calls.filter(([n, , , , , , data]) => n === 'texImage2D' && data !== null)
+
+  it('draws with u_draw off when no layer is set, exactly as before', () => {
+    renderer.setView(view(0.6))
+    frames.flush()
+    expect(drawFlag()).toBe(0)
+    expect(fake.calls).not.toContainEqual(['activeTexture', 'TEXTURE1'])
+  })
+
+  it('uploads the whole layer premultiplied on unit 1 and draws with u_draw on', () => {
+    layerContext(layer) // drawn into: not a blank layer
+    renderer.setLayer(layer)
+    expect(frames.pending).toBe(1)
+    frames.flush()
+    const at = fake.calls.findIndex(([n, unit]) => n === 'activeTexture' && unit === 'TEXTURE1')
+    expect(at).toBeGreaterThanOrEqual(0)
+    expect(fake.calls).toContainEqual(['pixelStorei', 'UNPACK_PREMULTIPLY_ALPHA_WEBGL', true])
+    const upload = uploads().at(-1)!
+    expect((upload.at(-1) as ImageData).width).toBe(64)
+    expect(drawFlag()).toBe(1)
+  })
+
+  it('allocates a blank layer zero-filled: no readback and no pixel upload (spec §6 latency)', () => {
+    const pixels = layer.pixels as unknown as ReturnType<typeof createFakeLayerCanvas>
+    pixels.calls.length = 0
+    renderer.setLayer(layer)
+    frames.flush()
+    expect(pixels.calls.filter((c) => c[0] === 'getImageData')).toEqual([])
+    const pixelUploads = fake.calls.filter(
+      (c) => (c[0] === 'texImage2D' || c[0] === 'texSubImage2D') && c.at(-1) !== null,
+    )
+    expect(pixelUploads).toEqual([])
+    const blank = fake.calls.find(
+      ([n, , , , , , , , , data]) => n === 'texImage2D' && data === null,
+    )
+    expect(blank?.slice(4, 6)).toEqual([64, 32])
+    expect(drawFlag()).toBe(1)
+  })
+
+  it('sets the same magnification filter on both units', () => {
+    renderer.setLayer(layer)
+    renderer.setView(view(2))
+    frames.flush()
+    const mags = fake.calls.filter(
+      ([n, , p]) => n === 'texParameteri' && p === 'TEXTURE_MAG_FILTER',
+    )
+    expect(mags.slice(-2).map((c) => c[3])).toEqual(['NEAREST', 'NEAREST'])
+  })
+
+  it('setLayer(null) turns u_draw off and frees the texture', () => {
+    renderer.setLayer(layer)
+    frames.flush()
+    fake.calls.length = 0
+    renderer.setLayer(null)
+    frames.flush()
+    expect(fake.names()).toContain('deleteTexture')
+    expect(drawFlag()).toBe(0)
+  })
+
+  it('uploads nothing for the same canvas with a new id (Apply), and requests one frame', () => {
+    renderer.setLayer(layer)
+    frames.flush()
+    fake.calls.length = 0
+    renderer.setLayer({ ...layer, id: 'applied' })
+    expect(frames.pending).toBe(1)
+    frames.flush()
+    expect(uploads()).toHaveLength(0)
+    expect(drawFlag()).toBe(1)
+  })
+
+  it('updateLayer at 100% or above uploads only the rectangle, no mipmaps', () => {
+    renderer.setLayer(layer)
+    renderer.setView(view(1))
+    frames.flush()
+    fake.calls.length = 0
+    renderer.updateLayer({ x: 4, y: 2, width: 8, height: 6 })
+    expect(frames.pending).toBe(1)
+    frames.flush()
+    const sub = fake.calls.find(([n]) => n === 'texSubImage2D')!
+    expect(sub.slice(1, 4)).toEqual(['TEXTURE_2D', 0, 4])
+    expect(sub[4]).toBe(2)
+    expect((sub.at(-1) as ImageData).width).toBe(8)
+    expect(fake.names()).not.toContain('generateMipmap')
+  })
+
+  it('uploads several updateLayer calls in one frame once, covering their union', () => {
+    renderer.setLayer(layer)
+    renderer.setView(view(1))
+    frames.flush()
+    fake.calls.length = 0
+    renderer.updateLayer({ x: 4, y: 2, width: 2, height: 2 })
+    renderer.updateLayer({ x: 10, y: 8, width: 2, height: 2 })
+    expect(fake.names()).not.toContain('texSubImage2D')
+    expect(frames.pending).toBe(1)
+    frames.flush()
+    const subs = fake.calls.filter(([n]) => n === 'texSubImage2D')
+    expect(subs).toHaveLength(1)
+    expect(subs[0]!.slice(3, 5)).toEqual([4, 2])
+    expect((subs[0]!.at(-1) as ImageData).width).toBe(8)
+    expect((subs[0]!.at(-1) as ImageData).height).toBe(8)
+  })
+
+  it('updateLayer below 100% regenerates the mipmaps', () => {
+    renderer.setLayer(layer)
+    frames.flush()
+    fake.calls.length = 0
+    renderer.updateLayer({ x: 0, y: 0, width: 4, height: 4 })
+    frames.flush()
+    expect(fake.names()).toContain('texSubImage2D')
+    expect(fake.names()).toContain('generateMipmap')
+  })
+
+  it('below 100% regenerates the mipmaps at most every other frame, and once more after (T9 fallback 1)', () => {
+    renderer.setLayer(layer)
+    frames.flush()
+    const regens = () => fake.names().filter((n) => n === 'generateMipmap').length
+    fake.calls.length = 0
+    renderer.updateLayer({ x: 0, y: 0, width: 4, height: 4 })
+    frames.flush()
+    expect(regens()).toBe(1)
+    renderer.updateLayer({ x: 4, y: 0, width: 4, height: 4 })
+    frames.flush()
+    expect(regens()).toBe(1) // skipped: the frame before regenerated
+    expect(fake.names().filter((n) => n === 'texSubImage2D')).toHaveLength(2)
+    expect(frames.pending).toBe(1) // a follow-up frame catches the mipmaps up
+    frames.flush()
+    expect(regens()).toBe(2)
+    expect(frames.pending).toBe(0)
+  })
+
+  it('regenerates stale mipmaps once the View goes below 100% after updates at 100%', () => {
+    renderer.setLayer(layer)
+    renderer.setView(view(1))
+    frames.flush()
+    renderer.updateLayer({ x: 0, y: 0, width: 4, height: 4 })
+    frames.flush()
+    fake.calls.length = 0
+    renderer.setView(view(0.5))
+    frames.flush()
+    expect(fake.names()).toContain('generateMipmap')
+  })
+
+  it('ignores an updateLayer wholly outside the layer or with no layer', () => {
+    renderer.updateLayer({ x: 0, y: 0, width: 4, height: 4 })
+    renderer.setLayer(layer)
+    frames.flush()
+    fake.calls.length = 0
+    renderer.updateLayer({ x: 100, y: 100, width: 4, height: 4 })
+    expect(fake.names()).not.toContain('texSubImage2D')
+  })
+
+  it('keeps marks out of Auto’s sample (u_draw false)', () => {
+    renderer.setLayer(layer)
+    frames.flush()
+    fake.calls.length = 0
+    renderer.sampleCrop(identityGeometry(original), 512)
+    expect(drawFlag()).toBe(0)
   })
 })

@@ -21,6 +21,7 @@ describe('export messages (screens.md §Message catalog)', () => {
     expect(infoNoImage()).toBe('Open an image first to export it.')
     expect(infoToolOpen('crop-rotate')).toBe('Apply or cancel the crop first, then export.')
     expect(infoToolOpen('adjust')).toBe('Apply or cancel the adjustments first, then export.')
+    expect(infoToolOpen('draw')).toBe('Apply or cancel the drawing first, then export.')
   })
 
   it('words every export failure', () => {

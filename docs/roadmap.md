@@ -1,6 +1,6 @@
 ---
 status: living
-updated_at: "2026-10-08"
+updated_at: "2026-10-09"
 ---
 
 # Roadmap — imgly-editor
@@ -25,7 +25,7 @@ draw on and export an image, then reopen any recent work later and re-edit it wi
 | 3 | Export the current image as PNG, JPEG or WebP with a quality setting ([`export`](features/export/)) | idea-brief.md §7 Recommendation | S | shipped |
 | 4 | Crop and rotate: 90° turns, flip, straighten, crop by frame, proportion or pixel size ([`crop-rotate`](features/crop-rotate/)) | idea-brief.md §7 Recommendation | M | shipped |
 | 5 | Adjust brightness, contrast, saturation, temperature/tint, grayscale and sepia with a live preview, plus Compare and Auto adjust ([`adjust`](features/adjust/)) | idea-brief.md §7 Recommendation | M | shipped |
-| 6 | Draw freehand with a brush and an eraser, choosing colour and width, on a separate drawing layer | idea-brief.md §7 Recommendation | M | idea |
+| 6 | Draw freehand with a brush and an eraser, choosing colour and width, on a separate drawing layer ([`draw`](features/draw/)) | idea-brief.md §7 Recommendation | M | shipped |
 | 7 | Undo and redo every crop, adjust and draw action while the image is open | idea-brief.md §7 Recommendation | S | idea |
 | 8 | Gallery of recent works: autosave, reopen and re-edit without loss, about 20 works with the oldest evicted, an honest notice that browser storage can be evicted | idea-brief.md §7 Recommendation + §6 Risks | M | idea |
 | 9 | Install and update experience: an install prompt and a "new version available" toast | idea-brief.md §1 Raw idea (PWA) | S | idea |
@@ -50,7 +50,6 @@ _Nothing. Every step can be stated precisely today. What is still undecided is a
 | # | Question | Type | Owner | Blocks |
 |---|---|:---:|:---:|:---:|
 | D2 | Is the gallery capped by work count (~20) or by a storage-byte budget, and does the app call `navigator.storage.persist()`? | grilling | human | 8 |
-| D3 | When a crop is re-edited, is the drawing layer anchored to the original image coordinates or to the cropped frame? | grilling | human | 6 |
 | D5 | Verify against MDN/caniuse that `file_handlers` + `launchQueue` work only in Chromium and that image clipboard write/paste works in Chrome, Firefox and Safari. The first lookup answered from memory ([MDN](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Manifest/Reference/file_handlers)) | research | agent | 10 |
 
 ## Decisions so far
@@ -61,6 +60,7 @@ _Nothing. Every step can be stated precisely today. What is still undecided is a
 - Adjustments render on WebGL2 and drawing on Canvas 2D → [`docs/adr/0004-render-adjustments-on-webgl2-and-drawing-on-canvas2d.md`](adr/0004-render-adjustments-on-webgl2-and-drawing-on-canvas2d.md)
 - Downscale limit on open is 4096 px on the long side (closes former D1) → [`docs/features/open-and-view/spec.md`](features/open-and-view/spec.md) §1
 - Formats the browser cannot encode (WebP in Safari) are shown as unavailable, never selectable and never faked (closes former D4) → [`docs/features/export/spec.md`](features/export/spec.md) §1, AC-12
+- The drawing layer is attached to the Original and follows every later crop, turn, flip and straighten (closes former D3) → [`docs/features/draw/spec.md`](features/draw/spec.md) §1, AC-08
 - Drag-and-drop belongs to step 2, not step 10 → [`docs/features/open-and-view/spec.md`](features/open-and-view/spec.md) §1
 - Fixed MVP feature set; OS integration is last and the first thing cut → [`docs/idea-brief.md`](idea-brief.md) §7
 
@@ -73,7 +73,7 @@ flowchart LR
   s2 -->|exports the opened image through the render pipeline| s3["3 · Export"]
   s2 -->|crops the loaded work document| s4["4 · Crop and rotate"]
   s2 -->|adds uniforms to the preview shader| s5["5 · Adjustments"]
-  s4 -->|layer anchoring depends on the crop transform, D3| s6["6 · Brush and eraser"]
+  s4 -->|the layer follows the crop transform| s6["6 · Brush and eraser"]
   s4 -->|undoes crop commands| s7["7 · Undo and redo"]
   s5 -->|undoes adjust commands| s7
   s6 -->|undoes stroke commands| s7
@@ -102,4 +102,5 @@ flowchart LR
 | 2 — Open and view an image | 2026-10-05 (merged to main in 3020ef1) | [changelog](features/open-and-view/_ship/changelog.md) |
 | 3 — Export the current image | 2026-10-06 (merged to main via PR #1) | [changelog](features/export/_ship/changelog.md) · [PR #1](https://github.com/Blazheiko/imgly/pull/1) |
 | 4 — Crop and rotate | 2026-10-08 (merged to main via PR #4) | [changelog](features/crop-rotate/_ship/changelog.md) · [PR #4](https://github.com/Blazheiko/imgly/pull/4) |
-| 5 — Adjust light and colour | 2026-10-09 (PR #5 open) | [changelog](features/adjust/_ship/changelog.md) · [PR #5](https://github.com/Blazheiko/imgly/pull/5) |
+| 5 — Adjust light and colour | 2026-10-09 (merged to main via PRs #5 and #6) | [changelog](features/adjust/_ship/changelog.md) · [PR #5](https://github.com/Blazheiko/imgly/pull/5) · [PR #6](https://github.com/Blazheiko/imgly/pull/6) |
+| 6 — Draw freehand | 2026-10-10 (PR #7 open) | [changelog](features/draw/_ship/changelog.md) · [PR #7](https://github.com/Blazheiko/imgly/pull/7) |

@@ -1,8 +1,32 @@
 import type { Pinia } from 'pinia'
 import { useEditorStore } from '@/features/editor'
 import { useExportStore } from '@/features/export'
-import { cropToOriginalUv, workSize, type Adjustments, type Geometry } from '@/core'
-import { buildProgram, setAdjustmentUniforms, uploadTexture, viewToTransform } from '@/render'
+import {
+  catmullRomSegment,
+  cropToOriginalUv,
+  identityGeometry,
+  PALETTE,
+  workSize,
+  type Adjustments,
+  type DrawMode,
+  type Geometry,
+  type Point,
+  type Size,
+} from '@/core'
+import {
+  buildProgram,
+  createLayer,
+  paintDot,
+  paintSegment,
+  readRect,
+  releaseLayer,
+  setAdjustmentUniforms,
+  setLayerUniforms,
+  uploadTexture,
+  viewToTransform,
+  type BrushStyle,
+  type Layer,
+} from '@/render'
 import { bitmapLedger } from '@/shared'
 
 /** What e2e tests may read and prepare. Only installed in the Playwright build (VITE_E2E_HOOKS). */
@@ -50,6 +74,41 @@ export interface ImglyTestHooks {
    * slider at its anchors without driving the UI (adjust sad.md §8 Test hooks).
    */
   setAdjustments(adjustments: Adjustments): void
+  /**
+   * Applies the reference drawing directly, as the tool's Apply does (draw sad.md §8 Test hooks):
+   * Strokes at 1, 12 and 200 px in the 10 preset colours plus erased parts, painted through the
+   * painter on the Original's grid. A no-op with no Work.
+   */
+  setReferenceDrawing(): void
+  /**
+   * Applies a layer covered by marks over the whole image (spec §6): 200 px Brush Strokes 100 px
+   * apart, edge to edge. A no-op with no Work.
+   */
+  setFullDrawing(): void
+  /**
+   * The T9 hot-path spike: opens the draw tool on a fresh Draft (or, with `full`, a copy of a
+   * layer covered by marks, for the Eraser) and paints `points` (in the Crop's frame) through the
+   * painter at `hz` moves per second, one segment behind the newest point as the Stroke session
+   * does, handing each dirty rectangle to the Preview. Then cancels the tool. Resolves with the
+   * frame intervals during the Stroke and each point's latency, in ms: from its move to the end
+   * of the frame that shows the Stroke reaching it — the segment ending at a point is painted when
+   * the next point arrives, or on release for the last.
+   */
+  paintStroke(
+    points: Point[],
+    style: BrushStyle,
+    hz?: number,
+    full?: boolean,
+  ): Promise<{ frameIntervals: number[]; latencies: number[] }>
+  /**
+   * The applied Drawing layer's alpha on the Original's grid, row by row (draw QG-2c mask); an
+   * empty array with no layer.
+   */
+  drawingAlpha(): number[]
+  /** The open draw tool's Draft alpha, as `drawingAlpha`; empty with no Draft or tool. */
+  draftAlpha(): number[]
+  /** Drawing layers created and released by the app (draw sad.md §7); retained is their difference. */
+  layers(): { created: number; released: number; retained: number }
   /** Bitmaps received from the decode worker and closed by the app; retained should be 1. */
   bitmaps(): { received: number; closed: number; retained: number }
   /**
@@ -66,8 +125,13 @@ declare global {
   }
 }
 
-/** Renders the Work the way the Preview draws it at 100% and reads it back. */
-function renderAt100(bitmap: ImageBitmap, geometry: Geometry, adjustments: Adjustments): number[] {
+/** Renders the Work the way the Preview draws it at 100%, with its layer, and reads it back. */
+function renderAt100(
+  bitmap: ImageBitmap,
+  geometry: Geometry,
+  adjustments: Adjustments,
+  layer: Layer | null,
+): number[] {
   const { width, height } = geometry.crop
   const canvas = new OffscreenCanvas(width, height)
   const gl = canvas.getContext('webgl2', {
@@ -77,13 +141,18 @@ function renderAt100(bitmap: ImageBitmap, geometry: Geometry, adjustments: Adjus
     preserveDrawingBuffer: true,
   })!
   const gpu = buildProgram(gl)
+  // The Preview at zoom ≥ 1: NEAREST, or LINEAR while straightened (crop-rotate ADR-0002), on both
+  // units (draw ADR-0003).
+  const magFilter = geometry.straighten === 0 ? gl.NEAREST : gl.LINEAR
+  const marks = layer && readRect(layer, { x: 0, y: 0, width: layer.width, height: layer.height })
+  if (marks) {
+    gl.activeTexture(gl.TEXTURE1)
+    uploadTexture(gl, marks)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, magFilter)
+    gl.activeTexture(gl.TEXTURE0)
+  }
   const texture = uploadTexture(gl, bitmap)
-  // The Preview at zoom ≥ 1: NEAREST, or LINEAR while straightened (crop-rotate ADR-0002).
-  gl.texParameteri(
-    gl.TEXTURE_2D,
-    gl.TEXTURE_MAG_FILTER,
-    geometry.straighten === 0 ? gl.NEAREST : gl.LINEAR,
-  )
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, magFilter)
   gl.viewport(0, 0, width, height)
   gl.clearColor(0, 0, 0, 0)
   gl.clear(gl.COLOR_BUFFER_BIT)
@@ -96,6 +165,7 @@ function renderAt100(bitmap: ImageBitmap, geometry: Geometry, adjustments: Adjus
   const original = { width: bitmap.width, height: bitmap.height }
   gl.uniformMatrix3fv(gpu.geometry, false, new Float32Array(cropToOriginalUv(geometry, original)))
   gl.uniform1i(gpu.flatten, 0)
+  setLayerUniforms(gl, gpu, marks !== null)
   setAdjustmentUniforms(gl, gpu, adjustments)
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
   const ctx = new OffscreenCanvas(width, height).getContext('2d')!
@@ -104,6 +174,78 @@ function renderAt100(bitmap: ImageBitmap, geometry: Geometry, adjustments: Adjus
   // oldest, which would be the Preview's, after enough calls in one test.
   gl.getExtension('WEBGL_lose_context')?.loseContext()
   return Array.from(ctx.getImageData(0, 0, width, height).data)
+}
+
+/** The reference drawing on the Original's grid (draw sad.md §8): every colour, three widths, erasing. */
+function referenceDrawing(original: Size): Layer {
+  const layer = createLayer(original)
+  const g = identityGeometry(original)
+  const { width: W, height: H } = original
+  const widths = [1, 12, 200]
+  PALETTE.forEach(({ hex }, i) => {
+    const y = ((i + 0.5) / PALETTE.length) * H
+    const width = widths[i % widths.length]!
+    const points = [
+      { x: 0.05 * W, y },
+      { x: 0.3 * W, y: y - 0.04 * H },
+      { x: 0.6 * W, y: y + 0.04 * H },
+      { x: 0.9 * W, y },
+    ]
+    paintPath(layer, points, { mode: 'brush', colour: hex, width }, g)
+    paintDot(layer, { x: 0.95 * W, y }, { mode: 'brush', colour: hex, width: 12 }, g)
+  })
+  const erase = (x: number, width: number) =>
+    paintPath(
+      layer,
+      [
+        { x: x * W, y: 0 },
+        { x: (x + 0.05) * W, y: 0.5 * H },
+        { x: x * W, y: H },
+      ],
+      { mode: 'eraser' as DrawMode, colour: '#000000', width },
+      g,
+    )
+  erase(0.45, 40)
+  erase(0.75, 7)
+  return layer
+}
+
+/** Paints a whole Stroke through the painter, every segment with its Catmull–Rom neighbours. */
+function paintPath(layer: Layer, points: Point[], style: BrushStyle, g: Geometry) {
+  for (let i = 1; i < points.length; i++) {
+    const segment = catmullRomSegment(
+      points[i - 2] ?? points[i - 1]!,
+      points[i - 1]!,
+      points[i]!,
+      points[i + 1] ?? points[i]!,
+    )
+    paintSegment(layer, segment, style, g)
+  }
+}
+
+/** A layer covered by marks over the whole image: 200 px Brush Strokes 100 px apart (spec §6). */
+function fullDrawing(size: Size): Layer {
+  const layer = createLayer(size)
+  const g = identityGeometry(size)
+  for (let y = 0, i = 0; y <= size.height + 100; y += 100, i++) {
+    const colour = PALETTE[i % PALETTE.length]!.hex
+    paintPath(
+      layer,
+      [
+        { x: -100, y },
+        { x: size.width + 100, y },
+      ],
+      { mode: 'brush', colour, width: 200 },
+      g,
+    )
+  }
+  return layer
+}
+
+/** A layer's alpha channel, row by row; empty with no layer. */
+function alphaOf(layer: Layer | null | undefined): number[] {
+  const pixels = layer && readRect(layer, { x: 0, y: 0, width: layer.width, height: layer.height })
+  return pixels ? Array.from(pixels.data.filter((_, i) => i % 4 === 3)) : []
 }
 
 export function installTestHooks(pinia: Pinia): void {
@@ -141,12 +283,89 @@ export function installTestHooks(pinia: Pinia): void {
     },
     previewAt100: () => {
       const work = editor.work
-      return work ? renderAt100(work.original.pixels, work.geometry, work.adjustments) : []
+      return work
+        ? renderAt100(work.original.pixels, work.geometry, work.adjustments, work.drawing)
+        : []
     },
     exportStatus: () => exporter.status,
     applyEdit: () => editor.applyEdit(),
     setGeometry: (geometry) => editor.applyGeometry(geometry),
     setAdjustments: (adjustments) => editor.applyAdjustments(adjustments),
+    setReferenceDrawing: () => {
+      const work = editor.work
+      if (work) editor.applyDrawing(referenceDrawing(work.original), true)
+    },
+    setFullDrawing: () => {
+      const work = editor.work
+      if (work) editor.applyDrawing(fullDrawing(work.original), true)
+    },
+    paintStroke: async (points, style, hz = 120, full = false) => {
+      const work = editor.work
+      if (!work || !editor.openTool('draw').ok) return { frameIntervals: [], latencies: [] }
+      const layer = full ? fullDrawing(work.original) : createLayer(work.original)
+      editor.setPreviewLayer(layer)
+      const g = work.geometry
+      const frameIntervals: number[] = []
+      const latencies: number[] = []
+      // Points whose segment has been painted, by their move time, waiting for the frame showing it.
+      let painted: number[] = []
+      let lastFrame: number | undefined
+      let stroking = true
+      // rAF callbacks run in registration order, and this one re-registers during the previous
+      // frame, before the renderer's own request: it runs first. A task queued from it runs once
+      // the frame's callbacks, the renderer's draw (upload, mipmaps, drawArrays) included, are done.
+      const onFrame = () => {
+        setTimeout(() => {
+          const now = performance.now()
+          if (lastFrame !== undefined) frameIntervals.push(now - lastFrame)
+          lastFrame = now
+          for (const t of painted) latencies.push(now - t)
+          painted = []
+        }, 0)
+        if (stroking) requestAnimationFrame(onFrame)
+      }
+      requestAnimationFrame(onFrame)
+      const segmentTo = (i: number) =>
+        catmullRomSegment(
+          points[i - 2] ?? points[i - 1]!,
+          points[i - 1]!,
+          points[i]!,
+          points[i + 1] ?? points[i]!,
+        )
+      const moved: number[] = []
+      const start = performance.now()
+      for (let i = 0; i < points.length; i++) {
+        const due = start + (i * 1000) / hz
+        await new Promise((resolve) => setTimeout(resolve, Math.max(0, due - performance.now())))
+        moved.push(performance.now())
+        // The segment ending at the previous point is painted once this point is known.
+        if (i >= 2) {
+          editor.layerChanged(paintSegment(layer, segmentTo(i - 1), style, g))
+          painted.push(moved[i - 1]!)
+        } else if (i === 0 && points.length === 1) {
+          editor.layerChanged(paintDot(layer, points[0]!, style, g))
+          painted.push(moved[0]!)
+        }
+      }
+      if (points.length >= 2) {
+        // Release: the last segment.
+        editor.layerChanged(paintSegment(layer, segmentTo(points.length - 1), style, g))
+        painted.push(moved[points.length - 1]!)
+      }
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      stroking = false
+      editor.closeTool()
+      releaseLayer(layer)
+      return { frameIntervals, latencies }
+    },
+    drawingAlpha: () => alphaOf(editor.work?.drawing),
+    draftAlpha: () => (editor.activeTool === 'draw' ? alphaOf(editor.previewLayer) : []),
+    layers: () => ({
+      created: bitmapLedger.layersCreated,
+      released: bitmapLedger.layersReleased,
+      retained: bitmapLedger.layersCreated - bitmapLedger.layersReleased,
+    }),
     bitmaps: () => ({
       received: bitmapLedger.received,
       closed: bitmapLedger.closed,

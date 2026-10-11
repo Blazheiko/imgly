@@ -184,6 +184,30 @@ for (const [label, format, target] of [
   })
 }
 
+// draw spec §6: the same targets with marks over the whole image (a full Drawing layer), which
+// the worker composites in the same pass at full size (draw ADR-0003).
+for (const [label, format, target] of [
+  ['JPEG q90', 'JPEG', 1000],
+  ['PNG', 'PNG', 2000],
+] as const) {
+  test(`@perf export time with a full Drawing layer, 4096×3072 ${label}: p95 ≤ ${target} ms`, async ({
+    page,
+  }) => {
+    test.setTimeout(240_000)
+    await prepare(page)
+    await page.evaluate(() => window.__imglyTest!.setFullDrawing())
+    await choose(page, format === 'JPEG' ? { format, quality: 90 } : { format })
+
+    const runs: number[] = []
+    for (let i = 0; i < WARM_UP + RUNS; i++) runs.push((await timedExport(page)).ms)
+    const time = p95(runs.slice(WARM_UP))
+    results[`drawn export p95 ${label}`] = `${Math.round(time)} ms (target ≤ ${target} ms)`
+    expect(time, `p95 export time with a full Drawing layer for ${label}`).toBeLessThanOrEqual(
+      target,
+    )
+  })
+}
+
 test('@perf memory after 10 PNG exports is ≤ 110% of the first, one Original retained', async ({
   page,
 }) => {

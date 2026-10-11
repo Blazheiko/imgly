@@ -17,10 +17,14 @@ describe('AdjustControls (SCR-03)', () => {
 
   function openWork(adjustments: Partial<Adjustments> = {}) {
     const pixels = { width: 800, height: 600, close() {} } as unknown as ImageBitmap
-    const work = createWork({ width: 800, height: 600, pixels, hasTransparency: false }, 'w-1', {
-      sourceName: 'a',
-      sourceFormat: 'png',
-    })
+    const work = createWork<ImageBitmap, OffscreenCanvas>(
+      { width: 800, height: 600, pixels, hasTransparency: false },
+      'w-1',
+      {
+        sourceName: 'a',
+        sourceFormat: 'png',
+      },
+    )
     editor.work = { ...work, adjustments: { ...NEUTRAL_ADJUSTMENTS, ...adjustments } }
   }
 

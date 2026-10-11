@@ -25,6 +25,13 @@ export interface Adjustments {
   sepia: number
 }
 
+/** Mirrors `BrushStyle` in src/render/drawing/painter.ts. */
+export interface BrushStyle {
+  mode: 'brush' | 'eraser'
+  colour: string
+  width: number
+}
+
 declare global {
   interface Window {
     __imglyTest?: {
@@ -49,6 +56,17 @@ declare global {
       applyEdit(): void
       setGeometry(geometry: Geometry): void
       setAdjustments(adjustments: Adjustments): void
+      setReferenceDrawing(): void
+      setFullDrawing(): void
+      paintStroke(
+        points: { x: number; y: number }[],
+        style: BrushStyle,
+        hz?: number,
+        full?: boolean,
+      ): Promise<{ frameIntervals: number[]; latencies: number[] }>
+      drawingAlpha(): number[]
+      draftAlpha(): number[]
+      layers(): { created: number; released: number; retained: number }
       bitmaps(): { received: number; closed: number; retained: number }
       holdNextOpen(): void
       releaseHeldOpen(): void
