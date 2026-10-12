@@ -24,6 +24,6 @@
 | T17 | [Add the test plan's missing component and integration cases](./t17-tests-missing-component-and-integration-cases.md) | tests | Blazheiko | S | T14 | done |
 | T18 | [Strengthen the memory e2e: held bytes after every Apply and Undo; AC-04 discards 10 Steps](./t18-e2e-memory-strengthen.md) | tests | Blazheiko | S | T14 | done |
 | T19 | [e2e-through-UI: the AC-06, AC-07, AC-08 and AC-09 flows from the test plan](./t19-e2e-missing-flows.md) | tests | Blazheiko | S | T15 | done |
-| T20 | [Record the new modules in the architecture map](./t20-docs-architecture-map.md) | docs | Blazheiko | S | T15 | todo |
+| T20 | [Record the new modules in the architecture map](./t20-docs-architecture-map.md) | docs | Blazheiko | S | T15 | done |
 
 **Total:** 20 tasks: 13 original, ~9.5 person-days, plus 7 review follow-ups (T14–T20, from `_review/review-2026-10-12.md`).
