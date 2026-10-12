@@ -18,5 +18,12 @@
 | T11 | [e2e (Chromium, Firefox, WebKit): pixel-exact Undo and Redo for each tool, View fit, marks follow Geometry, shortcuts per engine](./t11-e2e-exactness-view-and-shortcuts.md) | tests | Blazheiko | M | T10 | done |
 | T12 | [@perf e2e: Undo and Redo p95 ≤ 150 ms for a Step of each tool with a full-image drawing](./t12-perf-undo-redo-latency.md) | tests | Blazheiko | S | T8, T9 | done |
 | T13 | [Record what undo-redo supersedes in open-and-view ADR-0005, draw spec §6 and sad §11, and tick export §8 and crop-rotate §8](./t13-docs-cross-feature-updates.md) | docs | Blazheiko | S | — | done |
+| T14 | [Bound the Edit history at every cursor position, so Undo can never take it over 512 000 000 B](./t14-fix-budget-at-every-cursor.md) | domain | Blazheiko | S | — | done |
+| T15 | [Match Ctrl/Cmd+Z and Ctrl+Y by key position on non-Latin layouts](./t15-fix-shortcuts-non-latin-layouts.md) | ui | Blazheiko | S | — | todo |
+| T16 | [Release the old history's layers when follow() restarts the Edit history](./t16-fix-follow-releases-orphaned-layers.md) | app | Blazheiko | S | — | todo |
+| T17 | [Add the test plan's missing component and integration cases](./t17-tests-missing-component-and-integration-cases.md) | tests | Blazheiko | S | T14 | todo |
+| T18 | [Strengthen the memory e2e: held bytes after every Apply and Undo; AC-04 discards 10 Steps](./t18-e2e-memory-strengthen.md) | tests | Blazheiko | S | T14 | todo |
+| T19 | [e2e-through-UI: the AC-06, AC-07, AC-08 and AC-09 flows from the test plan](./t19-e2e-missing-flows.md) | tests | Blazheiko | S | T15 | todo |
+| T20 | [Record the new modules in the architecture map](./t20-docs-architecture-map.md) | docs | Blazheiko | S | T15 | todo |
 
-**Total:** 13 tasks, ~9.5 person-days.
+**Total:** 20 tasks: 13 original, ~9.5 person-days, plus 7 review follow-ups (T14–T20, from `_review/review-2026-10-12.md`).

@@ -25,7 +25,23 @@ export function heldLayerBytes(history: EditHistory<unknown, unknown>): number {
   return bytes
 }
 
-/** Drops the oldest entries while over either bound; the current entry is never dropped. */
+/**
+ * The most `heldLayerBytes` can reach as Undo and Redo move the cursor over the kept entries. It
+ * peaks where the Work shows the smallest layer, or none: an Undo back to a state with no drawing
+ * leaves every kept layer to the history alone, so the bound holds only if it holds there too.
+ */
+export function worstHeldLayerBytes(history: EditHistory<unknown, unknown>): number {
+  let worst = 0
+  for (let cursor = 0; cursor < history.entries.length; cursor++) {
+    worst = Math.max(worst, heldLayerBytes({ entries: history.entries, cursor }))
+  }
+  return worst
+}
+
+/**
+ * Drops the oldest entries while over either bound at any cursor position, so Undo and Redo never
+ * take the history over it; the current entry is never dropped.
+ */
 export function trim<L, TLayer>(
   history: EditHistory<L, TLayer>,
 ): { history: EditHistory<L, TLayer>; evicted: HistoryEntry<L, TLayer>[] } {
@@ -34,7 +50,7 @@ export function trim<L, TLayer>(
   while (
     current.cursor > 0 &&
     (current.entries.length - 1 > HISTORY_MAX_STEPS ||
-      heldLayerBytes(current) > HISTORY_BUDGET_BYTES)
+      worstHeldLayerBytes(current) > HISTORY_BUDGET_BYTES)
   ) {
     evicted.push(current.entries[0]!)
     current = { entries: current.entries.slice(1), cursor: current.cursor - 1 }

@@ -263,6 +263,136 @@
         "CONTEXT.md"
       ],
       "file": "docs/features/undo-redo/tasks/t13-docs-cross-feature-updates.md"
+    },
+    {
+      "id": "T14",
+      "title": "Bound the Edit history at every cursor position, so Undo can never take it over 512 000 000 B",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-11"
+      ],
+      "dod": "trim drops the oldest entries while the held bytes at the worst cursor position exceed the budget; a unit test that undoes 11 whole-image drawing Steps back to the opened state (no layer) asserts held bytes ≤ 512 000 000 at every position; the reference Work still keeps 10 drawing Steps and a 4096 × 4096 Work 7",
+      "files_hint": [
+        "src/core/history/budget.ts",
+        "src/core/history/budget.test.ts"
+      ],
+      "file": "docs/features/undo-redo/tasks/t14-fix-budget-at-every-cursor.md",
+      "source": "_review/review-2026-10-12.md"
+    },
+    {
+      "id": "T15",
+      "title": "Match Ctrl/Cmd+Z and Ctrl+Y by key position on non-Latin layouts (letter-first rule)",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-14"
+      ],
+      "dod": "isLetter lives in src/shared/keyboard.ts; the undo-redo shortcuts accept event.code KeyZ/KeyY when the key types no Latin letter, while a Latin layout typing another letter there keeps it; unit tests cover a Cyrillic layout",
+      "files_hint": [
+        "src/shared/keyboard.ts",
+        "src/shared/keyboard.test.ts",
+        "src/shared/index.ts",
+        "src/features/undo-redo/shortcuts.ts",
+        "src/features/undo-redo/shortcuts.test.ts"
+      ],
+      "file": "docs/features/undo-redo/tasks/t15-fix-shortcuts-non-latin-layouts.md",
+      "source": "_review/review-2026-10-12.md"
+    },
+    {
+      "id": "T16",
+      "title": "Release the old history's layers when follow() restarts the Edit history",
+      "layer": "app",
+      "deps": [],
+      "acs": [
+        "AC-04",
+        "AC-10"
+      ],
+      "dod": "when follow() starts a new history for a Work it has not followed, every layer the old entries held that neither the new history nor the Work refers to is released through the one release path; a unit test asserts it",
+      "files_hint": [
+        "src/features/editor/edit-history.ts",
+        "src/features/editor/edit-history.test.ts"
+      ],
+      "file": "docs/features/undo-redo/tasks/t16-fix-follow-releases-orphaned-layers.md",
+      "source": "_review/review-2026-10-12.md"
+    },
+    {
+      "id": "T17",
+      "title": "Add the test plan's missing component and integration cases",
+      "layer": "tests",
+      "deps": [
+        "T14"
+      ],
+      "acs": [
+        "AC-04",
+        "AC-08",
+        "AC-09",
+        "AC-10",
+        "AC-11",
+        "AC-14"
+      ],
+      "dod": "component tests: Redo shows 'Nothing to redo' after a new Apply that follows an Undo; both buttons show nothing after a replace; Undo unavailable at the oldest kept Step after a trim; Space activates a button. Integration: AC-08 Apply after the refusal makes the tool's Step the last one; Undo after a cancelled or failed export takes back the last real change",
+      "files_hint": [
+        "src/features/undo-redo/UndoRedoActions.test.ts",
+        "src/features/editor/store.test.ts"
+      ],
+      "file": "docs/features/undo-redo/tasks/t17-tests-missing-component-and-integration-cases.md",
+      "source": "_review/review-2026-10-12.md"
+    },
+    {
+      "id": "T18",
+      "title": "Strengthen the memory e2e: held bytes after every Apply and after the Undos; AC-04 discards 10 Steps and checks Redo",
+      "layer": "tests",
+      "deps": [
+        "T14"
+      ],
+      "acs": [
+        "AC-04",
+        "AC-11"
+      ],
+      "dod": "memory.spec asserts heldBytes ≤ 512 000 000 after every Apply and after every Undo; the AC-04 test undoes all 10 drawing Steps, applies through the UI, and asserts Redo is aria-disabled with the hint 'Nothing to redo' alongside the layer ledger",
+      "files_hint": [
+        "e2e/undo-redo/memory.spec.ts",
+        "e2e/undo-redo/helpers.ts"
+      ],
+      "file": "docs/features/undo-redo/tasks/t18-e2e-memory-strengthen.md",
+      "source": "_review/review-2026-10-12.md"
+    },
+    {
+      "id": "T19",
+      "title": "e2e-through-UI: Undo after non-counting actions, Ctrl/Cmd+Z during an export, Ctrl/Cmd+Z with Draw open, and the save point skipping the replace dialog",
+      "layer": "tests",
+      "deps": [
+        "T15"
+      ],
+      "acs": [
+        "AC-06",
+        "AC-07",
+        "AC-08",
+        "AC-09"
+      ],
+      "dod": "flows.spec covers the four test-plan e2e rows of AC-06, AC-07 (the downloaded file matches the Work at confirm, Undo works after), AC-08 (strokes kept + notice, one Undo after Apply takes them back) and AC-09 (open another image at the save point → no replace dialog)",
+      "files_hint": [
+        "e2e/undo-redo/flows.spec.ts",
+        "e2e/undo-redo/helpers.ts"
+      ],
+      "file": "docs/features/undo-redo/tasks/t19-e2e-missing-flows.md",
+      "source": "_review/review-2026-10-12.md"
+    },
+    {
+      "id": "T20",
+      "title": "Record core/history, features/undo-redo, shared/keyboard and the withEdit rule in the architecture map",
+      "layer": "docs",
+      "deps": [
+        "T15"
+      ],
+      "acs": [],
+      "dod": "docs/architecture-map.md no longer says undo/redo is unbuilt, and lists the new modules and the revision rule",
+      "files_hint": [
+        "docs/architecture-map.md"
+      ],
+      "file": "docs/features/undo-redo/tasks/t20-docs-architecture-map.md",
+      "source": "_review/review-2026-10-12.md"
     }
   ]
 }

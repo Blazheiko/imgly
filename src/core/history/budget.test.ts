@@ -165,6 +165,31 @@ describe('trim inside record (AC-11)', () => {
     expect(heldLayerBytes(history)).toBe(503_316_480)
   })
 
+  it('stays within the budget at every cursor position, down to an opened state with no layer', () => {
+    // Back at the opened state the Work shows no layer, so every kept layer is the history's alone.
+    let { history } = drawSteps(state(0), 11)
+
+    expect(steps(history)).toBeGreaterThanOrEqual(10)
+    for (;;) {
+      expect(heldLayerBytes(history)).toBeLessThanOrEqual(HISTORY_BUDGET_BYTES)
+      const back = undo(history)
+      if (!back) break
+      history = back.history
+    }
+  })
+
+  it('stays within the budget after Undo to a Step whose drawing was cleared', () => {
+    const { history: ten } = drawSteps(state(0, layer()), 10)
+    let history = record(ten, 'draw', state(11)).history
+    history = record(history, 'draw', state(12, layer())).history
+
+    expect(steps(history)).toBeGreaterThanOrEqual(10)
+    history = undo(history)!.history
+
+    expect(history.entries[history.cursor]!.state.drawing).toBeNull()
+    expect(heldLayerBytes(history)).toBeLessThanOrEqual(HISTORY_BUDGET_BYTES)
+  })
+
   it('never drops the current entry', () => {
     const huge = { width: 20_000, height: 20_000 }
     let history = createHistory<Tool>(state(0, layer(huge)))
