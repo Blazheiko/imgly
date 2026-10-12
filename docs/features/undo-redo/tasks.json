@@ -429,6 +429,41 @@
       ],
       "file": "docs/features/undo-redo/tasks/t22-e2e-button-states.md",
       "source": "_review/review-2026-10-12.md"
+    },
+    {
+      "id": "T23",
+      "title": "Make the AC-08 Draw-open e2e cheap: reduce the alpha readbacks in the page",
+      "layer": "tests",
+      "deps": [
+        "T19"
+      ],
+      "acs": [
+        "AC-08"
+      ],
+      "dod": "the AC-08 Draw-open e2e compares the Draft and the Drawing layer through a mark count and checksum computed in the page, never a full alpha array sent to Node; its timeout is 120 s like its siblings; it still fails if Ctrl/Cmd+Z changes the Draft or one Undo leaves strokes",
+      "files_hint": [
+        "e2e/undo-redo/flows.spec.ts"
+      ],
+      "file": "docs/features/undo-redo/tasks/t23-e2e-ac08-cheap-readback.md",
+      "source": "_review/review-2026-10-12.md"
+    },
+    {
+      "id": "T24",
+      "title": "Pin preventDefault on an empty-history shortcut and align the test plan",
+      "layer": "tests",
+      "deps": [
+        "T7"
+      ],
+      "acs": [
+        "AC-05"
+      ],
+      "dod": "the AC-05 shortcut unit test asserts defaultPrevented is true for Ctrl/Cmd+Z and Ctrl+Y with nothing to undo or redo; the spec.md test-plan row says the key is taken and nothing changes, matching screens.md §Keyboard and sad.md",
+      "files_hint": [
+        "src/features/undo-redo/shortcuts.test.ts",
+        "docs/features/undo-redo/spec.md"
+      ],
+      "file": "docs/features/undo-redo/tasks/t24-shortcut-empty-history-prevent-default.md",
+      "source": "_review/review-2026-10-12.md"
     }
   ]
 }
