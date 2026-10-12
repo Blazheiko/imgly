@@ -236,7 +236,7 @@ Size S on the quick route, so this plan sits inline here rather than in a separa
 | AC-04 | a new Apply after an undo makes Redo unavailable | component | the Redo button is unavailable with the hint "Nothing to redo" |
 | AC-04 | a new Apply after undos discards them and releases their layers | e2e-through-UI | Redo is unavailable, and the test hooks report 0 retained layers after 10 drawing Steps are discarded |
 | AC-05 | undo and redo at the ends of the history change nothing | unit | with nothing kept, Undo gives nothing back, and with nothing undone, Redo gives nothing back |
-| AC-05 | shortcuts on an empty history do nothing | unit | the shortcut handler returns no action, and the key is not taken from the browser |
+| AC-05 | shortcuts on an empty history do nothing | unit | the shortcut handler calls neither Undo nor Redo and shows no notice; it still takes the key from the browser (`preventDefault`), as for every handled key (screens.md §Keyboard) |
 | AC-05 | buttons are unavailable with their "nothing" hints | component | on a fresh Work both buttons are unavailable with "Nothing to undo" and "Nothing to redo", and with no Work (SCR-02) both are unavailable |
 | AC-05 | Ctrl/Cmd+Z on a freshly opened image leaves it unchanged | e2e-through-UI | the Preview and the Work are unchanged, and no notice appears |
 | AC-06 | only an Apply that counts as an edit records a Step | integration | zoom, pan, a cancelled tool, an Apply with no change and an Export add no Step, and Undo still takes back the last real change |

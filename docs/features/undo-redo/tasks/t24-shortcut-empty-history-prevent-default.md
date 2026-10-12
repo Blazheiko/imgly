@@ -7,7 +7,7 @@ acs: ["AC-05"]
 files_hint: ["src/features/undo-redo/shortcuts.test.ts", "docs/features/undo-redo/spec.md"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 ---
 
 # T24 — Pin preventDefault on an empty-history shortcut and align the test plan

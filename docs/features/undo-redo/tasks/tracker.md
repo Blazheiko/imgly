@@ -28,6 +28,6 @@
 | T21 | [e2e-through-UI: Ctrl/Cmd+Z on a freshly opened image leaves it unchanged and shows no notice](./t21-e2e-undo-on-fresh-open.md) | tests | Blazheiko | S | T19 | done |
 | T22 | [e2e-through-UI: the buttons after an Undo (AC-01) and after a replace (AC-10)](./t22-e2e-button-states.md) | tests | Blazheiko | S | T19 | done |
 | T23 | [Make the AC-08 Draw-open e2e cheap: reduce the alpha readbacks in the page](./t23-e2e-ac08-cheap-readback.md) | tests | Blazheiko | S | T19 | todo |
-| T24 | [Pin preventDefault on an empty-history shortcut and align the test plan](./t24-shortcut-empty-history-prevent-default.md) | tests | Blazheiko | S | T7 | todo |
+| T24 | [Pin preventDefault on an empty-history shortcut and align the test plan](./t24-shortcut-empty-history-prevent-default.md) | tests | Blazheiko | S | T7 | done |
 
 **Total:** 24 tasks: 13 original, ~9.5 person-days, plus 11 review follow-ups (T14–T20 from the review, T21–T22 from the re-review and T23–T24 from the second re-review, all in `_review/review-2026-10-12.md`).

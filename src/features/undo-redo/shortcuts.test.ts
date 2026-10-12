@@ -131,8 +131,9 @@ describe('undo-redo shortcuts (screens.md §Keyboard)', () => {
 
   it('does nothing, without a notice, when there is nothing to undo or redo (AC-05)', () => {
     const a = actions({ canUndo: () => false, canRedo: () => false })
-    press(a, key('z', { ctrlKey: true }))
-    press(a, key('y', { ctrlKey: true }))
+    expect(press(a, key('z', { ctrlKey: true })).defaultPrevented).toBe(true)
+    expect(press(a, key('z', { metaKey: true })).defaultPrevented).toBe(true)
+    expect(press(a, key('y', { ctrlKey: true })).defaultPrevented).toBe(true)
     expect(a.undo).not.toHaveBeenCalled()
     expect(a.redo).not.toHaveBeenCalled()
     expect(a.notifyToolOpen).not.toHaveBeenCalled()
