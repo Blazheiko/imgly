@@ -1,4 +1,5 @@
 import type { WorkState } from '../document'
+import { trim } from './budget'
 
 /**
  * The Edit history (undo-redo ADR-0001): one line of the Work's edited states, generic over the
@@ -36,7 +37,11 @@ export function createHistory<L, TLayer = unknown>(
   return { entries: [{ state: base, label: null }], cursor: 0 }
 }
 
-/** Appends a Step, discarding the redoable entries first: the history is one line (AC-04). */
+/**
+ * Appends a Step, discarding the redoable entries first: the history is one line (AC-04). Then
+ * drops the oldest entries while over the bound (AC-11). `evicted` lists the discarded entries,
+ * then the dropped ones.
+ */
 export function record<L, TLayer>(
   history: EditHistory<L, TLayer>,
   label: L,
@@ -45,7 +50,8 @@ export function record<L, TLayer>(
   const kept = history.entries.slice(0, history.cursor + 1)
   const evicted = history.entries.slice(history.cursor + 1)
   const entries = [...kept, { state, label }]
-  return { history: { entries, cursor: entries.length - 1 }, evicted }
+  const trimmed = trim({ entries, cursor: entries.length - 1 })
+  return { history: trimmed.history, evicted: [...evicted, ...trimmed.evicted] }
 }
 
 export function canUndo(history: EditHistory<unknown, unknown>): boolean {

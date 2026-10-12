@@ -7,7 +7,7 @@
 |---|---|---|---|---|---|---|
 | T1 | [Add WorkState, editStateOf and withState to core/document](./t01-core-work-state.md) | domain | Blazheiko | S | — | done |
 | T2 | [Add core/history: EditHistory with createHistory, record, undo, redo, canUndo/canRedo and undo/redo labels](./t02-core-history-record-undo-redo.md) | domain | Blazheiko | M | T1 | done |
-| T3 | [Bound the history: budget.ts with 50 Steps and 512 000 000 B, heldLayerBytes, and the oldest-first trim inside record](./t03-core-history-budget-and-trim.md) | domain | Blazheiko | S | T2 | todo |
+| T3 | [Bound the history: budget.ts with 50 Steps and 512 000 000 B, heldLayerBytes, and the oldest-first trim inside record](./t03-core-history-budget-and-trim.md) | domain | Blazheiko | S | T2 | done |
 | T4 | [Add the edit-history composable, record a Step on every counting Apply, make withEdit take the revision, and move layer release to one path](./t04-editor-edit-history-record-and-release.md) | app | Blazheiko | L | T1, T3 | todo |
 | T5 | [Expose undo, redo, canUndo, canRedo, undoTool, redoTool and historyStats on the editor store, with the refusals and the View fit](./t05-editor-store-undo-redo-api.md) | app | Blazheiko | M | T4 | todo |
 | T6 | [Move isTextTarget to src/shared/keyboard.ts so undo-redo can skip text and number fields](./t06-shared-keyboard-is-text-target.md) | ui | Blazheiko | S | — | todo |
