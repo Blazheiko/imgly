@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { nextTick } from 'vue'
-import { createWork, NEUTRAL_ADJUSTMENTS } from '@/core'
+import { createWork, NEUTRAL_ADJUSTMENTS, ok } from '@/core'
 import { useEditorStore } from '@/features/editor'
 import { useNotices } from '@/shared'
 import UndoRedoActions from './UndoRedoActions.vue'
@@ -112,6 +112,75 @@ describe('UndoRedoActions (SCR-01 to SCR-04)', () => {
     await redoButton().trigger('click')
     expect(editor.work!.geometry.flipH).toBe(true)
     expect(texts()).toEqual([]) // the Preview is the outcome: no notice
+  })
+
+  it('a new Apply after an Undo makes Redo unavailable, with "Nothing to redo" (AC-04)', async () => {
+    openWork()
+    editor.applyAdjustments(contrast(20))
+    editor.applyAdjustments(contrast(30))
+    await undoButton().trigger('click')
+    expect(state(redoButton())).toMatchObject({
+      ariaDisabled: null,
+      title: 'Redo Adjust (Shift+Ctrl/Cmd+Z)',
+    })
+
+    editor.applyAdjustments(contrast(40))
+    await nextTick()
+    expect(state(redoButton())).toMatchObject({ ariaDisabled: 'true', hint: 'Nothing to redo' })
+    await redoButton().trigger('click')
+    expect(editor.work!.adjustments.contrast).toBe(40)
+  })
+
+  it('after replacing the Work both show nothing to undo or redo (AC-10)', async () => {
+    openWork()
+    editor.applyAdjustments(contrast(20))
+    editor.applyAdjustments(contrast(30))
+    editor.undo()
+    editor.setDecoder(async () =>
+      ok({
+        bitmap: { width: 10, height: 10, close() {} } as unknown as ImageBitmap,
+        sourceWidth: 10,
+        sourceHeight: 10,
+        width: 10,
+        height: 10,
+        format: 'png' as const,
+        animated: false,
+        downscaled: false,
+        hasTransparency: false,
+      }),
+    )
+    expect((await editor.openImage(new Blob([new Uint8Array([1])]))).kind).toBe('confirming')
+    expect(editor.confirmReplace().kind).toBe('replaced')
+    await nextTick()
+
+    expect(state(undoButton())).toMatchObject({ ariaDisabled: 'true', hint: 'Nothing to undo' })
+    expect(state(redoButton())).toMatchObject({ ariaDisabled: 'true', hint: 'Nothing to redo' })
+  })
+
+  it('Undo stops at the oldest kept Step once the bound has dropped older ones (AC-11)', async () => {
+    openWork()
+    for (let i = 1; i <= 51; i++) editor.applyAdjustments(contrast(i))
+    await nextTick()
+    let undos = 0
+    while (state(undoButton()).ariaDisabled === null) {
+      await undoButton().trigger('click')
+      undos++
+    }
+
+    expect(undos).toBe(50)
+    expect(editor.work!.adjustments.contrast).toBe(1)
+    expect(state(undoButton())).toMatchObject({ ariaDisabled: 'true', hint: 'Nothing to undo' })
+    await undoButton().trigger('click')
+    expect(editor.work!.adjustments.contrast).toBe(1)
+  })
+
+  it('both are native, focusable buttons, so Tab reaches them and Enter and Space activate them (AC-14)', () => {
+    // happy-dom does not turn Space into a click; the e2e flows press it in each engine.
+    for (const button of [undoButton(), redoButton()]) {
+      expect(button.element.tagName).toBe('BUTTON')
+      expect(button.attributes('type')).toBe('button')
+      expect(button.attributes('tabindex')).toBeUndefined()
+    }
   })
 
   it('undoes and redoes by the shortcuts', async () => {

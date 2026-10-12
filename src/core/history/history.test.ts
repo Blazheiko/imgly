@@ -186,3 +186,14 @@ describe('undo and redo (AC-01, AC-02)', () => {
     expect(back.cursor).toBe(2)
   })
 })
+
+describe('labels at the oldest kept Step (AC-11)', () => {
+  it('names nothing to undo once the bound has dropped the opened state', () => {
+    let history = createHistory<Tool>(opened)
+    for (let i = 1; i <= 51; i++) history = record(history, 'adjust', state(i)).history
+    while (canUndo(history)) history = undo(history)!.history
+
+    expect(history.entries[0]!.label).toBe('adjust')
+    expect(undoLabel(history)).toBeNull()
+  })
+})

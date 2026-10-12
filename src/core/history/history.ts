@@ -76,9 +76,12 @@ export function redo<L, TLayer>(history: EditHistory<L, TLayer>): Moved<L, TLaye
   return { history: { entries: history.entries, cursor }, state: history.entries[cursor]!.state }
 }
 
-/** The tool of the Step Undo would take back, or null at the oldest kept state. */
+/**
+ * The tool of the Step Undo would take back, or null at the oldest kept state. Once the bound has
+ * dropped older entries, the oldest kept one still carries its own label, which nothing can undo.
+ */
 export function undoLabel<L>(history: EditHistory<L, unknown>): L | null {
-  return history.entries[history.cursor]!.label
+  return canUndo(history) ? history.entries[history.cursor]!.label : null
 }
 
 /** The tool of the Step Redo would restore, or null when nothing has been undone. */

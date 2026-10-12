@@ -1490,6 +1490,21 @@ describe('editor store — Undo and Redo (undo-redo AC-03, AC-05, AC-07, AC-08, 
       expect([editor.canUndo, editor.canRedo]).toEqual([true, true])
     })
 
+    it('after an Apply following the refusal, the tool’s Step is the last one (AC-08)', () => {
+      editor.openTool('adjust')
+      editor.setPreviewAdjustments(contrast(50))
+      expectRefused()
+      editor.applyAdjustments(contrast(50))
+      editor.closeTool()
+
+      const history = editor.editHistory!
+      expect(history.cursor).toBe(history.entries.length - 1)
+      expect(history.entries.at(-1)!.label).toBe('adjust')
+      expect([editor.undoTool, editor.canRedo]).toEqual(['adjust', false])
+      expect(editor.undo()).toBe(true)
+      expect(editor.work!.adjustments.contrast).toBe(20)
+    })
+
     it('refuses during an export, not queued, and comes back with the same history (AC-07)', () => {
       const snapshot = editor.beginExport()!
       expectRefused()
@@ -1550,6 +1565,23 @@ describe('editor store — Undo and Redo (undo-redo AC-03, AC-05, AC-07, AC-08, 
       editor.redo()
       expect(editor.view).toEqual(before)
     })
+  })
+
+  it('a cancelled or failed export does not move the save point (AC-09)', async () => {
+    await open()
+    editor.applyAdjustments(contrast(10))
+    editor.finishExport(editor.beginExport()!, true)
+    editor.applyAdjustments(contrast(20))
+    editor.finishExport(editor.beginExport()!, false) // cancelled or failed
+    editor.applyAdjustments(contrast(30))
+
+    editor.undo()
+    expect(editor.work!.adjustments.contrast).toBe(20)
+    expect(editor.hasUnsavedEdits).toBe(true)
+    editor.undo()
+    expect(editor.hasUnsavedEdits).toBe(false)
+    editor.redo()
+    expect(editor.hasUnsavedEdits).toBe(true)
   })
 
   it('replaces without confirmation after undoing to the save point (AC-09)', async () => {
