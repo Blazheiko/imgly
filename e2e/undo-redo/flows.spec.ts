@@ -8,7 +8,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { dropGeneratedImage, view } from '../open-and-view/helpers'
 import { exportPng } from '../adjust/helpers'
 import { choose, exportAction, expectSaved, panel, stubSaveFilePicker } from '../export/helpers'
-import { drag, draftAlpha, drawingAlpha } from '../draw/helpers'
+import { drag } from '../draw/helpers'
 import { gotoReady, historyStats, redoButton, undoButton, waitForWork, work } from './helpers'
 
 const SIZE = { width: 2000, height: 1500 }
@@ -26,6 +26,23 @@ const INFO_EXPORTING = 'An export is in progress. Undo and Redo work again when 
 const toast = (page: Page, text: string) =>
   page.getByRole('status').filter({ hasText: text }).first()
 const body = (page: Page) => page.locator('body')
+
+/**
+ * The Draft's or the applied Drawing layer's alpha, reduced in the page to a mark count and a
+ * position-sensitive checksum: the 2000 × 1500 layer never crosses to Node as an array.
+ */
+const alphaSummary = (page: Page, layer: 'draft' | 'drawing') =>
+  page.evaluate((layer) => {
+    const hooks = window.__imglyTest!
+    const alpha = layer === 'draft' ? hooks.draftAlpha() : hooks.drawingAlpha()
+    let marks = 0
+    let checksum = 0
+    for (let i = 0; i < alpha.length; i++) {
+      if (alpha[i] > 0) marks++
+      checksum = (Math.imul(checksum, 31) + alpha[i]) | 0
+    }
+    return { marks, checksum }
+  }, layer)
 
 const adjust = (page: Page, brightness: number) =>
   revisionAfter(page, () =>
@@ -170,7 +187,7 @@ test('Undo after zoom, a cancelled tool, an empty Apply and an Export takes back
 test('Ctrl/Cmd+Z with Draw open keeps the strokes; after Apply one Undo takes them back (AC-08)', async ({
   page,
 }) => {
-  test.setTimeout(60_000)
+  test.setTimeout(120_000)
   await page.getByTestId('draw-action').click()
   await expect(page.getByTestId('draw-tool')).toBeVisible()
   await drag(page, [
@@ -181,20 +198,20 @@ test('Ctrl/Cmd+Z with Draw open keeps the strokes; after Apply one Undo takes th
     [1200, 300],
     [1600, 1000],
   ])
-  const strokes = await draftAlpha(page)
-  expect(strokes.some((a) => a > 0)).toBe(true)
+  const strokes = await alphaSummary(page, 'draft')
+  expect(strokes.marks).toBeGreaterThan(0)
 
   await page.keyboard.press('ControlOrMeta+z')
   await expect(toast(page, INFO_TOOL_OPEN)).toBeVisible()
-  expect(await draftAlpha(page)).toEqual(strokes)
+  expect(await alphaSummary(page, 'draft')).toEqual(strokes)
   expect((await work(page))!.revision).toBe(0)
 
   await revisionAfter(page, () =>
     page.getByTestId('draw-tool').getByRole('button', { name: 'Apply', exact: true }).click(),
   )
-  expect((await drawingAlpha(page)).some((a) => a > 0)).toBe(true)
+  expect((await alphaSummary(page, 'drawing')).marks).toBeGreaterThan(0)
   await revisionAfter(page, () => body(page).press('ControlOrMeta+z'))
-  expect((await drawingAlpha(page)).some((a) => a > 0)).toBe(false)
+  expect((await alphaSummary(page, 'drawing')).marks).toBe(0)
   await expect(undoButton(page)).toHaveAttribute('aria-disabled', 'true')
 })
 

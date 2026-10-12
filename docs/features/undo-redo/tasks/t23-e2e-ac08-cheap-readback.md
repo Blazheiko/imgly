@@ -7,7 +7,7 @@ acs: ["AC-08"]
 files_hint: ["e2e/undo-redo/flows.spec.ts"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 ---
 
 # T23 — Make the AC-08 Draw-open e2e cheap: reduce the alpha readbacks in the page
