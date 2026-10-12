@@ -1367,3 +1367,204 @@ describe('editor store — Edit history (undo-redo AC-04, AC-06, AC-09, AC-10)',
     expect(editor.work!.revision).toBe(1)
   })
 })
+
+describe('editor store — Undo and Redo (undo-redo AC-03, AC-05, AC-07, AC-08, AC-09, AC-12)', () => {
+  let decoder: ReturnType<typeof fakeDecoder>
+  let editor: ReturnType<typeof useEditorStore>
+
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    decoder = fakeDecoder()
+    editor = useEditorStore()
+    editor.setDecoder(decoder.decode)
+    editor.setCanvasSize(1000, 800)
+  })
+
+  async function open(width = 400, height = 200) {
+    const pending = editor.openImage(file())
+    decoder.answer(decoder.decode.mock.calls.length - 1, ok(decoded(width, height)))
+    return pending
+  }
+
+  const draft = (width = 400, height = 200) =>
+    ({ id: 'draft', width, height, pixels: { width, height } }) as unknown as Layer
+  const cropTo = (width: number, height: number): Geometry => ({
+    ...editor.work!.geometry,
+    crop: { x: 0, y: 0, width, height },
+  })
+  const contrast = (value: number) => ({ ...NEUTRAL_ADJUSTMENTS, contrast: value })
+
+  it('has nothing to undo or redo with no Work open (AC-05)', () => {
+    expect(editor.canUndo).toBe(false)
+    expect(editor.canRedo).toBe(false)
+    expect(editor.undoTool).toBeNull()
+    expect(editor.redoTool).toBeNull()
+    expect(editor.historyStats).toEqual({ heldBytes: 0, steps: 0 })
+    expect(editor.undo()).toBe(false)
+    expect(editor.redo()).toBe(false)
+  })
+
+  it('has nothing to undo or redo right after an open (AC-05)', async () => {
+    await open()
+    expect([editor.canUndo, editor.canRedo, editor.undoTool, editor.redoTool]).toEqual([
+      false,
+      false,
+      null,
+      null,
+    ])
+    expect(editor.undo()).toBe(false)
+  })
+
+  it('restores each state’s very objects through three Undos and three Redos (AC-03)', async () => {
+    await open()
+    const atOpen = editor.work!
+    editor.applyGeometry(cropTo(300, 200))
+    const cropped = editor.work!
+    editor.applyAdjustments(contrast(20))
+    const adjusted = editor.work!
+    editor.applyDrawing(draft(), true)
+    const drawn = editor.work!
+    expect([editor.undoTool, editor.redoTool]).toEqual(['draw', null])
+
+    const same = (a: typeof atOpen, b: typeof atOpen) => {
+      expect(a.geometry).toBe(b.geometry)
+      expect(a.adjustments).toBe(b.adjustments)
+      expect(a.drawing).toBe(b.drawing)
+      expect(a.revision).toBe(b.revision)
+      expect(a.original).toBe(b.original)
+    }
+    expect(editor.undo()).toBe(true)
+    same(editor.work!, adjusted)
+    expect([editor.undoTool, editor.redoTool]).toEqual(['adjust', 'draw'])
+    editor.undo()
+    same(editor.work!, cropped)
+    editor.undo()
+    same(editor.work!, atOpen)
+    expect([editor.canUndo, editor.canRedo, editor.redoTool]).toEqual([false, true, 'crop-rotate'])
+
+    editor.redo()
+    same(editor.work!, cropped)
+    editor.redo()
+    same(editor.work!, adjusted)
+    expect(editor.redo()).toBe(true)
+    same(editor.work!, drawn)
+    expect(editor.canRedo).toBe(false)
+  })
+
+  it('reports the Steps kept and the bytes they hold', async () => {
+    await open()
+    editor.applyDrawing(draft(), true)
+    editor.applyDrawing(draft(), true)
+    expect(editor.historyStats).toEqual({ heldBytes: 400 * 200 * 4, steps: 2 })
+  })
+
+  describe('refusals', () => {
+    beforeEach(async () => {
+      await open()
+      editor.applyAdjustments(contrast(20))
+      editor.applyAdjustments(contrast(30))
+      editor.undo()
+    })
+
+    function expectRefused() {
+      const work = editor.work
+      const history = editor.editHistory
+      expect([editor.canUndo, editor.canRedo, editor.undoTool, editor.redoTool]).toEqual([
+        false,
+        false,
+        null,
+        null,
+      ])
+      expect(editor.undo()).toBe(false)
+      expect(editor.redo()).toBe(false)
+      expect(editor.work).toBe(work)
+      expect(editor.editHistory).toBe(history)
+    }
+
+    it('refuses while a tool is open, keeping its Draft, and works again after Cancel (AC-08)', () => {
+      editor.openTool('adjust')
+      editor.setPreviewAdjustments(contrast(50))
+      expectRefused()
+      expect(editor.previewAdjustments).toEqual(contrast(50))
+      editor.closeTool()
+      expect([editor.canUndo, editor.canRedo]).toEqual([true, true])
+    })
+
+    it('refuses during an export, not queued, and comes back with the same history (AC-07)', () => {
+      const snapshot = editor.beginExport()!
+      expectRefused()
+      editor.finishExport(snapshot, false)
+      expect([editor.undoTool, editor.redoTool]).toEqual(['adjust', 'adjust'])
+      expect(editor.work!.adjustments.contrast).toBe(20)
+    })
+
+    it('refuses while the replace dialog is open', async () => {
+      await open(300, 300)
+      expect(editor.phase).toBe('confirming')
+      expectRefused()
+    })
+
+    it('stays available while a new image is being read', () => {
+      void editor.openImage(file())
+      expect(editor.phase).toBe('reading')
+      expect(editor.canUndo).toBe(true)
+      expect(editor.undo()).toBe(true)
+      expect(editor.work!.revision).toBe(0)
+    })
+
+    it('stays available under the open export panel', () => {
+      editor.setActivePanel('export')
+      expect(editor.redo()).toBe(true)
+      expect(editor.work!.adjustments.contrast).toBe(30)
+    })
+  })
+
+  describe('View (AC-06, AC-12)', () => {
+    it('fits the View when an Undo or Redo changes the image’s size', async () => {
+      await open()
+      editor.applyGeometry(cropTo(200, 100))
+      editor.zoomAt(2, { x: 300, y: 200 })
+      editor.panBy(40, -25)
+      editor.undo()
+      const fitted = { ...editor.view }
+      editor.fit()
+      expect(fitted).toEqual(editor.view)
+      editor.zoomAt(2, { x: 300, y: 200 })
+      editor.redo()
+      const refitted = { ...editor.view }
+      editor.fit()
+      expect(refitted).toEqual(editor.view)
+    })
+
+    it('keeps the View for an Undo or Redo that keeps the image’s size', async () => {
+      await open()
+      editor.applyAdjustments(contrast(20))
+      editor.applyDrawing(draft(), true)
+      editor.applyGeometry({ ...editor.work!.geometry, flipH: true })
+      editor.zoomAt(2, { x: 300, y: 200 })
+      editor.panBy(40, -25)
+      const before = { ...editor.view }
+      editor.undo()
+      editor.undo()
+      editor.undo()
+      editor.redo()
+      expect(editor.view).toEqual(before)
+    })
+  })
+
+  it('replaces without confirmation after undoing to the save point (AC-09)', async () => {
+    await open()
+    editor.applyAdjustments(contrast(10))
+    editor.applyAdjustments(contrast(20))
+    editor.finishExport(editor.beginExport()!, true)
+    editor.applyAdjustments(contrast(30))
+    expect(editor.hasUnsavedEdits).toBe(true)
+    editor.undo()
+    expect(editor.hasUnsavedEdits).toBe(false)
+    editor.undo()
+    expect(editor.hasUnsavedEdits).toBe(true)
+    editor.redo()
+    expect((await open(300, 300)).kind).toBe('replaced')
+    expect(editor.canUndo).toBe(false)
+  })
+})

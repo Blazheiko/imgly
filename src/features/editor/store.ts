@@ -138,7 +138,7 @@ export const useEditorStore = defineStore('editor', () => {
   const activePanel = ref<PanelId | null>(null)
   const slot = createToolSlot({ work, phase, activePanel, view, fitIfSized })
   const { activeTool, previewGeometry, previewAdjustments, previewLayer } = slot
-  const edits = createEditHistory({ work })
+  const edits = createEditHistory({ work, phase, activeTool, fitIfSized })
   /** Space is held for space-pan: a tool's overlay lets the drag through to the canvas. */
   const spacePan = ref(false)
   /** A draw Stroke is in progress: Space must not start a pan until it ends (draw AC-18). */
@@ -463,6 +463,11 @@ export const useEditorStore = defineStore('editor', () => {
     strokeActive,
     hasUnsavedEdits,
     editHistory: edits.history,
+    canUndo: edits.canUndo,
+    canRedo: edits.canRedo,
+    undoTool: edits.undoTool,
+    redoTool: edits.redoTool,
+    historyStats: edits.stats,
     openTool: slot.openTool,
     closeTool: slot.closeTool,
     setPreviewGeometry: slot.setPreviewGeometry,
@@ -487,6 +492,8 @@ export const useEditorStore = defineStore('editor', () => {
     confirmReplace,
     cancelReplace,
     applyEdit,
+    undo: edits.undo,
+    redo: edits.redo,
     beginExport,
     finishExport,
     zoomAt: (factor: number, point: Point) => updateView((v, c) => zoomView(v, factor, point, c)),

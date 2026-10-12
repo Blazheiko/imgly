@@ -1,17 +1,24 @@
-import { shallowRef, type ShallowRef } from 'vue'
+import { computed, shallowRef, type Ref, type ShallowRef } from 'vue'
 import {
+  canRedo as historyCanRedo,
+  canUndo as historyCanUndo,
   createHistory,
   editStateOf,
+  heldLayerBytes,
   record,
   redo as redoStep,
+  redoLabel,
   undo as undoStep,
+  undoLabel,
   withEdit,
   withState,
+  workSize,
   type EditHistory,
   type Moved,
   type Work,
 } from '@/core'
 import { isReleasedLayer, releaseLayer, type Layer } from '@/render'
+import type { EditorPhase } from './store'
 import type { ToolId } from './tool-slot'
 
 type EditorWork = Work<ImageBitmap, OffscreenCanvas>
@@ -19,9 +26,19 @@ type EditorWork = Work<ImageBitmap, OffscreenCanvas>
 /** The open Work's Edit history; each Step is labelled with the tool whose Apply made it. */
 export type EditorHistory = EditHistory<ToolId, OffscreenCanvas>
 
-/** What the composable reads from the editor store; the store owns the Work. */
+/** What the e2e memory checks read (spec §6): the bytes the kept layers hold and the Steps kept. */
+export interface HistoryStats {
+  heldBytes: number
+  steps: number
+}
+
+/** What the composable reads from the editor store; the store owns these. */
 export interface EditHistoryDeps {
   work: ShallowRef<EditorWork | null>
+  phase: Ref<EditorPhase>
+  activeTool: Ref<ToolId | null>
+  /** Fits the View to the Work, once the canvas has a size. */
+  fitIfSized: () => void
 }
 
 /**
@@ -30,7 +47,7 @@ export interface EditHistoryDeps {
  * share a revision (ADR-0003), and it is the one place a Drawing layer is released: only once no
  * kept state and not the Work refers to it (ADR-0002).
  */
-export function createEditHistory({ work }: EditHistoryDeps) {
+export function createEditHistory({ work, phase, activeTool, fitIfSized }: EditHistoryDeps) {
   // shallowRef: the states refer to OffscreenCanvas layers, which must never be proxied.
   const history = shallowRef<EditorHistory | null>(null)
   let workId: string | null = null
@@ -84,21 +101,62 @@ export function createEditHistory({ work }: EditHistoryDeps) {
     history.value = { entries, cursor: kept.cursor }
   }
 
+  /** The history of the open Work, or null with no Work or one it has not followed. */
+  const current = computed(() => {
+    const kept = history.value
+    const open = work.value
+    if (!kept || !open || workId !== open.id) return null
+    return kept.entries[kept.cursor]!.state.revision === open.revision ? kept : null
+  })
+
+  /**
+   * Undo and Redo may run with a Work open, no tool open (AC-08), no export running (AC-07) and the
+   * replace dialog closed. Reading a new image and the open export panel don't stop them.
+   */
+  const available = computed(
+    () =>
+      !!work.value &&
+      !activeTool.value &&
+      phase.value !== 'exporting' &&
+      phase.value !== 'confirming',
+  )
+
+  /** The history Undo and Redo may move, or null while they are refused. */
+  const usable = computed(() => (available.value ? current.value : null))
+  const canUndo = computed(() => !!usable.value && historyCanUndo(usable.value))
+  const canRedo = computed(() => !!usable.value && historyCanRedo(usable.value))
+  const undoTool = computed(() => (usable.value ? undoLabel(usable.value) : null))
+  const redoTool = computed(() => (usable.value ? redoLabel(usable.value) : null))
+  const stats = computed<HistoryStats>(() => {
+    const kept = current.value
+    return kept
+      ? { heldBytes: heldLayerBytes(kept), steps: kept.entries.length - 1 }
+      : { heldBytes: 0, steps: 0 }
+  })
+
   function move(step: (h: EditorHistory) => Moved<ToolId, OffscreenCanvas> | null): boolean {
-    const current = work.value
-    if (!current) return false
-    const moved = step(follow(current))
+    const open = work.value
+    if (!open || !available.value) return false
+    const moved = step(follow(open))
     if (!moved) return false
     history.value = moved.history
-    work.value = withState(current, moved.state)
+    const before = workSize(open)
+    const restored = withState(open, moved.state)
+    work.value = restored
     assertKeptLayersLive()
+    // A size change fits the View, as a "Crop and rotate" Apply does; otherwise it stays (AC-12).
+    const after = workSize(restored)
+    if (after.width !== before.width || after.height !== before.height) fitIfSized()
     return true
   }
 
-  /** Puts the state before the last Step into the Work; false when nothing is left to undo. */
+  /**
+   * Puts the state before the last Step into the Work; false, with nothing changed, when nothing
+   * is left to undo or Undo is refused.
+   */
   const undo = () => move(undoStep)
 
-  /** Puts the most recently undone state back into the Work; false when nothing was undone. */
+  /** Puts the most recently undone state back into the Work; false as for `undo`. */
   const redo = () => move(redoStep)
 
   /**
@@ -134,5 +192,5 @@ export function createEditHistory({ work }: EditHistoryDeps) {
     }
   }
 
-  return { history, commit, touch, undo, redo, clear }
+  return { history, canUndo, canRedo, undoTool, redoTool, stats, commit, touch, undo, redo, clear }
 }

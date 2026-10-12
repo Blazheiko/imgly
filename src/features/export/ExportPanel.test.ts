@@ -123,6 +123,24 @@ describe('ExportPanel (SCR-03)', () => {
       expect(wrapper.text()).toContain('IMG_4021-edited.png')
     })
 
+    it('follows an Undo and Redo of a size-changing Crop under the open panel (undo-redo AC-14, L7)', async () => {
+      const g = editor.work!.geometry
+      editor.applyGeometry({ ...g, crop: { x: 0, y: 0, width: 2048, height: 1536 } })
+      await flush()
+      expect(wrapper.text()).toContain('2048 × 1536 px')
+      expect(editor.undo()).toBe(true)
+      await flush()
+      expect(textInput('Long side').element.value).toBe('4096')
+      expect(wrapper.text()).toContain('4096 × 3072 px')
+      const input = textInput('Long side')
+      await input.setValue('3000')
+      await input.trigger('blur')
+      expect(editor.redo()).toBe(true)
+      await flush()
+      expect(Number(textInput('Long side').element.value)).toBeLessThanOrEqual(2048)
+      expect(wrapper.text()).not.toContain('3000 ×')
+    })
+
     it('validation: a typed long side is applied on blur and the readout updates (AC-05, AC-06)', async () => {
       const input = textInput('Long side')
       await input.setValue('5000')

@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { shallowRef, type ShallowRef } from 'vue'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { ref, shallowRef, type ShallowRef } from 'vue'
 import { createWork, hasUnsavedEdits, type Work } from '@/core'
 import {
   createLayer,
@@ -38,7 +38,12 @@ describe('edit-history composable (undo-redo ADR-0003, ADR-0004)', () => {
     )
     resetBitmapLedger()
     work = shallowRef<EditorWork | null>(null)
-    edits = createEditHistory({ work })
+    edits = createEditHistory({
+      work,
+      phase: ref('idle'),
+      activeTool: ref(null),
+      fitIfSized: vi.fn(),
+    })
     const first = opened()
     work.value = first
     edits.clear(first, null)
