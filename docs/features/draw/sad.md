@@ -688,7 +688,7 @@ The topology is unchanged. The feature ships inside the existing static app on G
   - marks from Apply, Cancel, Clear and a "Crop and rotate" Apply to the redrawn Preview.
 
   Frame timing uses the existing performance trace, and memory uses whole-page memory through `e2e/perf-memory.ts`. The `@perf` suite (`PERF=1`) reads them on the reference machine, not in CI.
-- The bitmap ledger counts created and released layers in DEV and e2e builds, so e2e can assert that exactly one applied layer, or none, is retained after Apply, Cancel and replacing the Work (ADR-0004).
+- The bitmap ledger counts created and released layers in DEV and e2e builds, so e2e can assert that exactly one applied layer, or none, is retained after Apply, Cancel and replacing the Work (ADR-0004). **Superseded 2026-10-12** by [undo-redo ADR-0002](../undo-redo/adr/0002-keep-whole-layers-by-reference-and-bound-the-history-by-50-steps-and-512-mb.md): the Edit history keeps replaced layers for Undo, so e2e asserts the Work's layer plus the kept Steps' layers, and no other.
 - CI runs the fidelity, empty-layer and Geometry round-trip pixel checks on Chromium, Firefox and WebKit with every push (§10).
 
 **Scaling thresholds:**
