@@ -61,7 +61,8 @@ export function createEditHistory({ work, phase, activeTool, fitIfSized }: EditH
 
   /**
    * The history `current` is at. A Work it has not followed (set directly, as test hooks and
-   * other features' tests do) starts a new history at that Work.
+   * other features' tests do) starts a new history at that Work, and the old history's layers that
+   * `current` does not show are released, so none leaks.
    */
   function follow(current: EditorWork): EditorHistory {
     const kept = history.value
@@ -73,6 +74,7 @@ export function createEditHistory({ work, phase, activeTool, fitIfSized }: EditH
       return kept
     }
     start(current)
+    release((kept?.entries ?? []).map((entry) => entry.state.drawing))
     return history.value!
   }
 

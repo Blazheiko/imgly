@@ -235,6 +235,30 @@ describe('edit-history composable (undo-redo ADR-0003, ADR-0004)', () => {
       expect(retained()).toBe(0)
     })
 
+    it('starting afresh for a Work it has not followed releases the old history’s layers', () => {
+      const first = step('draw').drawing!
+      step('draw')
+      edits.undo()
+      const other = opened()
+      work.value = other
+      step('adjust')
+
+      expect(first.pixels.width).toBe(0)
+      expect(retained()).toBe(0)
+    })
+
+    it('starting afresh keeps a layer the followed Work still shows', () => {
+      const shown = step('draw').drawing!
+      step('draw')
+      edits.undo()
+      work.value = { ...work.value!, revision: 99 } // written past the composable
+      step('adjust')
+
+      expect(work.value!.drawing).toBe(shown)
+      expect(shown.pixels.width).toBe(SIZE.width)
+      expect(retained()).toBe(1)
+    })
+
     it('a second release of one layer is a no-op', () => {
       const layer = step('draw').drawing!
       edits.undo()
