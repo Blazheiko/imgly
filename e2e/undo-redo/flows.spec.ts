@@ -116,6 +116,18 @@ test.describe('shortcuts and keyboard (AC-14)', () => {
     expect((await work(page))!.adjustments.brightness).toBe(10)
   })
 
+  test('Ctrl/Cmd+Z on a freshly opened image changes nothing and shows no notice (AC-05)', async ({
+    page,
+  }) => {
+    await expect(undoButton(page)).toHaveAttribute('aria-disabled', 'true')
+    await body(page).press('ControlOrMeta+z')
+    await page.waitForTimeout(300)
+    expect((await work(page))!.revision).toBe(0)
+    await expect(undoButton(page)).toHaveAttribute('aria-disabled', 'true')
+    await expect(undoButton(page)).toHaveAttribute('title', 'Nothing to undo')
+    await expect(page.getByTestId('toast-stack').locator('[role]')).toHaveCount(0)
+  })
+
   test('Ctrl/Cmd+Z in the export panel’s Long side field is the field’s own (AC-08)', async ({
     page,
   }) => {
