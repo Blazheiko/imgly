@@ -84,12 +84,16 @@ export function hasUnsavedEdits(work: Work): boolean {
   return work.revision !== work.cleanRevision
 }
 
-/** The one rule every edit follows: the changed Work carries `revision + 1`. */
+/**
+ * The one rule every edit follows: the changed Work carries a new revision. The caller issues it
+ * from the high-water mark, so a revision is never reused, even after Undo (undo-redo ADR-0003).
+ */
 export function withEdit<TPixels, TLayer>(
   work: Work<TPixels, TLayer>,
+  revision: number,
   now: number = Date.now(),
 ): Work<TPixels, TLayer> {
-  return { ...work, revision: work.revision + 1, updatedAt: now }
+  return { ...work, revision, updatedAt: now }
 }
 
 /**

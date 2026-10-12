@@ -1156,15 +1156,35 @@ describe('editor store — the draw tool in the slot (draw AC-12, AC-13, AC-15, 
   })
 
   describe('applyDrawing (AC-12)', () => {
-    it('stores the Draft with a new id and keeps the revision when nothing changed', async () => {
+    it('stores a changed Draft with a new id', async () => {
       await open()
       const layer = draft()
-      editor.applyDrawing(layer, false)
+      editor.applyDrawing(layer, true)
       expect(editor.work!.drawing!.pixels).toBe(layer.pixels)
       expect(editor.work!.drawing!.id).not.toBe('draft')
       expect(editor.work!.drawing!.id).toMatch(/^[0-9a-f-]{36}$/)
-      expect(editor.hasUnsavedEdits).toBe(false)
       expect(released(layer)).toBe(false)
+    })
+
+    it('keeps the Work’s layer and releases the Draft when nothing changed (undo-redo sad §4)', async () => {
+      await open()
+      editor.applyDrawing(draft(), true)
+      const applied = editor.work!.drawing!
+      const copy = draft()
+      expect(editor.applyDrawing(copy, false)).toBe(true)
+      expect(editor.work!.drawing).toBe(applied)
+      expect(editor.work!.revision).toBe(1)
+      expect(released(copy)).toBe(true)
+      expect(released(applied)).toBe(false)
+    })
+
+    it('releases nothing on an unchanged Apply of the Work’s own canvas', async () => {
+      await open()
+      editor.applyDrawing(draft(), true)
+      const applied = editor.work!.drawing!
+      editor.applyDrawing({ ...applied, id: 'again' } as Layer, false)
+      expect(editor.work!.drawing).toBe(applied)
+      expect(released(applied)).toBe(false)
     })
 
     it('raises the revision when changed, also for a Clear to null', async () => {
@@ -1176,15 +1196,13 @@ describe('editor store — the draw tool in the slot (draw AC-12, AC-13, AC-15, 
       expect(editor.work!.revision).toBe(2)
     })
 
-    it('releases the applied layer it replaces, but not one with the same canvas', async () => {
+    it('keeps the applied layer it replaces for Undo (undo-redo ADR-0002)', async () => {
       await open()
       const first = draft()
       editor.applyDrawing(first, true)
-      editor.applyDrawing({ ...editor.work!.drawing!, id: 'again' } as Layer, false)
-      expect(released(first)).toBe(false)
       const second = draft()
       editor.applyDrawing(second, true)
-      expect(released(first)).toBe(true)
+      expect(released(first)).toBe(false)
       expect(released(second)).toBe(false)
     })
 
@@ -1215,7 +1233,8 @@ describe('editor store — the draw tool in the slot (draw AC-12, AC-13, AC-15, 
   it('a successful replace closes draw, clears the preview and releases the old layer (AC-13)', async () => {
     await open()
     const applied = draft()
-    editor.applyDrawing(applied, false)
+    editor.applyDrawing(applied, true)
+    editor.finishExport(editor.beginExport()!, true)
     editor.openTool('draw')
     editor.setPreviewLayer(draft())
     await open(300, 300)
@@ -1237,5 +1256,114 @@ describe('editor store — the draw tool in the slot (draw AC-12, AC-13, AC-15, 
     expect(editor.previewLayer).toBe(layer)
     editor.cancelReplace()
     expect(editor.activeTool).toBe('draw')
+  })
+})
+
+describe('editor store — Edit history (undo-redo AC-04, AC-06, AC-09, AC-10)', () => {
+  let decoder: ReturnType<typeof fakeDecoder>
+  let editor: ReturnType<typeof useEditorStore>
+
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    decoder = fakeDecoder()
+    editor = useEditorStore()
+    editor.setDecoder(decoder.decode)
+    editor.setCanvasSize(1000, 800)
+  })
+
+  async function open(width = 400, height = 200) {
+    const pending = editor.openImage(file())
+    decoder.answer(decoder.decode.mock.calls.length - 1, ok(decoded(width, height)))
+    return pending
+  }
+
+  const draft = (width = 400, height = 200) =>
+    ({ id: 'draft', width, height, pixels: { width, height } }) as unknown as Layer
+  const released = (layer: Layer) => layer.pixels.width === 0
+  const labels = () => editor.editHistory!.entries.map((e) => e.label)
+  const turned = (): Geometry => ({ ...editor.work!.geometry, flipH: !editor.work!.geometry.flipH })
+
+  it('starts an Edit history with only the state at open', async () => {
+    await open()
+    expect(labels()).toEqual([null])
+    expect(editor.editHistory!.cursor).toBe(0)
+  })
+
+  it('records a Step only for an Apply that counts as an edit (AC-06)', async () => {
+    await open()
+    editor.applyAdjustments(NEUTRAL_ADJUSTMENTS)
+    editor.applyGeometry({ ...editor.work!.geometry })
+    editor.applyDrawing(null, false)
+    editor.zoomAt(2, { x: 10, y: 10 })
+    editor.panBy(5, 5)
+    editor.openTool('adjust')
+    editor.closeTool()
+    editor.finishExport(editor.beginExport()!, true)
+    expect(labels()).toEqual([null])
+    expect(editor.work!.revision).toBe(0)
+
+    editor.applyAdjustments({ ...NEUTRAL_ADJUSTMENTS, contrast: 20 })
+    editor.applyGeometry(turned())
+    editor.applyDrawing(draft(), true)
+    expect(labels()).toEqual([null, 'adjust', 'crop-rotate', 'draw'])
+    expect(editor.work!.revision).toBe(3)
+  })
+
+  it('records the Work as each Apply left it', async () => {
+    await open()
+    editor.applyAdjustments({ ...NEUTRAL_ADJUSTMENTS, contrast: 20 })
+    const entry = editor.editHistory!.entries[1]!
+    expect(entry.state.adjustments).toBe(editor.work!.adjustments)
+    expect(entry.state.revision).toBe(editor.work!.revision)
+  })
+
+  it('applyEdit takes a fresh revision and records no Step', async () => {
+    await open()
+    editor.applyAdjustments({ ...NEUTRAL_ADJUSTMENTS, contrast: 20 })
+    editor.applyEdit()
+    expect(editor.work!.revision).toBe(2)
+    expect(labels()).toEqual([null, 'adjust'])
+    expect(editor.editHistory!.entries[1]!.state.revision).toBe(2)
+  })
+
+  it('replacing the Work starts an empty history and releases every old layer (AC-10)', async () => {
+    await open()
+    const first = draft()
+    const second = draft()
+    editor.applyDrawing(first, true)
+    editor.applyDrawing(second, true)
+    const confirming = await open(300, 300)
+    expect(confirming.kind).toBe('confirming')
+    editor.confirmReplace()
+
+    expect(labels()).toEqual([null])
+    expect(editor.editHistory!.entries[0]!.state.revision).toBe(0)
+    expect(released(first)).toBe(true)
+    expect(released(second)).toBe(true)
+  })
+
+  it('a cancelled replace keeps the Work and its Edit history exactly as they were (AC-10)', async () => {
+    await open()
+    const layer = draft()
+    editor.applyDrawing(layer, true)
+    const history = editor.editHistory
+    const work = editor.work
+    await open(300, 300)
+    editor.cancelReplace()
+
+    expect(labels()).toEqual([null, 'draw'])
+    expect(editor.editHistory).toBe(history)
+    expect(editor.work).toBe(work)
+    expect(released(layer)).toBe(false)
+  })
+
+  it('a later Step after a successful replace gets revision 1 of the new Work', async () => {
+    await open()
+    editor.applyEdit()
+    editor.applyEdit()
+    await open(300, 300)
+    editor.confirmReplace()
+    editor.applyAdjustments({ ...NEUTRAL_ADJUSTMENTS, contrast: 5 })
+    expect(editor.work!.revision).toBe(1)
   })
 })

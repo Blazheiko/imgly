@@ -74,6 +74,11 @@ export function releaseLayer(layer: Layer): void {
   bitmapLedger.noteLayerReleased()
 }
 
+/** Whether `releaseLayer` has freed this layer's canvas. */
+export function isReleasedLayer(layer: Layer): boolean {
+  return released.has(layer.pixels)
+}
+
 /**
  * `rect` widened to whole pixels and clamped to the layer; null when nothing is left. A released
  * layer's canvas is 0×0, so nothing is left of any rectangle on it.
