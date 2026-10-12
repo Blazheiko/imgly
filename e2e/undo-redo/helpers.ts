@@ -1,4 +1,6 @@
 import { expect, type Page } from '@playwright/test'
+import { exportPng } from '../adjust/helpers'
+import { decodePng } from '../crop-rotate/helpers'
 import { gotoReady, waitForWork, work } from '../export/helpers'
 
 export { gotoReady, waitForWork, work }
@@ -79,4 +81,26 @@ export async function countUndos(page: Page) {
     n++
   }
   return n
+}
+
+/** A full-size PNG Export of the Work as straight RGBA, through the real panel. */
+export async function exportPixels(page: Page, browserName: string) {
+  return decodePng(page, await exportPng(page, browserName))
+}
+
+export type Pixels = Awaited<ReturnType<typeof exportPixels>>
+
+/** The largest difference over every channel of two Exports; exactness needs 0 (spec §6). */
+export function maxDifference(a: Pixels, b: Pixels): number {
+  expect([a.width, a.height]).toEqual([b.width, b.height])
+  let max = 0
+  for (let i = 0; i < a.data.length; i++) max = Math.max(max, Math.abs(a.data[i]! - b.data[i]!))
+  return max
+}
+
+/** Clicks a button and waits for the Work's revision to change. */
+export async function clickAndWait(page: Page, button: ReturnType<typeof undoButton>) {
+  const before = (await work(page))!.revision
+  await button.click()
+  await expect.poll(async () => (await work(page))!.revision).not.toBe(before)
 }
