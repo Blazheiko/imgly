@@ -12,6 +12,7 @@ ticket: "roadmap step 2 — open-and-view"
 - **Status:** Accepted
 - **Date:** 2026-10-03
 - **Deciders:** Blazheiko (owner), design Socratic walk
+- **Partly superseded (2026-10-12)** by [undo-redo ADR-0003](../../undo-redo/adr/0003-make-the-revision-a-never-reused-state-id-that-undo-and-redo-restore.md): the revision is now a never-reused id of each state, issued from a high-water mark, and Undo and Redo restore a state's revision instead of raising it. Undoing back to the open or the last Export therefore clears Unsaved edits (undo-redo AC-09), which retires the "strictly unnecessary confirmation" consequence below. The counter and `hasUnsavedEdits` stand as decided here.
 
 ## Context
 
