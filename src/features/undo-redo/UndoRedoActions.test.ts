@@ -180,6 +180,8 @@ describe('UndoRedoActions (SCR-01 to SCR-04)', () => {
       expect(button.element.tagName).toBe('BUTTON')
       expect(button.attributes('type')).toBe('button')
       expect(button.attributes('tabindex')).toBeUndefined()
+      // Opted out of space-pan, so Space keeps its native activation (EditorView keepsSpace).
+      expect(button.attributes('data-keeps-space')).toBeDefined()
     }
   })
 

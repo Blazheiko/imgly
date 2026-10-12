@@ -61,7 +61,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 <template>
   <span class="undo-redo">
-    <!-- Unavailable but focusable (aria-disabled), except during an export (screens.md SCR-04). -->
+    <!-- Unavailable but focusable (aria-disabled), except during an export (screens.md SCR-04).
+         data-keeps-space: Space activates them instead of starting space-pan (AC-14). -->
     <BaseButton
       variant="ghost"
       :disabled="exporting"
@@ -71,6 +72,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
       :title="undoText"
       :class="{ 'undo-redo--unavailable': !editor.canUndo }"
       data-testid="undo-action"
+      data-keeps-space
       @click="onUndo"
     >
       <svg class="undo-redo__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
@@ -93,6 +95,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
       :title="redoText"
       :class="{ 'undo-redo--unavailable': !editor.canRedo }"
       data-testid="redo-action"
+      data-keeps-space
       @click="onRedo"
     >
       <svg class="undo-redo__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
