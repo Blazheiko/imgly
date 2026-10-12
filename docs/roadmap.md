@@ -1,6 +1,6 @@
 ---
 status: living
-updated_at: "2026-10-11"
+updated_at: "2026-10-12"
 ---
 
 # Roadmap — imgly-editor
@@ -104,4 +104,4 @@ flowchart LR
 | 4 — Crop and rotate | 2026-10-08 (merged to main via PR #4) | [changelog](features/crop-rotate/_ship/changelog.md) · [PR #4](https://github.com/Blazheiko/imgly/pull/4) |
 | 5 — Adjust light and colour | 2026-10-09 (merged to main via PRs #5 and #6) | [changelog](features/adjust/_ship/changelog.md) · [PR #5](https://github.com/Blazheiko/imgly/pull/5) · [PR #6](https://github.com/Blazheiko/imgly/pull/6) |
 | 6 — Draw freehand | 2026-10-10 (merged to main via PR #7) | [changelog](features/draw/_ship/changelog.md) · [PR #7](https://github.com/Blazheiko/imgly/pull/7) |
-| 7 — Undo and redo | 2026-10-12 (PR open) | [changelog](features/undo-redo/_ship/changelog.md) |
+| 7 — Undo and redo | 2026-10-12 (merged to main via PR #9) | [changelog](features/undo-redo/_ship/changelog.md) · [PR #9](https://github.com/Blazheiko/imgly/pull/9) |
