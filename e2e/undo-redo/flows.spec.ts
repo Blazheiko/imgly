@@ -85,6 +85,8 @@ test.describe('shortcuts and keyboard (AC-14)', () => {
       const first = await adjust(page, 10)
       await adjust(page, 20)
       expect(await revisionAfter(page, () => page.locator('body').press(`${mod}+z`))).toBe(first)
+      await expect(redoButton(page)).not.toHaveAttribute('aria-disabled', 'true')
+      await expect(redoButton(page)).toHaveAttribute('title', 'Redo Adjust (Shift+Ctrl/Cmd+Z)')
       expect(await revisionAfter(page, () => page.locator('body').press(`Shift+${mod}+z`))).toBe(
         first + 1,
       )

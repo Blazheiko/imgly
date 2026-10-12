@@ -7,7 +7,7 @@ acs: ["AC-01", "AC-10"]
 files_hint: ["e2e/undo-redo/flows.spec.ts", "e2e/undo-redo/memory.spec.ts"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 ---
 
 # T22 — e2e-through-UI: assert the buttons the user sees after an Undo (AC-01) and after a replace (AC-10)

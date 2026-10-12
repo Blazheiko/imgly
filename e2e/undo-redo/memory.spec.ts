@@ -14,6 +14,7 @@ import {
   openGenerated,
   openReference,
   redoButton,
+  undoButton,
   undoByKey,
   waitForWork,
   work,
@@ -71,6 +72,10 @@ test.describe('0 retained layers once Steps leave the Edit history (spec §6)', 
     await openGenerated(page, { width: 800, height: 600 }, 'next.jpg')
     await page.getByRole('button', { name: 'Replace' }).click()
     await waitForWork(page, 800, 600)
+    await expect(undoButton(page)).toHaveAttribute('aria-disabled', 'true')
+    await expect(undoButton(page)).toHaveAttribute('title', 'Nothing to undo')
+    await expect(redoButton(page)).toHaveAttribute('aria-disabled', 'true')
+    await expect(redoButton(page)).toHaveAttribute('title', 'Nothing to redo')
     expect(await historyStats(page)).toEqual({ heldBytes: 0, steps: 0 })
     expect((await layers(page)).retained).toBe(0)
   })
