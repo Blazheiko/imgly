@@ -217,7 +217,7 @@ Reference machine: Apple M1 MacBook Air with the latest stable Chrome, as in ope
 | Fidelity of an Export with marks | each pixel of a full-size PNG Export within 2 of 255 per channel of the Preview's own rendering of the Work at 100%, compared as in export §6 | e2e pixel comparison on Chromium, Firefox and WebKit, for a reference drawing with Strokes at 1, 12 and 200 px in the 10 preset colours plus erased parts, with no Geometry, with each Rotation, with a Flip, a Straighten angle and a Crop, and with all seven Adjustments away from neutral |
 | An empty Drawing layer changes nothing | difference 0 per channel between a full-size PNG Export after Clear and Apply and one of the same Work before anything was drawn | e2e pixel comparison on Chromium, Firefox and WebKit |
 | Marks stay on the image through Geometry round trips | difference 0 per channel between a full-size PNG Export before and after four quarter turns, and before and after two Flips in the same direction | e2e pixel comparison on Chromium, Firefox and WebKit |
-| Memory after 50 Applies, each with a new Stroke across the whole image | ≤ 110% of memory after the first Apply | whole-page memory as export §6 measures it, Chromium e2e |
+| Memory after 50 Applies, each with a new Stroke across the whole image | ≤ 110% of memory after the first Apply | whole-page memory as export §6 measures it, Chromium e2e. **Replaced 2026-10-12** by the Edit history's memory rows in [undo-redo spec §6](../undo-redo/spec.md) (≤ 512 MB held, ≤ +10% from the 10th to the 100th drawing Apply) |
 
 ## 6.1 Security / privacy
 

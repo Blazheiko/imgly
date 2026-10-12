@@ -16,7 +16,6 @@ import {
   sourceNameOf,
   stepZoom as stepView,
   turnedBounds,
-  withEdit,
   workSize,
   zoomAt as zoomView,
   type Adjustments,
@@ -56,6 +55,7 @@ import {
   infoFirstFrame,
   infoOthersIgnored,
 } from './messages'
+import { createEditHistory } from './edit-history'
 import { createToolSlot } from './tool-slot'
 
 export type Decoder = (file: Blob) => Promise<DecodeOutcome>
@@ -138,6 +138,7 @@ export const useEditorStore = defineStore('editor', () => {
   const activePanel = ref<PanelId | null>(null)
   const slot = createToolSlot({ work, phase, activePanel, view, fitIfSized })
   const { activeTool, previewGeometry, previewAdjustments, previewLayer } = slot
+  const edits = createEditHistory({ work, phase, activeTool, fitIfSized })
   /** Space is held for space-pan: a tool's overlay lets the drag through to the canvas. */
   const spacePan = ref(false)
   /** A draw Stroke is in progress: Space must not start a pan until it ends (draw AC-18). */
@@ -203,14 +204,16 @@ export const useEditorStore = defineStore('editor', () => {
   }
 
   /**
-   * Applies Adjustments to the Work (adjust AC-11). It counts as an edit only when a value differs
-   * from the Work's, which the open tool never changes before Apply. Refused while exporting.
+   * Applies Adjustments to the Work (adjust AC-11). It counts as an edit, and so as a Step, only
+   * when a value differs from the Work's, which the open tool never changes before Apply. Refused
+   * while exporting.
    */
   function applyAdjustments(next: Adjustments) {
     const current = work.value
     if (!current || phase.value === 'exporting') return
     const updated = { ...current, adjustments: { ...next } }
-    work.value = adjustmentsEquals(next, current.adjustments) ? updated : withEdit(updated)
+    if (adjustmentsEquals(next, current.adjustments)) work.value = updated
+    else edits.commit('adjust', current, updated)
   }
 
   /** The Work's applied Drawing layer as the browser holds it, or null. */
@@ -234,31 +237,33 @@ export const useEditorStore = defineStore('editor', () => {
   }
 
   /**
-   * Applies the draw tool's Draft as the Work's Drawing layer with a new id (draw ADR-0004). It
-   * counts as an edit only when the Draft's change flag says so (AC-12), and the applied layer it
-   * replaces is released unless it is the same canvas. Refused while exporting, and then false:
-   * the caller still owns the Draft and must keep or release it.
+   * Applies the draw tool's Draft as the Work's Drawing layer with a new id (draw ADR-0004), as a
+   * Step, when the Draft's change flag says it is an edit (AC-12). The layer it replaces stays with
+   * the Edit history, which alone releases layers (undo-redo ADR-0002). With no change the Work
+   * keeps its layer and the Draft, a copy with the same content, is released. Refused while
+   * exporting, and then false: the caller still owns the Draft and must keep or release it.
    */
   function applyDrawing(draft: Layer | null, changed: boolean): boolean {
     const current = work.value
     if (!current || phase.value === 'exporting') return false
-    const previous = appliedLayer()
-    const drawing = draft && { ...draft, id: newId() }
-    const updated = { ...current, drawing }
-    work.value = changed ? withEdit(updated) : updated
-    if (previous && previous.pixels !== draft?.pixels) releaseLayer(previous)
+    if (changed) {
+      edits.commit('draw', current, { ...current, drawing: draft && { ...draft, id: newId() } })
+    } else if (draft && draft.pixels !== current.drawing?.pixels) {
+      releaseLayer(draft)
+    }
     return true
   }
 
   /**
-   * Applies a Geometry to the Work (AC-13). It counts as an edit only when it differs field by
-   * field from the Work's Geometry, which the open tool never changes before Apply.
+   * Applies a Geometry to the Work (AC-13). It counts as an edit, and so as a Step, only when it
+   * differs field by field from the Work's Geometry, which the open tool never changes before Apply.
    */
   function applyGeometry(next: Geometry) {
     const current = work.value
     if (!current || phase.value === 'exporting') return
-    const changed = !geometryEquals(next, current.geometry)
-    work.value = changed ? withEdit({ ...current, geometry: next }) : { ...current, geometry: next }
+    const updated = { ...current, geometry: next }
+    if (geometryEquals(next, current.geometry)) work.value = updated
+    else edits.commit('crop-rotate', current, updated)
   }
 
   function setActivePanel(panel: PanelId | null) {
@@ -371,11 +376,12 @@ export const useEditorStore = defineStore('editor', () => {
 
   /**
    * Swaps in the new Work at Fit in one step, named after `fileName` (export AC-08); the old
-   * Original is closed once it was picked up.
+   * Original is closed once it was picked up. The new Work starts an empty Edit history, which
+   * releases every layer of the old one (undo-redo AC-10).
    */
   function replace(image: DecodedImage, fileName: string): OpenOutcome {
-    const old = work.value?.original.pixels
-    const oldLayer = appliedLayer()
+    const previous = work.value
+    const old = previous?.original.pixels
     // The open tool's Draft is discarded with the old Work (AC-17).
     slot.discard()
     const { bitmap, ...facts } = image
@@ -389,19 +395,19 @@ export const useEditorStore = defineStore('editor', () => {
       newId(),
       { sourceName: sourceNameOf(fileName), sourceFormat: image.format },
     )
+    edits.clear(work.value, previous)
     const ctx = context()
     view.value = ctx ? fitView(ctx) : UNSIZED_VIEW
     if (old) void nextTick(() => closeBitmap(old))
-    if (oldLayer) releaseLayer(oldLayer)
     return { kind: 'replaced', image: facts }
   }
 
   /**
-   * The edit entry point: every change to the Work goes through here and raises its revision.
+   * The test-only edit: raises the revision without changing the image or recording a Step.
    * Refused while exporting, so the file is the Work as it was at confirm (export AC-11).
    */
   function applyEdit() {
-    if (work.value && phase.value !== 'exporting') work.value = withEdit(work.value)
+    if (work.value && phase.value !== 'exporting') edits.touch(work.value)
   }
 
   /**
@@ -456,6 +462,12 @@ export const useEditorStore = defineStore('editor', () => {
     spacePan,
     strokeActive,
     hasUnsavedEdits,
+    editHistory: edits.history,
+    canUndo: edits.canUndo,
+    canRedo: edits.canRedo,
+    undoTool: edits.undoTool,
+    redoTool: edits.redoTool,
+    historyStats: edits.stats,
     openTool: slot.openTool,
     closeTool: slot.closeTool,
     setPreviewGeometry: slot.setPreviewGeometry,
@@ -480,6 +492,8 @@ export const useEditorStore = defineStore('editor', () => {
     confirmReplace,
     cancelReplace,
     applyEdit,
+    undo: edits.undo,
+    redo: edits.redo,
     beginExport,
     finishExport,
     zoomAt: (factor: number, point: Point) => updateView((v, c) => zoomView(v, factor, point, c)),

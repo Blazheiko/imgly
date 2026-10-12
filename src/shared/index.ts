@@ -1,4 +1,5 @@
 export * from './bitmap-ledger'
 export { newId } from './ids'
+export { isLetter, isTextTarget } from './keyboard'
 export * from './notices'
 export * from './ui'

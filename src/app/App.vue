@@ -5,6 +5,7 @@ import { CropOverlay, CropRotateAction, CropRotateTool } from '@/features/crop-r
 import { AdjustAction, AdjustBeforeLabel, AdjustTool } from '@/features/adjust'
 import { DrawAction, DrawOverlay, DrawTool } from '@/features/draw'
 import { ExportAction } from '@/features/export'
+import { UndoRedoActions } from '@/features/undo-redo'
 
 // Start-up order: EditorView's setup installs the window drop guard first; the capability gate
 // runs once it is mounted, and decides between SCR-01 and SCR-04 (AC-18).
@@ -15,7 +16,7 @@ onMounted(() => void editor.runCapabilityGate())
 <template>
   <EditorView>
     <template #top-bar-actions
-      ><CropRotateAction /><AdjustAction /><DrawAction /><ExportAction
+      ><UndoRedoActions /><CropRotateAction /><AdjustAction /><DrawAction /><ExportAction
     /></template>
     <!-- Each tool's halves mount only for its own tool in the slot. -->
     <template #tool-canvas>

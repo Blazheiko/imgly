@@ -1156,15 +1156,35 @@ describe('editor store — the draw tool in the slot (draw AC-12, AC-13, AC-15, 
   })
 
   describe('applyDrawing (AC-12)', () => {
-    it('stores the Draft with a new id and keeps the revision when nothing changed', async () => {
+    it('stores a changed Draft with a new id', async () => {
       await open()
       const layer = draft()
-      editor.applyDrawing(layer, false)
+      editor.applyDrawing(layer, true)
       expect(editor.work!.drawing!.pixels).toBe(layer.pixels)
       expect(editor.work!.drawing!.id).not.toBe('draft')
       expect(editor.work!.drawing!.id).toMatch(/^[0-9a-f-]{36}$/)
-      expect(editor.hasUnsavedEdits).toBe(false)
       expect(released(layer)).toBe(false)
+    })
+
+    it('keeps the Work’s layer and releases the Draft when nothing changed (undo-redo sad §4)', async () => {
+      await open()
+      editor.applyDrawing(draft(), true)
+      const applied = editor.work!.drawing!
+      const copy = draft()
+      expect(editor.applyDrawing(copy, false)).toBe(true)
+      expect(editor.work!.drawing).toBe(applied)
+      expect(editor.work!.revision).toBe(1)
+      expect(released(copy)).toBe(true)
+      expect(released(applied)).toBe(false)
+    })
+
+    it('releases nothing on an unchanged Apply of the Work’s own canvas', async () => {
+      await open()
+      editor.applyDrawing(draft(), true)
+      const applied = editor.work!.drawing!
+      editor.applyDrawing({ ...applied, id: 'again' } as Layer, false)
+      expect(editor.work!.drawing).toBe(applied)
+      expect(released(applied)).toBe(false)
     })
 
     it('raises the revision when changed, also for a Clear to null', async () => {
@@ -1176,15 +1196,13 @@ describe('editor store — the draw tool in the slot (draw AC-12, AC-13, AC-15, 
       expect(editor.work!.revision).toBe(2)
     })
 
-    it('releases the applied layer it replaces, but not one with the same canvas', async () => {
+    it('keeps the applied layer it replaces for Undo (undo-redo ADR-0002)', async () => {
       await open()
       const first = draft()
       editor.applyDrawing(first, true)
-      editor.applyDrawing({ ...editor.work!.drawing!, id: 'again' } as Layer, false)
-      expect(released(first)).toBe(false)
       const second = draft()
       editor.applyDrawing(second, true)
-      expect(released(first)).toBe(true)
+      expect(released(first)).toBe(false)
       expect(released(second)).toBe(false)
     })
 
@@ -1215,7 +1233,8 @@ describe('editor store — the draw tool in the slot (draw AC-12, AC-13, AC-15, 
   it('a successful replace closes draw, clears the preview and releases the old layer (AC-13)', async () => {
     await open()
     const applied = draft()
-    editor.applyDrawing(applied, false)
+    editor.applyDrawing(applied, true)
+    editor.finishExport(editor.beginExport()!, true)
     editor.openTool('draw')
     editor.setPreviewLayer(draft())
     await open(300, 300)
@@ -1237,5 +1256,347 @@ describe('editor store — the draw tool in the slot (draw AC-12, AC-13, AC-15, 
     expect(editor.previewLayer).toBe(layer)
     editor.cancelReplace()
     expect(editor.activeTool).toBe('draw')
+  })
+})
+
+describe('editor store — Edit history (undo-redo AC-04, AC-06, AC-09, AC-10)', () => {
+  let decoder: ReturnType<typeof fakeDecoder>
+  let editor: ReturnType<typeof useEditorStore>
+
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    decoder = fakeDecoder()
+    editor = useEditorStore()
+    editor.setDecoder(decoder.decode)
+    editor.setCanvasSize(1000, 800)
+  })
+
+  async function open(width = 400, height = 200) {
+    const pending = editor.openImage(file())
+    decoder.answer(decoder.decode.mock.calls.length - 1, ok(decoded(width, height)))
+    return pending
+  }
+
+  const draft = (width = 400, height = 200) =>
+    ({ id: 'draft', width, height, pixels: { width, height } }) as unknown as Layer
+  const released = (layer: Layer) => layer.pixels.width === 0
+  const labels = () => editor.editHistory!.entries.map((e) => e.label)
+  const turned = (): Geometry => ({ ...editor.work!.geometry, flipH: !editor.work!.geometry.flipH })
+
+  it('starts an Edit history with only the state at open', async () => {
+    await open()
+    expect(labels()).toEqual([null])
+    expect(editor.editHistory!.cursor).toBe(0)
+  })
+
+  it('records a Step only for an Apply that counts as an edit (AC-06)', async () => {
+    await open()
+    editor.applyAdjustments(NEUTRAL_ADJUSTMENTS)
+    editor.applyGeometry({ ...editor.work!.geometry })
+    editor.applyDrawing(null, false)
+    editor.zoomAt(2, { x: 10, y: 10 })
+    editor.panBy(5, 5)
+    editor.openTool('adjust')
+    editor.closeTool()
+    editor.finishExport(editor.beginExport()!, true)
+    expect(labels()).toEqual([null])
+    expect(editor.work!.revision).toBe(0)
+
+    editor.applyAdjustments({ ...NEUTRAL_ADJUSTMENTS, contrast: 20 })
+    editor.applyGeometry(turned())
+    editor.applyDrawing(draft(), true)
+    expect(labels()).toEqual([null, 'adjust', 'crop-rotate', 'draw'])
+    expect(editor.work!.revision).toBe(3)
+  })
+
+  it('records the Work as each Apply left it', async () => {
+    await open()
+    editor.applyAdjustments({ ...NEUTRAL_ADJUSTMENTS, contrast: 20 })
+    const entry = editor.editHistory!.entries[1]!
+    expect(entry.state.adjustments).toBe(editor.work!.adjustments)
+    expect(entry.state.revision).toBe(editor.work!.revision)
+  })
+
+  it('applyEdit takes a fresh revision and records no Step', async () => {
+    await open()
+    editor.applyAdjustments({ ...NEUTRAL_ADJUSTMENTS, contrast: 20 })
+    editor.applyEdit()
+    expect(editor.work!.revision).toBe(2)
+    expect(labels()).toEqual([null, 'adjust'])
+    expect(editor.editHistory!.entries[1]!.state.revision).toBe(2)
+  })
+
+  it('replacing the Work starts an empty history and releases every old layer (AC-10)', async () => {
+    await open()
+    const first = draft()
+    const second = draft()
+    editor.applyDrawing(first, true)
+    editor.applyDrawing(second, true)
+    const confirming = await open(300, 300)
+    expect(confirming.kind).toBe('confirming')
+    editor.confirmReplace()
+
+    expect(labels()).toEqual([null])
+    expect(editor.editHistory!.entries[0]!.state.revision).toBe(0)
+    expect(released(first)).toBe(true)
+    expect(released(second)).toBe(true)
+  })
+
+  it('a cancelled replace keeps the Work and its Edit history exactly as they were (AC-10)', async () => {
+    await open()
+    const layer = draft()
+    editor.applyDrawing(layer, true)
+    const history = editor.editHistory
+    const work = editor.work
+    await open(300, 300)
+    editor.cancelReplace()
+
+    expect(labels()).toEqual([null, 'draw'])
+    expect(editor.editHistory).toBe(history)
+    expect(editor.work).toBe(work)
+    expect(released(layer)).toBe(false)
+  })
+
+  it('a later Step after a successful replace gets revision 1 of the new Work', async () => {
+    await open()
+    editor.applyEdit()
+    editor.applyEdit()
+    await open(300, 300)
+    editor.confirmReplace()
+    editor.applyAdjustments({ ...NEUTRAL_ADJUSTMENTS, contrast: 5 })
+    expect(editor.work!.revision).toBe(1)
+  })
+})
+
+describe('editor store — Undo and Redo (undo-redo AC-03, AC-05, AC-07, AC-08, AC-09, AC-12)', () => {
+  let decoder: ReturnType<typeof fakeDecoder>
+  let editor: ReturnType<typeof useEditorStore>
+
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    decoder = fakeDecoder()
+    editor = useEditorStore()
+    editor.setDecoder(decoder.decode)
+    editor.setCanvasSize(1000, 800)
+  })
+
+  async function open(width = 400, height = 200) {
+    const pending = editor.openImage(file())
+    decoder.answer(decoder.decode.mock.calls.length - 1, ok(decoded(width, height)))
+    return pending
+  }
+
+  const draft = (width = 400, height = 200) =>
+    ({ id: 'draft', width, height, pixels: { width, height } }) as unknown as Layer
+  const cropTo = (width: number, height: number): Geometry => ({
+    ...editor.work!.geometry,
+    crop: { x: 0, y: 0, width, height },
+  })
+  const contrast = (value: number) => ({ ...NEUTRAL_ADJUSTMENTS, contrast: value })
+
+  it('has nothing to undo or redo with no Work open (AC-05)', () => {
+    expect(editor.canUndo).toBe(false)
+    expect(editor.canRedo).toBe(false)
+    expect(editor.undoTool).toBeNull()
+    expect(editor.redoTool).toBeNull()
+    expect(editor.historyStats).toEqual({ heldBytes: 0, steps: 0 })
+    expect(editor.undo()).toBe(false)
+    expect(editor.redo()).toBe(false)
+  })
+
+  it('has nothing to undo or redo right after an open (AC-05)', async () => {
+    await open()
+    expect([editor.canUndo, editor.canRedo, editor.undoTool, editor.redoTool]).toEqual([
+      false,
+      false,
+      null,
+      null,
+    ])
+    expect(editor.undo()).toBe(false)
+  })
+
+  it('restores each state’s very objects through three Undos and three Redos (AC-03)', async () => {
+    await open()
+    const atOpen = editor.work!
+    editor.applyGeometry(cropTo(300, 200))
+    const cropped = editor.work!
+    editor.applyAdjustments(contrast(20))
+    const adjusted = editor.work!
+    editor.applyDrawing(draft(), true)
+    const drawn = editor.work!
+    expect([editor.undoTool, editor.redoTool]).toEqual(['draw', null])
+
+    const same = (a: typeof atOpen, b: typeof atOpen) => {
+      expect(a.geometry).toBe(b.geometry)
+      expect(a.adjustments).toBe(b.adjustments)
+      expect(a.drawing).toBe(b.drawing)
+      expect(a.revision).toBe(b.revision)
+      expect(a.original).toBe(b.original)
+    }
+    expect(editor.undo()).toBe(true)
+    same(editor.work!, adjusted)
+    expect([editor.undoTool, editor.redoTool]).toEqual(['adjust', 'draw'])
+    editor.undo()
+    same(editor.work!, cropped)
+    editor.undo()
+    same(editor.work!, atOpen)
+    expect([editor.canUndo, editor.canRedo, editor.redoTool]).toEqual([false, true, 'crop-rotate'])
+
+    editor.redo()
+    same(editor.work!, cropped)
+    editor.redo()
+    same(editor.work!, adjusted)
+    expect(editor.redo()).toBe(true)
+    same(editor.work!, drawn)
+    expect(editor.canRedo).toBe(false)
+  })
+
+  it('reports the Steps kept and the bytes they hold', async () => {
+    await open()
+    editor.applyDrawing(draft(), true)
+    editor.applyDrawing(draft(), true)
+    expect(editor.historyStats).toEqual({ heldBytes: 400 * 200 * 4, steps: 2 })
+  })
+
+  describe('refusals', () => {
+    beforeEach(async () => {
+      await open()
+      editor.applyAdjustments(contrast(20))
+      editor.applyAdjustments(contrast(30))
+      editor.undo()
+    })
+
+    function expectRefused() {
+      const work = editor.work
+      const history = editor.editHistory
+      expect([editor.canUndo, editor.canRedo, editor.undoTool, editor.redoTool]).toEqual([
+        false,
+        false,
+        null,
+        null,
+      ])
+      expect(editor.undo()).toBe(false)
+      expect(editor.redo()).toBe(false)
+      expect(editor.work).toBe(work)
+      expect(editor.editHistory).toBe(history)
+    }
+
+    it('refuses while a tool is open, keeping its Draft, and works again after Cancel (AC-08)', () => {
+      editor.openTool('adjust')
+      editor.setPreviewAdjustments(contrast(50))
+      expectRefused()
+      expect(editor.previewAdjustments).toEqual(contrast(50))
+      editor.closeTool()
+      expect([editor.canUndo, editor.canRedo]).toEqual([true, true])
+    })
+
+    it('after an Apply following the refusal, the tool’s Step is the last one (AC-08)', () => {
+      editor.openTool('adjust')
+      editor.setPreviewAdjustments(contrast(50))
+      expectRefused()
+      editor.applyAdjustments(contrast(50))
+      editor.closeTool()
+
+      const history = editor.editHistory!
+      expect(history.cursor).toBe(history.entries.length - 1)
+      expect(history.entries.at(-1)!.label).toBe('adjust')
+      expect([editor.undoTool, editor.canRedo]).toEqual(['adjust', false])
+      expect(editor.undo()).toBe(true)
+      expect(editor.work!.adjustments.contrast).toBe(20)
+    })
+
+    it('refuses during an export, not queued, and comes back with the same history (AC-07)', () => {
+      const snapshot = editor.beginExport()!
+      expectRefused()
+      editor.finishExport(snapshot, false)
+      expect([editor.undoTool, editor.redoTool]).toEqual(['adjust', 'adjust'])
+      expect(editor.work!.adjustments.contrast).toBe(20)
+    })
+
+    it('refuses while the replace dialog is open', async () => {
+      await open(300, 300)
+      expect(editor.phase).toBe('confirming')
+      expectRefused()
+    })
+
+    it('stays available while a new image is being read', () => {
+      void editor.openImage(file())
+      expect(editor.phase).toBe('reading')
+      expect(editor.canUndo).toBe(true)
+      expect(editor.undo()).toBe(true)
+      expect(editor.work!.revision).toBe(0)
+    })
+
+    it('stays available under the open export panel', () => {
+      editor.setActivePanel('export')
+      expect(editor.redo()).toBe(true)
+      expect(editor.work!.adjustments.contrast).toBe(30)
+    })
+  })
+
+  describe('View (AC-06, AC-12)', () => {
+    it('fits the View when an Undo or Redo changes the image’s size', async () => {
+      await open()
+      editor.applyGeometry(cropTo(200, 100))
+      editor.zoomAt(2, { x: 300, y: 200 })
+      editor.panBy(40, -25)
+      editor.undo()
+      const fitted = { ...editor.view }
+      editor.fit()
+      expect(fitted).toEqual(editor.view)
+      editor.zoomAt(2, { x: 300, y: 200 })
+      editor.redo()
+      const refitted = { ...editor.view }
+      editor.fit()
+      expect(refitted).toEqual(editor.view)
+    })
+
+    it('keeps the View for an Undo or Redo that keeps the image’s size', async () => {
+      await open()
+      editor.applyAdjustments(contrast(20))
+      editor.applyDrawing(draft(), true)
+      editor.applyGeometry({ ...editor.work!.geometry, flipH: true })
+      editor.zoomAt(2, { x: 300, y: 200 })
+      editor.panBy(40, -25)
+      const before = { ...editor.view }
+      editor.undo()
+      editor.undo()
+      editor.undo()
+      editor.redo()
+      expect(editor.view).toEqual(before)
+    })
+  })
+
+  it('a cancelled or failed export does not move the save point (AC-09)', async () => {
+    await open()
+    editor.applyAdjustments(contrast(10))
+    editor.finishExport(editor.beginExport()!, true)
+    editor.applyAdjustments(contrast(20))
+    editor.finishExport(editor.beginExport()!, false) // cancelled or failed
+    editor.applyAdjustments(contrast(30))
+
+    editor.undo()
+    expect(editor.work!.adjustments.contrast).toBe(20)
+    expect(editor.hasUnsavedEdits).toBe(true)
+    editor.undo()
+    expect(editor.hasUnsavedEdits).toBe(false)
+    editor.redo()
+    expect(editor.hasUnsavedEdits).toBe(true)
+  })
+
+  it('replaces without confirmation after undoing to the save point (AC-09)', async () => {
+    await open()
+    editor.applyAdjustments(contrast(10))
+    editor.applyAdjustments(contrast(20))
+    editor.finishExport(editor.beginExport()!, true)
+    editor.applyAdjustments(contrast(30))
+    expect(editor.hasUnsavedEdits).toBe(true)
+    editor.undo()
+    expect(editor.hasUnsavedEdits).toBe(false)
+    editor.undo()
+    expect(editor.hasUnsavedEdits).toBe(true)
+    editor.redo()
+    expect((await open(300, 300)).kind).toBe('replaced')
+    expect(editor.canUndo).toBe(false)
   })
 })

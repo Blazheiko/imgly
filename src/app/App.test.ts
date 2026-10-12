@@ -49,6 +49,16 @@ describe('App tool slots (adjust T16, crop-rotate ADR-0003)', () => {
     expect(has('adjust-tool')).toBe(false)
   })
 
+  it('puts Undo and Redo right after "Open image", before the tools (undo-redo AC-14)', () => {
+    const names = [...wrapper.element.querySelectorAll('button')].map(
+      (b) => b.getAttribute('aria-label') ?? b.textContent?.trim(),
+    )
+    const open = names.indexOf('Open image')
+    expect(open).toBeGreaterThanOrEqual(0)
+    expect(names.slice(open, open + 4)).toEqual(['Open image', 'Undo', 'Redo', 'Crop and rotate'])
+    expect(names.indexOf('Export')).toBeGreaterThan(names.indexOf('Draw'))
+  })
+
   it('shows "Adjust" in the top bar after "Crop and rotate"', () => {
     const order = [...wrapper.element.querySelectorAll('[data-testid$="-action"]')].map((el) =>
       el.getAttribute('data-testid'),

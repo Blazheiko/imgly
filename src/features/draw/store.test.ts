@@ -148,7 +148,7 @@ describe('draw store (draw ADR-0004, sad.md §4)', () => {
   describe('Clear (AC-05, AC-12)', () => {
     it('empties the Draft and the Preview at once, and counts as a change when it had a mark', () => {
       openWork(editor)
-      editor.applyDrawing(marked(), false)
+      editor.work = { ...editor.work!, drawing: marked() }
       draw.open()
       draw.clear()
       expect(draw.draft).toBeNull()
@@ -177,7 +177,7 @@ describe('draw store (draw ADR-0004, sad.md §4)', () => {
 
     it('then a new mark keeps only the new mark; the applied marks are gone', () => {
       openWork(editor)
-      editor.applyDrawing(marked(), false)
+      editor.work = { ...editor.work!, drawing: marked() }
       draw.open()
       draw.clear()
       const fresh = draw.ensureDraft()
@@ -205,14 +205,16 @@ describe('draw store (draw ADR-0004, sad.md §4)', () => {
   })
 
   describe('Apply and Cancel (AC-01, AC-06, AC-12)', () => {
-    it('Apply with no change hands over the Draft without raising the revision', () => {
+    it('Apply with no change keeps the Work’s layer, releases the Draft and keeps the revision', () => {
       openWork(editor)
-      editor.applyDrawing(marked(), false)
+      const applied = marked()
+      editor.work = { ...editor.work!, drawing: applied }
       draw.open()
       const draft = draw.draft!
       draw.apply()
       expect(draw.isOpen).toBe(false)
-      expect(editor.work!.drawing!.pixels).toBe(draft.pixels)
+      expect(editor.work!.drawing).toBe(applied) // undo-redo sad §4: one release path
+      expect(draft.pixels.width).toBe(0)
       expect(editor.hasUnsavedEdits).toBe(false)
       expect(retained()).toBe(1)
     })

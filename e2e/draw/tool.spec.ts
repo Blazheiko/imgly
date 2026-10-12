@@ -363,7 +363,14 @@ test('keyboard path: D opens, B/E and [ ] change settings, Enter applies (AC-19)
   expect(marked(await drawingAlpha(page))).toBeGreaterThan(0)
 })
 
-test('the layer ledger keeps exactly one applied layer, or none (sad.md §7)', async ({ page }) => {
+// undo-redo ADR-0002 supersedes "exactly one applied layer": the Edit history keeps a replaced
+// layer for Undo, so the ledger holds the kept Steps' layers plus the Work's own, and no other.
+test('the layer ledger keeps the Work’s layer and the Edit history’s, and no other (sad.md §7)', async ({
+  page,
+}) => {
+  const LAYER_BYTES = SIZE.width * SIZE.height * 4
+  const kept = async () =>
+    (await page.evaluate(() => window.__imglyTest!.historyStats())).heldBytes / LAYER_BYTES
   expect((await layers(page)).retained).toBe(0)
   await openTool(page)
   await drag(page, [
@@ -378,9 +385,17 @@ test('the layer ledger keeps exactly one applied layer, or none (sad.md §7)', a
   await openTool(page)
   await click(page, 150, 50)
   await button(page, 'Apply').click()
-  expect((await layers(page)).retained).toBe(1)
+  expect(await kept()).toBe(1) // the first layer, for Undo
+  expect((await layers(page)).retained).toBe(2)
   await openTool(page)
   await page.keyboard.press('Escape')
+  expect((await layers(page)).retained).toBe(2)
+  await page.locator('body').press('ControlOrMeta+z')
+  await page.locator('body').press('ControlOrMeta+z')
+  await openTool(page)
+  await click(page, 60, 60)
+  await button(page, 'Apply').click() // discards both redoable Steps and their layers
+  expect(await kept()).toBe(0)
   expect((await layers(page)).retained).toBe(1)
 })
 
