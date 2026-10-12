@@ -91,3 +91,39 @@ export function withEdit<TPixels, TLayer>(
 ): Work<TPixels, TLayer> {
   return { ...work, revision: work.revision + 1, updatedAt: now }
 }
+
+/**
+ * The Work's edited state (undo-redo ADR-0001): the one value the Edit history keeps per Step.
+ * Holds the very objects the Work holds, so restoring it is exact by construction.
+ */
+export interface WorkState<TLayer = unknown> {
+  geometry: Geometry
+  adjustments: Adjustments
+  drawing: DrawingLayer<TLayer> | null
+  revision: number
+}
+
+export function editStateOf<TLayer>(work: Work<unknown, TLayer>): WorkState<TLayer> {
+  return {
+    geometry: work.geometry,
+    adjustments: work.adjustments,
+    drawing: work.drawing,
+    revision: work.revision,
+  }
+}
+
+/** The Work with `state` restored; id, Original, source and `cleanRevision` stay the Work's own. */
+export function withState<TPixels, TLayer>(
+  work: Work<TPixels, TLayer>,
+  state: WorkState<TLayer>,
+  now: number = Date.now(),
+): Work<TPixels, TLayer> {
+  return {
+    ...work,
+    geometry: state.geometry,
+    adjustments: state.adjustments,
+    drawing: state.drawing,
+    revision: state.revision,
+    updatedAt: now,
+  }
+}
