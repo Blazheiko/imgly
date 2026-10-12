@@ -1,5 +1,5 @@
 import type { Pinia } from 'pinia'
-import { useEditorStore } from '@/features/editor'
+import { useEditorStore, type HistoryStats } from '@/features/editor'
 import { useExportStore } from '@/features/export'
 import {
   catmullRomSegment,
@@ -111,6 +111,8 @@ export interface ImglyTestHooks {
   layers(): { created: number; released: number; retained: number }
   /** Bitmaps received from the decode worker and closed by the app; retained should be 1. */
   bitmaps(): { received: number; closed: number; retained: number }
+  /** The Edit history's held layer bytes and Steps kept (undo-redo spec §6, AC-11). */
+  historyStats(): HistoryStats
   /**
    * Holds the next open's result until `releaseHeldOpen()`, so a test can act during the read
    * (AC-16b) without racing a fast decoder. The decode itself still runs in the worker.
@@ -366,6 +368,7 @@ export function installTestHooks(pinia: Pinia): void {
       released: bitmapLedger.layersReleased,
       retained: bitmapLedger.layersCreated - bitmapLedger.layersReleased,
     }),
+    historyStats: () => ({ ...editor.historyStats }),
     bitmaps: () => ({
       received: bitmapLedger.received,
       closed: bitmapLedger.closed,

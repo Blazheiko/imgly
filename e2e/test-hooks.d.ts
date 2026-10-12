@@ -68,6 +68,8 @@ declare global {
       draftAlpha(): number[]
       layers(): { created: number; released: number; retained: number }
       bitmaps(): { received: number; closed: number; retained: number }
+      /** The Edit history's held layer bytes and Steps kept (undo-redo spec §6). */
+      historyStats(): { heldBytes: number; steps: number }
       holdNextOpen(): void
       releaseHeldOpen(): void
     }
