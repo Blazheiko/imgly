@@ -1,0 +1,268 @@
+{
+  "slug": "undo-redo",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Add WorkState, editStateOf and withState to core/document",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-03",
+        "AC-13"
+      ],
+      "dod": "Vitest proves withState(work, editStateOf(other)) restores the very Geometry, Adjustments and Drawing layer objects (toBe) and the state's revision, while keeping id, Original, source and cleanRevision",
+      "files_hint": [
+        "src/core/document.ts",
+        "src/core/document.test.ts"
+      ],
+      "file": "docs/features/undo-redo/tasks/t01-core-work-state.md"
+    },
+    {
+      "id": "T2",
+      "title": "Add core/history: EditHistory with createHistory, record, undo, redo, canUndo/canRedo and undo/redo labels",
+      "layer": "domain",
+      "deps": [
+        "T1"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-02",
+        "AC-04",
+        "AC-05"
+      ],
+      "dod": "Vitest proves record appends and discards redoable entries (returning them as evicted), undo/redo move the cursor by one and return the state to restore, canUndo/canRedo are false at the ends, and undoLabel/redoLabel name the Step each would take back or restore",
+      "files_hint": [
+        "src/core/history/history.ts",
+        "src/core/history/history.test.ts",
+        "src/core/history/index.ts",
+        "src/core/index.ts"
+      ],
+      "file": "docs/features/undo-redo/tasks/t02-core-history-record-undo-redo.md"
+    },
+    {
+      "id": "T3",
+      "title": "Bound the history: budget.ts with 50 Steps and 512 000 000 B, heldLayerBytes, and the oldest-first trim inside record",
+      "layer": "domain",
+      "deps": [
+        "T2"
+      ],
+      "acs": [
+        "AC-11"
+      ],
+      "dod": "Vitest proves 10 drawing Steps of 4096×3072 layers fit (503 316 480 B), an 11th drops the oldest, 50 Crop/Adjust Steps are all kept and a 51st drops the oldest, a shared layer counts once, the Work's own layer is not counted, and a 4096×4096 Work keeps 7",
+      "files_hint": [
+        "src/core/history/budget.ts",
+        "src/core/history/budget.test.ts",
+        "src/core/history/history.ts",
+        "src/core/history/index.ts"
+      ],
+      "file": "docs/features/undo-redo/tasks/t03-core-history-budget-and-trim.md"
+    },
+    {
+      "id": "T4",
+      "title": "Add the edit-history composable, record a Step on every counting Apply, make withEdit take the revision, and move layer release to one path",
+      "layer": "app",
+      "deps": [
+        "T1",
+        "T3"
+      ],
+      "acs": [
+        "AC-04",
+        "AC-06",
+        "AC-09",
+        "AC-10"
+      ],
+      "dod": "Vitest proves the AC-09 revision sequence and the reused-revision sequence through the composable, that only counting Applies record a Step (AC-06), that replace() starts an empty history and releases every old layer (AC-10), and that the bitmap ledger shows 0 retained layers after a discard (AC-04) — with withEdit requiring the revision and every existing test green",
+      "files_hint": [
+        "src/features/editor/edit-history.ts",
+        "src/features/editor/edit-history.test.ts",
+        "src/features/editor/store.ts",
+        "src/features/editor/store.test.ts",
+        "src/core/document.ts",
+        "src/core/document.test.ts"
+      ],
+      "file": "docs/features/undo-redo/tasks/t04-editor-edit-history-record-and-release.md"
+    },
+    {
+      "id": "T5",
+      "title": "Expose undo, redo, canUndo, canRedo, undoTool, redoTool and historyStats on the editor store, with the refusals and the View fit",
+      "layer": "app",
+      "deps": [
+        "T4"
+      ],
+      "acs": [
+        "AC-03",
+        "AC-07",
+        "AC-08",
+        "AC-12"
+      ],
+      "dod": "Store tests prove the AC-03 Crop→Adjust→Draw sequence restores each state's very objects after three Undos and three Redos, undo/redo are refused (no change) while a tool is open, an export runs or the replace dialog is open, a size-changing Undo fits the View and a same-size one keeps it, and an ExportPanel test shows the size field following an Undo of a size-changing Crop",
+      "files_hint": [
+        "src/features/editor/store.ts",
+        "src/features/editor/store.test.ts",
+        "src/features/editor/edit-history.ts",
+        "src/features/editor/index.ts",
+        "src/features/export/ExportPanel.test.ts"
+      ],
+      "file": "docs/features/undo-redo/tasks/t05-editor-store-undo-redo-api.md"
+    },
+    {
+      "id": "T6",
+      "title": "Move isTextTarget to src/shared/keyboard.ts so undo-redo can skip text and number fields",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-08",
+        "AC-14"
+      ],
+      "dod": "src/shared/keyboard.ts exports isTextTarget with the same behaviour as draw's copy, re-exported from @/shared, and keyboard.test.ts covers text, number, textarea, select, contenteditable, checkbox/range and non-element targets",
+      "files_hint": [
+        "src/shared/keyboard.ts",
+        "src/shared/keyboard.test.ts",
+        "src/shared/index.ts"
+      ],
+      "file": "docs/features/undo-redo/tasks/t06-shared-keyboard-is-text-target.md"
+    },
+    {
+      "id": "T7",
+      "title": "Add the undo-redo feature's messages and the pure shortcut handler for Ctrl/Cmd+Z, Shift+Ctrl/Cmd+Z and Ctrl+Y",
+      "layer": "ui",
+      "deps": [
+        "T6"
+      ],
+      "acs": [
+        "AC-05",
+        "AC-07",
+        "AC-08",
+        "AC-14"
+      ],
+      "dod": "shortcuts.test.ts proves Undo on Ctrl+Z and Cmd+Z, Redo on Shift+Ctrl/Cmd+Z and Ctrl+Y but never Cmd+Y, no action in text fields or on repeats, the tool-open and export notices, nothing with no Work or with the replace dialog open, and preventDefault on handled keys",
+      "files_hint": [
+        "src/features/undo-redo/messages.ts",
+        "src/features/undo-redo/shortcuts.ts",
+        "src/features/undo-redo/shortcuts.test.ts",
+        "src/features/undo-redo/index.ts"
+      ],
+      "file": "docs/features/undo-redo/tasks/t07-undo-redo-shortcuts-and-messages.md"
+    },
+    {
+      "id": "T8",
+      "title": "Build UndoRedoActions (two ghost BaseButtons with hints) and mount it first in the top bar with the shortcuts",
+      "layer": "ui",
+      "deps": [
+        "T5",
+        "T7"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-05",
+        "AC-07",
+        "AC-14"
+      ],
+      "dod": "Component tests render SCR-01 default/can undo/can undo and redo/oldest reached, SCR-02, SCR-03 (aria-disabled + info toast on activate) and SCR-04 (truly disabled) with the catalog hints as title and aria-describedby, clicking Undo/Redo calls the store, and App.test shows UndoRedoActions right after \"Open image\" in the top bar",
+      "files_hint": [
+        "src/features/undo-redo/UndoRedoActions.vue",
+        "src/features/undo-redo/UndoRedoActions.test.ts",
+        "src/features/undo-redo/index.ts",
+        "src/app/App.vue",
+        "src/app/App.test.ts"
+      ],
+      "file": "docs/features/undo-redo/tasks/t08-undo-redo-actions-top-bar.md"
+    },
+    {
+      "id": "T9",
+      "title": "Expose the editor store's historyStats through window.__imglyTest for the e2e memory checks",
+      "layer": "wiring",
+      "deps": [
+        "T5"
+      ],
+      "acs": [
+        "AC-11"
+      ],
+      "dod": "window.__imglyTest.historyStats() returns { heldBytes, steps } from the editor store in the hooks-enabled build, typed in e2e/test-hooks.d.ts, and pnpm typecheck passes for both",
+      "files_hint": [
+        "src/app/test-hooks.ts",
+        "e2e/test-hooks.d.ts"
+      ],
+      "file": "docs/features/undo-redo/tasks/t09-test-hooks-history-stats.md"
+    },
+    {
+      "id": "T10",
+      "title": "e2e (Chromium): the 512 MB budget, Steps kept and layer release after replace, discard and drop",
+      "layer": "tests",
+      "deps": [
+        "T8",
+        "T9"
+      ],
+      "acs": [
+        "AC-04",
+        "AC-10",
+        "AC-11"
+      ],
+      "dod": "Chromium e2e proves heldBytes ≤ 512 000 000 and ≥ 10 Undos available after 100 full-image drawing Applies on the reference Work, whole-page memory after the 100th ≤ after the 10th + 10%, and 0 retained layers after replacing the Work, after a new Step discards redoable Steps, and after the oldest Steps are dropped (10 drawing Steps each)",
+      "files_hint": [
+        "e2e/undo-redo/memory.spec.ts",
+        "e2e/undo-redo/helpers.ts"
+      ],
+      "file": "docs/features/undo-redo/tasks/t10-e2e-memory-and-release.md"
+    },
+    {
+      "id": "T11",
+      "title": "e2e (Chromium, Firefox, WebKit): pixel-exact Undo and Redo for each tool, View fit, marks follow Geometry, shortcuts per engine",
+      "layer": "tests",
+      "deps": [
+        "T10"
+      ],
+      "acs": [
+        "AC-03",
+        "AC-12",
+        "AC-13",
+        "AC-14"
+      ],
+      "dod": "e2e on all three engines proves a full-size PNG Export after Undo or Redo differs by 0 per channel from the Export of that state made before, for Steps of each tool (Straighten angle, all seven Adjustments off neutral, a drawing), the AC-12 fit/keep rule, the AC-13 marks-with-Geometry sequence, and that Ctrl/Cmd+Z, Shift+Ctrl/Cmd+Z and Ctrl+Y act while Cmd+Y is not handled",
+      "files_hint": [
+        "e2e/undo-redo/fidelity.spec.ts",
+        "e2e/undo-redo/flows.spec.ts",
+        "e2e/undo-redo/helpers.ts"
+      ],
+      "file": "docs/features/undo-redo/tasks/t11-e2e-exactness-view-and-shortcuts.md"
+    },
+    {
+      "id": "T12",
+      "title": "@perf e2e: Undo and Redo p95 ≤ 150 ms for a Step of each tool with a full-image drawing",
+      "layer": "tests",
+      "deps": [
+        "T8",
+        "T9"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-02"
+      ],
+      "dod": "The @perf spec (PERF=1) measures 20 runs after 2 warm-ups from the shortcut keydown to the next presented Preview frame on the reference Work, for an Undo and a Redo of each tool's Step, and asserts p95 ≤ 150 ms",
+      "files_hint": [
+        "e2e/undo-redo/perf.spec.ts"
+      ],
+      "file": "docs/features/undo-redo/tasks/t12-perf-undo-redo-latency.md"
+    },
+    {
+      "id": "T13",
+      "title": "Record what undo-redo supersedes in open-and-view ADR-0005, draw spec §6 and sad §11, and tick export §8 and crop-rotate §8",
+      "layer": "docs",
+      "deps": [],
+      "acs": [
+        "AC-09"
+      ],
+      "dod": "open-and-view ADR-0005 carries a \"partly superseded by undo-redo ADR-0003\" note, draw spec §6's 50-Apply memory row and draw sad §11's undo-stack row are marked replaced/resolved by undo-redo, the export §8 and crop-rotate §8 checkboxes are ticked, and CONTEXT.md defines Draft",
+      "files_hint": [
+        "docs/features/open-and-view/adr/0005-track-unsaved-edits-with-a-revision-counter-on-the-work.md",
+        "docs/features/draw/spec.md",
+        "docs/features/draw/sad.md",
+        "docs/features/export/spec.md",
+        "docs/features/crop-rotate/spec.md",
+        "CONTEXT.md"
+      ],
+      "file": "docs/features/undo-redo/tasks/t13-docs-cross-feature-updates.md"
+    }
+  ]
+}
