@@ -19,7 +19,7 @@
 | T12 | [@perf e2e: Undo and Redo p95 ≤ 150 ms for a Step of each tool with a full-image drawing](./t12-perf-undo-redo-latency.md) | tests | Blazheiko | S | T8, T9 | done |
 | T13 | [Record what undo-redo supersedes in open-and-view ADR-0005, draw spec §6 and sad §11, and tick export §8 and crop-rotate §8](./t13-docs-cross-feature-updates.md) | docs | Blazheiko | S | — | done |
 | T14 | [Bound the Edit history at every cursor position, so Undo can never take it over 512 000 000 B](./t14-fix-budget-at-every-cursor.md) | domain | Blazheiko | S | — | done |
-| T15 | [Match Ctrl/Cmd+Z and Ctrl+Y by key position on non-Latin layouts](./t15-fix-shortcuts-non-latin-layouts.md) | ui | Blazheiko | S | — | todo |
+| T15 | [Match Ctrl/Cmd+Z and Ctrl+Y by key position on non-Latin layouts](./t15-fix-shortcuts-non-latin-layouts.md) | ui | Blazheiko | S | — | done |
 | T16 | [Release the old history's layers when follow() restarts the Edit history](./t16-fix-follow-releases-orphaned-layers.md) | app | Blazheiko | S | — | todo |
 | T17 | [Add the test plan's missing component and integration cases](./t17-tests-missing-component-and-integration-cases.md) | tests | Blazheiko | S | T14 | todo |
 | T18 | [Strengthen the memory e2e: held bytes after every Apply and Undo; AC-04 discards 10 Steps](./t18-e2e-memory-strengthen.md) | tests | Blazheiko | S | T14 | todo |

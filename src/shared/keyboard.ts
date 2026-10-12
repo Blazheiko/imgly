@@ -22,3 +22,13 @@ export function isTextTarget(target: EventTarget | null): boolean {
     target.isContentEditable
   )
 }
+
+/**
+ * A letter key by the letter-first rule: the letter itself, or that key's position on a layout
+ * that types no Latin letter there (Ctrl+Z on a Cyrillic layout reports `я`). A Latin layout that
+ * types another letter at that position keeps it.
+ */
+export function isLetter(event: KeyboardEvent, letter: string): boolean {
+  const key = event.key.toLowerCase()
+  return key === letter || (event.code === `Key${letter.toUpperCase()}` && !/^[a-z]$/.test(key))
+}

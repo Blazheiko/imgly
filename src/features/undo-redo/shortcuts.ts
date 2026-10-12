@@ -1,21 +1,20 @@
-import { isTextTarget } from '@/shared'
+import { isLetter, isTextTarget } from '@/shared'
 
-/** Ctrl+Z (Cmd+Z on a Mac), with no other modifier. */
+/**
+ * Ctrl+Z (Cmd+Z on a Mac), with no other modifier. Z and Y follow the letter-first rule, so they
+ * work on a layout that types no Latin letter (AC-14).
+ */
 export function isUndoShortcut(event: KeyboardEvent): boolean {
   return (
-    (event.ctrlKey || event.metaKey) &&
-    !event.altKey &&
-    !event.shiftKey &&
-    event.key.toLowerCase() === 'z'
+    (event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && isLetter(event, 'z')
   )
 }
 
 /** Shift+Ctrl/Cmd+Z, or Ctrl+Y. Cmd+Y is never one: it stays the browser's. */
 export function isRedoShortcut(event: KeyboardEvent): boolean {
   if (event.altKey) return false
-  const key = event.key.toLowerCase()
-  if (key === 'z') return (event.ctrlKey || event.metaKey) && event.shiftKey
-  return key === 'y' && event.ctrlKey && !event.metaKey && !event.shiftKey
+  if (isLetter(event, 'z')) return (event.ctrlKey || event.metaKey) && event.shiftKey
+  return isLetter(event, 'y') && event.ctrlKey && !event.metaKey && !event.shiftKey
 }
 
 export interface UndoRedoShortcutActions {

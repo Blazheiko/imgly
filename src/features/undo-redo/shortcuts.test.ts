@@ -27,7 +27,7 @@ function actions(over: Partial<UndoRedoShortcutActions> = {}) {
 
 type Keys = Partial<Pick<KeyboardEvent, 'ctrlKey' | 'metaKey' | 'shiftKey' | 'altKey' | 'repeat'>>
 
-function key(k: string, mods: Keys = {}, target?: EventTarget) {
+function key(k: string, mods: Keys & { code?: string } = {}, target?: EventTarget) {
   const event = new KeyboardEvent('keydown', { key: k, cancelable: true, bubbles: true, ...mods })
   if (target) Object.defineProperty(event, 'target', { value: target })
   return event
@@ -73,6 +73,23 @@ describe('undo-redo shortcuts (screens.md §Keyboard)', () => {
       expect(a.redo).toHaveBeenCalledOnce()
       expect(a.undo).not.toHaveBeenCalled()
     }
+  })
+
+  it('works by key position on a layout that types no Latin letter there (AC-14)', () => {
+    const a = actions()
+    expect(press(a, key('я', { ctrlKey: true, code: 'KeyZ' })).defaultPrevented).toBe(true)
+    expect(a.undo).toHaveBeenCalledOnce()
+    press(a, key('Я', { metaKey: true, shiftKey: true, code: 'KeyZ' }))
+    press(a, key('н', { ctrlKey: true, code: 'KeyY' }))
+    expect(a.redo).toHaveBeenCalledTimes(2)
+  })
+
+  it('follows the letter a Latin layout types, not its position', () => {
+    // German QWERTZ: the KeyZ position types y, so Ctrl there is Redo, not Undo.
+    const a = actions()
+    press(a, key('y', { ctrlKey: true, code: 'KeyZ' }))
+    expect(a.redo).toHaveBeenCalledOnce()
+    expect(a.undo).not.toHaveBeenCalled()
   })
 
   it('never handles Cmd+Y, which stays the browser’s', () => {

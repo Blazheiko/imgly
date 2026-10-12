@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isTextTarget } from './keyboard'
+import { isLetter, isTextTarget } from './keyboard'
 
 const input = (type: string) => {
   const el = document.createElement('input')
@@ -37,5 +37,25 @@ describe('isTextTarget (undo-redo AC-08, AC-14)', () => {
     expect(isTextTarget(document.createElement('div'))).toBe(false)
     expect(isTextTarget(window)).toBe(false)
     expect(isTextTarget(null)).toBe(false)
+  })
+})
+
+describe('isLetter (letter-first rule)', () => {
+  const key = (k: string, code: string) => new KeyboardEvent('keydown', { key: k, code })
+
+  it('matches the letter itself, in either case', () => {
+    expect(isLetter(key('z', 'KeyZ'), 'z')).toBe(true)
+    expect(isLetter(key('Z', 'KeyZ'), 'z')).toBe(true)
+  })
+
+  it('matches the key position on a layout that types no Latin letter there', () => {
+    expect(isLetter(key('я', 'KeyZ'), 'z')).toBe(true)
+    expect(isLetter(key('н', 'KeyY'), 'y')).toBe(true)
+  })
+
+  it('keeps a Latin layout’s own letter at that position', () => {
+    // German QWERTZ types y where QWERTY has Z.
+    expect(isLetter(key('y', 'KeyZ'), 'z')).toBe(false)
+    expect(isLetter(key('y', 'KeyZ'), 'y')).toBe(true)
   })
 })
