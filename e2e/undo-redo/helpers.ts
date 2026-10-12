@@ -41,12 +41,16 @@ export async function openReference(page: Page) {
   await waitForWork(page, REFERENCE.width, REFERENCE.height)
 }
 
-/** Applies `count` new drawings over the whole image, each one a Step (spec §6). */
-export async function drawSteps(page: Page, count: number) {
+/**
+ * Applies `count` new drawings over the whole image, each one a Step (spec §6), running `after`
+ * once each Apply has landed.
+ */
+export async function drawSteps(page: Page, count: number, after?: () => Promise<void>) {
   for (let i = 0; i < count; i++) {
     const before = (await work(page))!.revision
     await page.evaluate(() => window.__imglyTest!.setFullDrawing())
     await expect.poll(async () => (await work(page))!.revision).toBeGreaterThan(before)
+    await after?.()
   }
 }
 
@@ -69,8 +73,8 @@ export async function undoByKey(page: Page, key = 'ControlOrMeta+z'): Promise<bo
   }
 }
 
-/** How many Undos in a row succeed by the shortcut. */
-export async function countUndos(page: Page) {
+/** How many Undos in a row succeed by the shortcut, running `after` once each has landed. */
+export async function countUndos(page: Page, after?: () => Promise<void>) {
   let n = 0
   while (
     await undoButton(page)
@@ -78,6 +82,7 @@ export async function countUndos(page: Page) {
       .then((v) => v !== 'true')
   ) {
     expect(await undoByKey(page)).toBe(true)
+    await after?.()
     n++
   }
   return n

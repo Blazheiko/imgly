@@ -13,6 +13,7 @@ import {
   layers,
   openGenerated,
   openReference,
+  redoButton,
   undoByKey,
   waitForWork,
   work,
@@ -32,14 +33,30 @@ test('100 whole-image drawing Applies stay within 512 000 000 B and keep ≥ 10 
 }) => {
   test.setTimeout(300_000)
   await openReference(page)
-  await drawSteps(page, 100)
+  const withinBudget = async () =>
+    expect((await historyStats(page)).heldBytes).toBeLessThanOrEqual(512_000_000)
+  await drawSteps(page, 100, withinBudget) // after every Apply (spec §6)
 
   const stats = await historyStats(page)
-  expect(stats.heldBytes).toBeLessThanOrEqual(512_000_000)
   expect(stats.steps).toBeGreaterThanOrEqual(10)
   expect(await strayLayers(page)).toBe(0)
-  expect(await countUndos(page)).toBe(stats.steps)
+  // Undo moves the Work off the newest layer, so the budget must hold at every position too.
+  expect(await countUndos(page, withinBudget)).toBe(stats.steps)
   expect(await undoByKey(page)).toBe(false) // past the oldest kept Step (AC-05)
+})
+
+test('Undo back to the opened image, which shows no layer, stays within 512 000 000 B (AC-11)', async ({
+  page,
+}) => {
+  test.setTimeout(120_000)
+  await openReference(page)
+  await drawSteps(page, 11)
+  // Every Undo moves the Work off a layer; at the opened state all kept layers are the history's.
+  const undos = await countUndos(page, async () =>
+    expect((await historyStats(page)).heldBytes).toBeLessThanOrEqual(512_000_000),
+  )
+  expect(undos).toBeGreaterThanOrEqual(10)
+  expect(await strayLayers(page)).toBe(0)
 })
 
 test.describe('0 retained layers once Steps leave the Edit history (spec §6)', () => {
@@ -70,20 +87,19 @@ test.describe('0 retained layers once Steps leave the Edit history (spec §6)', 
   })
 
   test('after a new Step discards the redoable Steps (AC-04)', async ({ page }) => {
-    for (let i = 0; i < 3; i++) expect(await undoByKey(page)).toBe(true)
-    await page.evaluate(() =>
-      window.__imglyTest!.setAdjustments({
-        brightness: 10,
-        contrast: 0,
-        saturation: 0,
-        temperature: 0,
-        tint: 0,
-        grayscale: 0,
-        sepia: 0,
-      }),
-    )
-    await expect.poll(async () => (await historyStats(page)).steps).toBe(8)
-    expect((await layers(page)).retained).toBe(7)
+    expect(await countUndos(page)).toBe(10) // back to the opened image: every layer is redoable
+    await expect(redoButton(page)).not.toHaveAttribute('aria-disabled', 'true')
+
+    await page.getByTestId('adjust-action').click()
+    const brightness = page.getByRole('textbox', { name: 'Brightness', exact: true })
+    await brightness.fill('10')
+    await brightness.press('Enter')
+    await page.getByRole('button', { name: 'Apply' }).click()
+
+    await expect.poll(async () => (await historyStats(page)).steps).toBe(1)
+    await expect(redoButton(page)).toHaveAttribute('aria-disabled', 'true')
+    await expect(redoButton(page)).toHaveAttribute('title', 'Nothing to redo')
+    expect((await layers(page)).retained).toBe(0)
     expect(await strayLayers(page)).toBe(0)
   })
 
