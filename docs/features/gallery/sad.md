@@ -74,37 +74,45 @@ A fourth goal is a correctness rule rather than a quality trade-off, and §10 co
 
 ## 3. Context and scope
 
-<!-- 🎯 Why: draws the SYSTEM BOUNDARY — who talks to it from outside, where the trust zone ends.
-     Without §3, §5 and §8 (authorization) blur — unclear what's «inside» vs «outside».
-     📋 Write: 2–3 sentences of business context + an external-systems table + a C4Context block.
-     📌 «External: none (deliberate, no third-party in v1)» is itself a decision worth stating.
-     Trust boundary — the line past which you don't trust data without checking it.
-     Never N/A — greenfield still draws the planned actors + external systems. -->
+The Gallery adds memory to an editor that had none. Until now the open Work lived only in the tab's memory, and an Export was the only way to keep anything. From this step on, the app keeps its recent Works in the browser's own storage, reopens them on request and tells the Editor plainly how safe they are there. Everything still happens on the Editor's device. The feature adds no server, no account and no network call, and the only new outside party is the browser's storage, which the browser owns and may clear.
 
-<Business context in 2–3 sentences. What the system does for whom.>
-
-<!-- brownfield: <one-line scan summary> (or «N/A — greenfield repo» if no source existed) -->
+<!-- brownfield: Vue 3 + Pinia client-only PWA with a functional core (src/core), infra adapters (db, platform, image-decode), a shared WebGL2 renderer and feature folders coordinated through the editor store; IndexedDB has a v1 schema that nothing reads or writes yet (docs/architecture-map.md, reflects 3f248c2 + the undo-redo update 41dbfc3). -->
 
 **External systems (in / out):**
 
 | Actor or system | Type | Interaction |
 |---|---|---|
-| <author role> | Person | <what they do> |
-| <external service> | System (internal/external) | <interaction> |
-| <identity provider> | System (external) | <provides auth tokens> |
+| Editor | Person | Opens and edits images. Every applied change is autosaved. Lists, reopens and deletes Works in the Gallery |
+| Portfolio reviewer | Person | Same actions as the Editor. Checks on a first visit that an edited Work comes back after a reload (spec US-07) |
+| Browser storage | System (external, owned by the browser) | IndexedDB holds the stored Works and the "asked for persistent storage" marker. The StorageManager answers whether storage is persistent, and the browser may ask the person once at the first save (SCR-07). The browser may clear non-persistent storage, refuse to open it (blocked site data), or report it full. **Trust boundary:** whatever is read back is treated as untrusted and checked before it is used (spec §6.1, AC-08) |
+| Same app in another tab | System (another instance of this app) | Shares the same browser storage. It may store, evict or delete the Work this tab has open, and the last save wins (spec AC-21, §8) |
+| Operating system | System (external) | File picker and drag and drop for opening images, and the save dialog for Exports. Unchanged by this feature |
+| GitHub Pages | System (external) | Serves the static app over HTTPS. After the first load the app works offline, and the Gallery must too (spec §6). Unchanged by this feature |
 
-**C4 Context (L1):** <!-- syntax → references/c4-mermaid-syntax.md. Real names, no <placeholder> stubs. -->
+Out of scope on purpose: no server, sync, cloud backup, accounts or sharing (spec §3, ADR 0001). A Work never leaves the device.
+
+**C4 Context (L1):**
 
 ```mermaid
 C4Context
-    title <feature> — System Context
+    title gallery — System Context
 
-    Person(actor, "<Actor role>", "<intent>")
-    System(app, "<Our system>", "<one-sentence description>")
-    System_Ext(ext, "<External system>", "<one-sentence description>")
+    Person(editor, "Editor", "Edits images and expects applied changes to survive a reload")
+    Person(reviewer, "Portfolio reviewer", "Checks on a first visit that an edited Work comes back")
 
-    Rel(actor, app, "<interaction>", "<protocol>")
-    Rel(app, ext, "<interaction>", "<protocol>")
+    System(app, "imgly-editor", "Client-only image editor PWA that autosaves recent Works and reopens them for re-editing")
+
+    System_Ext(storage, "Browser storage", "IndexedDB and StorageManager on this device, owned and possibly cleared by the browser")
+    System_Ext(othertab, "Same app in another tab", "Another instance sharing the same browser storage")
+    System_Ext(os, "Operating system", "File picker, drag and drop, save dialog")
+    System_Ext(pages, "GitHub Pages", "Static hosting of the built app over HTTPS")
+
+    Rel(editor, app, "Opens, edits, reopens and deletes Works", "mouse, keyboard")
+    Rel(reviewer, app, "Opens an image, reloads, reopens it", "mouse, keyboard")
+    Rel(app, storage, "Stores, lists, reads and deletes Works, asks for persistence", "IndexedDB, StorageManager")
+    Rel(othertab, storage, "Stores and evicts Works too, last save wins", "IndexedDB")
+    Rel(app, os, "Opens images and saves Exports", "File System Access, download")
+    Rel(app, pages, "Loads the app shell on first visit and updates", "HTTPS")
 ```
 
 ## 4. Solution strategy
