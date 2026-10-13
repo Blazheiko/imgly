@@ -40,7 +40,7 @@ How it works:
   - `decodePng(blob, expectedSize)` decodes with no colour conversion, no orientation and no resize. It checks the size against the record and transfers the `ImageBitmap` back. A wrong size or a decode failure is a damaged Work (AC-08).
 - The Original is encoded once per Work, at its first save, and the Drawing layer once per applied layer id. Draw ADR-0001 gives every applied layer a new id, so the stored layer id tells whether the layer changed. Steps that change only the Geometry or the Adjustments encode nothing.
 - Autosave keeps the open Work's encoded Original and layer Blobs in memory until the Work is replaced. A later save can then write them again without re-encoding, when another tab has evicted the Work (AC-21) or when a quota retry needs them (ADR-0004).
-- On reopen, the decoded Original becomes the Work's `ImageBitmap`. The decoded layer is drawn into a new layer from `createLayer`, which gives it a new id, and the bitmap is closed with `closeBitmap`. The ledger rules of §2 apply unchanged.
+- On reopen, the decoded Original becomes the Work's `ImageBitmap`. The decoded layer is drawn into a new layer from `createLayer`, which gives it a new id, and the bitmap is closed with `closeBitmap`. The ledger rules of §2 apply unchanged. Autosave then records the restored layer's new id as the stored layer id and keeps the two loaded PNG Blobs as the open Work's encoded copies. The first Crop or Adjustment Step after a reopen therefore encodes nothing and stays within its 300 ms target.
 
 ## Consequences
 

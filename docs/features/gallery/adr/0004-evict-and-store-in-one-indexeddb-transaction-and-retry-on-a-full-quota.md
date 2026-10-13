@@ -28,11 +28,10 @@ A save may have to make room in two ways: because a 21st Work arrives (AC-09), o
 
 1. **Prepare everything first, then evict and store in one read-write transaction; on `QuotaExceededError` retry with one more Work evicted.**
 2. **Estimate the free space first** with `navigator.storage.estimate()`, evict as many Works as the estimate says, then evict and store in one transaction.
-3. **Store first, then evict** in a second transaction.
 
 ## Decision outcome
 
-**Chosen:** Option 1. Atomicity comes from the browser's own transaction rather than from an approximate number. Option 2 still needs the retry, because the estimate can be wrong in either direction, and a too-high estimate would evict Works that didn't need to go. Option 3 breaks AC-19: a crash between the two transactions leaves 21 Works, and on a full disk the first write fails anyway.
+**Chosen:** Option 1. Atomicity comes from the browser's own transaction rather than from an approximate number. Option 2 still needs the retry, because the estimate can be wrong in either direction, and a too-high estimate would evict Works that didn't need to go.
 
 How it works:
 

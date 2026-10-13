@@ -61,7 +61,7 @@ How it works (the exact field list is fixed by the `data-model` stage):
 
 **Negative**
 - Four stores must stay consistent, so every write and delete must span all of them. A bug that skips one would leave an orphan, which is why the e2e test checks every store after a delete.
-- The design departs from ADR 0003's "one `works` store" wording, which a reader must reconcile.
+- The design departs from ADR 0003's "one `works` store" wording while keeping its decision. sad.md §1 ¶4 records this as a Decision override.
 
 **Neutral**
 - ADR 0003's escape hatch still holds: moving the Blob stores to OPFS later is a new migration step plus repository internals, and the record shape stays.
