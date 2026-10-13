@@ -287,6 +287,248 @@ sequenceDiagram
     end
 ```
 
+### Flow 3: Show the Gallery — start screen and overlay (US-03, US-05, US-07)
+
+Covers AC-03, AC-05, AC-08 (an entry damaged at listing), AC-12, AC-13 and AC-18 (migration at the first start of a new version). Screens: SCR-01 (start screen) and SCR-03 (overlay).
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user> Editor
+    participant UI as <ui>
+    participant S as <service> autosave
+    participant D as <data-store>
+    participant X as <external-system> browser storage policy
+
+    Note over UI,S: Precondition: page load with no Work open, or a Work open and "Gallery" chosen
+    UI->>S: open the Gallery store at start-up, next to the capability gate
+    S->>D: open the database and run every pending upgrade step
+    alt storage cannot be opened (blocked site data, refused, still blocked by an older tab)
+        D-->>S: refused
+        S-->>UI: Gallery unavailable for this page load, with the reason
+        UI-->>U: start screen shows "unavailable in this window" and the drop zone, nothing stored until the next load
+    else opened
+        D-->>S: ready, older records migrated forward in the same upgrade
+        UI->>D: list the small records, most recently touched first
+        D-->>UI: up to 20 records with thumbnails, no Original or layer read
+        UI->>UI: check each record's shape and decode its thumbnail
+        UI->>X: ask whether storage is persistent
+        X-->>UI: persistent or not
+        alt no records
+            UI-->>U: empty state - Works you open will appear here, same "Open image" action, storage line
+        else records listed
+            UI-->>U: entries with thumbnail, Source name or "Untitled", touched label, "Open" mark on the open Work, count of 20 places, storage line
+            opt a record or its thumbnail cannot be read
+                UI-->>U: that entry marked damaged, every other entry normal
+            end
+        end
+    end
+    U->>UI: Close or Esc (overlay only)
+    UI-->>U: back to the Work unchanged
+    Note over U,UI: Postcondition: nothing reopens on its own, and listing never changes the stored Works
+```
+
+### Flow 4: Delete a Work (US-04)
+
+Covers AC-06, AC-07 and AC-08 (deleting a damaged Work). Screens: SCR-01 or SCR-03, then SCR-04.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user> Editor
+    participant UI as <ui>
+    participant S as <service> autosave
+    participant D as <data-store>
+
+    Note over U,UI: Precondition: the Gallery is showing, with the Gallery available
+    U->>UI: choose Delete on an entry
+    UI->>S: which Work is open in this tab
+    S-->>UI: the open Work's id, or none
+    alt the entry is the Work open in this tab
+        UI-->>U: Delete unavailable, hint - the open Work cannot be deleted, open another image first
+    else any other entry, damaged or not
+        UI-->>U: confirmation names the Work, cannot be brought back, an Export is the only copy outside this browser
+        alt cancel
+            U->>UI: cancel
+            UI-->>U: the Work kept exactly as it was
+        else confirm
+            U->>UI: confirm
+            UI->>D: delete the record, the Original and the layer in one transaction
+            Note over UI,D: removes every stored part of the Work (works, originals, layers)
+            alt deleted
+                D-->>UI: committed
+                UI-->>U: entry gone, count of used places down by one
+            else storage failure
+                D-->>UI: failed, nothing changed
+                UI-->>U: notice - the Work could not be deleted, entry kept
+            end
+        end
+    end
+    Note over U,D: Postcondition: a deleted Work leaves no stored part behind, and the open Work is never deleted
+```
+
+### Flow 5: Open a new image through the replace gate (US-06, US-01)
+
+Covers AC-09 (a new Work enters only after it replaced the old one, and a cancelled or unreadable open stores nothing), AC-12 (the Gallery is unavailable), AC-16 and AC-17. Screens: SCR-02, then SCR-05 when it asks. A reopen from the Gallery passes the same gate (Flow 2).
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user> Editor
+    participant UI as <ui>
+    participant S as <service> autosave
+    participant D as <data-store>
+
+    Note over U,S: Precondition: a Work is open, maybe with Unsaved edits, maybe with a save running
+    U->>UI: Open image, or drop a file
+    UI->>S: read and check the file (open-and-view pipeline)
+    alt refused or unreadable
+        S-->>UI: refusal with its reason
+        UI-->>U: Work unchanged, reason shown, no dialog, nothing stored
+    else read successfully
+        S->>S: wait until no save is running or pending
+        alt no Unsaved edits, or their latest state is stored
+            S->>S: replace without asking, discard an open tool's Draft
+        else latest state not stored (save failed) or Gallery unavailable
+            S-->>UI: ask for confirmation
+            UI-->>U: the latest edits are not saved in the Gallery and would be lost
+            alt cancel
+                U->>UI: cancel
+                UI-->>U: Work unchanged, the new image dropped, nothing stored, nothing evicted
+            else confirm
+                U->>UI: confirm
+                S->>S: replace, discard an open tool's Draft
+            end
+        end
+        opt replaced and the Gallery is available
+            S->>S: new Work with a new id, queue its first save (Flow 1)
+            S->>D: first save - encode the Original, evict the least recently touched Work not open here if 20 are stored
+            Note over S,D: persists the new Work record, its Original and the persist marker on the first save ever
+            S-->>U: notice naming the evicted Work, if any
+        end
+    end
+    Note over U,D: Postcondition: the previous Work stays in the Gallery with all its stored applied edits
+```
+
+### Flow 6: Leaving the page, and a save interrupted by a reload or crash (US-01)
+
+Covers AC-19 and AC-20. Screens: SCR-02, then SCR-06 (the browser's own leave warning) and SCR-01 after the reload.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user> Editor
+    participant UI as <ui>
+    participant S as <service> autosave
+    participant D as <data-store>
+
+    Note over U,S: Precondition: a Work is open, and an Apply, Undo or Redo has just been made
+    S->>S: saving on - the leave warning handler is installed
+    S->>D: one transaction - evictions and the new state
+    alt the Editor reloads or closes the tab while saving is on
+        U->>UI: reload or close the tab
+        UI-->>U: the browser's own warning that leaving may lose changes
+        alt stay
+            U->>UI: stay
+            D-->>S: committed
+            S->>S: saving off - the leave warning handler is removed
+        else leave anyway, or the browser crashes
+            D-->>D: the unfinished transaction is rolled back as a whole
+            Note over S,D: no Work half stored - a first save leaves the Work absent, a later save leaves its previous stored state, and no eviction happened
+        end
+    else the save finishes first
+        D-->>S: committed
+        S->>S: saving off - the leave warning handler is removed
+        U->>UI: reload or close the tab
+        UI-->>U: no warning, even with Unsaved edits, because they are stored
+    end
+    Note over U,D: Postcondition: after any reload, every Work in the Gallery is in its last committed state or absent, and no Work left without its notice
+```
+
+### Cross-cutting: Flow 7 — another tab of the app (US-01, US-02)
+
+Covers AC-21, plus the version-upgrade path of AC-18 (ADR-0006). No coordination between tabs: the shared store is the only contact, and the last save wins (§8).
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user> Editor
+    participant S as <service> autosave (this tab)
+    participant D as <data-store>
+    participant T as <client> other tab
+
+    Note over S,T: Precondition: the same Gallery store is open in both tabs, and this tab has a Work open
+    T->>D: its own save evicts this tab's Work to make room
+    Note over T,D: removes this tab's Work record, Original and layer
+    U->>S: Apply, Undo or Redo in this tab
+    S->>D: one transaction - read records, this Work is missing
+    S->>D: write the record, the Original from memory and the layer from memory, evicting the least recently touched Work not open here if needed
+    Note over S,D: persists this Work again as the most recently touched
+    D-->>S: committed, with the names of evicted Works
+    S-->>U: notice naming each evicted Work, if any
+    opt the other tab later saves the same Work
+        T->>D: writes its own state of that Work
+        Note over T,D: the last save wins, with no warning (spec section 8 question 1, closed)
+    end
+    opt the other tab runs a newer version that upgrades the store
+        T->>D: open at a newer version
+        D->>S: versionchange
+        S->>S: let the running save finish, drop the pending one, close the connection
+        S-->>U: notice - a newer version is open in another tab, reload to keep saving
+        Note over U,S: this tab now behaves as AC-12 - editing works, replacing asks when there are Unsaved edits
+        D-->>T: upgrade runs, older records migrated forward
+    end
+    Note over U,D: Postcondition: the Work open in this tab is never lost, and an old tab never writes into a newer schema
+```
+
+### Coverage — user stories and acceptance criteria
+
+| User story | Flows |
+|---|---|
+| US-01 Keep my work without saving | Flow 1, Flow 5, Flow 6, Flow 7 |
+| US-02 Reopen and keep editing | Flow 2, Flow 7 |
+| US-03 Find the right Work | Flow 3 |
+| US-04 Remove a Work | Flow 4 |
+| US-05 Know how safe my Works are | Flow 1 (notices), Flow 3 (storage line, unavailable) |
+| US-06 Switch images without needless dialogs | Flow 5, Flow 2 (reopen through the same gate) |
+| US-07 See the Gallery work on a first visit | Flow 3 (empty state, listing after reload), Flow 1, Flow 2 |
+
+| AC | Shown by |
+|---|---|
+| AC-01 | Flow 1 (save on open and after each Apply), Flow 3 (listed first after reload) |
+| AC-02 | Flow 1 trigger (only Steps, Undo and Redo reach Autosave, never a Draft or the View), Flow 2 (empty Edit history, fitted View) |
+| AC-03 | Flow 3 `else records listed` |
+| AC-04 | Flow 2 `readable in full` → replace with the stored Work |
+| AC-05 | Flow 3 `no records` and postcondition (nothing reopens on its own) |
+| AC-06 | Flow 4 `cancel` / `confirm` |
+| AC-07 | Flow 4 `the entry is the Work open in this tab` |
+| AC-08 | Flow 2 `any part missing, damaged or invalid`, Flow 3 `a record or its thumbnail cannot be read`, Flow 4 (damaged Works delete normally), Flow 1 (damaged first in eviction, ADR-0004) |
+| AC-09 | Flow 5 (enters only after replace, cancel or unreadable stores nothing, eviction at 20), Flow 1 `committed` notice |
+| AC-10 | Flow 1 `quota full and other Works can still go` / `quota full even with this Work alone` |
+| AC-11 | Flow 1 `another failure` |
+| AC-12 | Flow 3 `storage cannot be opened`, Flow 5 `Gallery unavailable` → confirmation, Flow 7 (closed for a newer version) |
+| AC-13 | Flow 3 (persistent or not → storage line) |
+| AC-14 | Flow 1 `first save in this browser` |
+| AC-15 | Flow 2 `export running or a replacement waits for confirmation` |
+| AC-16 | Flow 5 `latest state is stored` after waiting, Flow 2 (wait, then no confirmation) |
+| AC-17 | Flow 5 `latest state not stored`, Flow 2 confirmation branch; an unreadable Work never asks (Flow 2) |
+| AC-18 | Flow 3 (pending upgrade steps at start-up), Flow 7 (versionchange, ADR-0006), Flow 2 (migrated record reopens) |
+| AC-19 | Flow 6 `leave anyway, or the browser crashes`, Flow 1 (one transaction) |
+| AC-20 | Flow 6 (warning only while saving is on) |
+| AC-21 | Flow 7 (this Work missing → written back in full) |
+
+No AC is non-runtime, and none is uncovered.
+
+**Notes for later stages (flags only):**
+- **data-model** — persist and read hints from the flows:
+  - the list reads `works` by `touchedAt`, newest first (Flow 3), which needs the `touchedAt` index;
+  - a save reads every `works` record, at most 21, to choose evictions (Flows 1, 5 and 7), and needs no other index;
+  - `originals` and `layers` are read, written and deleted by Work id only (Flows 2, 4 and 7);
+  - `meta` holds a single key (Flow 1);
+  - a delete or eviction removes one Work from three stores in one transaction (Flows 1 and 4).
+- **screens** — Flow 4 adds a delete-failure branch ("the Work could not be deleted") that no AC names. It follows from §8 (`STORAGE_FAILED` for a delete) and needs its notice text. Flow 7 needs the "newer version open in another tab" notice text (ADR-0006).
+- **Participants** — every participant in Flows 3–7 maps to a §5 element (`<client> other tab` is §5's "Same app in another tab"). No new participant and no new ADR-worthy decision. The two seed flows from `design` (Flows 1 and 2) name §5 building blocks instead of the generic vocabulary, and are left untouched.
+
 ## 7. Deployment view
 
 Topology is unchanged. The app is one static build on GitHub Pages under `/imgly/`, deployed by the existing CI job on `main`, and the Workbox service worker precaches the app shell. Every Gallery operation (listing, reopening, Autosave, deleting) runs in the browser and works offline after the first load (spec §6). The database ships as code. Migration `0002` (ADR-0002) runs in each browser the first time the new version opens the database, with no server step and no data to convert. The new codec worker is bundled like the decode and export workers.
