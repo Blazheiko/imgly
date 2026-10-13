@@ -359,22 +359,28 @@ Each top-3 goal from §1 expanded into a full scenario. Numbers come verbatim fr
 
 ## 11. Risks and technical debt
 
-<!-- 🎯 Why: ⭐ collects EVERYTHING that can break — not only the technical. Without §11 risks get
-     discussed at standups and lost; debt lives only in the head of whoever accepted it.
-     📋 Write: a risk/debt table — severity — mitigation — owner. Accepted debt in its own block.
-     📌 The first risk is often a product risk, not a technical one. That's normal. -->
-
 <!-- Severity literals: Low / Medium / High for regular risks; "Open question" for rows created by
      a Save-as-OQ resolution during the Socratic walk (see references/socratic.md). -->
 
 | Risk / debt | Severity | Mitigation | Owner |
 |---|---|---|---|
-| <e.g. Worker lag may reach hours during a downstream outage> | Medium | <alert >10 min, on-call playbook, retry backoff> | <DevOps> |
-| <e.g. No event-schema versioning in v1> | Medium | <ADR-NNNN planned for v2, tolerate unknown fields> | <Backend> |
-| Open architectural decision: <decision-headline> | Open question | Resolve before <stage trigger or YYYY-MM-DD>; <inline rationale from the Save-as-OQ> | <owner> |
+| Encoding a reference-sized Original as PNG may not finish within the 3 s storing target in Firefox or WebKit (spec §8 question 2, ADR-0003) | Medium | A measuring spike in the first codec task on all three engines. Chrome is gated and Firefox and WebKit are measured (QG-3). Resolve before `sdd:plan-tests`, as spec §8 already requires | Tech Lead |
+| A canvas holds colours premultiplied by alpha, so semi-transparent pixels of an Original may come back off by one step after the PNG round trip. Opaque pixels are exact (ADR-0003) | Medium | Add a PNG with partial transparency to the QG-2 reference set on all three engines. If it differs, narrow AC-04 and the §6 exactness row to opaque pixels with the owner, or store such Originals differently in a new ADR | Blazheiko |
+| AC-10's wording implies that every other Work is already evicted when the open Work still doesn't fit. The design evicts nothing in that case and keeps the earlier stored state, as the owner chose on 2026-10-13 (ADR-0004) | Low | Update AC-10's wording in `spec.md` to match before `sdd:tasks`. The e2e test follows the design | Blazheiko |
+| Spec §6.1 and AC-12 give a private window as an example of storage that can't be opened. Current Chromium, Firefox and WebKit private windows usually can open IndexedDB, keep it in memory, and clear it when the window closes | Medium | The Gallery works for that window's life, and its storage line shows the non-persistent wording (AC-13). Correct the example in spec §6.1 and AC-12 before `sdd:tasks`. Plan-tests checks the "storage blocked" case with blocked site data instead | Blazheiko |
+| WebKit can delete a site's script-written storage after 7 days without use, so a Gallery in Safari may empty on its own (§2) | Medium | The storage line and the "Export is the durable copy" wording (AC-13). An installed app is exempt, which roadmap step 9 (install) makes easier | Blazheiko |
+| Regression in the replace path. Open-and-view, crop-rotate and undo-redo tests assume "Unsaved edits → confirm", and the gate now also waits for a running save | Medium | Change the existing tests deliberately, not by loosening them. The editor store tests cover every gate branch (QG-4), and the existing e2e replace flows run unchanged on all three engines | Tech Lead |
+| The thumbnail pass reads pixels back on the main thread. A slow GPU readback could eat into the 200 ms freeze budget (ADR-0005) | Low | Thumbnail long side ≤ 512 px, and the long-task trace in QG-3 | Tech Lead |
+| Brownfield: `src/infra/db` has never run against a real browser. The v1 store was only ever tested with `fake-indexeddb` | Low | e2e on all three engines covers reload, quota, delete and upgrade, beyond the unit migration tests | Tech Lead |
+| A crash in the instant between a save's commit and its notice loses that eviction notice (ADR-0004) | Low | Accepted. The notice is raised as soon as the commit resolves | Blazheiko |
+| After another tab upgrades the database, an old tab stops storing its edits until it is reloaded (ADR-0006) | Low | One notice asks for a reload, and replacing the Work then asks for confirmation (AC-12, AC-17) | Blazheiko |
+| The editor store keeps growing as the hub (architecture map, Constraints) | Low | Autosave lives in the composed `autosave.ts`, and reopen reuses `openImage`'s path (ADR-0001) | Tech Lead |
 
 **Accepted debt (acceptable in v1, plan to fix later):**
-- <e.g. the entity is immutable / unversioned — OK for v1, may need audit versioning in v2>
+- No warning when the same Work is open in two tabs. The last save wins (spec §8 question 1, closed in §8)
+- No live refresh of the Gallery list when another tab stores or evicts a Work. The list is read each time the Gallery shows
+- On a full disk, each quota retry writes the record again, and the Original when it is new, before it rolls back (ADR-0004)
+- The open Work's encoded Original and layer stay in memory, about their PNG size, until the Work is replaced (ADR-0003)
 
 ## 12. Glossary
 
