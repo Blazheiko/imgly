@@ -132,50 +132,78 @@ Each tactical decision in later sections should trace to one of these seeds. Tac
 
 ## 5. Building block view
 
-<!-- 🎯 Why: INTERNAL DECOMPOSITION — modules, containers, datastores. The static topology: who
-     may talk to whom. Without §5, §6 (the flows) has no vocabulary of participants.
-     📋 Write: 1 ¶ on the style (layered / hexagonal / clean / event-driven) + a folder tree + a
-     C4Container block.
-     📌 Draw ONE Container per declared `target_surface` (frontmatter): a fullstack
-     [backend-service, web-frontend] = a backend-API container + a web/SPA container; a
-     [backend-service, mobile-app] = the API + the mobile app. The Container(web, …) line below is
-     just one surface's container — swap/add per what was declared in §4. → _shared/surfaces.md
-     📌 e.g. «web app, content API, media worker, datastore, object store, CDN». -->
-
-<One paragraph: layered / hexagonal / clean / event-driven, and why.>
+The feature follows the repo's functional core with feature folders (repo ADR 0002), with no divergence. Pure rules go in `src/core/gallery/`: the cap, eviction candidates, validation of a stored Work, the relative-time label and the storage-line choice. IndexedDB access goes in `src/infra/db/`, PNG encoding and decoding in a new `src/infra/work-codec/`, and the persistent-storage API in `src/infra/platform/`. The thumbnail is drawn by the shared WebGL2 program in `src/render/`. Autosave and reopen are composed into the `editor` store (ADR-0001), and the new `gallery` feature holds the UI. Features still never import each other. The gallery feature reads and calls the editor store's public API, and both features use the `works` repository.
 
 **Internal decomposition:**
 
 ```
-<e.g. modules/<feature>/>
-├── domain/       <entities + sentinel errors>
-├── app/          <use cases / services>
-├── infra/        <repository + integration impl>
-├── ports/        <handlers, DTOs, error mapping>
-└── wiring        <self-wiring entry point>
+src/
+├── core/
+│   ├── gallery/              NEW  cap (20), evictionCandidates, validateStoredWork, touchedLabel ("Just now"…), storageLine, entryName ("Untitled")
+│   └── result.ts             + STORAGE_UNAVAILABLE, STORAGE_FAILED, WORK_DAMAGED (STORAGE_QUOTA exists)
+├── infra/
+│   ├── db/
+│   │   ├── migrations/0002-gallery.ts   NEW  originals, layers, meta stores; works reshaped, touchedAt index (ADR-0002)
+│   │   ├── schema.ts         widened WorkRecord + new stores
+│   │   ├── open-db.ts        + versionchange handling (§7)
+│   │   └── works-repository.ts  NEW  storeWork (evict + store, one transaction, ADR-0004), listWorks, loadWork, deleteWork, persist marker
+│   ├── work-codec/           NEW  client.ts, codec.worker.ts, worker-handler.ts: encodePng / decodePng in a fresh worker (ADR-0003)
+│   └── platform/storage-persistence.ts  NEW  requestPersistence() / isPersisted() over navigator.storage
+├── render/
+│   └── preview-renderer.ts   + renderThumbnail(work, maxSide): the shared program into a small framebuffer
+├── features/
+│   ├── editor/
+│   │   ├── autosave.ts       NEW  composed by store.ts: save queue, saving / stored revision, availability, notices (ADR-0001)
+│   │   ├── store.ts          triggers after replace / commit / undo / redo; replace gate waits and asks only when unstored; reopenWork(id)
+│   │   ├── EditorView.vue    + `start-screen` and `overlay` slots; beforeunload while a save runs (AC-20)
+│   │   ├── components/ReplaceDialog.vue  reworded: latest edits not saved in the Gallery (SCR-05)
+│   │   └── messages.ts       + eviction, could-not-save, damaged-Work and unavailable texts
+│   └── gallery/              NEW  GalleryAction (top bar), GalleryList, GalleryStart (SCR-01), GalleryOverlay (SCR-03),
+│                                  DeleteWorkDialog (SCR-04), store.ts (entries, overlay open, storage line), messages.ts, index.ts
+└── app/
+    ├── App.vue               fills the new slots; opens the Gallery database at start-up next to the capability gate
+    └── test-hooks.ts         + Gallery hooks for e2e (stored records, forced reloads during a save, quota simulation)
 ```
 
-**C4 Container (L2):** <!-- syntax → references/c4-mermaid-syntax.md. Real names, no <placeholder> stubs. ONE Container per declared target_surface (frontmatter); the web container below is one example surface. -->
+**C4 Container (L2):**
 
 ```mermaid
 C4Container
-    title <feature> — Containers
+    title gallery — Containers (client-only PWA)
 
-    Person(actor, "<Actor>")
+    Person(editor, "Editor", "Edits images, reopens recent Works")
+    Person(reviewer, "Portfolio reviewer", "Checks that a Work survives a reload")
 
-    Container_Boundary(app, "<Our system>") {
-        Container(web, "<Web/UI>", "<technology>", "<purpose>")
-        Container(api, "<API/handler>", "<technology>", "<purpose>")
-        ContainerDb(db, "<Datastore>", "<technology>", "<purpose>")
+    Container_Boundary(browser, "Browser tab") {
+        Container(spa, "Editor SPA", "Vue 3, Pinia, TypeScript", "Editor shell, tools, export, autosave in the editor store, gallery feature UI")
+        Container(core, "Editing core", "Pure TypeScript", "Work document, Edit history, gallery rules: cap, eviction, validation, labels")
+        Container(gpu, "Preview renderer", "WebGL2, Canvas 2D layers", "Draws the Preview and the Gallery thumbnail with the shared program, holds Drawing layers")
+        Container(codec, "Work codec worker", "Web Worker, OffscreenCanvas", "Encodes the Original and layer to PNG and decodes them on reopen, one fresh worker per job")
+        Container(dworker, "Decode worker", "Web Worker", "Decodes newly opened files, unchanged")
+        Container(eworker, "Export worker", "Web Worker, OffscreenCanvas WebGL2", "Renders and encodes Exports, unchanged")
+        Container(sw, "Service worker", "Workbox", "Precaches the app shell so the Gallery works offline")
+        ContainerDb(idb, "Gallery store", "IndexedDB via idb, schema v2", "works records with thumbnails, originals, layers, meta marker")
     }
 
-    System_Ext(ext, "<External>", "<purpose>")
+    System_Ext(storagemgr, "Browser storage policy", "StorageManager persist and persisted, quota, clearing")
+    System_Ext(othertab, "Same app in another tab", "Shares the Gallery store, last save wins")
 
-    Rel(actor, web, "<interaction>", "<protocol>")
-    Rel(web, api, "<calls>")
-    Rel(api, db, "<reads/writes>", "<driver>")
-    Rel(api, ext, "<emits>", "<protocol>")
+    Rel(editor, spa, "Edits, opens the Gallery, reopens and deletes Works", "mouse, keyboard")
+    Rel(reviewer, spa, "Opens, reloads, reopens", "mouse, keyboard")
+    Rel(spa, core, "Calls pure rules")
+    Rel(spa, gpu, "Renders the Preview and thumbnails")
+    Rel(spa, codec, "encodePng and decodePng", "postMessage")
+    Rel(spa, dworker, "decodeImage", "postMessage")
+    Rel(spa, eworker, "exportImage", "postMessage")
+    Rel(spa, idb, "Stores, lists, loads, deletes in one transaction per change", "IndexedDB")
+    Rel(spa, storagemgr, "Asks once for persistence, reads the answer", "StorageManager")
+    Rel(othertab, idb, "Stores and evicts Works too", "IndexedDB")
 ```
+
+**Tactical decisions in this section:**
+
+- **Save queue: single flight, latest wins (inline).** `autosave.ts` runs at most one save at a time and holds at most one pending request, which is always the newest Work value handed to it. A newer request replaces the pending one, so states in between are skipped, and the latest applied state is stored by the shortest path without an older state overwriting a newer one. `saving` is true while a save runs or one is pending. `settled()` resolves when neither remains, and the replace gate waits on it (AC-16), and `EditorView` installs the `beforeunload` warning only while `saving` is true (AC-20). The alternatives were a strict FIFO of every state, which makes the latest state wait behind all the earlier ones, and a debounce, which adds its delay to every save and contradicts "after every Step" (CONTEXT: Autosave). The choice lives in one file and is reversible in a day, so it stays inline (blast radius 1 of 3).
+- **Thumbnail: drawn by the Preview renderer** ([ADR-0005](adr/0005-render-the-gallery-thumbnail-with-the-preview-renderer.md)). `renderThumbnail(work, maxSide)` draws the Work with the shared program, with its Geometry, Adjustments and Drawing layer at fit. It draws into a small framebuffer, with a long side of at most 512 px, set exactly by `screens`. It reduces in passes of at most 2:1, reads back the small result, and encodes it as PNG with `OffscreenCanvas.convertToBlob`. Every save prepares a fresh thumbnail before its transaction (ADR-0004), so the thumbnail always matches the stored state (AC-01, AC-03).
 
 ## 6. Runtime view
 
@@ -258,6 +286,7 @@ sequenceDiagram
 | [0002](adr/0002-store-each-work-as-a-small-record-plus-separate-original-and-layer-blob-stores.md) | Store each Work as a small record plus separate Original and layer blob stores | Accepted | §4 |
 | [0003](adr/0003-encode-the-original-and-the-drawing-layer-as-png-in-a-fresh-worker.md) | Encode the Original and the Drawing layer as PNG in a fresh worker | Accepted | §4 |
 | [0004](adr/0004-evict-and-store-in-one-indexeddb-transaction-and-retry-on-a-full-quota.md) | Evict and store in one IndexedDB transaction, and retry on a full quota | Accepted | §4 |
+| [0005](adr/0005-render-the-gallery-thumbnail-with-the-preview-renderer.md) | Render the Gallery thumbnail with the Preview renderer | Accepted | §5 |
 
 ADR files live under `docs/features/gallery/adr/NNNN-<title>.md`.
 
