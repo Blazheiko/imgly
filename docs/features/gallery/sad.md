@@ -299,21 +299,21 @@ Two versions of the app can run at once, an old tab next to one that has updated
 
 ## 8. Crosscutting concepts
 
-<!-- 🎯 Why: CROSS-CUTTING PATTERNS spanning several modules: logging, errors, authorization, ID
-     strategy, events, caching. ⭐ The second-densest section. A pattern inside one module is NOT
-     here; a project-wide convention belongs in the convention file.
-     📋 Write: a table — concept / convention / where defined. One row per concept.
-     📌 e.g. «sortable time-based IDs generated in the app layer» as a default from the convention file. -->
-
 | Concept | Convention | Where defined |
 |---|---|---|
-| Logging | <e.g. structured, fields `module=<name>`> | <convention file §X or here> |
-| Authentication | <e.g. token-based via middleware> | <convention file §X> |
-| Error handling | <e.g. domain sentinel → ports error mapping → JSON> | <convention file §X> |
-| ID strategy | <e.g. sortable time-based ID in the app layer> | <convention file §X> |
-| Internationalisation | <e.g. N/A, single language> | — |
-| Observability | <e.g. tracing on the request boundary> | — |
-| Events | <module-specific patterns, if any> | <here> |
+| Error handling | `core` and `infra` return `Result<T, AppError>`. New codes: `STORAGE_UNAVAILABLE` (the database can't be opened, or is closed for a newer version, AC-12, ADR-0006), `STORAGE_FAILED` (a save or delete fails for another reason, AC-11) and `WORK_DAMAGED` (a stored Work can't be read in full, AC-08). The existing `STORAGE_QUOTA` means the Work doesn't fit even alone (AC-10, ADR-0004). Texts live in `src/features/editor/messages.ts` (Autosave and reopen) and `src/features/gallery/messages.ts` (list and delete) | `src/core/result.ts`, `CLAUDE.md` §Conventions |
+| Notices | One `useNotices` boundary. Eviction notices are `info` and name every evicted Work, using "Untitled" for a nameless one. The failed-save notice is a `failure` notice that stays until it is dismissed. It is raised once per run of failures and withdrawn when a save succeeds (AC-11). The damaged-Work notice offers Delete, and `screens` decides between a notice action and a small dialog (ux-flows design input 5). A new primitive is registered in `docs/design-system.md` | `src/shared/notices/store.ts`, here |
+| ID strategy | Every successful open creates a Work with `newId()` (UUIDv7), even for a file opened before (AC-09). A reopen keeps the stored Work's id. Each applied Drawing layer gets a new id (draw ADR-0001), and a restored layer gets a new one too | `src/shared/ids.ts` |
+| Time | `touchedAt` is `Date.now()` taken when the Work is opened, reopened or changed, through a clock the tests can inject. `core/gallery` turns it into "Just now", "N minutes ago" or "N hours ago", and otherwise into the date through `Intl.DateTimeFormat` in the browser's language (AC-03) | `src/core/gallery/` |
+| Data read from storage | Untrusted (§3 trust boundary). Listing checks a record's shape and its thumbnail only. Choosing a Work runs `validateStoredWork` (sizes, Geometry with the Crop inside the image, Adjustment ranges, Source format, `formatVersion`) and checks each PNG's decoded size against the record (AC-08). The Source name is only ever rendered as text, and stored data is only ever shown as an image (spec §6.1) | `src/core/gallery/`, `src/infra/work-codec/` |
+| Privacy | Only the fields that spec §6.1 lists are stored. Deleting or evicting a Work removes it from `works`, `originals` and `layers` in one transaction (ADR-0002, ADR-0004). Nothing is logged or sent off the device. Nothing reopens on its own at start-up (AC-05) | spec §6.1 |
+| Resource lifetime | Decoded bitmaps that are superseded or rejected go through `closeBitmap`, and replaced layers through `releaseLayer`, as in §2. The open Work's encoded Blobs are dropped when it is replaced (ADR-0003). Thumbnail object URLs are revoked when the list unmounts | `src/shared/bitmap-ledger.ts`, `src/render/drawing/layer.ts` |
+| Persistent storage | Requested once, at the first save, when the `meta` marker is absent. The marker is written in that save's transaction (AC-14). The storage line reads `persisted()` each time the Gallery shows (AC-13). Where the API is missing, the line uses its non-persistent wording | `src/infra/platform/storage-persistence.ts` |
+| Leave warning | `EditorView` installs a `beforeunload` handler only while Autosave's `saving` is true, so reloading with a stored Work shows no warning (AC-20) | `src/features/editor/EditorView.vue` |
+| Concurrency across tabs | No coordination between tabs, and no warning when the same Work is open in two of them. Each tab keeps only its own open Work from eviction, IndexedDB runs the tabs' transactions one after the other, and the last save wins. A save that finds its Work evicted writes it back in full (AC-21, ADR-0004). The Gallery reads the list each time it shows, with no live refresh. This closes spec §8 question 1 with its default (assumptions ledger A13), as the owner decided on 2026-10-13 | here, spec §8 |
+| Schema evolution | Forward-only migrations (repo ADR 0003). Records carry `formatVersion`, older tabs give way on upgrade (ADR-0006), and every step has a `fake-indexeddb` test that stores a Work in the old shape and reopens it in the new one (AC-18) | `src/infra/db/migrations/` |
+| Logging and observability | None at runtime, as elsewhere in the repo. The e2e hooks expose the stored records and the ledger in DEV and e2e builds only | `src/app/test-hooks.ts` |
+| Internationalisation | English interface text only, as elsewhere. Dates use the browser's language | — |
 
 ## 9. Architecture decisions
 
