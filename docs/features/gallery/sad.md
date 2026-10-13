@@ -283,25 +283,19 @@ sequenceDiagram
 
 ## 7. Deployment view
 
-<!-- 🎯 Why: the TOPOLOGY DevOps must know without reading the deploy charts — how many replicas,
-     where the background worker lives, AT WHAT NUMBERS we scale.
-     📋 Write: 2–3 sentences on topology + monitoring + concrete threshold numbers.
-     📌 e.g. «500 authors → partition by quarter» (not «we'll think about scale later»).
-     🎯 N/A allowed for XS/S that reuses an existing deployment unit with no change.
-     Deployment-diagram scaffold → templates/deployment.md. -->
+Topology is unchanged. The app is one static build on GitHub Pages under `/imgly/`, deployed by the existing CI job on `main`, and the Workbox service worker precaches the app shell. Every Gallery operation (listing, reopening, Autosave, deleting) runs in the browser and works offline after the first load (spec §6). The database ships as code. Migration `0002` (ADR-0002) runs in each browser the first time the new version opens the database, with no server step and no data to convert. The new codec worker is bundled like the decode and export workers.
 
-<Topology in 2–3 sentences. Where it runs, replicas, scaling thresholds.>
+Two versions of the app can run at once, an old tab next to one that has updated. An upgrade needs every other connection to the database closed. The old tab therefore gives way when it is asked: it lets its running save finish, closes its connection and treats the Gallery as unavailable until it is reloaded. It also shows one notice that a newer version is open in another tab and to reload to keep saving ([ADR-0006](adr/0006-close-an-older-tabs-database-connection-when-a-newer-version-upgrades-it.md)). The current release opens no connection at runtime, so the first upgrade to v2 can't be blocked. The rule matters for every later migration (AC-18).
 
 **Monitoring:**
-- <Metrics — e.g. `<metric_name>`>
-- <Alerts — e.g. «worker lag > 10 min → page on-call»>
-- <Tracing — e.g. spans on the request boundary>
+- No runtime telemetry: the app is client-only and sends nothing off the device (ADR 0001, spec §6.1)
+- Quality is checked before release instead. `@perf` e2e runs (`PERF=1`) on the reference machine cover the §6 time targets and the long-task trace. CI runs the e2e reload, offline, quota, delete and two-tab sets on Chromium, Firefox and WebKit (§10)
+- In DEV and e2e builds, `window.__imglyTest` exposes the stored records and the bitmap and layer ledger, so the tests can assert that no part of a deleted Work remains and that no bitmap leaks (spec §6.1, §2)
 
 **Scaling thresholds:**
-- <e.g. comfortable in one table up to N rows/year>
-- <e.g. partition by quarter above N rows/year>
-
-<!-- For XS/S with no deployment change: <!-- N/A: reuses existing deployment unit, no infra change --> -->
+- At most 20 Works by design (spec §2). At the worst case of a 4096 px Original that is about 15–30 MB as PNG, plus a layer of up to a few MB and a thumbnail of about 0.2 MB, the Gallery holds roughly 0.3–0.7 GB. That is within the per-site quota the three engines grant on a typical desktop disk
+- Below that, on a small or nearly full disk, the quota retry evicts the oldest Works until the open one fits (ADR-0004). There is no byte budget of the app's own (roadmap D2, closed by the spec)
+- The `works` store never holds more than 21 small records during a save, so listing and choosing evictions stay constant in cost
 
 ## 8. Crosscutting concepts
 
@@ -335,6 +329,7 @@ sequenceDiagram
 | [0003](adr/0003-encode-the-original-and-the-drawing-layer-as-png-in-a-fresh-worker.md) | Encode the Original and the Drawing layer as PNG in a fresh worker | Accepted | §4 |
 | [0004](adr/0004-evict-and-store-in-one-indexeddb-transaction-and-retry-on-a-full-quota.md) | Evict and store in one IndexedDB transaction, and retry on a full quota | Accepted | §4 |
 | [0005](adr/0005-render-the-gallery-thumbnail-with-the-preview-renderer.md) | Render the Gallery thumbnail with the Preview renderer | Accepted | §5 |
+| [0006](adr/0006-close-an-older-tabs-database-connection-when-a-newer-version-upgrades-it.md) | Close an older tab's database connection when a newer version upgrades it | Accepted | §7 |
 
 ADR files live under `docs/features/gallery/adr/NNNN-<title>.md`.
 
