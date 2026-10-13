@@ -207,31 +207,79 @@ C4Container
 
 ## 6. Runtime view
 
-<!-- 🎯 Why: the RUNTIME FLOW of 1–2 critical scenarios — who talks to whom, when, in what order.
-     Without §6, §5 is just boxes with no life.
-     📋 Write: a Mermaid sequenceDiagram. Participants are names from §5 (don't invent new ones).
-     Messages are semantic («saves a draft»), NO HTTP verbs / paths / status codes — endpoint-level
-     sequences arrive at the `api` stage.
-     📌 e.g. «author → web: composes draft → web → content API: save». Seed the primary flow(s) here;
-     the `sequences` stage then covers every §5 AC (no cap). Never N/A for M+; XS/S keeps ≥1 happy-path flow. -->
+Participants are the §5 building blocks. "Editor store" means the `editor` store with its composed `autosave.ts` (ADR-0001). Messages are semantic. The `sequences` stage completes coverage of every §5 AC: delete, the start screen, the unavailable Gallery, the leave warning, the two-tab case and the update path.
 
-**Critical flow 1: <flow name>**
+**Critical flow 1: Autosave after an image opens or a Step, Undo or Redo is applied (with eviction and a full quota)**
 
 ```mermaid
 sequenceDiagram
-    actor Actor
-    participant Web
-    participant Service
-    participant Store
-    Actor->>Web: <action>
-    Web->>Service: <call>
-    Service->>Store: <write>
-    Store-->>Service: ok
-    Service-->>Web: result
-    Web-->>Actor: confirmation
+    actor Editor
+    participant Store as Editor store (autosave)
+    participant GPU as Preview renderer
+    participant Codec as Work codec worker
+    participant DB as Gallery store (IndexedDB)
+    participant SM as Browser storage policy
+    Editor->>Store: image replaces the Work, or Apply, Undo, Redo
+    Store->>Store: queue the newest Work, latest wins, saving on
+    opt first save of this Work, or the layer changed
+        Store->>Codec: encode the Original or the layer as PNG
+        Codec-->>Store: PNG Blob, kept in memory for this Work
+    end
+    Store->>GPU: render the thumbnail of the applied Work
+    GPU-->>Store: small image, encoded as PNG
+    opt first save in this browser
+        Store->>SM: ask once for persistent storage
+    end
+    Store->>DB: one transaction - pick evictions, delete them, write record, Original if missing, layer if changed
+    alt committed
+        DB-->>Store: stored, with the names of evicted Works
+        Store-->>Editor: one notice naming every evicted Work, if any
+    else quota full and other Works can still go
+        DB-->>Store: aborted, nothing changed
+        Store->>DB: same transaction with one more Work evicted
+    else quota full even with this Work alone
+        DB-->>Store: aborted, nothing changed
+        Store-->>Editor: notice - could not save to the Gallery, export to keep a copy
+    else another failure
+        DB-->>Store: failed
+        Store-->>Editor: one notice until a save succeeds, retried at the next Step
+    end
+    Store->>Store: newer state pending, save again, else saving off
 ```
 
-**Critical flow 2: <e.g. async event propagation>** — <if applicable, otherwise N/A>.
+**Critical flow 2: Reopen a Work from the Gallery through the replace gate**
+
+```mermaid
+sequenceDiagram
+    actor Editor
+    participant UI as Gallery feature
+    participant Store as Editor store (autosave)
+    participant DB as Gallery store (IndexedDB)
+    participant Codec as Work codec worker
+    Editor->>UI: choose a Work
+    UI->>Store: reopenWork(id)
+    alt export running or a replacement waits for confirmation
+        Store-->>UI: refused, hint to wait or answer first
+    else allowed
+        Store->>DB: load the record, the Original and the layer
+        DB-->>Store: stored parts
+        Store->>Codec: decode the PNGs at the recorded size
+        Codec-->>Store: bitmaps, or a decode failure
+        alt any part missing, damaged or invalid
+            Store-->>UI: damaged, the open Work unchanged
+            UI-->>Editor: entry marked damaged, notice offers Delete
+        else readable in full
+            Store->>Store: wait until no save is running or pending
+            alt Unsaved edits not stored, or the Gallery unavailable
+                Store-->>Editor: replace confirmation
+                Editor->>Store: confirm or cancel
+            end
+            Store->>Store: replace with the stored Work, empty Edit history, View fitted
+            Store->>Store: queue a save, which updates when it was last opened
+            Store-->>UI: replaced, close the overlay
+        end
+    end
+```
 
 ## 7. Deployment view
 
