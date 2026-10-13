@@ -335,29 +335,27 @@ ADR files live under `docs/features/gallery/adr/NNNN-<title>.md`.
 
 ## 10. Quality requirements
 
-<!-- 🎯 Why: the QUALITY TREE — take a goal from §1 and break it into concrete leaves: tests,
-     metrics, configs, drills. ⭐ Without §10, §1 is a manifesto. With §10 each declaration maps
-     to something PROVABLE.
-     📋 Write: per §1 goal — When / Then / How-verify. Numbers from spec §6 NFR VERBATIM (don't
-     round ≤250ms to ≤300ms — that's a critic F6 hit).
-     📌 e.g. «p95 ≤ 500 ms on a block update, verified by a 100 req/s load test». -->
+Each top-3 goal from §1 expanded into a full scenario. Numbers come verbatim from spec §6. The reference machine is an Apple M1 MacBook Air with the latest stable Chrome. The reference Work is 4096 × 3072 px with a Crop, a Straighten angle, all seven Adjustments away from neutral and a Drawing layer covered by marks over the whole image. Each p95 is taken over 20 runs after 2 warm-up runs, and "stored" means the Work can be read back after a reload (spec §6).
 
-Each top-3 goal from §1 expanded into a full scenario:
+**QG-1. Integrity of stored Works**
+- **When:** reloads are forced at random moments while Autosave stores a Work, the Gallery receives a 21st Work, or the browser reports its storage full
+- **Then:** 0 damaged or mixed Works in 50 reloads forced at random moments during Autosave. At most 20 Works are stored at any time, and the Work open in this tab is never evicted. 0 Works leave the Gallery without a notice across the eviction, full-storage and deletion flows (spec §7 KPI)
+- **How verify:** e2e on Chromium with 50 forced reloads during Autosave (`window.__imglyTest` hooks), checking every stored Work against its last committed state. A unit test of the `core/gallery` eviction rule, plus an e2e test opening 25 images. e2e for eviction, simulated full quota (ADR-0004 retry and the "nothing evicted when it can't fit alone" case) and deletion, asserting one notice per Work removed and no part left in `works`, `originals` or `layers` after a reload (spec §6.1)
 
-**QG-1. <quality attribute>**
-- **When:** <trigger condition>
-- **Then:** <expected behaviour with numbers from spec §6 NFR>
-- **How verify:** <test / chaos drill / load test / metric>
+**QG-2. Exact reopen**
+- **When:** a Work stored with a Crop, a Straighten angle, all seven Adjustments away from neutral and a drawing is reopened after a reload, or after an update of the app (AC-04, AC-18)
+- **Then:** difference 0 per channel between a full-size PNG Export after reopening and the Export of the same Work made before the reload. Each part stays editable on its own, and the Work has an empty Edit history and no Unsaved edits
+- **How verify:** e2e pixel comparison on Chromium, Firefox and WebKit over the reference set (Works with changes from each tool, spec §7). A `fake-indexeddb` migration test that stores a Work in the previous record shape and reopens it after the upgrade step, comparing every field. Unit tests of `validateStoredWork` and the codec's size check
 
-**QG-2. <quality attribute>**
-- **When:** <trigger>
-- **Then:** <expected>
-- **How verify:** <how>
+**QG-3. Editing stays responsive while Autosave runs**
+- **When:** an image opens, a Crop, Adjustment or drawing Step (or an Undo or Redo) is applied, a Work is reopened, or "Gallery" is chosen with 20 reference Works stored
+- **Then:** from an image's first Preview to the Work being stored, p95 ≤ 3 s. From an Apply, Undo or Redo to the change being stored, p95 ≤ 300 ms for a Crop or Adjustment Step and p95 ≤ 1.5 s for a drawing Step. Longest interface freeze ≤ 200 ms during both Autosave scenarios. From choosing a Work in the Gallery to its first Preview, p95 ≤ 1.5 s. From choosing "Gallery" to every thumbnail painted, p95 ≤ 500 ms
+- **How verify:** e2e `@perf` tests (`PERF=1`) on the reference machine for each target, and a long-task trace during the two Autosave scenarios. Firefox and WebKit are measured but not gated for the 3 s target until spec §8 question 2 is answered (§11)
 
-**QG-3. <quality attribute>**
-- **When:** <trigger>
-- **Then:** <expected>
-- **How verify:** <how>
+**QG-4. Honesty about storage (correctness rule)**
+- **When:** the Gallery shows, the Work is about to be replaced, or the page is about to unload
+- **Then:** the storage line follows the browser's current answer (AC-13). The replace confirmation appears exactly when the open Work has Unsaved edits whose latest state is not stored, or the Gallery is unavailable (AC-16, AC-17, AC-12). The leave warning appears only while a save runs (AC-20). And 100% of Gallery listing, reopening, Autosave and deleting runs succeed offline after the first load
+- **How verify:** editor store tests driving every gate branch with a fake repository and a fake clock. Component tests of the storage line. e2e for AC-16, AC-17 and AC-20 on all three engines, and the e2e set in offline mode
 
 ## 11. Risks and technical debt
 
