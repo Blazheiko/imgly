@@ -384,13 +384,20 @@ Each top-3 goal from §1 expanded into a full scenario. Numbers come verbatim fr
 
 ## 12. Glossary
 
-<!-- 🎯 Why: ⭐ the DOMAIN GLOSSARY that ends arguments a year later («checkpoint — weekly or
-     biweekly? quarter — calendar or fiscal?»).
-     📋 Write: a term / meaning table. Business + technical terms mixed.
-     📌 e.g. «Lesson | a unit inside a course made of blocks (text, video)». -->
+Canonical terms come from the repo-root [CONTEXT](../../../CONTEXT.md). The rows marked *design term* are introduced by this SAD and are not in CONTEXT yet. They are flagged for `/sdd:glossary`.
 
 | Term | Meaning |
 |---|---|
-| <e.g. domain object A> | <its meaning in this domain> |
-| <e.g. domain object B> | <its meaning> |
-| <e.g. domain invariant name> | <the rule, in plain language> |
+| Work | One image being edited: its Original, Source name and Source format plus its Geometry, Adjustments and Drawing layer (CONTEXT) |
+| Original | The opened image after orientation and the Downscale limit. It is stored losslessly as PNG and never changes after open (CONTEXT, ADR-0003) |
+| Gallery | The recent Works kept in this browser, at most 20, most recently opened or changed first, evicting the least recent Work that is not open in this tab (CONTEXT) |
+| Autosave | Storing the open Work's applied state in the Gallery without being asked: once it has opened, and after every Step, Undo and Redo. It never stores a Draft, the View or the Edit history (CONTEXT) |
+| Unsaved edits | Changes since the Work was opened, reopened or last exported. Replacing the Work asks only when they are not stored in the Gallery (CONTEXT) |
+| Step, Draft, View, Edit history | As in CONTEXT. Only Steps (and Undo or Redo of them) reach Autosave |
+| Drawing layer | The Work's one layer of marks. It is stored as PNG when its applied layer id changes (CONTEXT, ADR-0003) |
+| Export | The durable copy of the Work, as opposed to the Gallery, which the browser may clear (CONTEXT) |
+| Stored state | *Design term.* The last state of a Work whose save transaction committed. "Stored" means it can be read back after a reload (spec §6) |
+| Damaged Work | *Design term.* A Gallery entry whose record, thumbnail, Original or layer can't be read or fails validation. It never replaces the open Work, still counts toward the 20 places, and is evicted first (AC-08) |
+| Touched time (`touchedAt`) | *Design term.* When a Work was last opened, reopened or changed. It orders the Gallery and decides eviction (AC-03, AC-09) |
+| Replace gate | *Design term.* The shared decision every replacement of the Work passes: wait for a running save, then ask only when Unsaved edits are not stored (ux-flows, ADR-0001) |
+| Storage line | *Design term.* The one line in the Gallery that says where Works are kept and whether the browser may clear them, following the browser's current answer (AC-13) |
