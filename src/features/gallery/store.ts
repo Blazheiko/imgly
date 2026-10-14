@@ -38,6 +38,8 @@ export const useGallery = defineStore('gallery', () => {
   const connection = shallowRef<Result<Db, AppError> | null>(null)
   const entries = ref<GalleryEntry[]>([])
   const storageLine = ref('')
+  /** The list has been read at least once; until then the section shows only its title (R2-3). */
+  const listRead = ref(false)
   const overlayOpen = ref(false)
   const reopening = ref<string | null>(null)
   /** GalleryLists on screen; each hosts its own delete dialog, so the app-level one stands down. */
@@ -110,6 +112,7 @@ export const useGallery = defineStore('gallery', () => {
     // The previous list's URLs go only after the DOM has moved to the new ones.
     const stale = entries.value
     entries.value = next
+    listRead.value = true
     await nextTick()
     revokeAll(stale)
   }
@@ -209,6 +212,7 @@ export const useGallery = defineStore('gallery', () => {
     entries,
     count,
     storageLine,
+    listRead,
     unavailableReason,
     overlayOpen,
     reopening,

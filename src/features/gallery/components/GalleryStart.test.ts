@@ -125,4 +125,31 @@ describe('GalleryStart while the database is still opening (SCR-01, AC-12, S1-8)
     }
     w.unmount()
   })
+
+  it('R2-3: shows no count, empty state or storage line until the list is read after connect', async () => {
+    setActivePinia(createPinia())
+    const autosave = createFakeAutosave()
+    useEditorStore().setAutosave(autosave.fake)
+    autosave.available(false)
+    vi.stubGlobal('navigator', { storage: { persisted: vi.fn().mockResolvedValue(true) } })
+    const w = mount(GalleryStart, { attachTo: document.body })
+    for (let i = 0; i < 10; i++) await nextTick()
+    for (const id of ['gallery-count', 'gallery-empty', 'gallery-storage-line']) {
+      expect(w.find(`[data-testid="${id}"]`).exists(), id).toBe(false)
+    }
+    expect(w.text()).not.toContain(m.emptyState())
+
+    const db = await openDb(`imgly-gallery-start-${++dbCounter}`)
+    autosave.available(true)
+    const gallery = useGallery()
+    gallery.connect(ok(db))
+    await gallery.refresh()
+    await nextTick()
+
+    expect(w.get('[data-testid="gallery-count"]').text()).toBe(m.countLabel(0))
+    expect(w.find('[data-testid="gallery-empty"]').exists()).toBe(true)
+    expect(w.get('[data-testid="gallery-storage-line"]').text()).not.toBe('')
+    w.unmount()
+    db.close()
+  })
 })

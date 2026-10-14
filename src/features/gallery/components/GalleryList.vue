@@ -23,7 +23,7 @@ onBeforeUnmount(() => {
     <header class="gallery-list__header">
       <h2 :id="titleId" class="gallery-list__title">{{ m.galleryButton() }}</h2>
       <span
-        v-if="gallery.unavailableReason === null"
+        v-if="gallery.unavailableReason === null && gallery.listRead"
         class="gallery-list__count"
         data-testid="gallery-count"
         >{{ m.countLabel(gallery.count) }}</span
@@ -46,7 +46,7 @@ onBeforeUnmount(() => {
       <p class="gallery-list__note-title">{{ m.unavailableTitle() }}</p>
       <p>{{ m.unavailableBody(gallery.unavailableReason) }}</p>
     </div>
-    <template v-else>
+    <template v-else-if="gallery.listRead">
       <p class="gallery-list__storage" data-testid="gallery-storage-line">
         {{ gallery.storageLine }}
       </p>
