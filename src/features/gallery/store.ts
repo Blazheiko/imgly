@@ -92,11 +92,12 @@ export const useGallery = defineStore('gallery', () => {
       next = listed.value.map((w) => ({
         id: w.id,
         name: entryName(w.sourceName),
+        // The open Work is live and stored by Autosave, whatever this page marked earlier.
         status:
-          w.damaged || editor.damagedIds.has(w.id)
-            ? 'damaged'
-            : w.id === openId
-              ? 'open'
+          w.id === openId
+            ? 'open'
+            : w.damaged || editor.damagedIds.has(w.id)
+              ? 'damaged'
               : 'touched',
         label: touchedLabel(w.touchedAt, now),
         thumbnailUrl: w.record ? URL.createObjectURL(w.record.thumbnail) : null,

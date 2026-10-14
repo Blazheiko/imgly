@@ -51,6 +51,8 @@ export interface AutosaveDeps {
   requestPersistence: () => Promise<boolean>
   now: () => number
   damagedIds?: () => ReadonlySet<string>
+  /** A save of this Work committed: it is stored whole again. */
+  onStored?: (workId: string) => void
 }
 
 interface Held {
@@ -140,6 +142,7 @@ export function createAutosave(deps: AutosaveDeps) {
       return false
     }
     withdraw('failed')
+    deps.onStored?.(work.id)
     if (stored.value.evicted.length > 0) {
       deps.notices.pushAll([{ kind: 'info', text: infoEvicted(stored.value.evicted) }])
     }

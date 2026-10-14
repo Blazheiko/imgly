@@ -60,4 +60,23 @@ describe('editor store — page-level damaged ids (gallery AC-08, S1-3)', () => 
     expect(deps().damagedIds!().has('thumb-bad')).toBe(true)
     expect(deps().damagedIds!().has('other')).toBe(false)
   })
+
+  it('R2-2: a reopen that cannot read storage (STORAGE_FAILED) does not mark the Work damaged', async () => {
+    loadWork.mockResolvedValue(err(appError('STORAGE_FAILED')))
+
+    expect(await editor.reopenWork('stored-9')).toMatchObject({ kind: 'damaged' })
+
+    expect(editor.damagedIds.has('stored-9')).toBe(false)
+  })
+
+  it('R2-2: a committed save of a marked Work clears its mark, and only its own', () => {
+    editor.markDamaged('a')
+    editor.markDamaged('b')
+
+    deps().onStored!('a')
+
+    expect(editor.damagedIds.has('a')).toBe(false)
+    expect(editor.damagedIds.has('b')).toBe(true)
+    expect(deps().damagedIds!().has('a')).toBe(false)
+  })
 })

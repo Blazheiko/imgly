@@ -191,7 +191,8 @@ export const useEditorStore = defineStore('editor', () => {
   let rendererFactory: RendererFactory = createPreviewRenderer
   const notices = useNotices()
   // Works found damaged on this page (a failed reopen, a thumbnail that will not decode); Autosave
-  // reads it so a save cannot overwrite them and the Gallery keeps the mark across refresh.
+  // reads it so a save cannot overwrite them and the Gallery keeps the mark across refresh. A Work
+  // that reopens or stores whole again leaves it (R2-2).
   const damagedSet = reactive(new Set<string>())
   const damagedIds: ReadonlySet<string> = damagedSet
   function markDamaged(id: string) {
@@ -202,6 +203,7 @@ export const useEditorStore = defineStore('editor', () => {
     createAutosave({
       notices,
       damagedIds: () => damagedSet,
+      onStored: (id) => damagedSet.delete(id),
       codec: workCodec,
       renderer: () => {
         if (!renderer) throw new Error('no Preview renderer')
@@ -588,6 +590,7 @@ export const useEditorStore = defineStore('editor', () => {
       adjustments: fields.adjustments,
       drawing: restored.layer,
     })
+    damagedSet.delete(fields.id)
     autosave.value.keepEncoded(fields.id, {
       original: restored.original,
       layer: restored.layerBlob,
@@ -611,7 +614,8 @@ export const useEditorStore = defineStore('editor', () => {
     phase.value = 'reading'
     const damaged = (error: AppError): ReopenOutcome => {
       phase.value = 'idle'
-      markDamaged(id)
+      // Storage that could not be read says nothing about the Work itself.
+      if (error.code !== 'STORAGE_FAILED') markDamaged(id)
       return { kind: 'damaged', error }
     }
 

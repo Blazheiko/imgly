@@ -7,7 +7,7 @@ acs: ["AC-07", "AC-09", "AC-08", "AC-03"]
 files_hint: ["src/features/editor/store.ts", "src/features/editor/store.damaged.test.ts", "src/features/editor/autosave.ts", "src/features/gallery/store.ts", "src/features/gallery/store.test.ts"]
 owner: "Blazheiko"
 estimate: "M"
-status: "todo"
+status: "done"
 source: "review-2026-10-14-r2 R2-2"
 ---
 

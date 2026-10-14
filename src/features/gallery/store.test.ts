@@ -179,6 +179,30 @@ describe('gallery store', () => {
     })
   })
 
+  describe('the page damaged mark ends when the Work proves whole (T35, R2-2)', () => {
+    it('a marked Work that reopens lists Open, not Damaged, and is no longer marked', async () => {
+      const a = await seed(db, 'A.png', NOW - MINUTE)
+      await seed(db, 'B.png', NOW - 2 * MINUTE)
+      editor.markDamaged(a)
+
+      expect(await editor.reopenWork(a)).toEqual({ kind: 'replaced' })
+      await gallery.refresh()
+
+      expect(editor.damagedIds.has(a)).toBe(false)
+      expect(gallery.entries.find((e) => e.id === a)!.status).toBe('open')
+    })
+
+    it('the open Work lists Open even while it is still marked', async () => {
+      const a = await seed(db, 'A.png', NOW - MINUTE)
+      expect(await editor.reopenWork(a)).toEqual({ kind: 'replaced' })
+      editor.markDamaged(a)
+
+      await gallery.refresh()
+
+      expect(gallery.entries.find((e) => e.id === a)!.status).toBe('open')
+    })
+  })
+
   describe('markDamaged with the erroring thumbnail URL (T33, S2-6)', () => {
     it('ignores an error for a URL that is no longer the entry thumbnail', async () => {
       const id = await seed(db, 'A.png', NOW)

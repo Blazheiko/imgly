@@ -76,7 +76,12 @@ async function seed(db: Db, count: number, firstTouchedAt = 1) {
 
 /** Everything is injected: the codec, the renderer, the thumbnail encoder, persistence and the clock. */
 function setup(
-  options: { faults?: Faults | (() => Faults); persist?: () => Promise<boolean> } = {},
+  options: {
+    faults?: Faults | (() => Faults)
+    persist?: () => Promise<boolean>
+    damagedIds?: () => ReadonlySet<string>
+    onStored?: (workId: string) => void
+  } = {},
 ) {
   setActivePinia(createPinia())
   const notices = useNotices()
@@ -122,6 +127,8 @@ function setup(
     encodeThumbnail,
     requestPersistence,
     now: () => clock,
+    damagedIds: options.damagedIds,
+    onStored: options.onStored,
   })
   const name = freshName()
   const connect = async () => {
@@ -504,6 +511,24 @@ describe('Autosave failed save (gallery AC-11)', () => {
     mode = null
     await save(s, edited(work, 2))
     expect(texts(s)).toEqual([failureStorageFull()])
+  })
+
+  it('R2-2: a committed save reports its Work to onStored; a failed one does not', async () => {
+    let failing = true
+    const onStored = vi.fn()
+    const s = setup({
+      onStored,
+      faults: () => ({ failPut: (store) => (failing && store === 'works' ? 'other' : null) }),
+    })
+    await s.connect()
+    const work = makeWork()
+
+    await save(s, work)
+    expect(onStored).not.toHaveBeenCalled()
+
+    failing = false
+    await save(s, edited(work, 1))
+    expect(onStored).toHaveBeenCalledExactlyOnceWith(work.id)
   })
 
   it('does not throw and keeps working after a failure', async () => {
