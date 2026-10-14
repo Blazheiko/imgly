@@ -537,6 +537,208 @@
         "docs/architecture-map.md"
       ],
       "file": "docs/features/gallery/tasks/t23-docs-spec-wording-and-cross-feature.md"
+    },
+    {
+      "id": "T24",
+      "title": "Repository write side: rewrite the layer when the stored layerId differs, refuse a layerId with no layer, a string-safe evicted name, and a quota failure at commit",
+      "layer": "infra",
+      "deps": [],
+      "acs": [
+        "AC-21",
+        "AC-19",
+        "AC-08",
+        "AC-09",
+        "AC-10"
+      ],
+      "dod": "works-repository tests: two connections with different layer ids never leave a mixed record and layer; storeWork with a layerId, no layer Blob and no stored entry returns STORAGE_FAILED and stores nothing; an evicted damaged record with a non-string sourceName is named ''; a fault mode where every request succeeds and the commit fails with QuotaExceededError is retried and ends in STORAGE_QUOTA",
+      "files_hint": [
+        "src/infra/db/works-repository.ts",
+        "src/infra/db/works-repository.test.ts",
+        "src/infra/db/testing.ts"
+      ],
+      "file": "docs/features/gallery/tasks/t24-review-fix.md",
+      "source": "docs/features/gallery/_review/review-2026-10-14.md S1-1, S2-1, S2-2, S2-3"
+    },
+    {
+      "id": "T25",
+      "title": "Damaged records the index can't see: list from the store, sort in core with a NaN-safe order, and treat a record that fails the shape or thumbnail check as damaged when choosing what to evict",
+      "layer": "infra",
+      "deps": [
+        "T24"
+      ],
+      "acs": [
+        "AC-08",
+        "AC-03",
+        "AC-06",
+        "AC-09"
+      ],
+      "dod": "a record with touchedAt missing, null or NaN is listed (marked damaged), counted and deletable; storeWork at 20 Works evicts a record that fails validateRecordShape or the PNG-thumbnail check first and names it, with no damaged set from the caller (test-plan row 143); the eviction comparator is total for NaN",
+      "files_hint": [
+        "src/infra/db/works-repository.ts",
+        "src/infra/db/works-repository.test.ts",
+        "src/core/gallery/rules.ts",
+        "src/core/gallery/rules.test.ts"
+      ],
+      "file": "docs/features/gallery/tasks/t25-review-fix.md",
+      "source": "docs/features/gallery/_review/review-2026-10-14.md S1-2, S1-3 (repository half)"
+    },
+    {
+      "id": "T26",
+      "title": "The page remembers damaged Works: wire damagedIds into Autosave, keep the Damaged mark across refresh, and mark an entry damaged when its thumbnail fails to decode",
+      "layer": "app",
+      "deps": [
+        "T25"
+      ],
+      "acs": [
+        "AC-08"
+      ],
+      "dod": "editor store keeps a page-level damaged-id set fed by a damaged reopen and a thumbnail decode error and passes it as createAutosave damagedIds; gallery refresh keeps the mark; GalleryEntry's img @error marks the entry Damaged; tests cover each, including an image/png Blob of garbage bytes",
+      "files_hint": [
+        "src/features/editor/store.ts",
+        "src/features/editor/store.test.ts",
+        "src/features/gallery/store.ts",
+        "src/features/gallery/store.test.ts",
+        "src/features/gallery/components/GalleryEntry.vue",
+        "src/features/gallery/components/GalleryList.test.ts",
+        "src/infra/db/testing.ts"
+      ],
+      "file": "docs/features/gallery/tasks/t26-review-fix.md",
+      "source": "docs/features/gallery/_review/review-2026-10-14.md S1-3 (page half), S1-4"
+    },
+    {
+      "id": "T27",
+      "title": "The Gallery overlay: close after a confirmed reopen, Esc in SCR-04 or SCR-05 cancels the dialog only, and the overlay covers the status bar",
+      "layer": "ui",
+      "deps": [
+        "T26"
+      ],
+      "acs": [
+        "AC-04",
+        "AC-17",
+        "AC-06",
+        "AC-03"
+      ],
+      "dod": "GalleryOverlay/store tests: choosing a Work that asks, then Replace, hides the overlay and focuses Gallery; Cancel keeps it open; Esc in DeleteWorkDialog or ReplaceDialog over the overlay closes only the dialog; the overlay box covers the status bar; an e2e: failed save, choose a Work, Replace, overlay hidden",
+      "files_hint": [
+        "src/features/gallery/store.ts",
+        "src/features/gallery/store.test.ts",
+        "src/features/gallery/components/GalleryOverlay.vue",
+        "src/features/gallery/components/GalleryOverlay.test.ts",
+        "src/features/editor/EditorView.vue",
+        "e2e/gallery/gate-and-lifecycle.spec.ts"
+      ],
+      "file": "docs/features/gallery/tasks/t27-review-fix.md",
+      "source": "docs/features/gallery/_review/review-2026-10-14.md S1-5, S1-6, S2-7"
+    },
+    {
+      "id": "T28",
+      "title": "Nothing reaches the Work under the open Gallery: opens, drops, zoom, Undo/Redo and the save shortcut do nothing while activePanel is gallery",
+      "layer": "wiring",
+      "deps": [
+        "T27"
+      ],
+      "acs": [
+        "AC-03"
+      ],
+      "dod": "EditorView, UndoRedoActions and ExportAction tests: with activePanel 'gallery', Ctrl/Cmd+O, a drop, +/-/0 zoom keys, Ctrl/Cmd+Z/Y and Ctrl/Cmd+S change nothing (no replace, no View change, no Step, Export panel stays closed); the drop guard still prevents navigation",
+      "files_hint": [
+        "src/features/editor/EditorView.vue",
+        "src/features/editor/EditorView.test.ts",
+        "src/features/undo-redo/UndoRedoActions.vue",
+        "src/features/undo-redo/UndoRedoActions.test.ts",
+        "src/features/export/ExportAction.vue",
+        "src/features/export/ExportAction.test.ts"
+      ],
+      "file": "docs/features/gallery/tasks/t28-review-fix.md",
+      "source": "docs/features/gallery/_review/review-2026-10-14.md S1-7"
+    },
+    {
+      "id": "T29",
+      "title": "Before the database connects: SCR-01 shows the listing state, not a false unavailable reason, and a Work opened in that window is stored once the connection opens",
+      "layer": "app",
+      "deps": [
+        "T28"
+      ],
+      "acs": [
+        "AC-12",
+        "AC-01"
+      ],
+      "dod": "gallery store: a null connection gives unavailableReason null (newer-version only when connected and the editor reports unavailable); editor store: connectGallery with a Work open requests one save; tests for both, and GalleryStart renders no unavailable copy while connecting",
+      "files_hint": [
+        "src/features/gallery/store.ts",
+        "src/features/gallery/store.test.ts",
+        "src/features/gallery/components/GalleryStart.test.ts",
+        "src/features/editor/store.ts",
+        "src/features/editor/store.test.ts"
+      ],
+      "file": "docs/features/gallery/tasks/t29-review-fix.md",
+      "source": "docs/features/gallery/_review/review-2026-10-14.md S1-8"
+    },
+    {
+      "id": "T30",
+      "title": "Notices and refresh: the damaged notice's Delete always opens its dialog, a successful save keeps the storage-full notice, and only the latest refresh assigns the list without leaking thumbnail URLs",
+      "layer": "ui",
+      "deps": [
+        "T29"
+      ],
+      "acs": [
+        "AC-08",
+        "AC-10",
+        "AC-11",
+        "AC-03"
+      ],
+      "dod": "DeleteWorkDialog is mounted once outside GalleryList and opens from the notice with no list mounted; pendingDelete never surfaces later unasked; autosave withdraws only the save-failed notice; overlapping refresh() calls assign only the newest list and revoke every superseded URL; tests for each",
+      "files_hint": [
+        "src/features/gallery/store.ts",
+        "src/features/gallery/store.test.ts",
+        "src/features/gallery/components/GalleryList.vue",
+        "src/features/gallery/components/GalleryOverlay.vue",
+        "src/features/gallery/components/GalleryStart.vue",
+        "src/features/gallery/index.ts",
+        "src/app/App.vue",
+        "src/features/editor/autosave.ts",
+        "src/features/editor/autosave.test.ts"
+      ],
+      "file": "docs/features/gallery/tasks/t30-review-fix.md",
+      "source": "docs/features/gallery/_review/review-2026-10-14.md S2-4, S2-5, S2-6"
+    },
+    {
+      "id": "T31",
+      "title": "Missing AC-14 and AC-18 tests: persistence is asked once more after the stored data is cleared, and a Work survives a version bump with all its parts",
+      "layer": "tests",
+      "deps": [
+        "T30"
+      ],
+      "acs": [
+        "AC-14",
+        "AC-18"
+      ],
+      "dod": "an integration test: save, clear the database, save again gives exactly one more persist() call; the AC-18 e2e asserts the stored record, Original, layer and thumbnail all still exist after galleryOpenNextVersion() instead of not.toEqual",
+      "files_hint": [
+        "src/features/editor/autosave.test.ts",
+        "src/infra/db/works-repository.test.ts",
+        "e2e/gallery/gate-and-lifecycle.spec.ts"
+      ],
+      "file": "docs/features/gallery/tasks/t31-review-fix.md",
+      "source": "docs/features/gallery/_review/review-2026-10-14.md S1-9"
+    },
+    {
+      "id": "T32",
+      "title": "Docs: test-plan says migration 0002 clears v1 records as decided, and the new test rows from T24–T31 are listed",
+      "layer": "docs",
+      "deps": [
+        "T31"
+      ],
+      "acs": [
+        "AC-18",
+        "AC-08"
+      ],
+      "dod": "test-plan.md:185 matches migration 0002 and ADR-0002 (works cleared); rows added for the tests T24–T31 introduced",
+      "files_hint": [
+        "docs/features/gallery/test-plan.md"
+      ],
+      "file": "docs/features/gallery/tasks/t32-review-fix.md",
+      "source": "docs/features/gallery/_review/review-2026-10-14.md S1-10"
     }
   ]
 }
