@@ -3,6 +3,7 @@ import { onBeforeUnmount } from 'vue'
 import { BaseButton } from '@/shared'
 import { useGallery } from '../store'
 import * as m from '../messages'
+import DeleteWorkDialog from './DeleteWorkDialog.vue'
 import GalleryEntry from './GalleryEntry.vue'
 
 defineProps<{ showClose: boolean; showOpenImage: boolean; titleId?: string }>()
@@ -68,6 +69,7 @@ onBeforeUnmount(() => {
         />
       </ul>
     </template>
+    <DeleteWorkDialog />
   </section>
 </template>
 

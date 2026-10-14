@@ -11,7 +11,6 @@ import { useEditorStore } from '@/features/editor'
 import { createFakeAutosave } from '@/features/editor/testing'
 import { useGallery } from '../store'
 import * as m from '../messages'
-import DeleteWorkDialog from './DeleteWorkDialog.vue'
 import GalleryList from './GalleryList.vue'
 
 type Db = IDBPDatabase<ImglyDb>
@@ -35,7 +34,8 @@ const flush = async () => {
 // Pinned API: DeleteWorkDialog takes no props. It renders nothing while useGallery().pendingDelete
 // is null; otherwise a Dialog titled deleteDialogTitle(name) with deleteDialogBody(), a secondary
 // Cancel (cancelDelete) and a primary Delete (confirmDelete). Esc and backdrop call cancelDelete.
-// It is mounted next to a GalleryList (as T17 does), whose Delete buttons are `aria-label`led.
+// GalleryList mounts it, so the start screen and the overlay both confirm deletes; the list's
+// Delete buttons are `aria-label`led.
 describe('DeleteWorkDialog (SCR-04, AC-06)', () => {
   let db: Db
   let editor: ReturnType<typeof useEditorStore>
@@ -74,10 +74,7 @@ describe('DeleteWorkDialog (SCR-04, AC-06)', () => {
     await gallery.refresh()
     wrapper = mount(
       defineComponent({
-        render: () => [
-          h(GalleryList, { showClose: false, showOpenImage: true }),
-          h(DeleteWorkDialog),
-        ],
+        render: () => [h(GalleryList, { showClose: false, showOpenImage: true })],
       }),
       { attachTo: document.body },
     )

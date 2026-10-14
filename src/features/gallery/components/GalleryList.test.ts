@@ -197,6 +197,15 @@ describe('GalleryList (SCR-01, SCR-03)', () => {
       expect(gallery.pendingDelete).toEqual({ id, name: 'A.png' })
     })
 
+    it('the list itself shows the delete confirmation, so both homes can delete (AC-06)', async () => {
+      await seed(db, 'A.png', NOW - MINUTE)
+      const w = await show()
+      await entryButton(w, m.deleteButtonName('A.png')).trigger('click')
+      await nextTick()
+      const dialog = document.querySelector('[role="alertdialog"]')
+      expect(dialog?.textContent).toContain(m.deleteDialogTitle('A.png'))
+    })
+
     it('Delete on the open entry is aria-disabled, described by the hint, and toasts it', async () => {
       const a = await seed(db, 'A.png', NOW - MINUTE)
       await editor.reopenWork(a)
