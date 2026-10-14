@@ -31,6 +31,7 @@ import {
   overlay,
   previewPixels,
   rawAdjustments,
+  rawParts,
   releaseEncodes,
   replaceDialog,
   start,
@@ -290,6 +291,9 @@ test("AC-18: a newer version in another page closes this one's connection; it ke
   await gotoReady(page)
   await openNumbered(page, 1)
   const open = (await work(page))!.id
+  await waitForCommittedSave(page)
+  const beforeBump = await rawParts(page, open)
+  expect(beforeBump.record, 'the Work is stored before the bump').not.toBeNull()
 
   const other = await context.newPage()
   await gotoReady(other)
@@ -301,6 +305,16 @@ test("AC-18: a newer version in another page closes this one's connection; it ke
   expect((await work(page))!.adjustments).toEqual(EDIT_A)
   await page.waitForTimeout(1000)
   expect(await rawAdjustments(other, open), 'nothing more is stored from here').not.toEqual(EDIT_A)
+  // Stricter: the stored Work survived the upgrade with all its parts, and is still the pre-edit state.
+  const after = await rawParts(other, open)
+  expect(after.record, 'the record survived the version bump').not.toBeNull()
+  expect(after.record!.adjustments, 'and still holds the pre-edit Adjustments').toEqual(
+    beforeBump.record!.adjustments,
+  )
+  expect(after.originalBytes, 'the Original survived').toBeGreaterThan(0)
+  expect(after.thumbnailBytes, 'the thumbnail survived').toBeGreaterThan(0)
+  expect(after.layerBytes, 'the layer (if any) survived').toBe(beforeBump.layerBytes)
+  expect(after).toEqual(beforeBump)
   await expect(replaceDialog(page)).toHaveCount(0)
 
   // The Work has Unsaved edits that nothing holds, so a replace asks.

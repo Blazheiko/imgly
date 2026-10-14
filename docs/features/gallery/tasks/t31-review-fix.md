@@ -7,7 +7,7 @@ acs: ["AC-14", "AC-18"]
 files_hint: ["src/features/editor/autosave.test.ts", "src/infra/db/works-repository.test.ts", "e2e/gallery/gate-and-lifecycle.spec.ts"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 source: "review-2026-10-14 S1-9"
 ---
 

@@ -554,6 +554,32 @@ describe('Autosave persistent storage (gallery AC-14)', () => {
     expect(s.requestPersistence).toHaveBeenCalledTimes(1)
   })
 
+  it('asks once more after the stored data is cleared (the browser cleared site data)', async () => {
+    const s = setup()
+    const raw = await s.connect()
+    const work = makeWork()
+    await save(s, work)
+    await save(s, edited(work, 1))
+    expect(s.requestPersistence).toHaveBeenCalledTimes(1)
+
+    // Clearing site data deletes the database; close our connection so the delete is not blocked.
+    raw.close()
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.deleteDatabase(s.name)
+      request.onsuccess = () => resolve()
+      request.onerror = () => reject(request.error)
+    })
+    const fresh = await s.connect()
+    expect(await fresh.getAll('works')).toHaveLength(0)
+
+    await save(s, edited(work, 2))
+    expect(await fresh.getAll('works')).toHaveLength(1)
+    expect(s.requestPersistence).toHaveBeenCalledTimes(2)
+
+    await save(s, edited(work, 3))
+    expect(s.requestPersistence).toHaveBeenCalledTimes(2)
+  })
+
   it('a declined request still commits the save', async () => {
     const s = setup({ persist: async () => false })
     const db = await s.connect()

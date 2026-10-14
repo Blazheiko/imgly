@@ -478,3 +478,47 @@ export function rawAdjustments(page: Page, workId: string): Promise<Record<strin
     }
   }, workId)
 }
+
+/**
+ * The parts of a stored Work, read with a version-less `indexedDB.open` (see `rawAdjustments`):
+ * the record, whether the Original, the layer and the thumbnail exist, and their byte sizes.
+ */
+export interface RawParts {
+  record: { adjustments: Record<string, number>; layerId: string | null } | null
+  originalBytes: number | null
+  layerBytes: number | null
+  thumbnailBytes: number | null
+}
+
+export function rawParts(page: Page, workId: string): Promise<RawParts> {
+  return page.evaluate(async (id) => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('imgly')
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    const get = <T>(store: string): Promise<T | undefined> =>
+      new Promise((resolve, reject) => {
+        const request = db.transaction(store).objectStore(store).get(id)
+        request.onsuccess = () => resolve(request.result as T | undefined)
+        request.onerror = () => reject(request.error)
+      })
+    try {
+      const record = await get<{
+        adjustments: Record<string, number>
+        layerId: string | null
+        thumbnail?: Blob
+      }>('works')
+      const original = await get<{ png: Blob }>('originals')
+      const layer = await get<{ png: Blob }>('layers')
+      return {
+        record: record ? { adjustments: record.adjustments, layerId: record.layerId } : null,
+        originalBytes: original?.png.size ?? null,
+        layerBytes: layer?.png.size ?? null,
+        thumbnailBytes: record?.thumbnail?.size ?? null,
+      }
+    } finally {
+      db.close()
+    }
+  }, workId)
+}
