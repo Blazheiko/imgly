@@ -2,7 +2,7 @@
 status: Accepted
 owner: "Blazheiko"
 reviewers: ["Tech Lead"]
-updated_at: "2026-10-13"
+updated_at: "2026-10-14"
 feature_size: "M"
 ticket: "roadmap step 8 — gallery"
 ---
@@ -55,6 +55,10 @@ How it works:
 
 **Neutral**
 - The encoded Blobs kept in memory cost roughly their PNG size while the Work is open.
+
+## Amendment (2026-10-14, implementation)
+
+The worker still stores PNG, but it no longer encodes with `OffscreenCanvas.convertToBlob`. Firefox's canvas PNG encoder un-premultiplies with different rounding from `getImageData`, which the Export reads, so every semi-transparent pixel (an Original's alpha and the anti-aliased edges of a Drawing layer) drifted on each save and reopen, by up to 23 per channel. The worker now reads straight RGBA with `getImageData` and writes the PNG itself: a pure 8-bit RGBA writer in `src/core/image-header/png-write.ts` (filter 0) compressed with `CompressionStream('deflate')`. Reopened Works now export with difference 0 on Chromium, Firefox and WebKit, semi-transparent pixels included, so the "off by one step" consequence above no longer holds. Costs: stored PNGs are always RGBA, and with filter 0 only a 12 MP Original encodes about 1.4 s and 30% larger on WebKit (faster and smaller on Chromium and Firefox); per-row filtering can recover size if the byte budget needs it.
 
 ## Links
 

@@ -8,6 +8,7 @@ import { isWebp, parseWebp } from './webp'
 import { HEADER_WINDOW_BYTES, type ImageHeader } from './types'
 
 export * from './types'
+export { pngFile, pngScanlines } from './png-write'
 export {
   continueGifWalk,
   GIF_WALK_MAX_BYTES,

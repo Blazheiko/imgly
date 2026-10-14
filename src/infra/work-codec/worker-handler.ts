@@ -16,6 +16,8 @@ export type CodecReply =
 export interface CodecDeps {
   createCanvas(width: number, height: number): OffscreenCanvas
   createBitmap(blob: Blob, options: ImageBitmapOptions): Promise<ImageBitmap>
+  /** Straight RGBA to PNG, byte for byte (`png-encode.ts`); never a canvas encoder. */
+  encodePng(width: number, height: number, rgba: Uint8Array): Promise<Blob>
   post(message: CodecReply, transfer?: Transferable[]): void
 }
 
@@ -27,10 +29,13 @@ export async function handleCodecRequest(request: CodecRequest, deps: CodecDeps)
     const { bitmap } = request
     try {
       const canvas = deps.createCanvas(bitmap.width, bitmap.height)
-      const context = canvas.getContext('2d')
+      const context = canvas.getContext('2d', { willReadFrequently: true })
       if (!context) throw new Error('no 2d context')
       context.drawImage(bitmap, 0, 0)
-      const png = await canvas.convertToBlob({ type: 'image/png' })
+      // The same straight readback the Export makes (export worker `readPixels`), stored as is:
+      // the reopened Original then reads back to the very bytes the Export read before (QG-2).
+      const { data } = context.getImageData(0, 0, bitmap.width, bitmap.height)
+      const png = await deps.encodePng(bitmap.width, bitmap.height, new Uint8Array(data.buffer))
       deps.post({ ok: true, value: png })
     } catch {
       fail('STORAGE_FAILED')

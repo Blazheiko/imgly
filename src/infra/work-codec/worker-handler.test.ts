@@ -34,15 +34,12 @@ function makeDeps() {
           drawImage: (b: unknown) => {
             drawn = b as FakeBitmap
           },
+          getImageData: () => ({ width, height, data: drawn!.data }),
         }),
-        convertToBlob: async (options?: { type?: string }) => {
-          const header = new Uint8Array([width, height])
-          return new Blob([header, new Uint8Array(drawn!.data.buffer as ArrayBuffer)], {
-            type: options?.type ?? '',
-          })
-        },
       } as unknown as OffscreenCanvas
     },
+    encodePng: async (width, height, rgba) =>
+      new Blob([new Uint8Array([width, height]), rgba as BlobPart], { type: 'image/png' }),
     createBitmap: async (blob, options) => {
       decodeOptions.push(options)
       const bytes = new Uint8Array(await blob.arrayBuffer())
@@ -68,7 +65,22 @@ describe('handleCodecRequest, encode (AC-04)', () => {
     if (message.ok) expect(message.value).toBeInstanceOf(Blob)
   })
 
-  it('asks the canvas for image/png', async () => {
+  it('encodes the straight getImageData bytes, semi-transparent ones unchanged (QG-2)', async () => {
+    const { deps } = makeDeps()
+    const encodePng = vi.spyOn(deps, 'encodePng')
+    const translucent = new Uint8ClampedArray([
+      203, 123, 43, 64, 255, 0, 0, 1, 0, 0, 0, 0, 9, 9, 9, 255,
+    ])
+    await handleCodecRequest(
+      { kind: 'encode', bitmap: asBitmap(fakeBitmap(2, 2, translucent)) },
+      deps,
+    )
+    const [width, height, rgba] = encodePng.mock.calls[0]!
+    expect([width, height]).toEqual([2, 2])
+    expect(Array.from(rgba)).toEqual(Array.from(translucent))
+  })
+
+  it('posts an image/png Blob', async () => {
     const { deps, post } = makeDeps()
     await handleCodecRequest({ kind: 'encode', bitmap: asBitmap(fakeBitmap(2, 2, PIXELS)) }, deps)
     const message = post.mock.calls[0]![0]
