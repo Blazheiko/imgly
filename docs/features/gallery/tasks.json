@@ -762,6 +762,162 @@
       ],
       "file": "docs/features/gallery/tasks/t33-review-fix.md",
       "source": "docs/features/gallery/_review/review-2026-10-14.md S2-6 (pulled forward from T30); regression found in T27's e2e gate"
+    },
+    {
+      "id": "T34",
+      "title": "A stored record with a non-numeric touchedAt never stops the Gallery listing: its label falls back and the entry lists Damaged",
+      "layer": "core",
+      "deps": [],
+      "acs": [
+        "AC-08",
+        "AC-03"
+      ],
+      "dod": "touchedLabel returns a fallback for a non-finite touchedAt; refresh() and open() list every entry when a record has a NaN, null or missing touchedAt, and that entry is Damaged",
+      "files_hint": [
+        "src/core/gallery/rules.ts",
+        "src/core/gallery/rules.test.ts",
+        "src/features/gallery/store.ts",
+        "src/features/gallery/store.test.ts"
+      ],
+      "file": "docs/features/gallery/tasks/t34-review-fix.md",
+      "source": "docs/features/gallery/_review/review-2026-10-14-r2.md R2-1"
+    },
+    {
+      "id": "T35",
+      "title": "The page's damaged mark clears when the Work reopens or stores whole, only WORK_DAMAGED marks it, and the open Work lists Open",
+      "layer": "app",
+      "deps": [
+        "T34"
+      ],
+      "acs": [
+        "AC-07",
+        "AC-09",
+        "AC-08",
+        "AC-03"
+      ],
+      "dod": "A transient STORAGE_FAILED on reopen does not mark the Work; a successful reopen or a committed save of that id removes the mark; refresh lists the open Work as Open; a Work marked then reopened is not evicted first",
+      "files_hint": [
+        "src/features/editor/store.ts",
+        "src/features/editor/store.damaged.test.ts",
+        "src/features/editor/autosave.ts",
+        "src/features/gallery/store.ts",
+        "src/features/gallery/store.test.ts"
+      ],
+      "file": "docs/features/gallery/tasks/t35-review-fix.md",
+      "source": "docs/features/gallery/_review/review-2026-10-14-r2.md R2-2"
+    },
+    {
+      "id": "T36",
+      "title": "Autosave hands the page's damaged set to the save, so a damaged Work is evicted first",
+      "layer": "tests",
+      "deps": [
+        "T35"
+      ],
+      "acs": [
+        "AC-08"
+      ],
+      "dod": "An autosave.test.ts case with 20 valid records and damagedIds containing a middle one evicts and names that one; the test fails if Autosave passes no damaged set",
+      "files_hint": [
+        "src/features/editor/autosave.test.ts"
+      ],
+      "file": "docs/features/gallery/tasks/t36-review-fix.md",
+      "source": "docs/features/gallery/_review/review-2026-10-14-r2.md R2-5"
+    },
+    {
+      "id": "T37",
+      "title": "While the database connects, the Gallery shows neither a count, the empty state nor a storage line",
+      "layer": "ui",
+      "deps": [
+        "T35"
+      ],
+      "acs": [
+        "AC-03",
+        "AC-05"
+      ],
+      "dod": "Before the first listing after connect, gallery-count, gallery-empty and the storage line are absent on SCR-01 and SCR-03; they appear once the list is read",
+      "files_hint": [
+        "src/features/gallery/store.ts",
+        "src/features/gallery/store.test.ts",
+        "src/features/gallery/components/GalleryList.vue",
+        "src/features/gallery/components/GalleryStart.test.ts"
+      ],
+      "file": "docs/features/gallery/tasks/t37-review-fix.md",
+      "source": "docs/features/gallery/_review/review-2026-10-14-r2.md R2-3"
+    },
+    {
+      "id": "T38",
+      "title": "The delete confirmation over the Editor holds the keyboard and drops, and its Esc leaves an open tool alone",
+      "layer": "wiring",
+      "deps": [
+        "T37"
+      ],
+      "acs": [
+        "AC-06",
+        "AC-08"
+      ],
+      "dod": "With the standby DeleteWorkDialog open, tool keys, undo/redo, Ctrl+O, Ctrl+S, zoom keys and drops do nothing to the Work; Esc cancels only the dialog, the open tool keeps its Draft",
+      "files_hint": [
+        "src/features/editor/store.ts",
+        "src/features/gallery/store.ts",
+        "src/features/crop-rotate/shortcuts.ts",
+        "src/app/App.test.ts"
+      ],
+      "file": "docs/features/gallery/tasks/t38-review-fix.md",
+      "source": "docs/features/gallery/_review/review-2026-10-14-r2.md R2-4"
+    },
+    {
+      "id": "T39",
+      "title": "e2e: a thumbnail whose bytes will not decode lists Damaged in a real browser",
+      "layer": "tests",
+      "deps": [
+        "T38"
+      ],
+      "acs": [
+        "AC-08"
+      ],
+      "dod": "A 'thumbnail-bytes' damage kind stores garbage bytes typed image/png; e2e asserts that entry becomes Damaged and the others stay normal",
+      "files_hint": [
+        "src/infra/db/testing.ts",
+        "e2e/gallery/manage-and-limits.spec.ts"
+      ],
+      "file": "docs/features/gallery/tasks/t39-review-fix.md",
+      "source": "docs/features/gallery/_review/review-2026-10-14-r2.md R2-6"
+    },
+    {
+      "id": "T40",
+      "title": "The commit-quota test fault aborts every save, not only a first one",
+      "layer": "tests",
+      "deps": [
+        "T39"
+      ],
+      "acs": [
+        "AC-10"
+      ],
+      "dod": "The commitFail fault aborts the transaction whatever stores the save writes; a test on a later save shows nothing committed and STORAGE_QUOTA returned",
+      "files_hint": [
+        "src/infra/db/testing.ts",
+        "src/infra/db/works-repository.test.ts"
+      ],
+      "file": "docs/features/gallery/tasks/t40-review-fix.md",
+      "source": "docs/features/gallery/_review/review-2026-10-14-r2.md R2-7"
+    },
+    {
+      "id": "T41",
+      "title": "Docs: test-plan lists the round-2 tests, and the round-2 review records its resolution",
+      "layer": "docs",
+      "deps": [
+        "T40"
+      ],
+      "acs": [
+        "AC-08"
+      ],
+      "dod": "test-plan.md has rows for T34–T40; review-2026-10-14-r2.md has a Resolution section with the commits",
+      "files_hint": [
+        "docs/features/gallery/test-plan.md",
+        "docs/features/gallery/_review/review-2026-10-14-r2.md"
+      ],
+      "file": "docs/features/gallery/tasks/t41-review-fix.md",
+      "source": "docs/features/gallery/_review/review-2026-10-14-r2.md round 2 resolution"
     }
   ]
 }
