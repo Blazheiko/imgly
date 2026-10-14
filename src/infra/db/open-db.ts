@@ -1,4 +1,4 @@
-import { openDB, type IDBPDatabase } from 'idb'
+import { openDB, type IDBPDatabase, type IDBPTransaction } from 'idb'
 import type { ImglyDb } from './schema'
 import { LATEST_VERSION, migrations, type Migration } from './migrations'
 
@@ -13,7 +13,11 @@ export function openDb(
   return openDB<ImglyDb>(name, version, {
     upgrade(db, oldVersion, _newVersion, tx) {
       for (const step of steps) {
-        if (step.version > oldVersion) step.upgrade(db, tx)
+        if (step.version > oldVersion)
+          step.upgrade(
+            db as unknown as IDBPDatabase,
+            tx as unknown as IDBPTransaction<unknown, string[], 'versionchange'>,
+          )
       }
     },
   })
