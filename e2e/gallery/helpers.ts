@@ -4,7 +4,7 @@ import { identityGeometry, setStraighten, type Geometry } from '../../src/core/g
 import { exportPng } from '../adjust/helpers'
 import { decodePng } from '../crop-rotate/helpers'
 import { referenceDrawing } from '../draw/helpers'
-import { gotoReady, waitForWork, work } from '../export/helpers'
+import { gotoReady, openFile, waitForWork, work } from '../export/helpers'
 import { expect, test } from '../harness'
 import type { WorkRecordSummary } from '../test-hooks'
 
@@ -269,4 +269,127 @@ export async function interruptions(page: Page) {
     spinners: await page.locator('.spinner').count(),
     notices: await page.locator('.toast').count(),
   }
+}
+
+/** The size of the numbered images (`numberedImage`), small so that 25 of them stay quick. */
+export const NUMBERED = { width: 64, height: 48 } as const
+
+/** The Source name of image `n`: `img-01` (the file is `img-01.png`). */
+export const numberedName = (n: number) => `img-${String(n).padStart(2, '0')}`
+
+/**
+ * Builds image `n` in the page: a rectangle whose colour depends on `n`, with its number written
+ * on it. `noise` instead fills `size` with random pixels, which a PNG cannot compress.
+ */
+export async function numberedImage(
+  page: Page,
+  n: number,
+  noise?: { width: number; height: number },
+): Promise<Buffer> {
+  const base64 = await page.evaluate(
+    async ({ n, size, noise }) => {
+      const { width, height } = noise ?? size
+      const canvas = new OffscreenCanvas(width, height)
+      const ctx = canvas.getContext('2d')!
+      if (noise) {
+        const img = ctx.createImageData(width, height)
+        for (let i = 0; i < img.data.length; i += 4) {
+          img.data[i] = Math.floor(Math.random() * 256)
+          img.data[i + 1] = Math.floor(Math.random() * 256)
+          img.data[i + 2] = Math.floor(Math.random() * 256)
+          img.data[i + 3] = 255
+        }
+        ctx.putImageData(img, 0, 0)
+      } else {
+        ctx.fillStyle = `hsl(${(n * 47) % 360} 70% 45%)`
+        ctx.fillRect(0, 0, width, height)
+        ctx.fillStyle = '#fff'
+        ctx.font = 'bold 24px sans-serif'
+        ctx.fillText(String(n), 8, 32)
+      }
+      const bytes = new Uint8Array(await (await canvas.convertToBlob()).arrayBuffer())
+      let binary = ''
+      for (const byte of bytes) binary += String.fromCharCode(byte)
+      return btoa(binary)
+    },
+    { n, size: NUMBERED, noise },
+  )
+  return Buffer.from(base64, 'base64')
+}
+
+/**
+ * Opens numbered image `n` through "Open image" and waits for it to be the open Work. Unless
+ * `saved` is false, also waits for its record to be stored. Returns the Work's id.
+ */
+export async function openNumbered(
+  page: Page,
+  n: number,
+  opts: { saved?: boolean; noise?: { width: number; height: number } } = {},
+): Promise<string> {
+  const name = numberedName(n)
+  await openFile(page, `${name}.png`, await numberedImage(page, n, opts.noise), 'image/png')
+  await expect.poll(async () => (await work(page))?.sourceName, { timeout: 15_000 }).toBe(name)
+  const size = opts.noise ?? NUMBERED
+  await waitForWork(page, size.width, size.height)
+  const id = (await work(page))!.id
+  if (opts.saved !== false) {
+    await waitForStored(page, (works) => works.some((w) => w.id === id), `${name} was never stored`)
+  }
+  return id
+}
+
+/** Applies Adjustments and waits for the Work's revision to move, as an Apply does. */
+export async function applyAdjustments(page: Page, adjustments: Record<string, number>) {
+  const before = (await work(page))!.revision
+  await page.evaluate((a) => window.__imglyTest!.setAdjustments(a as never), adjustments)
+  await applied(page, before)
+}
+
+/** The notices (toasts) on screen; the texts are written in the specs, never taken from the catalog. */
+export const toasts = (page: Page) => page.locator('.toast')
+
+const escapeRegExp = (text: string) => text.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&')
+
+/** The notices whose whole text is `text`. */
+export const notice = (page: Page, text: string) =>
+  page.locator('.toast', {
+    has: page.locator('.toast__text', {
+      hasText: new RegExp(`^${escapeRegExp(text)}$`),
+    }),
+  })
+
+/** Dismisses every notice on screen. */
+export async function dismissNotices(page: Page) {
+  const dismiss = page.getByRole('button', { name: 'Dismiss' })
+  while ((await dismiss.count()) > 0) await dismiss.first().click()
+}
+
+/** The total bytes stored (thumbnails, Originals, layers), as the e2e byte budget counts them. */
+export function storedBytes(page: Page): Promise<number> {
+  return page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('imgly')
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    try {
+      const all = (name: string) =>
+        new Promise<{ png?: Blob; thumbnail?: Blob }[]>((resolve, reject) => {
+          const request = db.transaction(name).objectStore(name).getAll()
+          request.onsuccess = () => resolve(request.result)
+          request.onerror = () => reject(request.error)
+        })
+      const [works, originals, layers] = await Promise.all([
+        all('works'),
+        all('originals'),
+        all('layers'),
+      ])
+      return (
+        works.reduce((n, r) => n + r.thumbnail!.size, 0) +
+        [...originals, ...layers].reduce((n, r) => n + r.png!.size, 0)
+      )
+    } finally {
+      db.close()
+    }
+  })
 }
