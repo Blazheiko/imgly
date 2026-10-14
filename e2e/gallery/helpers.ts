@@ -1,4 +1,4 @@
-import type { Locator, Page } from '@playwright/test'
+import type { BrowserContext, Locator, Page } from '@playwright/test'
 import { NEUTRAL_ADJUSTMENTS } from '../../src/core/adjust'
 import { identityGeometry, setStraighten, type Geometry } from '../../src/core/geometry'
 import { exportPng } from '../adjust/helpers'
@@ -392,4 +392,89 @@ export function storedBytes(page: Page): Promise<number> {
       db.close()
     }
   })
+}
+
+/** The page-side state of the encode seam (see `instrumentEncodes`). */
+interface EncodeSeam {
+  encodes: number
+  gate: Promise<void> | null
+  release: (() => void) | null
+}
+type SeamWindow = Window & { __e2eEncodes?: EncodeSeam }
+
+/**
+ * Installs, before the app loads, a seam on the one place Autosave encodes a thumbnail
+ * (`OffscreenCanvas.convertToBlob`): it counts finished encodes, and it can hold the next one back.
+ * That makes "a save is running" observable and controllable without touching app code, and a held
+ * encode ends in a save that commits, which `galleryHoldSave` never does. Call it before `gotoReady`.
+ */
+export async function instrumentEncodes(target: Page | BrowserContext) {
+  await target.addInitScript(() => {
+    const seam: EncodeSeam = { encodes: 0, gate: null, release: null }
+    ;(window as SeamWindow).__e2eEncodes = seam
+    const original = OffscreenCanvas.prototype.convertToBlob
+    OffscreenCanvas.prototype.convertToBlob = async function (
+      this: OffscreenCanvas,
+      ...args: Parameters<OffscreenCanvas['convertToBlob']>
+    ) {
+      const gate = seam.gate
+      if (gate) {
+        seam.gate = null
+        await gate
+      }
+      const blob = await original.apply(this, args)
+      seam.encodes++
+      return blob
+    }
+  })
+}
+
+/** Holds the next thumbnail encode, so the next save stays "running" until `releaseEncodes`. */
+export const holdNextEncode = (page: Page) =>
+  page.evaluate(() => {
+    const seam = (window as SeamWindow).__e2eEncodes!
+    seam.gate = new Promise<void>((resolve) => (seam.release = resolve))
+  })
+
+/** Lets a held encode go. */
+export const releaseEncodes = (page: Page) =>
+  page.evaluate(() => (window as SeamWindow).__e2eEncodes!.release?.())
+
+/** How many thumbnails have been encoded in this page so far. */
+export const encodeCount = (page: Page) =>
+  page.evaluate(() => (window as SeamWindow).__e2eEncodes!.encodes)
+
+/** Waits until a save has encoded its thumbnail, i.e. has reached `storeWork`. */
+export async function waitForEncodeAfter(page: Page, before: number) {
+  await expect.poll(() => encodeCount(page), { timeout: 15_000 }).toBeGreaterThan(before)
+}
+
+/** The replace confirmation (SCR-05) and its buttons. */
+export const replaceDialog = (page: Page) => page.getByRole('alertdialog')
+
+/**
+ * The stored Adjustments of a Work, read with a version-less `indexedDB.open`, which still works
+ * after another page has raised the database version (`galleryRecords` opens at the latest known
+ * version and would fail with a VersionError then).
+ */
+export function rawAdjustments(page: Page, workId: string): Promise<Record<string, number> | null> {
+  return page.evaluate(async (id) => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('imgly')
+      request.onsuccess = () => resolve(request.result)
+      request.onerror = () => reject(request.error)
+    })
+    try {
+      const found = await new Promise<{ adjustments: Record<string, number> } | undefined>(
+        (resolve, reject) => {
+          const request = db.transaction('works').objectStore('works').get(id)
+          request.onsuccess = () => resolve(request.result)
+          request.onerror = () => reject(request.error)
+        },
+      )
+      return found?.adjustments ?? null
+    } finally {
+      db.close()
+    }
+  }, workId)
 }

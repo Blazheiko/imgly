@@ -25,7 +25,7 @@
 | T18 | Gallery e2e hooks | wiring | Blazheiko | M | T5, T6, T12 | done |
 | T19 | e2e: save, reopen, exactness, start screen, v1 Work | tests | Blazheiko | L | T17, T18 | done |
 | T20 | e2e: delete, damaged, 25 images, quota, failures, line, persist | tests | Blazheiko | L | T17, T18 | done |
-| T21 | e2e: gate, blocked storage, leave warning, 50 reloads, two pages, offline | tests | Blazheiko | L | T17, T18 | todo |
+| T21 | e2e: gate, blocked storage, leave warning, 50 reloads, two pages, offline | tests | Blazheiko | L | T17, T18 | done |
 | T22 | @perf: the five spec §6 timing targets | tests | Blazheiko | M | T17, T18 | todo |
 | T23 | Spec wording, open-and-view note, CONTEXT terms, architecture map | docs | Blazheiko | S | — | done |
 
