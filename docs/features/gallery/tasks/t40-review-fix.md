@@ -7,7 +7,7 @@ acs: ["AC-10"]
 files_hint: ["src/infra/db/testing.ts", "src/infra/db/works-repository.test.ts"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 source: "review-2026-10-14-r2 R2-7"
 ---
 

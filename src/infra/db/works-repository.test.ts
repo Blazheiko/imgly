@@ -306,6 +306,28 @@ describe('storeWork', () => {
     raw.close()
   })
 
+  it('R2-7: a commit refused with quota on a later save (no marker written) commits nothing and is STORAGE_QUOTA', async () => {
+    const raw = await openDb(freshName())
+    await seed(raw, 3)
+    const first = workRecordFixture({ touchedAt: 100, layerId: null })
+    expect(
+      (await storeWork(raw, first, blobs({ layer: null }), { keep: first.id, damaged: NONE })).ok,
+    ).toBe(true)
+    const before = await snapshot(raw)
+    const db = withFaults(raw, { commitFail: () => 'quota' })
+
+    const later = { ...first, touchedAt: 200, sourceName: 'renamed' }
+    const result = await storeWork(db, later, blobs({ layer: null }), {
+      keep: first.id,
+      damaged: NONE,
+    })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error.code).toBe('STORAGE_QUOTA')
+    expect(await snapshot(raw)).toEqual(before)
+    raw.close()
+  })
+
   it('writes the persistence marker on the first save and calls onFirstSave once (AC-14)', async () => {
     const db = await openDb(freshName())
     const onFirstSave = vi.fn()

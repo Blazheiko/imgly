@@ -147,14 +147,17 @@ export function withFaults(db: IDBPDatabase<ImglyDb>, faults: Faults): IDBPDatab
         return (name: string) => {
           const store = (tx.objectStore as (n: string) => object)(name)
           return wrap(store, (storeKey) => {
-            if (storeKey !== 'put') return undefined
-            if (commitFails && name === 'meta') {
+            // A save ends at the marker: it reads it, and writes it only on a first save. The
+            // refused commit aborts after that last step, whichever it is (R2-7).
+            if (commitFails && name === 'meta' && (storeKey === 'get' || storeKey === 'put')) {
+              const op = (store as Record<string, (v: unknown) => Promise<unknown>>)[storeKey]!
               return async (value: unknown) => {
-                const result = await (store as { put: (v: unknown) => Promise<unknown> }).put(value)
-                tx.abort()
+                const result = await op.call(store, value)
+                if (storeKey === 'put' || result !== undefined) tx.abort()
                 return result
               }
             }
+            if (storeKey !== 'put') return undefined
             return async (value: unknown) => {
               const n = (counts.get(name) ?? 0) + 1
               counts.set(name, n)
