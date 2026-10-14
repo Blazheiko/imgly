@@ -14,7 +14,7 @@ import {
 } from '@/core'
 import { LATEST_VERSION, deleteWork, openGalleryDb, type ImglyDb } from '@/infra/db'
 import { storedWorkFixture, withFaults, type Faults } from '@/infra/db/testing'
-import type { PreviewRenderer } from '@/render'
+import type { PreviewRenderer, RendererStatus } from '@/render'
 import { newId } from '@/shared/ids'
 import { useNotices } from '@/shared/notices'
 import { createAutosave } from './autosave'
@@ -89,9 +89,24 @@ function setup(
     }),
   }
   const rendererReady = { current: Promise.resolve() }
+  const statusListeners = new Set<(status: RendererStatus) => void>()
   const renderer = {
-    renderThumbnail: vi.fn(() => ({ width: 4, height: 3, data: new Uint8ClampedArray(48) })),
-  } as unknown as PreviewRenderer
+    status: 'ready' as RendererStatus,
+    renderThumbnail: vi.fn((): ImageData | null =>
+      renderer.status === 'ready'
+        ? ({ width: 4, height: 3, data: new Uint8ClampedArray(48) } as ImageData)
+        : null,
+    ),
+    onStatus(listener: (status: RendererStatus) => void) {
+      statusListeners.add(listener)
+      return () => statusListeners.delete(listener)
+    },
+  }
+  /** Moves the renderer to a new status, as a context loss, restore or give-up would. */
+  const setStatus = (status: RendererStatus) => {
+    renderer.status = status
+    statusListeners.forEach((listener) => listener(status))
+  }
   const thumbnail = { gate: null as Promise<void> | null }
   const encodeThumbnail = vi.fn(async () => {
     if (thumbnail.gate) await thumbnail.gate
@@ -101,7 +116,7 @@ function setup(
   const autosave = createAutosave({
     notices,
     codec,
-    renderer: () => renderer,
+    renderer: () => renderer as unknown as PreviewRenderer,
     rendererReady: () => rendererReady.current,
     copyBitmap: async () => bitmap(),
     encodeThumbnail,
@@ -124,6 +139,7 @@ function setup(
     codec,
     encoded,
     renderer,
+    setStatus,
     rendererReady,
     thumbnail,
     encodeThumbnail,
@@ -275,6 +291,34 @@ describe('Autosave pipeline (gallery AC-01)', () => {
     await s.autosave.settled()
     expect(s.renderer.renderThumbnail).toHaveBeenCalledTimes(1)
     expect(await db.getAll('works')).toHaveLength(1)
+  })
+
+  it('a lost context that is being restored delays the save until the renderer is ready (AC-19)', async () => {
+    const s = setup()
+    const db = await s.connect()
+    s.setStatus('restoring')
+    s.autosave.request(makeWork())
+    await flush()
+    expect(await db.getAll('works')).toHaveLength(0)
+    expect(s.autosave.saving.value).toBe(true)
+
+    s.setStatus('ready')
+    await s.autosave.settled()
+    expect(await db.getAll('works')).toHaveLength(1)
+    expect(texts(s)).toEqual([])
+  })
+
+  it('a context that never comes back fails the save with the failure notice', async () => {
+    const s = setup()
+    const db = await s.connect()
+    s.setStatus('restoring')
+    s.autosave.request(makeWork())
+    await flush()
+
+    s.setStatus('lost')
+    await s.autosave.settled()
+    expect(await db.getAll('works')).toHaveLength(0)
+    expect(texts(s)).toEqual([failureSaveFailed()])
   })
 
   it('keepEncoded hands over loaded Blobs: a reopened Work evicted elsewhere is written back without encoding (AC-21)', async () => {

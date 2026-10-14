@@ -1,7 +1,7 @@
 import { readonly, ref } from 'vue'
 import { toStoredFields, type AppError, type DrawingLayer, type Result, type Work } from '@/core'
 import { storeWork, type ImglyDb } from '@/infra/db'
-import type { PreviewRenderer } from '@/render'
+import { RESTORE_DEADLINE_MS, type PreviewRenderer, type RendererStatus } from '@/render'
 import type { useNotices } from '@/shared/notices'
 import { createSaveQueue } from './autosave-queue'
 import { failureSaveFailed, failureStorageFull, infoEvicted, infoNewerVersion } from './messages'
@@ -9,6 +9,36 @@ import type { IDBPDatabase } from 'idb'
 
 type W = Work<ImageBitmap, OffscreenCanvas>
 type Db = IDBPDatabase<ImglyDb>
+
+/**
+ * Resolves once a restoring renderer is ready or has given up. The renderer itself turns `lost`
+ * after RESTORE_DEADLINE_MS; the same bound here covers one disposed while restoring.
+ */
+function untilRestored(renderer: PreviewRenderer): Promise<RendererStatus> {
+  if (renderer.status !== 'restoring') return Promise.resolve(renderer.status)
+  return new Promise((resolve) => {
+    const done = (status: RendererStatus) => {
+      clearTimeout(timer)
+      off()
+      resolve(status)
+    }
+    const timer = setTimeout(() => done(renderer.status), RESTORE_DEADLINE_MS)
+    const off = renderer.onStatus((status) => {
+      if (status !== 'restoring') done(status)
+    })
+  })
+}
+
+/** The thumbnail, waiting out a lost context that is being restored (open-and-view AC-19). */
+async function thumbnailOf(renderer: PreviewRenderer, work: W) {
+  // A context may be lost again right after a restore: try again while it keeps coming back.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if ((await untilRestored(renderer)) !== 'ready') return null
+    const pixels = renderer.renderThumbnail(work)
+    if (pixels || renderer.status !== 'restoring') return pixels
+  }
+  return null
+}
 
 export interface AutosaveDeps {
   notices: Pick<ReturnType<typeof useNotices>, 'pushAll' | 'dismiss'>
@@ -80,7 +110,7 @@ export function createAutosave(deps: AutosaveDeps) {
       mine.layerId = drawing.id
       layerChanged = true
     }
-    const pixels = deps.renderer().renderThumbnail(work)
+    const pixels = await thumbnailOf(deps.renderer(), work)
     if (!mine.original || (drawing && !mine.layer) || !pixels) {
       if (drawing && !mine.layer) mine.layerId = null
       fail('failed')
