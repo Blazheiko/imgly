@@ -541,6 +541,21 @@ describe('loadWork', () => {
     if (!result.ok) expect(result.error.code).toBe('WORK_DAMAGED')
     db.close()
   })
+
+  it.each([
+    ['a thumbnail that is not a PNG', () => new Blob([new Uint8Array(3)], { type: 'image/jpeg' })],
+    ['a thumbnail that is not a Blob', () => 'thumb'],
+  ])('%s is WORK_DAMAGED: choosing checks all of it (AC-08)', async (_label, thumbnail) => {
+    const db = await openDb(freshName())
+    const w = storedWorkFixture()
+    await db.put('works', { ...w.record, thumbnail: thumbnail() } as WorkRecord)
+    await db.put('originals', w.original)
+    await db.put('layers', w.layer!)
+    const result = await loadWork(db, w.record.id)
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error.code).toBe('WORK_DAMAGED')
+    db.close()
+  })
 })
 
 describe('deleteWork', () => {

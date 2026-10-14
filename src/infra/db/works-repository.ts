@@ -122,9 +122,7 @@ export async function listWorks(
     const raw: unknown[] = await db.getAllFromIndex('works', 'touchedAt')
     const listed = raw.reverse().map((r): ListedWork => {
       const o = r as Partial<WorkRecord>
-      const thumb: unknown = o.thumbnail
-      const damaged =
-        !validateRecordShape(r) || !(thumb instanceof Blob) || thumb.type !== 'image/png'
+      const damaged = !validateRecordShape(r) || !isPngBlob(o.thumbnail)
       return {
         id: String(o.id),
         record: damaged ? null : (r as WorkRecord),
@@ -139,7 +137,9 @@ export async function listWorks(
   }
 }
 
-/** Reads every part of a Work; a missing part or a layer/layerId mismatch is WORK_DAMAGED. */
+const isPngBlob = (value: unknown) => value instanceof Blob && value.type === 'image/png'
+
+/** Reads every part of a Work; a missing part, a bad thumbnail or a layer/layerId mismatch is WORK_DAMAGED. */
 export async function loadWork(
   db: IDBPDatabase<ImglyDb>,
   id: string,
@@ -154,6 +154,7 @@ export async function loadWork(
     await tx.done
     const damaged = (reason: string) => err(appError('WORK_DAMAGED', { reason }))
     if (!record) return damaged('missing-record')
+    if (!isPngBlob(record.thumbnail)) return damaged('bad-thumbnail')
     if (!original) return damaged('missing-original')
     if ((record.layerId !== null) !== (layer !== undefined)) return damaged('layer-mismatch')
     return ok({ record, original: original.png, layer: layer ? layer.png : null })
