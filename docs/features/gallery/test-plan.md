@@ -20,7 +20,7 @@ Inputs: `spec.md` §5 (AC-01 to AC-21), §6, §6.1 and §7; `sad.md` §5, §6 (C
 Flows 3 to 7), §8, §10 (QG-1 to QG-4) and §11; ADR-0001 to ADR-0006; `data-model.md` (stores,
 indexes and the test fixtures); `ux-flows.md` (the e2e-through-UI scripts); `screens.md` SCR-01 to
 SCR-07 (the component states and the message catalog). `target_surfaces: [web-frontend]`, so the
-frontend tiers apply. `tasks.json` does not exist yet, so `tasks` assigns these rows to tasks.
+frontend tiers apply. `tasks` assigns these rows to tasks in `tasks.json`.
 
 ## Decisions taken in this plan
 
@@ -130,7 +130,8 @@ instead.
 | AC-06 happy | the delete confirmation names the Work and says an Export is the only copy | component | SCR-04: the Work's name ("Untitled" when it has none), "can't be brought back", the Export sentence; Cancel, Esc and a backdrop click keep the Work and return focus to its Delete |
 | AC-06 happy | deleting removes the record, the Original and the layer in one transaction | integration | after `deleteWork(id)` none of the three stores holds the id; the other Works are untouched; the count drops by one |
 | AC-06 happy | delete then reload leaves no stored part behind | e2e-through-UI | after confirming, the entry is gone and the count drops; after a reload the hooks find no `works`, `originals` or `layers` entry for that id (spec §6.1); cancelling keeps the Work exactly as it was; all three engines |
-| AC-06 error | a failed delete keeps the entry and says so | integration + component | the injected fault fails the delete: nothing is removed; the notice says "“{name}” couldn't be deleted. Try again."; the entry and count are unchanged (SCR-01 `delete failed`) |
+| AC-06 error | a failed delete removes nothing from storage | integration | the injected fault fails the delete: no record is removed and the store reports the failure |
+| AC-06 error | a failed delete keeps the entry and says so | component | the notice says "“{name}” couldn't be deleted. Try again."; the entry and count are unchanged (SCR-01 `delete failed`) |
 | AC-07 invariant | the eviction rule never picks the Work open in this tab (property) | unit | for random record sets of 0 to 21 Works and any open-Work id, the candidates never include the open Work, and the stored count never exceeds 20 |
 | AC-07 invariant | Delete is unavailable on the open Work's entry, with its hint | component | SCR-03 `delete unavailable`: `aria-disabled`, the hint "The open Work can't be deleted. Open another image first."; activating it opens no dialog |
 | AC-07 invariant | the repository refuses to delete the Work open in this tab | integration | `deleteWork` with the open Work's id is refused and removes nothing |
@@ -138,17 +139,20 @@ instead.
 | AC-08 error | each kind of damage makes `validateStoredWork` refuse the Work | unit | `missing-original`, `layer-without-record-id`, `size-mismatch`, `bad-geometry` and `unknown-format-version` from `damagedWorkFixture` each make it refuse the Work as damaged; a valid stored Work passes |
 | AC-08 error | listing checks only the shape and the thumbnail, choosing checks everything | integration | a Work with a damaged Original lists normally and fails only when chosen; a Work with a damaged thumbnail lists as damaged; the other Works list normally |
 | AC-08 error | a damaged Work never replaces the open Work and never asks to confirm | integration | choosing it leaves the Work, its revision, the View and the history unchanged; no replace confirmation; the notice names the Work and offers Delete |
-| AC-08 error | a damaged Work is evicted first | unit + integration | the rule orders damaged Works before the oldest readable one; a save at 20 Works evicts the damaged one and names it in the notice |
+| AC-08 error | the eviction rule orders a damaged Work first | unit | the rule orders damaged Works before the oldest readable one |
+| AC-08 error | a damaged Work is evicted first | integration | a save at 20 Works evicts the damaged one and names it in the notice |
 | AC-08 error | the damaged entry shows "Can't be read" and stays chooseable and deletable | component | SCR-01 `damaged entry`: the box text, the name or "Untitled", the status "Damaged"; Delete opens SCR-04; the notice's Delete opens SCR-04 too |
 | AC-08 error | damaged stored data in a real browser | e2e-through-UI | a hook damages one Work's Original and another's thumbnail: the first lists normally and gives the notice when chosen, the second lists as damaged; both delete normally; every other Work opens; all three engines |
 | AC-09 invariant | the 21st Work evicts the least recently touched Work not open here, in the same transaction | integration | with 20 stored, a new Work's first save evicts the oldest non-open Work and stores the new one in one commit; the Work just replaced is evicted only when it is the only candidate |
 | AC-09 invariant | the same file opened twice is two Works | integration | each successful open creates a new id; both are stored |
 | AC-09 invariant | a cancelled or unreadable open stores nothing and evicts nothing | integration | the replace cancelled, or the file refused, leaves the stored records exactly as before |
-| AC-09 invariant | the eviction notice names the evicted Work | unit + component | the catalog text “{name}” was removed from the Gallery to make room; the `info` toast shows it with "Untitled" for a nameless Work |
+| AC-09 invariant | the eviction message names the evicted Work | unit | the catalog text “{name}” was removed from the Gallery to make room, with "Untitled" for a nameless Work |
+| AC-09 invariant | the eviction notice shows the evicted Work's name | component | the `info` toast shows the catalog text, with "Untitled" for a nameless Work |
 | AC-09 invariant | opening 25 images keeps 20 Works and names each one evicted | e2e-through-UI | after each of images 21 to 25, one notice names the evicted Work; the Gallery holds 20; the open Work is listed; all three engines (§6 Gallery cap) |
 | AC-10 error | a full quota evicts one more Work per retry until the open Work fits | integration | the fault wrapper refuses the first two writes with a quota error: the third attempt evicts the two oldest non-open Works and commits; one notice names both |
 | AC-10 error | when the open Work doesn't fit even alone, nothing is evicted and the earlier state is kept | integration | the wrapper refuses every attempt: no Work is evicted, the earlier stored state of the open Work is unchanged, and the full-storage notice shows: "This Work couldn't be saved to the Gallery because the browser's storage is full. Export it to keep a copy." (ADR-0004; `sad.md` §11 notes the AC-10 wording to align) |
-| AC-10 error | the several-Works notice names every evicted Work | unit + component | the catalog text "{n} Works were removed from the Gallery to make room: “{a}”, …"; one toast, not one per Work |
+| AC-10 error | the several-Works message names every evicted Work | unit | the catalog text "{n} Works were removed from the Gallery to make room: “{a}”, …" |
+| AC-10 error | several evictions show one notice | component | one toast with the several-Works text, not one per Work |
 | AC-10 error | a byte budget makes the real UI evict and then refuse | e2e-through-UI | a hook sets a budget for three Works: the fourth evicts the oldest with a notice; a Work larger than the budget gives the could-not-save notice, evicts nothing and stays editable; all three engines |
 | AC-10 error | the browser's own quota error is recognised as a full quota | e2e-through-UI | Chromium only: the site quota is shrunk through the DevTools protocol; the save gives the eviction or could-not-save notice, never the generic failure notice |
 | AC-11 error | another failure raises one notice, retries at the next Step and withdraws the notice on success | integration | the wrapper fails three saves in a row: one `failure` notice; each later Step retries with no new notice; the first success withdraws it; a later failure raises it again |
@@ -175,7 +179,8 @@ instead.
 | AC-16 cross-context | switching images with stored edits asks nothing in a real browser | e2e-through-UI | after an Apply, opening a file, dropping one and choosing a Work each replace with no dialog; the previous Work is listed with its edits; all three engines |
 | AC-17 cross-context | the gate asks when the latest applied state is not stored | integration | after a failed save, or a save that fails while the gate waits, replacing asks; Cancel keeps the Work, its revision and its Draft; Confirm replaces |
 | AC-17 cross-context | a Work that can't be read never asks and never replaces | integration | choosing a damaged Work with unstored edits gives the damaged notice and no confirmation |
-| AC-17 cross-context | the confirmation says the latest edits aren't saved in the Gallery | unit + component | the reworded SCR-05 text; Cancel, Esc and a backdrop click keep the Work |
+| AC-17 cross-context | the confirmation text says the latest edits aren't saved in the Gallery | unit | the reworded SCR-05 catalog text |
+| AC-17 cross-context | the confirmation can be dismissed without losing the Work | component | the reworded SCR-05 text shows; Cancel, Esc and a backdrop click keep the Work |
 | AC-17 cross-context | a failed save, then an open, asks in a real browser | e2e-through-UI | a hook fails the save; opening another image asks; Cancel keeps the Work; Confirm replaces; all three engines |
 | AC-18 cross-context | migration 0002 keeps every v1 record and reshapes it forward | integration | a v1 database with records in the old shape upgrades to v2 with each record's fields, Original pixels, layer and Source name kept; the new stores and the `touchedAt` index exist; no record is dropped |
 | AC-18 cross-context | an older connection gives way to a newer version | integration | a second connection at the next version: the first finishes its running save, drops the pending one, closes, marks the Gallery unavailable and raises the "newer version" notice |
