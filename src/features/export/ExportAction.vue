@@ -4,7 +4,7 @@ import { useEditorStore } from '@/features/editor'
 import { BaseButton, Spinner, useNotices } from '@/shared'
 import ExportPanel from './ExportPanel.vue'
 import { infoNoImage, infoToolOpen } from './messages'
-import { createSaveShortcut } from './shortcuts'
+import { createSaveShortcut, isSaveShortcut } from './shortcuts'
 import { useExportStore } from './store'
 
 const editor = useEditorStore()
@@ -44,7 +44,7 @@ function onActivate() {
   else store.openPanel()
 }
 
-const onKeydown = createSaveShortcut({
+const saveShortcut = createSaveShortcut({
   hasWork: () => hasWork.value,
   exporting: () => unavailable.value,
   toolOpen: () => toolOpen.value,
@@ -54,6 +54,12 @@ const onKeydown = createSaveShortcut({
   notifyNoImage,
   notifyToolOpen,
 })
+
+/** Under the Gallery Ctrl/Cmd+S is swallowed (no browser save) but starts nothing. */
+function onKeydown(event: KeyboardEvent) {
+  if (editor.galleryOpen && isSaveShortcut(event)) event.preventDefault()
+  else saveShortcut(event)
+}
 
 // Capture phase: Ctrl/Cmd+S is handled before any field or the browser can act on it.
 onMounted(() => window.addEventListener('keydown', onKeydown, { capture: true }))

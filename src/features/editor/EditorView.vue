@@ -18,7 +18,7 @@ const dragging = ref(false)
 const live = computed(() => editor.display === 'ok' || editor.display === 'restoring')
 
 /** View keys and drops are handled on the Preview's screens unless the replace dialog waits. */
-const interactive = () => live.value && editor.phase !== 'confirming'
+const interactive = () => live.value && editor.phase !== 'confirming' && !editor.galleryOpen
 
 /** Opens are also refused while an export runs (export AC-11); zoom and pan stay live. */
 const acceptsOpens = () => interactive() && editor.phase !== 'exporting'
@@ -92,6 +92,7 @@ function onKeydown(event: KeyboardEvent) {
   const mod = event.ctrlKey || event.metaKey
   if (mod && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 'o') {
     event.preventDefault()
+    if (editor.galleryOpen) return
     void openPicked()
     return
   }

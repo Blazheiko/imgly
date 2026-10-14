@@ -256,4 +256,47 @@ describe('UndoRedoActions (SCR-01 to SCR-04)', () => {
     expect(editor.work!.adjustments.contrast).toBe(20)
     wrapper = mount(UndoRedoActions, { attachTo: document.body })
   })
+  it.each([
+    ['Ctrl+Z', { key: 'z', ctrlKey: true }],
+    ['Cmd+Z', { key: 'z', metaKey: true }],
+  ])(
+    '%s undoes with no panel, but does nothing under the open Gallery (AC-03)',
+    async (_n, init) => {
+      openWork()
+      editor.applyAdjustments(contrast(20))
+      await nextTick()
+      press(init)
+      expect(editor.work!.adjustments.contrast).toBe(0) // not vacuous: it acts with no panel
+      editor.redo()
+      editor.setActivePanel('gallery')
+      const revision = editor.work!.revision
+      press(init)
+      expect(editor.work!.adjustments.contrast).toBe(20)
+      expect(editor.work!.revision).toBe(revision)
+      expect(editor.canUndo).toBe(true)
+    },
+  )
+
+  it.each([
+    ['Ctrl+Shift+Z', { key: 'z', ctrlKey: true, shiftKey: true }],
+    ['Cmd+Shift+Z', { key: 'z', metaKey: true, shiftKey: true }],
+    ['Ctrl+Y', { key: 'y', ctrlKey: true }],
+  ])(
+    '%s redoes with no panel, but does nothing under the open Gallery (AC-03)',
+    async (_n, init) => {
+      openWork()
+      editor.applyAdjustments(contrast(20))
+      editor.undo()
+      await nextTick()
+      press(init)
+      expect(editor.work!.adjustments.contrast).toBe(20) // not vacuous: it acts with no panel
+      editor.undo()
+      editor.setActivePanel('gallery')
+      const revision = editor.work!.revision
+      press(init)
+      expect(editor.work!.adjustments.contrast).toBe(0)
+      expect(editor.work!.revision).toBe(revision)
+      expect(editor.canRedo).toBe(true)
+    },
+  )
 })

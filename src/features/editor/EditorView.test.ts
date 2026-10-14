@@ -775,3 +775,104 @@ describe('EditorView — leave warning (AC-20)', () => {
     wrapper = mount(EditorView, { attachTo: document.body }) // keeps afterEach's unmount valid
   })
 })
+
+describe('EditorView — nothing reaches the Work under the open Gallery (SCR-03, AC-03, S1-7)', () => {
+  let wrapper: VueWrapper
+  let editor: ReturnType<typeof useEditorStore>
+
+  beforeEach(async () => {
+    setActivePinia(createPinia())
+    editor = useEditorStore()
+    editor.setRendererFactory(createFakeRenderer().factory)
+    editor.setDecoder(async () => ({
+      ok: true,
+      value: {
+        bitmap: { width: 4000, height: 4000, close() {} } as unknown as ImageBitmap,
+        sourceWidth: 4000,
+        sourceHeight: 4000,
+        width: 4000,
+        height: 4000,
+        format: 'png',
+        animated: false,
+        downscaled: false,
+        hasTransparency: false,
+      },
+    }))
+    editor.setCanvasSize(1000, 1000)
+    await editor.openImage(new Blob())
+    await editor.runCapabilityGate(async () => ok(undefined))
+    wrapper = mount(EditorView, { attachTo: document.body })
+    await nextTick()
+  })
+  afterEach(() => {
+    wrapper.unmount()
+    vi.restoreAllMocks()
+  })
+
+  const press = (init: KeyboardEventInit) => {
+    const event = new KeyboardEvent('keydown', { cancelable: true, ...init })
+    window.dispatchEvent(event)
+    return event
+  }
+
+  it.each([{ ctrlKey: true }, { metaKey: true }])(
+    'Ctrl/Cmd+O (%o) opens the picker with no panel, and does nothing under the Gallery',
+    async (mod) => {
+      const click = vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => {})
+      press({ key: 'o', ...mod })
+      await flushPromises()
+      expect(click).toHaveBeenCalledTimes(1) // not vacuous: it acts with no panel
+
+      click.mockClear()
+      editor.setActivePanel('gallery')
+      press({ key: 'o', ...mod })
+      await flushPromises()
+      expect(click).not.toHaveBeenCalled()
+      expect(editor.activePanel).toBe('gallery')
+    },
+  )
+
+  it('a drop opens with no panel, but under the Gallery it is ignored and still never navigates', async () => {
+    const drop = vi.spyOn(editor, 'openDrop').mockResolvedValue(undefined as never)
+    window.dispatchEvent(dropEvent('drop', [new File(['x'], 'a.png')]))
+    expect(drop).toHaveBeenCalledTimes(1) // not vacuous
+
+    drop.mockClear()
+    const id = editor.work!.id
+    editor.setActivePanel('gallery')
+    const event = dropEvent('drop', [new File(['x'], 'a.png')])
+    window.dispatchEvent(event)
+    await flushPromises()
+    expect(event.defaultPrevented).toBe(true)
+    expect(drop).not.toHaveBeenCalled()
+    expect(editor.work!.id).toBe(id)
+  })
+
+  it('shows no drop overlay under the Gallery', async () => {
+    editor.setActivePanel('gallery')
+    window.dispatchEvent(dropEvent('dragenter'))
+    await nextTick()
+    expect(wrapper.text()).not.toContain('Drop an image to open it')
+  })
+
+  it('+ / = / - and Shift+0 / Shift+1 zoom with no panel, but change the View under no circumstances under the Gallery', () => {
+    const keys: KeyboardEventInit[] = [
+      { key: '+', code: 'Equal', shiftKey: true },
+      { key: '=', code: 'Equal' },
+      { key: '-', code: 'Minus' },
+      { key: ')', code: 'Digit0', shiftKey: true },
+      { key: '!', code: 'Digit1', shiftKey: true },
+      { key: '0', code: 'Digit0' },
+    ]
+    press({ key: '=', code: 'Equal' })
+    expect(editor.view.zoom).toBeGreaterThan(0.25) // not vacuous
+    press({ key: '!', code: 'Digit1', shiftKey: true })
+
+    editor.setActivePanel('gallery')
+    const before = { ...editor.view }
+    for (const init of keys) {
+      press(init)
+      expect(editor.view).toEqual(before)
+    }
+  })
+})

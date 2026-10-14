@@ -32,7 +32,7 @@
 | T25 | Index-hidden records listed; damaged-first eviction inside the save | infra | Blazheiko | M | T24 | done |
 | T26 | Page damaged set into Autosave; mark survives refresh; thumbnail decode error | app | Blazheiko | M | T25 | done |
 | T27 | Overlay closes after confirmed reopen; Esc in dialogs; covers status bar | ui | Blazheiko | M | T26 | done |
-| T28 | Nothing reaches the Work under the open Gallery | wiring | Blazheiko | S | T33 | todo |
+| T28 | Nothing reaches the Work under the open Gallery | wiring | Blazheiko | S | T33 | done |
 | T29 | Connecting state on SCR-01; save the Work opened before connect | app | Blazheiko | S | T28 | todo |
 | T30 | Damaged notice Delete, storage-full notice kept | ui | Blazheiko | M | T29 | todo |
 | T31 | AC-14 re-ask and AC-18 survival tests | tests | Blazheiko | S | T30 | todo |

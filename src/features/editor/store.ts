@@ -175,6 +175,8 @@ export const useEditorStore = defineStore('editor', () => {
   const phase = ref<EditorPhase>('idle')
   const display = ref<DisplayState>('checking')
   const activePanel = ref<PanelId | null>(null)
+  /** The Gallery overlay covers the editor: its keys and drops belong to the Gallery. */
+  const galleryOpen = computed(() => activePanel.value === 'gallery')
   const slot = createToolSlot({ work, phase, activePanel, view, fitIfSized })
   const { activeTool, previewGeometry, previewAdjustments, previewLayer } = slot
   const edits = createEditHistory({ work, phase, activeTool, fitIfSized })
@@ -720,6 +722,7 @@ export const useEditorStore = defineStore('editor', () => {
     previewAdjustments,
     previewLayer,
     activePanel,
+    galleryOpen,
     spacePan,
     strokeActive,
     hasUnsavedEdits,

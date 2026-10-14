@@ -7,7 +7,7 @@ acs: ["AC-03"]
 files_hint: ["src/features/editor/EditorView.vue", "src/features/editor/EditorView.test.ts", "src/features/undo-redo/UndoRedoActions.vue", "src/features/undo-redo/UndoRedoActions.test.ts", "src/features/export/ExportAction.vue", "src/features/export/ExportAction.test.ts"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 source: "review-2026-10-14 S1-7"
 ---
 
