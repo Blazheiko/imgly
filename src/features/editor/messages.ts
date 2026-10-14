@@ -71,6 +71,10 @@ const FAILURES: Record<AppErrorCode, (details: Record<string, unknown>) => strin
   EXPORT_NOT_PERMITTED: () => "The app wasn't allowed to save there. Choose another folder.",
   EXPORT_EXTENSION_MISMATCH: () =>
     "The file name doesn't match the format, so nothing was written.",
+  // Gallery codes: stop-gap wording that keeps the map total; the Autosave texts come later.
+  STORAGE_UNAVAILABLE: () => "This browser's storage isn't available, so Works can't be saved.",
+  STORAGE_FAILED: () => "The Work couldn't be saved. Export it to keep a copy.",
+  WORK_DAMAGED: () => "This Work can't be read in full.",
 }
 
 export function failureMessage(error: AppError): string {

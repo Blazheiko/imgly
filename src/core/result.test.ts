@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { appError, err, ok, type AppErrorCode, type Result } from './result'
+import { appError, err, isAppErrorCode, ok, type AppErrorCode, type Result } from './result'
 
 describe('Result', () => {
   it('ok wraps a value', () => {
@@ -37,5 +37,24 @@ describe('AppErrorCode', () => {
     ]
 
     expect(codes.map((code) => appError(code).code)).toEqual(codes)
+  })
+
+  it('carries the gallery storage codes', () => {
+    const codes: AppErrorCode[] = ['STORAGE_UNAVAILABLE', 'STORAGE_FAILED', 'WORK_DAMAGED']
+
+    expect(codes.map((code) => appError(code).code)).toEqual(codes)
+    for (const code of codes) expect(isAppErrorCode(code)).toBe(true)
+  })
+
+  it('keeps STORAGE_QUOTA and rejects unknown codes', () => {
+    expect(isAppErrorCode('STORAGE_QUOTA')).toBe(true)
+    expect(isAppErrorCode('STORAGE_NOPE')).toBe(false)
+  })
+
+  it('carries details on a WORK_DAMAGED error', () => {
+    expect(err(appError('WORK_DAMAGED', { id: 'w1' }))).toEqual({
+      ok: false,
+      error: { code: 'WORK_DAMAGED', details: { id: 'w1' } },
+    })
   })
 })

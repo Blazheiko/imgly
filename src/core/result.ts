@@ -31,6 +31,12 @@ export type AppErrorCode =
   | 'EXPORT_NOT_PERMITTED'
   /** The save dialog returned a name whose extension doesn't match the format: `details.name`. AC-01b */
   | 'EXPORT_EXTENSION_MISMATCH'
+  /** The Gallery database can't be opened, or is closed for a newer version. AC-12 */
+  | 'STORAGE_UNAVAILABLE'
+  /** A save or delete failed for a reason other than quota. AC-11 */
+  | 'STORAGE_FAILED'
+  /** A stored Work can't be read in full. AC-08 */
+  | 'WORK_DAMAGED'
 
 export interface AppError {
   code: AppErrorCode
@@ -65,6 +71,9 @@ const APP_ERROR_CODES: Record<AppErrorCode, true> = {
   EXPORT_FORMAT_MISMATCH: true,
   EXPORT_NOT_PERMITTED: true,
   EXPORT_EXTENSION_MISMATCH: true,
+  STORAGE_UNAVAILABLE: true,
+  STORAGE_FAILED: true,
+  WORK_DAMAGED: true,
 }
 
 /** Runtime check for codes that crossed a boundary untyped (e.g. a worker message). */
