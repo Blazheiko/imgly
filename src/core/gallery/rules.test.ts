@@ -174,6 +174,18 @@ describe('touchedLabel', () => {
   })
 })
 
+describe('touchedLabel with an unusable touchedAt (T34, R2-1)', () => {
+  it.each([
+    ['NaN', NaN],
+    ['missing', undefined as unknown as number],
+    ['null', null as unknown as number],
+    ['string', '2026-06-15' as unknown as number],
+    ['Infinity', Infinity],
+  ])('a %s touchedAt has no label and never throws', (_l, bad) => {
+    expect(touchedLabel(bad, Date.UTC(2026, 5, 15), 'en-US')).toBe('')
+  })
+})
+
 describe('storageLine', () => {
   it('maps true to persisted', () => {
     expect(storageLine(true)).toBe('persisted')

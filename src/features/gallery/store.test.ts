@@ -152,6 +152,33 @@ describe('gallery store', () => {
     })
   })
 
+  describe('a record with an unusable touchedAt (T34, R2-1)', () => {
+    it.each([
+      ['NaN', NaN],
+      ['null', null],
+      ['missing', undefined],
+      ['string', 'yesterday'],
+    ])('a %s touchedAt lists Damaged and every other Work still lists', async (_l, bad) => {
+      const a = await seed(db, 'A.png', NOW - MINUTE)
+      const w = storedWorkFixture({ layer: null, record: { sourceName: 'Bad.png' } })
+      const record: Record<string, unknown> = { ...w.record, touchedAt: bad }
+      if (bad === undefined) delete record.touchedAt
+      await db.put('works', record as never)
+      await db.put('originals', w.original)
+
+      await gallery.open()
+
+      expect(gallery.overlayOpen).toBe(true)
+      expect(gallery.entries.map((e) => [e.id, e.name, e.status])).toEqual(
+        expect.arrayContaining([
+          [a, 'A.png', 'touched'],
+          [w.record.id, 'Bad.png', 'damaged'],
+        ]),
+      )
+      expect(gallery.count).toBe(2)
+    })
+  })
+
   describe('markDamaged with the erroring thumbnail URL (T33, S2-6)', () => {
     it('ignores an error for a URL that is no longer the entry thumbnail', async () => {
       const id = await seed(db, 'A.png', NOW)

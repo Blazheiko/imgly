@@ -65,8 +65,12 @@ export function entryName(sourceName: string): string {
   return sourceName === '' ? 'Untitled' : sourceName
 }
 
-/** When a Work was last opened or changed, relative under a day, else the date. AC-03 */
+/**
+ * When a Work was last opened or changed, relative under a day, else the date. AC-03
+ * A damaged record's touchedAt may be anything; it gets no label rather than a throw (AC-08).
+ */
 export function touchedLabel(touchedAt: number, now: number, locale?: string): string {
+  if (typeof touchedAt !== 'number' || !Number.isFinite(touchedAt)) return ''
   const seconds = Math.floor((now - touchedAt) / 1000)
   if (seconds < 60) return 'Just now'
   const minutes = Math.floor(seconds / 60)
