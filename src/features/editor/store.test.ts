@@ -1857,6 +1857,30 @@ describe('editor store — Autosave triggers and the replace gate (gallery AC-01
       expect(autosave.spies.connectGallery).toHaveBeenCalledWith(result)
     })
 
+    describe('a Work opened before the Gallery connects (S1-8)', () => {
+      const dbOk = () => ok({}) as unknown as Parameters<typeof editor.connectGallery>[0]
+
+      it('is handed to Autosave once when the connection arrives', async () => {
+        await open()
+        autosave.spies.request.mockClear()
+        editor.connectGallery(dbOk())
+        expect(saved()).toBe(1)
+        expect(autosave.spies.request).toHaveBeenLastCalledWith(editor.work)
+      })
+
+      it('requests nothing when no Work is open at connect time', () => {
+        editor.connectGallery(dbOk())
+        expect(saved()).toBe(0)
+      })
+
+      it('requests nothing when the connection is unavailable', async () => {
+        await open()
+        autosave.spies.request.mockClear()
+        editor.connectGallery(err(appError('STORAGE_UNAVAILABLE', { reason: 'refused' })))
+        expect(saved()).toBe(0)
+      })
+    })
+
     it('lets the Gallery take the active panel', () => {
       editor.setActivePanel('gallery')
       expect(editor.activePanel).toBe('gallery')

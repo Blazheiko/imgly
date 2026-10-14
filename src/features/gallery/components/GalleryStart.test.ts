@@ -102,3 +102,27 @@ describe('GalleryStart (SCR-01, AC-05)', () => {
     expect(w.get('.gallery-entry').element.closest('[inert]')).not.toBeNull()
   })
 })
+
+describe('GalleryStart while the database is still opening (SCR-01, AC-12, S1-8)', () => {
+  afterEach(() => {
+    document.body.innerHTML = ''
+    vi.unstubAllGlobals()
+  })
+
+  it('renders no unavailable copy before the connection arrives', async () => {
+    setActivePinia(createPinia())
+    const autosave = createFakeAutosave()
+    useEditorStore().setAutosave(autosave.fake)
+    autosave.available(false) // nothing connected yet
+    vi.stubGlobal('navigator', { storage: { persisted: vi.fn().mockResolvedValue(true) } })
+    const w = mount(GalleryStart, { attachTo: document.body })
+    for (let i = 0; i < 10; i++) await nextTick()
+    const text = w.text()
+    expect(w.find('[data-testid="gallery-unavailable"]').exists()).toBe(false)
+    expect(text).not.toContain(m.unavailableTitle())
+    for (const reason of ['refused', 'held', 'newer-version'] as const) {
+      expect(text).not.toContain(m.unavailableBody(reason))
+    }
+    w.unmount()
+  })
+})

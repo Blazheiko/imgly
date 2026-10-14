@@ -249,6 +249,7 @@ export const useEditorStore = defineStore('editor', () => {
     if (result.ok) {
       const db = result.value
       reopenSource = { loadWork: (id) => loadWork(db, id), decodePng: workCodec.decodePng }
+      requestSave()
     }
   }
 

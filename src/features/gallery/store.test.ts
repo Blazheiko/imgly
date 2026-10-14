@@ -215,6 +215,19 @@ describe('gallery store', () => {
       expect(gallery.unavailableReason).toBe('held')
     })
 
+    it('reports nothing before the database connection arrives (S1-8)', async () => {
+      setActivePinia(createPinia())
+      const freshAutosave = createFakeAutosave()
+      useEditorStore().setAutosave(freshAutosave.fake)
+      freshAutosave.available(false) // not connected yet, so the editor reports unavailable
+      const fresh = useGallery()
+      expect(fresh.unavailableReason).toBeNull()
+      await fresh.refresh()
+      expect(fresh.unavailableReason).toBeNull()
+      fresh.connect(ok(db))
+      expect(fresh.unavailableReason).toBe('newer-version')
+    })
+
     it('reports closed for a newer version when a connected database becomes unavailable', async () => {
       autosave.available(false)
       await gallery.refresh()

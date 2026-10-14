@@ -47,7 +47,8 @@ export const useGallery = defineStore('gallery', () => {
 
   const unavailableReason = computed<UnavailableReason | null>(() => {
     const c = connection.value
-    if (c && !c.ok) return c.error.details?.reason === 'held' ? 'held' : 'refused'
+    if (!c) return null
+    if (!c.ok) return c.error.details?.reason === 'held' ? 'held' : 'refused'
     return editor.galleryAvailable ? null : 'newer-version'
   })
 
