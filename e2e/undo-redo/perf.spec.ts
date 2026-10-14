@@ -4,7 +4,7 @@
  * over 20 runs after 2 warm-ups, for a Step of each tool. Runs by hand on the reference machine:
  *   PERF=1 pnpm test:e2e e2e/undo-redo/perf.spec.ts --project chromium
  */
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from '../harness'
 import { p95 } from '../perf-memory'
 import { REFERENCE, openReference, work } from './helpers'
 

@@ -10,7 +10,7 @@
  * measured value, never met by changing a threshold. Export time with all seven values set is in
  * e2e/export/perf.spec.ts.
  */
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from '../harness'
 import { p95, settledKiB } from '../perf-memory'
 import { adjusted, applyAdjustments, gotoReady, waitForWork } from './helpers'
 

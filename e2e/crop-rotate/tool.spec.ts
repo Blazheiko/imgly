@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '../harness'
 import { fixture, view } from '../export/helpers'
 import { NO_GALLERY, canvasArea, dropGeneratedImage } from '../open-and-view/helpers'
 import {

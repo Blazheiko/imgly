@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from '../harness'
 import { canvasArea, dropGeneratedImage, gotoReady, view, waitForWork } from './helpers'
 
 const fitOf = (iw: number, ih: number, a: { width: number; height: number }) =>

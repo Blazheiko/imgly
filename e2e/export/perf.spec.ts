@@ -9,7 +9,7 @@
  * Export time runs from confirm to the file being written; the stubbed "Save as…" dialog returns
  * at once, so no dialog time is counted. Numbers bind only to the reference machine.
  */
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from '../harness'
 import { p95, settledKiB } from '../perf-memory'
 import {
   flipOnScreen,

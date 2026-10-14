@@ -1,4 +1,4 @@
-import { expect, test, type FileChooser, type Page } from '@playwright/test'
+import { expect, test, type FileChooser, type Page } from '../harness'
 import { NO_GALLERY, canvasArea, dropGeneratedImage } from '../open-and-view/helpers'
 import { dropBytes, pixelsAt } from '../crop-rotate/helpers'
 import { choose, generateImage, openFile, panel, view } from '../export/helpers'

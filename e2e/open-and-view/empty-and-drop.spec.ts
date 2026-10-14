@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from '../harness'
 import { dropGeneratedImage, gotoReady, waitForWork, type DropPrevented } from './helpers'
 
 /** Dispatches a real drag-and-drop of in-memory files onto the page body. */

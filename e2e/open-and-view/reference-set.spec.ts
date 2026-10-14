@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { crc32 } from 'node:zlib'
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from '../harness'
 import {
   canvasArea,
   chooserFromCtrlO,

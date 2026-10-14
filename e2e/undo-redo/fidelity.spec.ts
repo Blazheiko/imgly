@@ -3,7 +3,7 @@
  * Redo differs by 0 per channel from the Export of that same state made before, on each engine.
  * Every comparison stays within one engine; there is no tolerance.
  */
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from '../harness'
 import { openNamed } from '../adjust/helpers'
 import { identityGeometry, setStraighten, type Geometry } from '../crop-rotate/helpers'
 import { button as drawButton, openTool as openDrawTool, referenceDrawing } from '../draw/helpers'

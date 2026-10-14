@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from '../harness'
 import { dropGeneratedImage, expectOneRetainedOriginal, gotoReady, waitForWork } from './helpers'
 
 const work = (page: Page) => page.evaluate(() => window.__imglyTest!.work())

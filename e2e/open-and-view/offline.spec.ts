@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from '../harness'
 import { canvasArea, dropGeneratedImage, gotoReady, view, waitForWork } from './helpers'
 
 // QG-1b (sad.md §10): after one load, an open works with no network — the decode worker

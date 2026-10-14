@@ -3,7 +3,7 @@
  * Steps kept, and the bitmap ledger after each way Steps leave the history. The whole-page row is
  * @perf, as export's (PERF=1 pnpm test:e2e e2e/undo-redo/memory.spec.ts --project chromium).
  */
-import { expect, test } from '@playwright/test'
+import { expect, test } from '../harness'
 import { NO_GALLERY } from '../open-and-view/helpers'
 import { settledKiB } from '../perf-memory'
 import {

@@ -14,7 +14,7 @@
  * the dirty rectangle and the Preview upload, without the tool UI. The overlay rows dispatch the
  * pointer events in the page, to the tool's own handlers. Brush and Eraser are both measured.
  */
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from '../harness'
 import { p95, settledKiB } from '../perf-memory'
 import { gotoReady, waitForWork } from '../open-and-view/helpers'
 

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from '../harness'
 import { dropGeneratedImage, waitForWork } from '../open-and-view/helpers'
 import { pixelsAt, setStraighten, identityGeometry } from '../crop-rotate/helpers'
 import { frameToOriginal } from '../../src/core/geometry'

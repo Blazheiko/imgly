@@ -9,7 +9,7 @@
  * The Work is 4096×3072; each p95 is over 20 runs after 2 warm-ups. A miss is reported with the
  * measured value, never met by changing a threshold.
  */
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from '../harness'
 import { p95, settledKiB } from '../perf-memory'
 import {
   applyGeometry,

@@ -24,7 +24,10 @@ export default tseslint.config(
     languageOptions: { parserOptions: { parser: tseslint.parser } },
     rules: {
       // Shared primitives named by the screens manifests (docs/design-system.md inventory).
-      'vue/multi-word-component-names': ['error', { ignores: ['Dialog', 'Popover', 'Spinner', 'Toast'] }],
+      'vue/multi-word-component-names': [
+        'error',
+        { ignores: ['Dialog', 'Popover', 'Spinner', 'Toast'] },
+      ],
     },
   },
   {
@@ -35,6 +38,25 @@ export default tseslint.config(
   {
     files: ['*.config.{js,ts}', 'e2e/**/*.ts'],
     languageOptions: { globals: { ...globals.node } },
+  },
+  {
+    // WebKit runs each e2e test in a persistent context so Autosave can store Blobs (e2e/harness.ts).
+    files: ['e2e/**/*.ts'],
+    ignores: ['e2e/harness.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@playwright/test',
+              importNames: ['test'],
+              message: 'Import `test` from e2e/harness.ts: WebKit needs its persistent context.',
+            },
+          ],
+        },
+      ],
+    },
   },
   {
     // ADR 0002: the functional core stays pure — no Vue, no Pinia, no outer layers.

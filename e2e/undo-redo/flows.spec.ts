@@ -4,7 +4,7 @@
  * no Step (AC-06), the refusals during an export and with Draw open (AC-07, AC-08), and the save
  * point (AC-09).
  */
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from '../harness'
 import { dropGeneratedImage, view } from '../open-and-view/helpers'
 import { exportPng } from '../adjust/helpers'
 import { choose, exportAction, expectSaved, panel, stubSaveFilePicker } from '../export/helpers'
