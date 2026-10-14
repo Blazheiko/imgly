@@ -87,7 +87,8 @@ export const useGallery = defineStore('gallery', () => {
     entries.value = listed.value.map((w) => ({
       id: w.id,
       name: entryName(w.sourceName),
-      status: w.damaged ? 'damaged' : w.id === openId ? 'open' : 'touched',
+      status:
+        w.damaged || editor.damagedIds.has(w.id) ? 'damaged' : w.id === openId ? 'open' : 'touched',
       label: touchedLabel(w.touchedAt, now),
       thumbnailUrl: w.record ? URL.createObjectURL(w.record.thumbnail) : null,
     }))
@@ -144,6 +145,13 @@ export const useGallery = defineStore('gallery', () => {
     }
   }
 
+  /** A thumbnail that will not decode: the Work is Damaged now, and stays so across refresh. */
+  function markDamaged(id: string) {
+    editor.markDamaged(id)
+    const entry = entries.value.find((e) => e.id === id)
+    if (entry) entry.status = 'damaged'
+  }
+
   function requestDelete(id: string) {
     if (id === editor.openWorkId) {
       notices.pushAll([{ kind: 'info', text: hintOpenWorkCannotBeDeleted() }])
@@ -181,6 +189,7 @@ export const useGallery = defineStore('gallery', () => {
     open,
     close,
     choose,
+    markDamaged,
     requestDelete,
     confirmDelete,
     cancelDelete,

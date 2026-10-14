@@ -248,6 +248,30 @@ describe('GalleryList (SCR-01, SCR-03)', () => {
     })
   })
 
+  describe('thumbnail that fails to decode (AC-08, S1-4)', () => {
+    it('shows the Damaged mark when the img errors, and records the id as damaged', async () => {
+      const id = await seed(db, 'Cat.png', NOW - MINUTE)
+      await seed(db, 'Ok.png', NOW - 2 * MINUTE)
+      // Bytes the list accepts (image/png type) but no decoder can read.
+      const stored = await db.get('works', id)
+      await db.put('works', { ...stored!, thumbnail: new Blob(['garbage'], { type: 'image/png' }) })
+      const w = await show()
+      const first = w.findAll('.gallery-entry')[0]!
+      expect(first.classes()).not.toContain('gallery-entry--damaged')
+
+      await first.get('img').trigger('error')
+      await nextTick()
+
+      const after = w.findAll('.gallery-entry')[0]!
+      expect(after.classes()).toContain('gallery-entry--damaged')
+      expect(after.text()).toContain(m.damagedThumbnail())
+      expect(after.text()).toContain(m.statusDamaged())
+      expect(after.find('img').exists()).toBe(false)
+      expect(editor.damagedIds.has(id)).toBe(true)
+      expect(w.findAll('.gallery-entry')[1]!.classes()).not.toContain('gallery-entry--damaged')
+    })
+  })
+
   describe('empty (AC-05)', () => {
     it('shows the plain text, 0 of 20, the storage line and Open image when asked', async () => {
       const w = await show({ showOpenImage: true })

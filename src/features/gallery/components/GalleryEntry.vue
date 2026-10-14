@@ -5,7 +5,7 @@ import type { GalleryEntry } from '../store'
 import * as m from '../messages'
 
 const props = defineProps<{ entry: GalleryEntry }>()
-const emit = defineEmits<{ choose: []; delete: [] }>()
+const emit = defineEmits<{ choose: []; delete: []; 'image-error': [] }>()
 
 const hintId = useId()
 const status = computed(() => {
@@ -31,7 +31,12 @@ const isDamaged = computed(() => props.entry.status === 'damaged')
     >
       <span class="gallery-entry__thumb">
         <span v-if="isDamaged" class="gallery-entry__damaged">{{ m.damagedThumbnail() }}</span>
-        <img v-else-if="entry.thumbnailUrl" :src="entry.thumbnailUrl" alt="" />
+        <img
+          v-else-if="entry.thumbnailUrl"
+          :src="entry.thumbnailUrl"
+          alt=""
+          @error="emit('image-error')"
+        />
       </span>
       <span class="gallery-entry__name" :title="entry.name">{{ entry.name }}</span>
       <span class="gallery-entry__status">{{ status }}</span>

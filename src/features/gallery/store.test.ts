@@ -242,6 +242,37 @@ describe('gallery store', () => {
       expect(gallery.reopening).toBeNull()
     })
 
+    it('keeps the Damaged mark across refresh even though the list reports it as normal (S1-4)', async () => {
+      const b = await seed(db, 'Beach.jpg', NOW - MINUTE)
+      const c = await seed(db, 'C.png', NOW - 2 * MINUTE)
+      await gallery.open()
+      // listWorks sees a normal entry; only the load on reopen finds the damage.
+      editor.setReopenSource({
+        loadWork: async () => err(appError('WORK_DAMAGED', { reason: 'missing-original' })),
+        decodePng: async () =>
+          ok({ width: 4, height: 3, close: vi.fn() } as unknown as ImageBitmap),
+      })
+      await gallery.choose(b)
+      expect(gallery.entries.find((e) => e.id === b)!.status).toBe('damaged')
+
+      await gallery.refresh()
+
+      expect(gallery.entries.find((e) => e.id === b)!.status).toBe('damaged')
+      expect(gallery.entries.find((e) => e.id === c)!.status).toBe('touched')
+    })
+
+    it('markDamaged(id) turns a listed entry Damaged now, records it in the editor set, and survives refresh', async () => {
+      const b = await seed(db, 'Beach.jpg', NOW - MINUTE)
+      await gallery.open()
+
+      gallery.markDamaged(b)
+
+      expect(gallery.entries.find((e) => e.id === b)!.status).toBe('damaged')
+      expect(editor.damagedIds.has(b)).toBe(true)
+      await gallery.refresh()
+      expect(gallery.entries.find((e) => e.id === b)!.status).toBe('damaged')
+    })
+
     it('damaged: names the Work, offers Delete…, marks the entry damaged, others untouched', async () => {
       const b = await seed(db, 'Beach.jpg', NOW - MINUTE)
       const c = await seed(db, 'C.png', NOW - 2 * MINUTE)

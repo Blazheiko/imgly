@@ -1,4 +1,4 @@
-import { computed, nextTick, ref, shallowRef } from 'vue'
+import { computed, nextTick, reactive, ref, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
 import {
   adjustmentsEquals,
@@ -188,10 +188,18 @@ export const useEditorStore = defineStore('editor', () => {
   let decode: Decoder = decodeImage
   let rendererFactory: RendererFactory = createPreviewRenderer
   const notices = useNotices()
+  // Works found damaged on this page (a failed reopen, a thumbnail that will not decode); Autosave
+  // reads it so a save cannot overwrite them and the Gallery keeps the mark across refresh.
+  const damagedSet = reactive(new Set<string>())
+  const damagedIds: ReadonlySet<string> = damagedSet
+  function markDamaged(id: string) {
+    damagedSet.add(id)
+  }
   // The real Autosave, lazy in everything it touches: no Worker or database until a Gallery connects.
   const autosave = shallowRef<Autosave>(
     createAutosave({
       notices,
+      damagedIds: () => damagedSet,
       codec: workCodec,
       renderer: () => {
         if (!renderer) throw new Error('no Preview renderer')
@@ -600,6 +608,7 @@ export const useEditorStore = defineStore('editor', () => {
     phase.value = 'reading'
     const damaged = (error: AppError): ReopenOutcome => {
       phase.value = 'idle'
+      markDamaged(id)
       return { kind: 'damaged', error }
     }
 
@@ -698,6 +707,8 @@ export const useEditorStore = defineStore('editor', () => {
   }
 
   return {
+    damagedIds,
+    markDamaged,
     work,
     pending,
     view,

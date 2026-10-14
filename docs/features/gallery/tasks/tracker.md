@@ -30,7 +30,7 @@
 | T23 | Spec wording, open-and-view note, CONTEXT terms, architecture map | docs | Blazheiko | S | — | done |
 | T24 | Repository write side: layer by stored layerId, layerId without layer, evicted name, quota at commit | infra | Blazheiko | S | — | done |
 | T25 | Index-hidden records listed; damaged-first eviction inside the save | infra | Blazheiko | M | T24 | done |
-| T26 | Page damaged set into Autosave; mark survives refresh; thumbnail decode error | app | Blazheiko | M | T25 | todo |
+| T26 | Page damaged set into Autosave; mark survives refresh; thumbnail decode error | app | Blazheiko | M | T25 | done |
 | T27 | Overlay closes after confirmed reopen; Esc in dialogs; covers status bar | ui | Blazheiko | M | T26 | todo |
 | T28 | Nothing reaches the Work under the open Gallery | wiring | Blazheiko | S | T27 | todo |
 | T29 | Connecting state on SCR-01; save the Work opened before connect | app | Blazheiko | S | T28 | todo |
