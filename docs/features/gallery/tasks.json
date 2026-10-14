@@ -635,7 +635,7 @@
       "title": "Nothing reaches the Work under the open Gallery: opens, drops, zoom, Undo/Redo and the save shortcut do nothing while activePanel is gallery",
       "layer": "wiring",
       "deps": [
-        "T27"
+        "T33"
       ],
       "acs": [
         "AC-03"
@@ -676,7 +676,7 @@
     },
     {
       "id": "T30",
-      "title": "Notices and refresh: the damaged notice's Delete always opens its dialog, a successful save keeps the storage-full notice, and only the latest refresh assigns the list without leaking thumbnail URLs",
+      "title": "Notices: the damaged notice's Delete always opens its dialog, and a successful save keeps the storage-full notice",
       "layer": "ui",
       "deps": [
         "T29"
@@ -687,7 +687,7 @@
         "AC-11",
         "AC-03"
       ],
-      "dod": "DeleteWorkDialog is mounted once outside GalleryList and opens from the notice with no list mounted; pendingDelete never surfaces later unasked; autosave withdraws only the save-failed notice; overlapping refresh() calls assign only the newest list and revoke every superseded URL; tests for each",
+      "dod": "DeleteWorkDialog is mounted once outside GalleryList and opens from the notice with no list mounted; pendingDelete never surfaces later unasked; autosave withdraws only the save-failed notice; tests for each",
       "files_hint": [
         "src/features/gallery/store.ts",
         "src/features/gallery/store.test.ts",
@@ -700,7 +700,7 @@
         "src/features/editor/autosave.test.ts"
       ],
       "file": "docs/features/gallery/tasks/t30-review-fix.md",
-      "source": "docs/features/gallery/_review/review-2026-10-14.md S2-4, S2-5, S2-6"
+      "source": "docs/features/gallery/_review/review-2026-10-14.md S2-4, S2-5"
     },
     {
       "id": "T31",
@@ -739,6 +739,29 @@
       ],
       "file": "docs/features/gallery/tasks/t32-review-fix.md",
       "source": "docs/features/gallery/_review/review-2026-10-14.md S1-10"
+    },
+    {
+      "id": "T33",
+      "title": "Regression from T26: only the latest refresh assigns the Gallery list and superseded thumbnail URLs are revoked after the DOM moves on, so a reload never marks a fresh Work Damaged",
+      "layer": "ui",
+      "deps": [
+        "T27"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-03",
+        "AC-05",
+        "AC-08"
+      ],
+      "dod": "overlapping refresh() calls assign only the newest list and revoke every superseded URL once the new list is rendered; a thumbnail error for a URL the entry no longer shows marks nothing; e2e save-and-reopen AC-01 and AC-05 pass on chromium again",
+      "files_hint": [
+        "src/features/gallery/store.ts",
+        "src/features/gallery/store.test.ts",
+        "src/features/gallery/components/GalleryList.vue",
+        "src/features/gallery/components/GalleryEntry.vue"
+      ],
+      "file": "docs/features/gallery/tasks/t33-review-fix.md",
+      "source": "docs/features/gallery/_review/review-2026-10-14.md S2-6 (pulled forward from T30); regression found in T27's e2e gate"
     }
   ]
 }

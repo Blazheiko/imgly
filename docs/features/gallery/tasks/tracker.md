@@ -32,10 +32,11 @@
 | T25 | Index-hidden records listed; damaged-first eviction inside the save | infra | Blazheiko | M | T24 | done |
 | T26 | Page damaged set into Autosave; mark survives refresh; thumbnail decode error | app | Blazheiko | M | T25 | done |
 | T27 | Overlay closes after confirmed reopen; Esc in dialogs; covers status bar | ui | Blazheiko | M | T26 | done |
-| T28 | Nothing reaches the Work under the open Gallery | wiring | Blazheiko | S | T27 | todo |
+| T28 | Nothing reaches the Work under the open Gallery | wiring | Blazheiko | S | T33 | todo |
 | T29 | Connecting state on SCR-01; save the Work opened before connect | app | Blazheiko | S | T28 | todo |
-| T30 | Damaged notice Delete, storage-full notice kept, refresh race | ui | Blazheiko | M | T29 | todo |
+| T30 | Damaged notice Delete, storage-full notice kept | ui | Blazheiko | M | T29 | todo |
 | T31 | AC-14 re-ask and AC-18 survival tests | tests | Blazheiko | S | T30 | todo |
 | T32 | Test-plan: migration 0002 clears v1; new rows | docs | Blazheiko | S | T31 | todo |
+| T33 | Regression from T26: latest refresh wins, URLs revoked after render (S2-6) | ui | Blazheiko | S | T27 | todo |
 
-**Total:** 32 tasks, ~22.5 person-days (S ≈ 0.5, M ≈ 0.75, L ≈ 1).
+**Total:** 33 tasks, ~23 person-days (S ≈ 0.5, M ≈ 0.75, L ≈ 1).

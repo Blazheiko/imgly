@@ -2,7 +2,7 @@
 id: T28
 title: "Nothing reaches the Work under the open Gallery: opens, drops, zoom, Undo/Redo and the save shortcut do nothing while activePanel is gallery"
 layer: "wiring"
-deps: ["T27"]
+deps: ["T33"]
 acs: ["AC-03"]
 files_hint: ["src/features/editor/EditorView.vue", "src/features/editor/EditorView.test.ts", "src/features/undo-redo/UndoRedoActions.vue", "src/features/undo-redo/UndoRedoActions.test.ts", "src/features/export/ExportAction.vue", "src/features/export/ExportAction.test.ts"]
 owner: "Blazheiko"
