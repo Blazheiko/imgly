@@ -65,4 +65,50 @@ describe('useNotices (AC-11b)', () => {
     const [a, b] = notices.items
     expect(a!.id).not.toBe(b!.id)
   })
+
+  it('returns the new ids in input order (AC-11)', () => {
+    const notices = useNotices()
+    notices.pushAll([{ kind: 'failure', text: 'Earlier' }])
+    const ids = notices.pushAll([
+      { kind: 'failure', text: 'A' },
+      { kind: 'info', text: 'B' },
+    ])
+
+    expect(ids).toHaveLength(2)
+    expect(ids).toEqual(notices.items.slice(1).map((n) => n.id))
+  })
+
+  it('returns [] and adds nothing for an empty batch', () => {
+    const notices = useNotices()
+    expect(notices.pushAll([])).toEqual([])
+    expect(notices.items).toEqual([])
+  })
+
+  it('withdraws a failure notice by its returned id and leaves the others (AC-11)', () => {
+    const notices = useNotices()
+    const [saveFailed] = notices.pushAll([{ kind: 'failure', text: 'Could not save.' }])
+    notices.pushAll([{ kind: 'failure', text: 'Other' }])
+
+    notices.dismiss(saveFailed!)
+    expect(notices.items.map((n) => n.text)).toEqual(['Other'])
+  })
+
+  it('ignores dismiss for an id that is already gone', () => {
+    const notices = useNotices()
+    const [id] = notices.pushAll([{ kind: 'info', text: 'Gone soon' }])
+    vi.advanceTimersByTime(INFO_NOTICE_MS)
+    expect(() => notices.dismiss(id!)).not.toThrow()
+    expect(notices.items).toEqual([])
+  })
+
+  it('keeps the action on the notice, and the timer still dismisses an info one without running it (AC-08)', () => {
+    const notices = useNotices()
+    const run = vi.fn()
+    notices.pushAll([{ kind: 'info', text: 'Damaged', action: { label: 'Delete…', run } }])
+    expect(notices.items[0]!.action?.label).toBe('Delete…')
+
+    vi.advanceTimersByTime(INFO_NOTICE_MS)
+    expect(notices.items).toEqual([])
+    expect(run).not.toHaveBeenCalled()
+  })
 })

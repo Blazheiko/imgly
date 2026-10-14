@@ -12,6 +12,7 @@ const notices = useNotices()
       :key="notice.id"
       :kind="notice.kind"
       :text="notice.text"
+      :action="notice.action"
       @dismiss="notices.dismiss(notice.id)"
     />
   </div>

@@ -1,8 +1,14 @@
 <script setup lang="ts">
-import type { NoticeKind } from '../notices'
+import type { NoticeInput, NoticeKind } from '../notices'
+import BaseButton from './BaseButton.vue'
 
-defineProps<{ kind: NoticeKind; text: string }>()
-defineEmits<{ dismiss: [] }>()
+defineProps<{ kind: NoticeKind; text: string; action?: NoticeInput['action'] }>()
+const emit = defineEmits<{ dismiss: [] }>()
+
+function runAction(run: () => void): void {
+  run()
+  emit('dismiss')
+}
 </script>
 
 <template>
@@ -13,6 +19,9 @@ defineEmits<{ dismiss: [] }>()
     :aria-live="kind === 'failure' ? 'assertive' : 'polite'"
   >
     <p class="toast__text">{{ text }}</p>
+    <BaseButton v-if="action" variant="ghost" @click="runAction(action.run)">{{
+      action.label
+    }}</BaseButton>
     <button type="button" class="toast__dismiss" aria-label="Dismiss" @click="$emit('dismiss')">
       ×
     </button>
