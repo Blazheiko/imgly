@@ -14,7 +14,7 @@
 | T7 | work-codec: PNG encode and decode in a fresh worker | infra | Blazheiko | M | T1 | todo |
 | T8 | renderThumbnail in the Preview renderer | infra | Blazheiko | M | — | done |
 | T9 | Toast action, returned notice ids, --gallery-tile-size | ui | Blazheiko | S | — | done |
-| T10 | Autosave save queue: single flight, latest wins | app | Blazheiko | S | — | todo |
+| T10 | Autosave save queue: single flight, latest wins | app | Blazheiko | S | — | done |
 | T11 | autosave.ts: prepare, store, persistence, versionchange, notices | app | Blazheiko | L | T4, T6, T7, T8, T9, T10 | todo |
 | T12 | Editor store: Autosave triggers and the narrowed replace gate | app | Blazheiko | M | T11 | todo |
 | T13 | reopenWork(id) | app | Blazheiko | M | T2, T5, T7, T12 | todo |
