@@ -28,7 +28,9 @@ test.describe('SCR-03 — replace confirmation (AC-15)', () => {
 
     const dialog = page.getByRole('alertdialog')
     await expect(dialog.getByRole('heading')).toHaveText('Replace the current image?')
-    await expect(dialog).toContainText('Your edits to the current image will be lost.')
+    await expect(dialog).toContainText(
+      "Your latest edits aren't saved in the Gallery and will be lost.",
+    )
     await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused()
   })
 

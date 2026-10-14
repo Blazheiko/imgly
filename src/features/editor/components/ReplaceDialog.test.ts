@@ -18,7 +18,7 @@ const image = (width: number) => ({
   hasTransparency: false,
 })
 
-describe('ReplaceDialog (SCR-03, AC-15)', () => {
+describe('ReplaceDialog (SCR-05, AC-15, AC-17)', () => {
   let editor: ReturnType<typeof useEditorStore>
   let wrapper: VueWrapper
 
@@ -39,7 +39,9 @@ describe('ReplaceDialog (SCR-03, AC-15)', () => {
 
   it('uses the SCR-03 copy', () => {
     expect(wrapper.get('h2').text()).toBe('Replace the current image?')
-    expect(wrapper.text()).toContain('Your edits to the current image will be lost.')
+    expect(wrapper.text()).toContain(
+      "Your latest edits aren't saved in the Gallery and will be lost.",
+    )
     expect(wrapper.get('.base-button--secondary').text()).toBe('Cancel')
     expect(wrapper.get('.base-button--primary').text()).toBe('Replace')
   })
@@ -58,6 +60,13 @@ describe('ReplaceDialog (SCR-03, AC-15)', () => {
   it('Esc cancels', async () => {
     const work = editor.work
     await wrapper.get('[role="alertdialog"]').trigger('keydown', { key: 'Escape' })
+    expect(editor.phase).toBe('idle')
+    expect(editor.work).toBe(work)
+  })
+
+  it('backdrop click cancels and keeps the Work', async () => {
+    const work = editor.work
+    await wrapper.get('[data-testid="dialog-backdrop"]').trigger('click')
     expect(editor.phase).toBe('idle')
     expect(editor.work).toBe(work)
   })

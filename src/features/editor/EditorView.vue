@@ -143,6 +143,20 @@ const uninstallDropGuard = installDropGuard(window, {
   },
 })
 
+/** AC-20: warn on leave only while a save runs; the browser shows its own text. */
+function warnOnLeave(event: BeforeUnloadEvent) {
+  event.preventDefault()
+  event.returnValue = ''
+}
+watch(
+  () => editor.saving,
+  (saving) => {
+    if (saving) window.addEventListener('beforeunload', warnOnLeave)
+    else window.removeEventListener('beforeunload', warnOnLeave)
+  },
+)
+if (editor.saving) window.addEventListener('beforeunload', warnOnLeave)
+
 onMounted(() => {
   window.addEventListener('keydown', onKeydown)
   window.addEventListener('keyup', onKeyup)
@@ -151,6 +165,7 @@ onMounted(() => {
   for (const type of GESTURE_EVENTS) window.addEventListener(type, blockPageZoomGesture)
 })
 onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', warnOnLeave)
   window.removeEventListener('keydown', onKeydown)
   window.removeEventListener('keyup', onKeyup)
   window.removeEventListener('blur', endSpacePan)
@@ -171,6 +186,9 @@ onBeforeUnmount(() => {
       :open-disabled="editor.phase === 'exporting'"
       @open="openPicked"
     >
+      <template v-if="live && editor.work" #leading-actions>
+        <slot name="top-bar-leading-actions" />
+      </template>
       <template v-if="live" #actions><slot name="top-bar-actions" /></template>
     </EditorTopBar>
     <div class="editor-view__workspace">
@@ -194,8 +212,14 @@ onBeforeUnmount(() => {
           </template>
         </CanvasMessage>
         <template v-else-if="live">
-          <EmptyCanvas v-if="!editor.work" @open="openPicked" />
-          <PreviewCanvas v-else />
+          <template v-if="!editor.work">
+            <EmptyCanvas @open="openPicked" />
+            <slot name="start-screen" />
+          </template>
+          <template v-else>
+            <PreviewCanvas />
+            <slot name="overlay" />
+          </template>
           <!-- An open tool's canvas half (crop-rotate's frame), over the Preview (ADR-0003). -->
           <slot v-if="editor.work && editor.activeTool" name="tool-canvas" />
           <div

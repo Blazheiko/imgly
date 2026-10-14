@@ -11,7 +11,7 @@ const editor = useEditorStore()
     initial-focus="[data-action='cancel']"
     @cancel="editor.cancelReplace()"
   >
-    Your edits to the current image will be lost.
+    Your latest edits aren't saved in the Gallery and will be lost.
     <template #actions>
       <BaseButton variant="secondary" data-action="cancel" @click="editor.cancelReplace()">
         Cancel
