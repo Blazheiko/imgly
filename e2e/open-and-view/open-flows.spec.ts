@@ -103,7 +103,9 @@ test.describe('a file the app may not read (AC-10)', () => {
         "The app wasn't allowed to read this file. Make it available on this computer first, for example by downloading it from your cloud drive.",
       )
       expect(await work(page)).toBeNull()
-      await expect(page.getByRole('button', { name: 'Open image' })).toBeVisible()
+      await expect(
+        page.getByTestId('empty-canvas').getByRole('button', { name: 'Open image' }),
+      ).toBeVisible()
     } finally {
       chmodSync(path, 0o644)
     }

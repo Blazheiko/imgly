@@ -10,7 +10,7 @@ async function openOverUnsavedEdits(page: Page) {
   await waitForWork(page, 4000, 3000)
   await page.evaluate(() => window.__imglyTest!.applyEdit())
   await page.getByRole('button', { name: 'Zoom in' }).click()
-  await page.getByRole('button', { name: 'Open image' }).focus()
+  await page.getByTestId('editor-top-bar').getByRole('button', { name: 'Open image' }).focus()
   const before = {
     work: await work(page),
     view: await page.evaluate(() => window.__imglyTest!.view()),
@@ -47,7 +47,9 @@ test.describe('SCR-03 — replace confirmation (AC-15)', () => {
     expect(await page.evaluate(() => window.__imglyTest!.view())).toEqual(before.view)
     await expect(page.getByTestId('zoom-level')).toHaveText(before.level!)
     await expect(page.getByTestId('toast-stack')).toBeEmpty()
-    await expect(page.getByRole('button', { name: 'Open image' })).toBeFocused()
+    await expect(
+      page.getByTestId('editor-top-bar').getByRole('button', { name: 'Open image' }),
+    ).toBeFocused()
     await expectOneRetainedOriginal(page) // the declined image was closed
   })
 

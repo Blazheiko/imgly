@@ -1,5 +1,5 @@
 import { expect, test, type FileChooser, type Page } from '@playwright/test'
-import { canvasArea, dropGeneratedImage } from '../open-and-view/helpers'
+import { NO_GALLERY, canvasArea, dropGeneratedImage } from '../open-and-view/helpers'
 import { dropBytes, pixelsAt } from '../crop-rotate/helpers'
 import {
   action,
@@ -54,7 +54,7 @@ const revision = async (page: Page) => (await work(page))!.revision
 
 test.describe('with an image', () => {
   test.beforeEach(async ({ page }) => {
-    await gotoReady(page)
+    await gotoReady(page, { gallery: !test.info().tags.includes(NO_GALLERY) })
     await openNamed(page, 'photo.png', 320, 240)
   })
 
@@ -112,29 +112,31 @@ test.describe('with an image', () => {
       expect((await work(page))!.hasUnsavedEdits).toBe(true)
     })
 
-    test('after an Export, a mark drawn in one Apply and erased in a later one is still an edit', async ({
-      page,
-      browserName,
-    }) => {
-      await openTool(page)
-      await click(page, 160, 120)
-      await apply(page)
-      expect((await work(page))!.hasUnsavedEdits).toBe(true)
-      // An applied change asks before a replace.
-      await dropGeneratedImage(page, { width: 120, height: 90 })
-      await expect(replaceDialog(page)).toBeVisible()
-      await replaceDialog(page).getByRole('button', { name: 'Cancel' }).click()
+    // Gallery unavailable: replacing always asks for Unsaved edits (gallery AC-12, AC-17)
+    test(
+      'after an Export, a mark drawn in one Apply and erased in a later one is still an edit',
+      { tag: NO_GALLERY },
+      async ({ page, browserName }) => {
+        await openTool(page)
+        await click(page, 160, 120)
+        await apply(page)
+        expect((await work(page))!.hasUnsavedEdits).toBe(true)
+        // An applied change asks before a replace.
+        await dropGeneratedImage(page, { width: 120, height: 90 })
+        await expect(replaceDialog(page)).toBeVisible()
+        await replaceDialog(page).getByRole('button', { name: 'Cancel' }).click()
 
-      await exportPng(page, browserName)
-      expect((await work(page))!.hasUnsavedEdits).toBe(false)
-      await openTool(page)
-      await page.keyboard.press('e')
-      await setWidth(page, 60)
-      await click(page, 160, 120)
-      await apply(page)
-      expect(marks(await drawingAlpha(page))).toBe(0)
-      expect((await work(page))!.hasUnsavedEdits).toBe(true)
-    })
+        await exportPng(page, browserName)
+        expect((await work(page))!.hasUnsavedEdits).toBe(false)
+        await openTool(page)
+        await page.keyboard.press('e')
+        await setWidth(page, 60)
+        await click(page, 160, 120)
+        await apply(page)
+        expect(marks(await drawingAlpha(page))).toBe(0)
+        expect((await work(page))!.hasUnsavedEdits).toBe(true)
+      },
+    )
   })
 
   test('AC-15 — Export and Ctrl/Cmd+S only show the hint while the tool is open', async ({

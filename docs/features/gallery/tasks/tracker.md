@@ -21,7 +21,7 @@
 | T14 | EditorView slots, leave warning, ReplaceDialog wording | ui | Blazheiko | S | T12 | done |
 | T15 | Gallery store and messages | ui | Blazheiko | M | T1, T5, T6, T9, T13 | done |
 | T16 | GalleryEntry, GalleryList, DeleteWorkDialog | ui | Blazheiko | M | T9, T15 | done |
-| T17 | GalleryStart, GalleryAction, GalleryOverlay, App wiring | ui | Blazheiko | M | T14, T16 | todo |
+| T17 | GalleryStart, GalleryAction, GalleryOverlay, App wiring | ui | Blazheiko | M | T14, T16 | done |
 | T18 | Gallery e2e hooks | wiring | Blazheiko | M | T5, T6, T12 | todo |
 | T19 | e2e: save, reopen, exactness, start screen, v1 Work | tests | Blazheiko | L | T17, T18 | todo |
 | T20 | e2e: delete, damaged, 25 images, quota, failures, line, persist | tests | Blazheiko | L | T17, T18 | todo |

@@ -1,3 +1,6 @@
+export { default as GalleryAction } from './components/GalleryAction.vue'
+export { default as GalleryOverlay } from './components/GalleryOverlay.vue'
+export { default as GalleryStart } from './components/GalleryStart.vue'
 export { useGallery } from './store'
 export type { GalleryEntry } from './store'
 export * as galleryMessages from './messages'

@@ -121,7 +121,7 @@ test.describe('shortcuts and keyboard (AC-14)', () => {
 
   test('Undo is reached by Tab after "Open image" and used with Enter', async ({ page }) => {
     await adjust(page, 10)
-    await page.getByRole('button', { name: 'Open image' }).focus()
+    await page.getByTestId('editor-top-bar').getByRole('button', { name: 'Open image' }).focus()
     // WebKit's Tab reaches buttons only with Alt (Safari's "Press Tab to highlight" off).
     await page.keyboard.press(test.info().project.name === 'webkit' ? 'Alt+Tab' : 'Tab')
     await expect(undoButton(page)).toBeFocused()

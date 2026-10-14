@@ -37,7 +37,9 @@ test('exports a file after going offline and reloading', async ({
 
   await context.setOffline(true)
   await page.reload()
-  await expect(page.getByRole('button', { name: 'Open image' })).toBeVisible()
+  await expect(
+    page.getByTestId('empty-canvas').getByRole('button', { name: 'Open image' }),
+  ).toBeVisible()
 
   await openFile(page, 'offline.png', image, 'image/png')
   await waitForWork(page, 320, 240)

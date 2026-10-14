@@ -192,7 +192,11 @@ onBeforeUnmount(() => {
       <template v-if="live" #actions><slot name="top-bar-actions" /></template>
     </EditorTopBar>
     <div class="editor-view__workspace">
-      <section class="editor-view__canvas" aria-label="Canvas">
+      <section
+        class="editor-view__canvas"
+        :class="{ 'editor-view__canvas--start': live && !editor.work }"
+        aria-label="Canvas"
+      >
         <CanvasMessage
           v-if="editor.display === 'unsupported'"
           :title="BLOCKING.UNSUPPORTED_BROWSER.title"
@@ -274,6 +278,11 @@ onBeforeUnmount(() => {
   min-width: 0;
   min-height: 0;
   background: var(--color-canvas-surround);
+}
+
+/* The start screen's band and Gallery section scroll when the entries don't fit. */
+.editor-view__canvas--start {
+  overflow-y: auto;
 }
 
 .editor-view__restoring {

@@ -25,7 +25,9 @@ test('opens an image to a fitted Preview after going offline and reloading', asy
 
   await context.setOffline(true)
   await page.reload()
-  await expect(page.getByRole('button', { name: 'Open image' })).toBeVisible()
+  await expect(
+    page.getByTestId('empty-canvas').getByRole('button', { name: 'Open image' }),
+  ).toBeVisible()
 
   await dropGeneratedImage(page, { width: 4000, height: 3000, type: 'image/jpeg' })
   await waitForWork(page, 4000, 3000)

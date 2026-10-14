@@ -1,5 +1,5 @@
 import { expect, test, type FileChooser, type Page } from '@playwright/test'
-import { canvasArea, dropGeneratedImage } from '../open-and-view/helpers'
+import { NO_GALLERY, canvasArea, dropGeneratedImage } from '../open-and-view/helpers'
 import { dropBytes, pixelsAt } from '../crop-rotate/helpers'
 import { choose, generateImage, openFile, panel, view } from '../export/helpers'
 import {
@@ -47,7 +47,7 @@ async function apply(page: Page) {
 
 test.describe('with an image', () => {
   test.beforeEach(async ({ page }) => {
-    await gotoReady(page)
+    await gotoReady(page, { gallery: !test.info().tags.includes(NO_GALLERY) })
     await openNamed(page, 'photo.png', 320, 240)
   })
 
@@ -64,25 +64,27 @@ test.describe('with an image', () => {
       expect((await work(page))!).toMatchObject({ revision: 0, hasUnsavedEdits: false })
     })
 
-    test('an applied change asks before a replace; after an Export, changing back is an edit', async ({
-      page,
-      browserName,
-    }) => {
-      await openTool(page)
-      await setField(page, 'Sepia', '50')
-      await apply(page)
-      expect((await work(page))!.hasUnsavedEdits).toBe(true)
-      await dropGeneratedImage(page, { width: 120, height: 90 })
-      await expect(replaceDialog(page)).toBeVisible()
-      await replaceDialog(page).getByRole('button', { name: 'Cancel' }).click()
+    // Gallery unavailable: replacing always asks for Unsaved edits (gallery AC-12, AC-17)
+    test(
+      'an applied change asks before a replace; after an Export, changing back is an edit',
+      { tag: NO_GALLERY },
+      async ({ page, browserName }) => {
+        await openTool(page)
+        await setField(page, 'Sepia', '50')
+        await apply(page)
+        expect((await work(page))!.hasUnsavedEdits).toBe(true)
+        await dropGeneratedImage(page, { width: 120, height: 90 })
+        await expect(replaceDialog(page)).toBeVisible()
+        await replaceDialog(page).getByRole('button', { name: 'Cancel' }).click()
 
-      await exportPng(page, browserName)
-      expect((await work(page))!.hasUnsavedEdits).toBe(false)
-      await openTool(page)
-      await setField(page, 'Sepia', '0')
-      await apply(page)
-      expect((await work(page))!.hasUnsavedEdits).toBe(true)
-    })
+        await exportPng(page, browserName)
+        expect((await work(page))!.hasUnsavedEdits).toBe(false)
+        await openTool(page)
+        await setField(page, 'Sepia', '0')
+        await apply(page)
+        expect((await work(page))!.hasUnsavedEdits).toBe(true)
+      },
+    )
   })
 
   test('AC-16 — Export and Ctrl/Cmd+S only show the hint while the tool is open', async ({
@@ -207,77 +209,86 @@ test.describe('with an image', () => {
       await expect(field(page, 'Brightness')).toHaveValue('40')
     })
 
-    test('with Unsaved edits: declining keeps the Draft, confirming closes the tool', async ({
-      page,
-    }) => {
-      await applyAdjustments(page, adjusted({ tint: 10 }))
-      await openTool(page)
-      await setField(page, 'Saturation', '-30')
-      await dropGeneratedImage(page, { width: 120, height: 90 })
-      await expect(replaceDialog(page)).toBeVisible()
-      await expect(tool(page)).toBeVisible()
-      await replaceDialog(page).getByRole('button', { name: 'Cancel' }).click()
-      await expect(tool(page)).toBeVisible()
-      await expect(field(page, 'Saturation')).toHaveValue('-30')
-      // SCR-06 declined: focus is back inside the tool.
-      await expect(tool(page).locator(':focus')).toHaveCount(1)
+    // Gallery unavailable: replacing always asks for Unsaved edits (gallery AC-12, AC-17)
+    test(
+      'with Unsaved edits: declining keeps the Draft, confirming closes the tool',
+      { tag: NO_GALLERY },
+      async ({ page }) => {
+        await applyAdjustments(page, adjusted({ tint: 10 }))
+        await openTool(page)
+        await setField(page, 'Saturation', '-30')
+        await dropGeneratedImage(page, { width: 120, height: 90 })
+        await expect(replaceDialog(page)).toBeVisible()
+        await expect(tool(page)).toBeVisible()
+        await replaceDialog(page).getByRole('button', { name: 'Cancel' }).click()
+        await expect(tool(page)).toBeVisible()
+        await expect(field(page, 'Saturation')).toHaveValue('-30')
+        // SCR-06 declined: focus is back inside the tool.
+        await expect(tool(page).locator(':focus')).toHaveCount(1)
 
-      await dropGeneratedImage(page, { width: 120, height: 90 })
-      await replaceDialog(page).getByRole('button', { name: 'Replace' }).click()
-      await waitForWork(page, 120, 90)
-      await expect(tool(page)).toBeHidden()
-      expect((await work(page))!.adjustments).toEqual(NEUTRAL_ADJUSTMENTS)
-    })
+        await dropGeneratedImage(page, { width: 120, height: 90 })
+        await replaceDialog(page).getByRole('button', { name: 'Replace' }).click()
+        await waitForWork(page, 120, 90)
+        await expect(tool(page)).toBeHidden()
+        expect((await work(page))!.adjustments).toEqual(NEUTRAL_ADJUSTMENTS)
+      },
+    )
 
-    test('declining with Escape closes only the dialog: the tool stays open with its Draft', async ({
-      page,
-    }) => {
-      await applyAdjustments(page, adjusted({ tint: 10 }))
-      await openTool(page)
-      await setField(page, 'Saturation', '-30')
-      await dropGeneratedImage(page, { width: 120, height: 90 })
-      await expect(replaceDialog(page)).toBeVisible()
-      await page.keyboard.press('Escape')
-      await expect(replaceDialog(page)).toHaveCount(0)
-      await expect(tool(page)).toBeVisible()
-      await expect(field(page, 'Saturation')).toHaveValue('-30')
-      await expect(tool(page).locator(':focus')).toHaveCount(1)
-      expect((await work(page))!.adjustments).toEqual(adjusted({ tint: 10 }))
-    })
+    // Gallery unavailable: replacing always asks for Unsaved edits (gallery AC-12, AC-17)
+    test(
+      'declining with Escape closes only the dialog: the tool stays open with its Draft',
+      { tag: NO_GALLERY },
+      async ({ page }) => {
+        await applyAdjustments(page, adjusted({ tint: 10 }))
+        await openTool(page)
+        await setField(page, 'Saturation', '-30')
+        await dropGeneratedImage(page, { width: 120, height: 90 })
+        await expect(replaceDialog(page)).toBeVisible()
+        await page.keyboard.press('Escape')
+        await expect(replaceDialog(page)).toHaveCount(0)
+        await expect(tool(page)).toBeVisible()
+        await expect(field(page, 'Saturation')).toHaveValue('-30')
+        await expect(tool(page).locator(':focus')).toHaveCount(1)
+        expect((await work(page))!.adjustments).toEqual(adjusted({ tint: 10 }))
+      },
+    )
 
-    test('through "Open image": declining keeps the Draft, confirming closes the tool', async ({
-      page,
-    }) => {
-      await applyAdjustments(page, adjusted({ tint: 10 }))
-      await openTool(page)
-      await setField(page, 'Saturation', '-30')
-      await pickThroughOpenImage(page, (chooser) =>
-        chooser.setFiles({
-          name: 'photo.jpg',
-          mimeType: 'image/jpeg',
-          buffer: fixture('photo.jpg'),
-        }),
-      )
-      await expect(replaceDialog(page)).toBeVisible()
-      await replaceDialog(page).getByRole('button', { name: 'Cancel' }).click()
-      await expect(tool(page)).toBeVisible()
-      await expect(field(page, 'Saturation')).toHaveValue('-30')
-      // SCR-06 declined: the dialog came from the top bar, but focus goes back into the tool.
-      await expect(slider(page, 'Brightness')).toBeFocused()
+    // Gallery unavailable: replacing always asks for Unsaved edits (gallery AC-12, AC-17)
+    test(
+      'through "Open image": declining keeps the Draft, confirming closes the tool',
+      { tag: NO_GALLERY },
+      async ({ page }) => {
+        await applyAdjustments(page, adjusted({ tint: 10 }))
+        await openTool(page)
+        await setField(page, 'Saturation', '-30')
+        await pickThroughOpenImage(page, (chooser) =>
+          chooser.setFiles({
+            name: 'photo.jpg',
+            mimeType: 'image/jpeg',
+            buffer: fixture('photo.jpg'),
+          }),
+        )
+        await expect(replaceDialog(page)).toBeVisible()
+        await replaceDialog(page).getByRole('button', { name: 'Cancel' }).click()
+        await expect(tool(page)).toBeVisible()
+        await expect(field(page, 'Saturation')).toHaveValue('-30')
+        // SCR-06 declined: the dialog came from the top bar, but focus goes back into the tool.
+        await expect(slider(page, 'Brightness')).toBeFocused()
 
-      const before = (await work(page))!
-      await pickThroughOpenImage(page, (chooser) =>
-        chooser.setFiles({
-          name: 'photo.jpg',
-          mimeType: 'image/jpeg',
-          buffer: fixture('photo.jpg'),
-        }),
-      )
-      await replaceDialog(page).getByRole('button', { name: 'Replace' }).click()
-      await expect.poll(async () => (await work(page))!.id).not.toBe(before.id)
-      await expect(tool(page)).toBeHidden()
-      expect((await work(page))!.adjustments).toEqual(NEUTRAL_ADJUSTMENTS)
-    })
+        const before = (await work(page))!
+        await pickThroughOpenImage(page, (chooser) =>
+          chooser.setFiles({
+            name: 'photo.jpg',
+            mimeType: 'image/jpeg',
+            buffer: fixture('photo.jpg'),
+          }),
+        )
+        await replaceDialog(page).getByRole('button', { name: 'Replace' }).click()
+        await expect.poll(async () => (await work(page))!.id).not.toBe(before.id)
+        await expect(tool(page)).toBeHidden()
+        expect((await work(page))!.adjustments).toEqual(NEUTRAL_ADJUSTMENTS)
+      },
+    )
 
     test('a cancelled file dialog leaves the tool and its Draft as they were (SCR-07)', async ({
       page,

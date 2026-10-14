@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { fixture, view } from '../export/helpers'
-import { canvasArea, dropGeneratedImage } from '../open-and-view/helpers'
+import { NO_GALLERY, canvasArea, dropGeneratedImage } from '../open-and-view/helpers'
 import {
   action,
   applyGeometry,
@@ -21,7 +21,7 @@ import {
 const size = { width: 400, height: 300 }
 
 test.beforeEach(async ({ page }) => {
-  await gotoReady(page)
+  await gotoReady(page, { gallery: !test.info().tags.includes(NO_GALLERY) })
   await openFixture(page, size.width, size.height)
 })
 
@@ -174,24 +174,29 @@ test.describe('AC-17: opening another image while the tool is open', () => {
     await expect(page.getByRole('textbox', { name: 'Width' })).toHaveValue('300')
   })
 
-  test('with Unsaved edits: declining keeps the tool, confirming closes it', async ({ page }) => {
-    await applyGeometry(page, { ...identityGeometry(size), flipV: true })
-    await openTool(page)
-    await page.getByRole('button', { name: 'Rotate right' }).click()
+  // Gallery unavailable: replacing always asks for Unsaved edits (gallery AC-12, AC-17)
+  test(
+    'with Unsaved edits: declining keeps the tool, confirming closes it',
+    { tag: NO_GALLERY },
+    async ({ page }) => {
+      await applyGeometry(page, { ...identityGeometry(size), flipV: true })
+      await openTool(page)
+      await page.getByRole('button', { name: 'Rotate right' }).click()
 
-    await dropGeneratedImage(page, { width: 120, height: 90 })
-    const dialog = page.getByRole('alertdialog')
-    await expect(dialog).toBeVisible({ timeout: 15_000 })
-    await expect(tool(page)).toBeVisible()
-    await dialog.getByRole('button', { name: 'Cancel' }).click()
-    await expect(tool(page)).toBeVisible()
-    await expect(page.getByRole('textbox', { name: 'Width' })).toHaveValue('300') // Draft kept
+      await dropGeneratedImage(page, { width: 120, height: 90 })
+      const dialog = page.getByRole('alertdialog')
+      await expect(dialog).toBeVisible({ timeout: 15_000 })
+      await expect(tool(page)).toBeVisible()
+      await dialog.getByRole('button', { name: 'Cancel' }).click()
+      await expect(tool(page)).toBeVisible()
+      await expect(page.getByRole('textbox', { name: 'Width' })).toHaveValue('300') // Draft kept
 
-    await dropGeneratedImage(page, { width: 120, height: 90 })
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Replace' }).click()
-    await waitForWork(page, 120, 90)
-    await expect(tool(page)).toBeHidden()
-  })
+      await dropGeneratedImage(page, { width: 120, height: 90 })
+      await page.getByRole('alertdialog').getByRole('button', { name: 'Replace' }).click()
+      await waitForWork(page, 120, 90)
+      await expect(tool(page)).toBeHidden()
+    },
+  )
 })
 
 test('AC-19: the View fits the turned image on open and the Work after Apply or Cancel', async ({

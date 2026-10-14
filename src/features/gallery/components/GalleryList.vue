@@ -5,7 +5,7 @@ import { useGallery } from '../store'
 import * as m from '../messages'
 import GalleryEntry from './GalleryEntry.vue'
 
-defineProps<{ showClose: boolean; showOpenImage: boolean }>()
+defineProps<{ showClose: boolean; showOpenImage: boolean; titleId?: string }>()
 const emit = defineEmits<{ close: []; 'open-image': [] }>()
 
 const gallery = useGallery()
@@ -18,7 +18,7 @@ onBeforeUnmount(() => {
 <template>
   <section class="gallery-list">
     <header class="gallery-list__header">
-      <h2 class="gallery-list__title">{{ m.galleryButton() }}</h2>
+      <h2 :id="titleId" class="gallery-list__title">{{ m.galleryButton() }}</h2>
       <span
         v-if="gallery.unavailableReason === null"
         class="gallery-list__count"
