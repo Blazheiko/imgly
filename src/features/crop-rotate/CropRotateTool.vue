@@ -14,7 +14,7 @@ const editor = useEditorStore()
 const tool = useCropRotateStore()
 
 const onKeydown = createToolKeys({
-  blocked: () => editor.phase === 'confirming',
+  blocked: () => editor.phase === 'confirming' || editor.galleryOpen,
   apply: () => tool.apply(),
   cancel: () => tool.cancel(),
 })

@@ -76,6 +76,8 @@ const PRESSED_BY_ENTER =
 export function createToolKeys(actions: ToolKeyActions): (event: KeyboardEvent) => void {
   return (event) => {
     if (event.ctrlKey || event.metaKey || event.altKey || actions.blocked()) return
+    // A dialog over the tool took the key first (its Esc cancels the dialog, not the Draft).
+    if (event.defaultPrevented) return
     if (event.key === 'Escape') {
       event.preventDefault()
       actions.cancel()

@@ -44,7 +44,7 @@ const onKeydown = createOpenShortcut({
   panelOpen: () => editor.activePanel !== null,
   toolOpen: () => open.value,
   otherToolOpen: () => otherToolOpen.value,
-  confirming: () => editor.phase === 'confirming',
+  confirming: () => editor.phase === 'confirming' || editor.galleryOpen,
   open: () => void tool.open(),
   notifyNoImage,
   notifyOtherToolOpen,

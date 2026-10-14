@@ -129,6 +129,9 @@ export const useGallery = defineStore('gallery', () => {
     editor.setActivePanel(null)
   }
 
+  // A pending delete is a modal dialog over whatever is on screen: the editor holds still (R2-4).
+  watch(pendingDelete, (p) => editor.setGalleryModal(p !== null), { flush: 'sync' })
+
   // A reopen that asked first (AC-17) completes on Replace, outside choose(): the overlay follows.
   watch(
     () => editor.openWorkId,

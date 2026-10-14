@@ -15,7 +15,7 @@ const editor = useEditorStore()
 const tool = useDrawStore()
 
 const onKeydown = createToolKeys({
-  blocked: () => editor.phase === 'confirming',
+  blocked: () => editor.phase === 'confirming' || editor.galleryOpen,
   apply: () => tool.apply(),
   cancel: () => tool.cancel(),
   setMode: (mode) => tool.setMode(mode),

@@ -7,7 +7,7 @@ acs: ["AC-06", "AC-08"]
 files_hint: ["src/features/editor/store.ts", "src/features/gallery/store.ts", "src/features/crop-rotate/shortcuts.ts", "src/app/App.test.ts"]
 owner: "Blazheiko"
 estimate: "M"
-status: "todo"
+status: "done"
 source: "review-2026-10-14-r2 R2-4"
 ---
 

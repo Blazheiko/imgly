@@ -249,7 +249,7 @@ describe('App Gallery wiring (gallery T17)', () => {
     expect(q('gallery-overlay')).toBeNull()
   })
 
-  describe('the damaged notice\'s Delete… (gallery T30, S2-4)', () => {
+  describe("the damaged notice's Delete… (gallery T30, S2-4)", () => {
     const dialog = () => document.querySelector('[role="alertdialog"]')
     const damagedAction = (gallery: ReturnType<typeof useGallery>) => {
       const notice = useNotices().items.find((n) => n.action)
@@ -281,6 +281,65 @@ describe('App Gallery wiring (gallery T17)', () => {
       expect(gallery.pendingDelete?.id).toBe(id)
       expect(dialog()).not.toBeNull()
       expect(dialog()!.textContent).toContain('Cat')
+      db.close()
+    })
+
+    const press = (key: string, init: KeyboardEventInit = {}) =>
+      (document.activeElement ?? document.body).dispatchEvent(
+        new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init }),
+      )
+
+    it('R2-4: Esc in the delete dialog over the Editor cancels only the dialog; the open tool keeps its Draft', async () => {
+      const { db, id, gallery } = await withOpenWorkAndOtherEntry()
+      editor.openTool('crop-rotate')
+      await nextTick()
+      gallery.requestDelete(id)
+      await nextTick()
+      expect(dialog()).not.toBeNull()
+      expect(dialog()!.contains(document.activeElement)).toBe(true)
+
+      press('Escape')
+      await nextTick()
+
+      expect(gallery.pendingDelete).toBeNull()
+      expect(editor.activeTool).toBe('crop-rotate')
+      db.close()
+    })
+
+    it('R2-4: under the delete dialog over the Editor, tool, undo, open, save and zoom keys do nothing', async () => {
+      const { db, id, gallery } = await withOpenWorkAndOtherEntry()
+      gallery.requestDelete(id)
+      await nextTick()
+      const undo = vi.spyOn(editor, 'undo')
+      const zoom = vi.spyOn(editor, 'stepZoom')
+      const view = { ...editor.view }
+
+      for (const key of ['c', 'a', 'd', '+', '-']) press(key)
+      press('z', { ctrlKey: true })
+      press('y', { ctrlKey: true })
+      press('s', { ctrlKey: true })
+      await nextTick()
+
+      expect(editor.activeTool).toBeNull()
+      expect(editor.activePanel).toBeNull()
+      expect(undo).not.toHaveBeenCalled()
+      expect(zoom).not.toHaveBeenCalled()
+      expect(editor.view).toEqual(view)
+      expect(gallery.pendingDelete?.id).toBe(id)
+      db.close()
+    })
+
+    it('R2-4: the Editor takes keys again once the delete dialog closes', async () => {
+      const { db, id, gallery } = await withOpenWorkAndOtherEntry()
+      gallery.requestDelete(id)
+      await nextTick()
+      gallery.cancelDelete()
+      await nextTick()
+
+      press('c')
+      await nextTick()
+
+      expect(editor.activeTool).toBe('crop-rotate')
       db.close()
     })
 
