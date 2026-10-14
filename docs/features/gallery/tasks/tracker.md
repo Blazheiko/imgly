@@ -28,7 +28,7 @@
 | T21 | e2e: gate, blocked storage, leave warning, 50 reloads, two pages, offline | tests | Blazheiko | L | T17, T18 | done |
 | T22 | @perf: the five spec §6 timing targets | tests | Blazheiko | M | T17, T18 | done |
 | T23 | Spec wording, open-and-view note, CONTEXT terms, architecture map | docs | Blazheiko | S | — | done |
-| T24 | Repository write side: layer by stored layerId, layerId without layer, evicted name, quota at commit | infra | Blazheiko | S | — | todo |
+| T24 | Repository write side: layer by stored layerId, layerId without layer, evicted name, quota at commit | infra | Blazheiko | S | — | done |
 | T25 | Index-hidden records listed; damaged-first eviction inside the save | infra | Blazheiko | M | T24 | todo |
 | T26 | Page damaged set into Autosave; mark survives refresh; thumbnail decode error | app | Blazheiko | M | T25 | todo |
 | T27 | Overlay closes after confirmed reopen; Esc in dialogs; covers status bar | ui | Blazheiko | M | T26 | todo |

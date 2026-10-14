@@ -107,6 +107,12 @@ export interface Faults {
   failPut?: (store: string, n: number) => 'quota' | 'other' | null
   /** Aborts the transaction once the evictions are done, or right after the named write. */
   abortAfter?: 'evictions' | 'record' | 'original' | 'layer'
+  /**
+   * Called once per transaction (1-based). Returning 'quota' lets every request succeed, then aborts
+   * the transaction after the last write and makes `tx.done` reject with a QuotaExceededError, as a
+   * browser does when the commit itself is refused.
+   */
+  commitFail?: (attempt: number) => 'quota' | null
 }
 
 const ABORT_STORE = { record: 'works', original: 'originals', layer: 'layers' } as const
@@ -114,6 +120,7 @@ const ABORT_STORE = { record: 'works', original: 'originals', layer: 'layers' } 
 /** Wraps a database so `storeWork`'s writes fail or abort on demand. Test-only. */
 export function withFaults(db: IDBPDatabase<ImglyDb>, faults: Faults): IDBPDatabase<ImglyDb> {
   const counts = new Map<string, number>()
+  let attempts = 0
   const wrap = <T extends object>(target: T, intercept: (key: string | symbol) => unknown): T =>
     new Proxy(target, {
       get(t, key) {
@@ -128,12 +135,26 @@ export function withFaults(db: IDBPDatabase<ImglyDb>, faults: Faults): IDBPDatab
     if (key !== 'transaction') return undefined
     return (...args: Parameters<typeof db.transaction>) => {
       const tx = db.transaction(...args)
+      const commitFails = faults.commitFail?.(++attempts) === 'quota'
       return wrap(tx, (txKey) => {
+        if (txKey === 'done' && commitFails) {
+          const refused = () => {
+            throw new DOMException('commit refused', 'QuotaExceededError')
+          }
+          return tx.done.then(refused, refused)
+        }
         if (txKey !== 'objectStore') return undefined
         return (name: string) => {
           const store = (tx.objectStore as (n: string) => object)(name)
           return wrap(store, (storeKey) => {
             if (storeKey !== 'put') return undefined
+            if (commitFails && name === 'meta') {
+              return async (value: unknown) => {
+                const result = await (store as { put: (v: unknown) => Promise<unknown> }).put(value)
+                tx.abort()
+                return result
+              }
+            }
             return async (value: unknown) => {
               const n = (counts.get(name) ?? 0) + 1
               counts.set(name, n)

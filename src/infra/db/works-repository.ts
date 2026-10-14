@@ -104,7 +104,11 @@ export async function storeWork(
       })
       if (ids.length <= previous) return err(appError('STORAGE_QUOTA'))
       previous = ids.length
-      const names = new Map(records.map((r) => [r.id, r.sourceName]))
+      const names = new Map(
+        records.map((r) => [r.id, typeof r.sourceName === 'string' ? r.sourceName : '']),
+      )
+      // Another connection may have replaced the layer since the caller last read it.
+      const storedLayerId = records.find((r) => r.id === record.id)?.layerId
 
       for (const id of ids) {
         await Promise.all([works.delete(id), originals.delete(id), layers.delete(id)])
@@ -118,11 +122,17 @@ export async function storeWork(
       if (hold === 'original') await holdOpen(works)
       if (record.layerId === null) {
         await layers.delete(record.id)
-      } else if (
-        blobs.layer &&
-        (blobs.layerChanged || (await layers.getKey(record.id)) === undefined)
-      ) {
-        await layers.put({ workId: record.id, png: blobs.layer })
+      } else {
+        const stored = (await layers.getKey(record.id)) !== undefined
+        if (!blobs.layer) {
+          if (!stored) {
+            // layerId names a layer that no Blob supplies and none is stored: write nothing.
+            tx.abort()
+            throw new DOMException('layerId without a layer Blob', 'DataError')
+          }
+        } else if (blobs.layerChanged || !stored || storedLayerId !== record.layerId) {
+          await layers.put({ workId: record.id, png: blobs.layer })
+        }
       }
       if (hold === 'layer') await holdOpen(works)
       if (

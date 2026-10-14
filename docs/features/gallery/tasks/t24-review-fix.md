@@ -7,7 +7,7 @@ acs: ["AC-21", "AC-19", "AC-08", "AC-09", "AC-10"]
 files_hint: ["src/infra/db/works-repository.ts", "src/infra/db/works-repository.test.ts", "src/infra/db/testing.ts"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 source: "review-2026-10-14 S1-1, S2-1, S2-2, S2-3"
 ---
 

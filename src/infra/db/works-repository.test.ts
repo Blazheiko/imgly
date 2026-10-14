@@ -205,6 +205,107 @@ describe('storeWork', () => {
     b.close()
   })
 
+  it("a stale layerChanged:false never pairs another connection's layer with this record (AC-21, AC-19)", async () => {
+    const name = freshName()
+    const a = await openDb(name)
+    const b = await openDb(name)
+    const record = workRecordFixture({ sourceName: 'from-a', touchedAt: 10, layerId: 'LA2' })
+    const opts = { keep: record.id, damaged: NONE }
+
+    await storeWork(a, record, { original: png(111), layer: png(222), layerChanged: true }, opts)
+    await storeWork(
+      b,
+      { ...record, sourceName: 'from-b', touchedAt: 20, layerId: 'LB' },
+      { original: png(111), layer: png(333), layerChanged: false },
+      opts,
+    )
+
+    const loaded = await loadWork(a, record.id)
+    expect(loaded.ok).toBe(true)
+    if (!loaded.ok) return
+    expect(loaded.value.record.layerId).toBe('LB')
+    expect(loaded.value.layer!.size).toBe(333)
+    a.close()
+    b.close()
+  })
+
+  it('layerId set with no layer Blob and none stored is STORAGE_FAILED and stores nothing (AC-19)', async () => {
+    const db = await openDb(freshName())
+    await seed(db, 3)
+    const before = await snapshot(db)
+    const record = workRecordFixture({ touchedAt: 100, layerId: 'layer-1' })
+
+    const result = await storeWork(db, record, blobs({ layer: null, layerChanged: false }), {
+      keep: record.id,
+      damaged: NONE,
+    })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error.code).toBe('STORAGE_FAILED')
+    expect(await snapshot(db)).toEqual(before)
+    expect(await db.get('works', record.id)).toBeUndefined()
+    db.close()
+  })
+
+  it('evicting a damaged record whose sourceName is not a string names it as an empty string (AC-09)', async () => {
+    const db = await openDb(freshName())
+    const ids = await seed(db, 20)
+    await putRaw(db, { ...(await db.get('works', ids[0]!))!, sourceName: 42 })
+    const record = workRecordFixture({ touchedAt: 100, layerId: null })
+
+    const result = await storeWork(db, record, blobs({ layer: null }), {
+      keep: ids[19]!,
+      damaged: new Set([ids[0]!]),
+    })
+
+    expect(result).toEqual({ ok: true, value: { evicted: [''], firstSave: true } })
+    expect(await db.get('works', ids[0]!)).toBeUndefined()
+    db.close()
+  })
+
+  it('a commit refused with quota after all writes succeeded retries with one more eviction (AC-10)', async () => {
+    const raw = await openDb(freshName())
+    await seed(raw, 10)
+    const record = workRecordFixture({ touchedAt: 100, layerId: 'layer-1' })
+    const attempts: number[] = []
+    const db = withFaults(raw, {
+      commitFail: (n) => {
+        attempts.push(n)
+        return n === 1 ? 'quota' : null
+      },
+    })
+
+    const result = await storeWork(db, record, blobs(), { keep: record.id, damaged: NONE })
+
+    expect(attempts).toEqual([1, 2])
+    expect(result).toEqual({ ok: true, value: { evicted: ['work-1'], firstSave: true } })
+    expect(await raw.count('works')).toBe(10)
+    expect(await raw.get('works', record.id)).toBeDefined()
+    raw.close()
+  })
+
+  it('a commit refused with quota on every attempt is STORAGE_QUOTA with nothing changed (AC-10)', async () => {
+    const raw = await openDb(freshName())
+    await seed(raw, 3)
+    const before = await snapshot(raw)
+    const record = workRecordFixture({ touchedAt: 100, layerId: 'layer-1' })
+    let attempts = 0
+    const db = withFaults(raw, {
+      commitFail: () => {
+        attempts++
+        return 'quota'
+      },
+    })
+
+    const result = await storeWork(db, record, blobs(), { keep: record.id, damaged: NONE })
+
+    expect(attempts).toBeGreaterThan(1)
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error.code).toBe('STORAGE_QUOTA')
+    expect(await snapshot(raw)).toEqual(before)
+    raw.close()
+  })
+
   it('writes the persistence marker on the first save and calls onFirstSave once (AC-14)', async () => {
     const db = await openDb(freshName())
     const onFirstSave = vi.fn()
