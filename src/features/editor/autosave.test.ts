@@ -359,6 +359,22 @@ describe('Autosave eviction (gallery AC-09, AC-10, AC-21)', () => {
     expect(s.notices.items[0]?.kind).toBe('info')
   })
 
+  it("AC-08: the page's damaged set reaches the save: a damaged Work is evicted before the oldest", async () => {
+    let damaged: ReadonlySet<string> = new Set()
+    const s = setup({ damagedIds: () => damaged })
+    const db = await s.connect()
+    const ids = await seed(db, 20)
+    damaged = new Set([ids[9]!])
+
+    await save(s, makeWork('fresh'))
+
+    const names = (await db.getAll('works')).map((w) => w.sourceName)
+    expect(names).toHaveLength(20)
+    expect(names).not.toContain('work-10')
+    expect(names).toContain('work-1')
+    expect(texts(s)).toEqual([infoEvicted(['work-10'])])
+  })
+
   it('AC-09: a save that evicts nothing raises no notice', async () => {
     const s = setup()
     const db = await s.connect()

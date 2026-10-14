@@ -7,7 +7,7 @@ acs: ["AC-08"]
 files_hint: ["src/features/editor/autosave.test.ts"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 source: "review-2026-10-14-r2 R2-5"
 ---
 

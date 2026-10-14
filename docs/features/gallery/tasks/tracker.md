@@ -40,7 +40,7 @@
 | T33 | Regression from T26: latest refresh wins, URLs revoked after render (S2-6) | ui | Blazheiko | S | T27 | done |
 | T34 | Non-numeric touchedAt lists Damaged, never stops listing (R2-1) | core | Blazheiko | S | — | done |
 | T35 | Damaged mark clears on reopen or save; open wins (R2-2) | app | Blazheiko | M | T34 | done |
-| T36 | Autosave → storeWork damagedIds hand-off test (R2-5) | tests | Blazheiko | S | T35 | todo |
+| T36 | Autosave → storeWork damagedIds hand-off test (R2-5) | tests | Blazheiko | S | T35 | done |
 | T37 | Connecting state: no false empty Gallery (R2-3) | ui | Blazheiko | S | T35 | todo |
 | T38 | Standby delete dialog holds the keyboard (R2-4) | wiring | Blazheiko | M | T37 | todo |
 | T39 | e2e: undecodable thumbnail bytes list Damaged (R2-6) | tests | Blazheiko | S | T38 | todo |
