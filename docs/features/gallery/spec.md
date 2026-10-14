@@ -2,7 +2,7 @@
 status: Draft
 owner: "Blazheiko"
 reviewers: ["Tech Lead", "Security Lead"]
-updated_at: "2026-10-13"
+updated_at: "2026-10-14"
 feature_size: "M"
 ---
 
@@ -150,7 +150,9 @@ Traceability and deliberate compromises:
 
 **Given** the browser reports that the app's storage space is full when Autosave stores the open Work
 **When** Autosave runs after an image opens or after a Step, Undo or Redo
-**Then** the app evicts the least recently opened or changed Works that are not open in this tab, one at a time, until the open Work fits, and one notice names every Work it removed. If the open Work still does not fit once it is the only Work left, a notice says it could not be saved to the Gallery and to export it to keep a copy. The Work stays open and editable either way, and the Gallery keeps the earlier stored state of the open Work if there was one
+**Then** the app evicts the least recently opened or changed Works that are not open in this tab, one at a time, until the open Work fits, and one notice names every Work it removed. If the open Work would not fit even with every other Work evicted, nothing is evicted, the Gallery keeps the earlier stored state of the open Work if there was one, and a notice says it could not be saved to the Gallery and to export it to keep a copy. The Work stays open and editable either way
+
+*Clarified by design (ADR-0004, 2026-10-13):* removing Works that cannot make room helps no one, so the save and its evictions are one transaction that either commits whole or changes nothing.
 
 ### AC-11 (US-05) — error
 
@@ -160,9 +162,11 @@ Traceability and deliberate compromises:
 
 ### AC-12 (US-05) — authorization
 
-**Given** storage cannot be opened for this app when the page loads, for example in a private window or with site data blocked for the site
+**Given** storage cannot be opened for this app when the page loads, for example with site data blocked for the site
 **When** the Editor opens an image and edits it
 **Then** opening, editing and exporting work as before. The Gallery shows that it is unavailable in this browser window and why in plain words, nothing is stored, and the app does not try to store anything again until the page is next loaded. Replacing the Work asks for confirmation whenever the open Work has Unsaved edits, as open-and-view AC-15 always did
+
+*Clarified by design (sad.md §1, 2026-10-13):* a private window that can open IndexedDB is not this case. The Gallery works for that window's life with the non-persistent storage line (AC-13), and the browser discards it when the window closes. Browsers expose no reliable private-mode signal, so the app does not try to detect one.
 
 ### AC-13 (US-05) — happy path
 
@@ -238,9 +242,9 @@ Reference machine: Apple M1 MacBook Air with the latest stable Chrome, as in ope
 
 - **Data classification:** confidential. The photos can be personal, and for the first time the app keeps them after the tab closes.
 - **Personal data touched:** new data at rest in this browser: each Work's Original (image pixels only, with no embedded metadata such as capture location, because the Original never keeps it), its Source name (the file name, which can contain a personal name), its Source format, an identifier for the Work, its Geometry, Adjustments and Drawing layer, a thumbnail and when it was last opened or changed, plus one app-wide marker saying the app has asked for persistent storage. Nothing leaves the device. Deleting a Work (AC-06) or eviction (AC-09, AC-10) removes all of it.
-- **AuthZ/AuthN impact:** none in the app, which has no accounts. The browser keeps the stored Works separate for each site, so other websites cannot read them. Anyone using the same browser profile on the same computer can see the Gallery, which is why nothing reopens on its own (AC-05) and the Editor can delete Works (AC-06). Storage may be blocked or unavailable (AC-12), and persistent storage may be declined, which only changes the storage line (AC-14).
+- **AuthZ/AuthN impact:** none in the app, which has no accounts. The browser keeps the stored Works separate for each site, so other websites cannot read them. Anyone using the same browser profile on the same computer can see the Gallery, which is why nothing reopens on its own (AC-05) and the Editor can delete Works (AC-06). Storage may be blocked or unavailable (AC-12), and persistent storage may be declined, which only changes the storage line (AC-14). A private window that can open storage keeps the Gallery only for that window's life, under the non-persistent storage line (AC-12, AC-13).
 - **Abuse cases:**
-  - A shared computer: the next person sees the Gallery's thumbnails and can reopen them. Response: nothing reopens on start, any Work can be deleted, and the storage line says the Works are kept in this browser. Private windows store nothing (AC-12).
+  - A shared computer: the next person sees the Gallery's thumbnails and can reopen them. Response: nothing reopens on start, any Work can be deleted, and the storage line says the Works are kept in this browser. With site data blocked nothing is stored (AC-12), and a private window keeps its Gallery only until the window closes (AC-12, AC-13).
   - Stored data altered by hand or damaged: it is treated as a Work that cannot be read (AC-08). It never replaces the open Work, never stops the Gallery listing the others, and is never shown as anything but an image.
   - Filling the disk by opening many large images: the Gallery is capped at 20 Works and evicts the oldest when the browser's storage is full (AC-09, AC-10), and it says what it removed.
   - A Work believed to be deleted that is still stored: deleting removes the Work's every stored part at once, and the e2e test checks that no part of it remains after a reload.
