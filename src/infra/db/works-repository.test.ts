@@ -2,9 +2,9 @@
 import 'fake-indexeddb/auto'
 import { describe, expect, it, vi } from 'vitest'
 import { openDb } from './open-db'
-import type { ImglyDb } from './schema'
+import type { ImglyDb, WorkRecord } from './schema'
 import type { IDBPDatabase } from 'idb'
-import { storeWork } from './works-repository'
+import { deleteWork, listWorks, loadWork, storeWork } from './works-repository'
 import { storedWorkFixture, workRecordFixture, withFaults } from './testing'
 
 let dbCounter = 0
@@ -303,6 +303,306 @@ describe('storeWork', () => {
     const db = withFaults(raw, { failPut: (store) => (store === 'originals' ? 'other' : null) })
 
     const result = await storeWork(db, record, blobs(), { keep: record.id, damaged: NONE })
+
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error.code).toBe('STORAGE_FAILED')
+    expect(await snapshot(raw)).toEqual(before)
+    raw.close()
+  })
+})
+
+/** Puts a complete stored Work (record, Original, layer) and returns its record. */
+async function putWork(db: Db, record: Partial<WorkRecord> = {}, withLayer = true) {
+  const w = storedWorkFixture(withLayer ? { record } : { record, layer: null })
+  await db.put('works', w.record)
+  await db.put('originals', w.original)
+  if (w.layer) await db.put('layers', w.layer)
+  return w.record
+}
+
+/** Puts a record bypassing the types, so a damaged one can be stored. */
+async function putRaw(db: Db, record: Record<string, unknown>) {
+  await db.put('works', record as unknown as WorkRecord)
+}
+
+/** Wraps a database so the first `delete` on `layers` aborts its transaction. Test-only. */
+function failLayerDelete(db: Db): Db {
+  const bind = (t: object, v: unknown) => (typeof v === 'function' ? v.bind(t) : v)
+  return new Proxy(db, {
+    get(t, key) {
+      if (key !== 'transaction') return bind(t, Reflect.get(t, key, t))
+      return (...args: Parameters<Db['transaction']>) => {
+        const tx = t.transaction(...args)
+        return new Proxy(tx, {
+          get(tt, txKey) {
+            if (txKey !== 'objectStore') return bind(tt, Reflect.get(tt, txKey, tt))
+            return (name: string) => {
+              const store = (tt.objectStore as (n: string) => object)(name)
+              return new Proxy(store, {
+                get(st, k) {
+                  if (name === 'layers' && k === 'delete') {
+                    return async () => {
+                      tt.abort()
+                      throw new DOMException('injected', 'UnknownError')
+                    }
+                  }
+                  return bind(st, Reflect.get(st, k, st))
+                },
+              })
+            }
+          },
+        })
+      }
+    },
+  })
+}
+
+describe('listWorks', () => {
+  it('lists newest first by touchedAt (AC-06)', async () => {
+    const db = await openDb(freshName())
+    const ids = await seed(db, 4)
+
+    const result = await listWorks(db)
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.value.map((w) => w.id)).toEqual([...ids].reverse())
+    expect(result.value.map((w) => w.sourceName)).toEqual(['work-4', 'work-3', 'work-2', 'work-1'])
+    expect(result.value.map((w) => w.touchedAt)).toEqual([4, 3, 2, 1])
+    expect(result.value.every((w) => !w.damaged && w.record !== null)).toBe(true)
+    db.close()
+  })
+
+  it('breaks equal touchedAt by id, stably (descending id)', async () => {
+    const db = await openDb(freshName())
+    for (const id of ['b', 'c', 'a']) await putWork(db, { id, touchedAt: 5 })
+
+    const first = await listWorks(db)
+    const second = await listWorks(db)
+
+    expect(first.ok && first.value.map((w) => w.id)).toEqual(['c', 'b', 'a'])
+    expect(second).toEqual(first)
+    db.close()
+  })
+
+  it('returns an empty list for an empty Gallery', async () => {
+    const db = await openDb(freshName())
+    expect(await listWorks(db)).toEqual({ ok: true, value: [] })
+    db.close()
+  })
+
+  it('a damaged Original lists normally; only loadWork fails (AC-08)', async () => {
+    const db = await openDb(freshName())
+    const good = await putWork(db, { touchedAt: 1 })
+    const w = storedWorkFixture({ record: { touchedAt: 2 } })
+    await db.put('works', w.record) // no Original stored
+    await db.put('layers', w.layer!)
+
+    const listed = await listWorks(db)
+
+    expect(listed.ok).toBe(true)
+    if (!listed.ok) return
+    expect(listed.value.map((x) => [x.id, x.damaged])).toEqual([
+      [w.record.id, false],
+      [good.id, false],
+    ])
+    const loaded = await loadWork(db, w.record.id)
+    expect(loaded.ok).toBe(false)
+    if (!loaded.ok) expect(loaded.error.code).toBe('WORK_DAMAGED')
+    db.close()
+  })
+
+  it.each([
+    ['a bad shape', { width: 'wide' }],
+    ['a missing thumbnail', { thumbnail: undefined }],
+    ['a non-PNG thumbnail', { thumbnail: new Blob([new Uint8Array(4)], { type: 'image/jpeg' }) }],
+    ['a thumbnail that is not a Blob', { thumbnail: 'data:image/png;base64,AAAA' }],
+  ])('%s marks only that entry damaged (AC-08)', async (_label, damage) => {
+    const db = await openDb(freshName())
+    const before = await putWork(db, { touchedAt: 1 })
+    const bad = storedWorkFixture({ record: { touchedAt: 2 } })
+    await putRaw(db, { ...bad.record, ...damage })
+    const after = await putWork(db, { touchedAt: 3 })
+
+    const listed = await listWorks(db)
+
+    expect(listed.ok).toBe(true)
+    if (!listed.ok) return
+    expect(listed.value.map((x) => [x.id, x.damaged])).toEqual([
+      [after.id, false],
+      [bad.record.id, true],
+      [before.id, false],
+    ])
+    expect(listed.value[1]!.touchedAt).toBe(2)
+    db.close()
+  })
+
+  it('sourceName that is not a string lists as an empty string, damaged', async () => {
+    const db = await openDb(freshName())
+    const w = storedWorkFixture({ record: { touchedAt: 2 } })
+    await putRaw(db, { ...w.record, sourceName: 42 })
+
+    const listed = await listWorks(db)
+
+    expect(listed.ok).toBe(true)
+    if (!listed.ok) return
+    expect(listed.value[0]).toMatchObject({ id: w.record.id, sourceName: '', damaged: true })
+    db.close()
+  })
+
+  it('does not read the Original or the layer', async () => {
+    const db = await openDb(freshName())
+    await seed(db, 2)
+    const stores: string[][] = []
+    const spy = new Proxy(db, {
+      get(t, key) {
+        const v = Reflect.get(t, key, t)
+        if (key !== 'transaction') return typeof v === 'function' ? v.bind(t) : v
+        return (names: string | string[], ...rest: unknown[]) => {
+          stores.push([names].flat())
+          return (v as (...a: unknown[]) => unknown).call(t, names, ...rest)
+        }
+      },
+    })
+
+    await listWorks(spy)
+
+    const touched = new Set(stores.flat())
+    expect(touched.has('originals')).toBe(false)
+    expect(touched.has('layers')).toBe(false)
+    db.close()
+  })
+})
+
+describe('loadWork', () => {
+  it('returns the record, the Original and the layer (AC-08)', async () => {
+    const db = await openDb(freshName())
+    const [id] = await seed(db, 1)
+
+    const result = await loadWork(db, id!)
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.value.record.id).toBe(id)
+    expect(result.value.original.size).toBe(10)
+    expect(result.value.layer!.size).toBe(20)
+    db.close()
+  })
+
+  it('returns layer null when layerId is null and no layer is stored', async () => {
+    const db = await openDb(freshName())
+    const record = await putWork(db, {}, false)
+
+    const result = await loadWork(db, record.id)
+
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.value.layer).toBeNull()
+    db.close()
+  })
+
+  it('an unknown id is WORK_DAMAGED', async () => {
+    const db = await openDb(freshName())
+    const result = await loadWork(db, 'nope')
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error.code).toBe('WORK_DAMAGED')
+    db.close()
+  })
+
+  it('a missing Original is WORK_DAMAGED', async () => {
+    const db = await openDb(freshName())
+    const w = storedWorkFixture()
+    await db.put('works', w.record)
+    await db.put('layers', w.layer!)
+    const result = await loadWork(db, w.record.id)
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error.code).toBe('WORK_DAMAGED')
+    db.close()
+  })
+
+  it('layerId set but no layer stored is WORK_DAMAGED', async () => {
+    const db = await openDb(freshName())
+    const w = storedWorkFixture()
+    await db.put('works', w.record)
+    await db.put('originals', w.original)
+    const result = await loadWork(db, w.record.id)
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error.code).toBe('WORK_DAMAGED')
+    db.close()
+  })
+
+  it('layerId null but a layer stored is WORK_DAMAGED', async () => {
+    const db = await openDb(freshName())
+    const w = storedWorkFixture({ layer: null })
+    await db.put('works', w.record)
+    await db.put('originals', w.original)
+    await db.put('layers', { workId: w.record.id, png: png(5) })
+    const result = await loadWork(db, w.record.id)
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error.code).toBe('WORK_DAMAGED')
+    db.close()
+  })
+})
+
+describe('deleteWork', () => {
+  it('removes the record, Original and layer and leaves other Works untouched (AC-06)', async () => {
+    const db = await openDb(freshName())
+    const ids = await seed(db, 3)
+    const others = (await snapshot(db)).works.filter((w) => w.id !== ids[1])
+
+    const result = await deleteWork(db, ids[1]!, { keep: 'open-elsewhere' })
+
+    expect(result).toEqual({ ok: true, value: undefined })
+    expect(await db.get('works', ids[1]!)).toBeUndefined()
+    expect(await db.get('originals', ids[1]!)).toBeUndefined()
+    expect(await db.get('layers', ids[1]!)).toBeUndefined()
+    expect((await snapshot(db)).works).toEqual(others)
+    expect(await db.count('originals')).toBe(2)
+    expect(await db.count('layers')).toBe(2)
+    db.close()
+  })
+
+  it('refuses the open Work and removes nothing (AC-07)', async () => {
+    const db = await openDb(freshName())
+    const ids = await seed(db, 2)
+    const before = await snapshot(db)
+
+    const result = await deleteWork(db, ids[0]!, { keep: ids[0]! })
+
+    expect(result.ok).toBe(false)
+    expect(await snapshot(db)).toEqual(before)
+    db.close()
+  })
+
+  it('refuses keep without touching the database (AC-07)', async () => {
+    const transaction = vi.fn()
+    const fake = { transaction } as unknown as Db
+
+    const result = await deleteWork(fake, 'w1', { keep: 'w1' })
+
+    expect(result.ok).toBe(false)
+    expect(transaction).not.toHaveBeenCalled()
+  })
+
+  it('a damaged Work (no Original) is deleted, removing whatever parts exist (AC-08)', async () => {
+    const db = await openDb(freshName())
+    const w = storedWorkFixture()
+    await db.put('works', w.record)
+    await db.put('layers', w.layer!)
+
+    const result = await deleteWork(db, w.record.id, { keep: 'other' })
+
+    expect(result.ok).toBe(true)
+    expect(await db.count('works')).toBe(0)
+    expect(await db.count('layers')).toBe(0)
+    db.close()
+  })
+
+  it('a fault returns STORAGE_FAILED with all three parts still present', async () => {
+    const raw = await openDb(freshName())
+    const ids = await seed(raw, 2)
+    const before = await snapshot(raw)
+
+    const result = await deleteWork(failLayerDelete(raw), ids[0]!, { keep: 'other' })
 
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.error.code).toBe('STORAGE_FAILED')
