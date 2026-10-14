@@ -5,9 +5,14 @@ import type { GalleryEntry } from '../store'
 import * as m from '../messages'
 
 const props = defineProps<{ entry: GalleryEntry }>()
-const emit = defineEmits<{ choose: []; delete: []; 'image-error': [] }>()
+const emit = defineEmits<{ choose: []; delete: []; 'image-error': [url: string] }>()
 
 const hintId = useId()
+
+// The src that failed, not the current prop: an error from a superseded URL must not mark the entry.
+function onImageError(event: Event) {
+  emit('image-error', (event.target as HTMLImageElement).getAttribute('src') ?? '')
+}
 const status = computed(() => {
   if (props.entry.status === 'open') return m.statusOpen()
   if (props.entry.status === 'damaged') return m.statusDamaged()
@@ -35,7 +40,7 @@ const isDamaged = computed(() => props.entry.status === 'damaged')
           v-else-if="entry.thumbnailUrl"
           :src="entry.thumbnailUrl"
           alt=""
-          @error="emit('image-error')"
+          @error="onImageError"
         />
       </span>
       <span class="gallery-entry__name" :title="entry.name">{{ entry.name }}</span>

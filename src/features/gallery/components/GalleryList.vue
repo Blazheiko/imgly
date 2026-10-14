@@ -66,7 +66,7 @@ onBeforeUnmount(() => {
           :entry="entry"
           @choose="gallery.choose(entry.id)"
           @delete="gallery.requestDelete(entry.id)"
-          @image-error="gallery.markDamaged(entry.id)"
+          @image-error="(url: string) => gallery.markDamaged(entry.id, url)"
         />
       </ul>
     </template>

@@ -7,7 +7,7 @@ acs: ["AC-01", "AC-03", "AC-05", "AC-08"]
 files_hint: ["src/features/gallery/store.ts", "src/features/gallery/store.test.ts", "src/features/gallery/components/GalleryList.vue", "src/features/gallery/components/GalleryEntry.vue"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 source: "review-2026-10-14 S2-6 (pulled forward from T30)"
 ---
 

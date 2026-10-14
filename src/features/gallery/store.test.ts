@@ -152,6 +152,31 @@ describe('gallery store', () => {
     })
   })
 
+  describe('markDamaged with the erroring thumbnail URL (T33, S2-6)', () => {
+    it('ignores an error for a URL that is no longer the entry thumbnail', async () => {
+      const id = await seed(db, 'A.png', NOW)
+      await gallery.refresh()
+      const stale = gallery.entries[0]!.thumbnailUrl!
+      await gallery.refresh()
+      expect(gallery.entries[0]!.thumbnailUrl).not.toBe(stale)
+
+      gallery.markDamaged(id, stale)
+
+      expect(gallery.entries[0]!.status).toBe('touched')
+      expect(editor.damagedIds.has(id)).toBe(false)
+    })
+
+    it('marks the entry damaged when the erroring URL is the current thumbnail', async () => {
+      const id = await seed(db, 'A.png', NOW)
+      await gallery.refresh()
+
+      gallery.markDamaged(id, gallery.entries[0]!.thumbnailUrl!)
+
+      expect(gallery.entries[0]!.status).toBe('damaged')
+      expect(editor.damagedIds.has(id)).toBe(true)
+    })
+  })
+
   describe('open and close the overlay (AC-03)', () => {
     it('opens with a fresh list and tells the editor, then closes without changing anything', async () => {
       await seed(db, 'A.png', NOW)

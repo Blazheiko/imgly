@@ -37,6 +37,6 @@
 | T30 | Damaged notice Delete, storage-full notice kept | ui | Blazheiko | M | T29 | todo |
 | T31 | AC-14 re-ask and AC-18 survival tests | tests | Blazheiko | S | T30 | todo |
 | T32 | Test-plan: migration 0002 clears v1; new rows | docs | Blazheiko | S | T31 | todo |
-| T33 | Regression from T26: latest refresh wins, URLs revoked after render (S2-6) | ui | Blazheiko | S | T27 | todo |
+| T33 | Regression from T26: latest refresh wins, URLs revoked after render (S2-6) | ui | Blazheiko | S | T27 | done |
 
 **Total:** 33 tasks, ~23 person-days (S ≈ 0.5, M ≈ 0.75, L ≈ 1).

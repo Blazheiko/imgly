@@ -1,4 +1,4 @@
-import { computed, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, ref, shallowRef, watch } from 'vue'
 import { defineStore } from 'pinia'
 import type { IDBPDatabase } from 'idb'
 import { entryName, storageLine as storageLineKind, touchedLabel } from '@/core'
@@ -59,17 +59,21 @@ export const useGallery = defineStore('gallery', () => {
     clock = next
   }
 
-  function revokeUrls() {
-    for (const e of entries.value) if (e.thumbnailUrl) URL.revokeObjectURL(e.thumbnailUrl)
+  function revokeAll(list: GalleryEntry[]) {
+    for (const e of list) if (e.thumbnailUrl) URL.revokeObjectURL(e.thumbnailUrl)
   }
 
-  /** Reads the list again; there is no live refresh. */
+  let refreshSeq = 0
+
+  /** Reads the list again; there is no live refresh. Only the newest call assigns. */
   async function refresh() {
-    revokeUrls()
+    const seq = ++refreshSeq
+    const previous = entries.value
     const c = connection.value
     if (unavailableReason.value !== null || !c || !c.ok) {
       entries.value = []
       storageLine.value = ''
+      revokeAll(previous)
       return
     }
     const listed = await listWorks(c.value)
@@ -78,20 +82,32 @@ export const useGallery = defineStore('gallery', () => {
       storageLineKind(persisted) === 'persisted'
         ? storageLinePersisted()
         : storageLineNotPersisted()
-    if (!listed.ok) {
-      entries.value = []
+    let next: GalleryEntry[] = []
+    if (listed.ok) {
+      const now = clock()
+      const openId = editor.openWorkId
+      next = listed.value.map((w) => ({
+        id: w.id,
+        name: entryName(w.sourceName),
+        status:
+          w.damaged || editor.damagedIds.has(w.id)
+            ? 'damaged'
+            : w.id === openId
+              ? 'open'
+              : 'touched',
+        label: touchedLabel(w.touchedAt, now),
+        thumbnailUrl: w.record ? URL.createObjectURL(w.record.thumbnail) : null,
+      }))
+    }
+    if (seq !== refreshSeq) {
+      revokeAll(next)
       return
     }
-    const now = clock()
-    const openId = editor.openWorkId
-    entries.value = listed.value.map((w) => ({
-      id: w.id,
-      name: entryName(w.sourceName),
-      status:
-        w.damaged || editor.damagedIds.has(w.id) ? 'damaged' : w.id === openId ? 'open' : 'touched',
-      label: touchedLabel(w.touchedAt, now),
-      thumbnailUrl: w.record ? URL.createObjectURL(w.record.thumbnail) : null,
-    }))
+    // The previous list's URLs go only after the DOM has moved to the new ones.
+    const stale = entries.value
+    entries.value = next
+    await nextTick()
+    revokeAll(stale)
   }
 
   async function open() {
@@ -154,9 +170,10 @@ export const useGallery = defineStore('gallery', () => {
   }
 
   /** A thumbnail that will not decode: the Work is Damaged now, and stays so across refresh. */
-  function markDamaged(id: string) {
-    editor.markDamaged(id)
+  function markDamaged(id: string, thumbnailUrl?: string) {
     const entry = entries.value.find((e) => e.id === id)
+    if (thumbnailUrl !== undefined && entry?.thumbnailUrl !== thumbnailUrl) return
+    editor.markDamaged(id)
     if (entry) entry.status = 'damaged'
   }
 
