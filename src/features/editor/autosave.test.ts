@@ -453,6 +453,59 @@ describe('Autosave failed save (gallery AC-11)', () => {
     expect(texts(s)).toEqual([failureSaveFailed()])
   })
 
+  it('S2-5: a successful save keeps the storage-full notice (only the save-failed one is withdrawn)', async () => {
+    let mode: 'quota' | 'other' | null = 'quota'
+    const s = setup({
+      faults: () => ({ failPut: (store) => (store === 'works' ? mode : null) }),
+    })
+    await s.connect()
+    const work = makeWork()
+
+    await save(s, work)
+    expect(texts(s)).toEqual([failureStorageFull()])
+
+    mode = null
+    const saved = edited(work, 1)
+    await save(s, saved)
+    expect(s.autosave.isStored(saved)).toBe(true)
+    expect(texts(s)).toEqual([failureStorageFull()])
+  })
+
+  it('S2-5: a storage-full notice the Editor dismissed shows again at the next quota failure', async () => {
+    const s = setup({
+      faults: () => ({ failPut: (store) => (store === 'works' ? 'quota' : null) }),
+    })
+    await s.connect()
+    const work = makeWork()
+
+    await save(s, work)
+    expect(texts(s)).toEqual([failureStorageFull()])
+    s.notices.dismiss(s.notices.items[0]!.id)
+    expect(texts(s)).toEqual([])
+
+    await save(s, edited(work, 1))
+    expect(texts(s)).toEqual([failureStorageFull()])
+  })
+
+  it('S2-5: storage full, then a failed save, then success withdraws the save-failed notice and keeps storage-full', async () => {
+    let mode: 'quota' | 'other' | null = 'quota'
+    const s = setup({
+      faults: () => ({ failPut: (store) => (store === 'works' ? mode : null) }),
+    })
+    await s.connect()
+    const work = makeWork()
+
+    await save(s, work)
+    mode = 'other'
+    await save(s, edited(work, 1))
+    expect(texts(s)).toContain(failureStorageFull())
+    expect(texts(s)).toContain(failureSaveFailed())
+
+    mode = null
+    await save(s, edited(work, 2))
+    expect(texts(s)).toEqual([failureStorageFull()])
+  })
+
   it('does not throw and keeps working after a failure', async () => {
     const s = setup({ faults: { failPut: (store) => (store === 'works' ? 'other' : null) } })
     await s.connect()

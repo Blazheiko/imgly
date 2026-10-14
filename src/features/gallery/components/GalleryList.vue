@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount } from 'vue'
+import { onBeforeUnmount, onMounted } from 'vue'
 import { BaseButton } from '@/shared'
 import { useGallery } from '../store'
 import * as m from '../messages'
@@ -11,7 +11,9 @@ const emit = defineEmits<{ close: []; 'open-image': [] }>()
 
 const gallery = useGallery()
 
+onMounted(() => gallery.listsMounted++)
 onBeforeUnmount(() => {
+  gallery.listsMounted--
   for (const e of gallery.entries) if (e.thumbnailUrl) URL.revokeObjectURL(e.thumbnailUrl)
 })
 </script>

@@ -40,6 +40,8 @@ export const useGallery = defineStore('gallery', () => {
   const storageLine = ref('')
   const overlayOpen = ref(false)
   const reopening = ref<string | null>(null)
+  /** GalleryLists on screen; each hosts its own delete dialog, so the app-level one stands down. */
+  const listsMounted = ref(0)
   const pendingDelete = ref<{ id: string; name: string } | null>(null)
   let clock: () => number = () => Date.now()
 
@@ -119,6 +121,7 @@ export const useGallery = defineStore('gallery', () => {
 
   function close() {
     overlayOpen.value = false
+    pendingDelete.value = null
     editor.setActivePanel(null)
   }
 
@@ -209,6 +212,7 @@ export const useGallery = defineStore('gallery', () => {
     overlayOpen,
     reopening,
     pendingDelete,
+    listsMounted,
     connect,
     setClock,
     refresh,

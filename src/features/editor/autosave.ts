@@ -41,7 +41,7 @@ async function thumbnailOf(renderer: PreviewRenderer, work: W) {
 }
 
 export interface AutosaveDeps {
-  notices: Pick<ReturnType<typeof useNotices>, 'pushAll' | 'dismiss'>
+  notices: Pick<ReturnType<typeof useNotices>, 'items' | 'pushAll' | 'dismiss'>
   codec: { encodePng(bitmap: ImageBitmap): Promise<Result<Blob, AppError>> }
   renderer: () => PreviewRenderer
   rendererReady: () => Promise<unknown>
@@ -66,7 +66,7 @@ export function createAutosave(deps: AutosaveDeps) {
   let db: Db | null = null
   let closing = false
   let held: Held | null = null
-  let failure: { kind: 'full' | 'failed'; id: string } | null = null
+  const failures: { full: string | null; failed: string | null } = { full: null, failed: null }
   const noDamage: ReadonlySet<string> = new Set()
 
   function holdFor(workId: string): Held {
@@ -76,19 +76,23 @@ export function createAutosave(deps: AutosaveDeps) {
     return held
   }
 
-  function withdraw() {
-    if (!failure) return
-    deps.notices.dismiss(failure.id)
-    failure = null
+  function withdraw(kind: 'full' | 'failed') {
+    const id = failures[kind]
+    if (id === null) return
+    deps.notices.dismiss(id)
+    failures[kind] = null
   }
 
   function fail(kind: 'full' | 'failed') {
-    if (failure?.kind === kind) return
-    withdraw()
+    // One notice per run (AC-11). Success never ends a storage-full run, so once the Editor has
+    // dismissed that notice the next quota failure shows it again.
+    const shown = failures[kind]
+    if (shown !== null && (kind === 'failed' || deps.notices.items.some((n) => n.id === shown)))
+      return
     const [id] = deps.notices.pushAll([
       { kind: 'failure', text: kind === 'full' ? failureStorageFull() : failureSaveFailed() },
     ])
-    failure = { kind, id: id! }
+    failures[kind] = id!
   }
 
   async function encode(source: ImageBitmap | OffscreenCanvas): Promise<Blob | null> {
@@ -135,7 +139,7 @@ export function createAutosave(deps: AutosaveDeps) {
       fail(stored.error.code === 'STORAGE_QUOTA' ? 'full' : 'failed')
       return false
     }
-    withdraw()
+    withdraw('failed')
     if (stored.value.evicted.length > 0) {
       deps.notices.pushAll([{ kind: 'info', text: infoEvicted(stored.value.evicted) }])
     }

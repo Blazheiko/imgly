@@ -248,4 +248,57 @@ describe('App Gallery wiring (gallery T17)', () => {
     await nextTick()
     expect(q('gallery-overlay')).toBeNull()
   })
+
+  describe('the damaged notice\'s Delete… (gallery T30, S2-4)', () => {
+    const dialog = () => document.querySelector('[role="alertdialog"]')
+    const damagedAction = (gallery: ReturnType<typeof useGallery>) => {
+      const notice = useNotices().items.find((n) => n.action)
+      expect(notice).toBeDefined()
+      void gallery
+      return notice!.action!
+    }
+
+    async function withOpenWorkAndOtherEntry() {
+      const { db, id } = await seededDb()
+      wrapper = mount(App, { attachTo: document.body })
+      await flushPromises()
+      await editor.runCapabilityGate(async () => ok(undefined))
+      openWork()
+      await nextTick()
+      const gallery = useGallery()
+      await gallery.refresh()
+      expect(gallery.overlayOpen).toBe(false)
+      expect(q('gallery-list')).toBeNull()
+      return { db, id, gallery }
+    }
+
+    it('AC-08: with the overlay closed, running the action shows the delete dialog at once', async () => {
+      const { db, id, gallery } = await withOpenWorkAndOtherEntry()
+      vi.spyOn(editor, 'reopenWork').mockResolvedValue({ kind: 'damaged' } as never)
+      await gallery.choose(id)
+      damagedAction(gallery).run()
+      await nextTick()
+      expect(gallery.pendingDelete?.id).toBe(id)
+      expect(dialog()).not.toBeNull()
+      expect(dialog()!.textContent).toContain('Cat')
+      db.close()
+    })
+
+    it('AC-08: a delete requested with the overlay closed does not surface when the overlay opens later', async () => {
+      const { db, id, gallery } = await withOpenWorkAndOtherEntry()
+      gallery.requestDelete(id)
+      await nextTick()
+      gallery.close()
+      expect(gallery.pendingDelete).toBeNull()
+      await nextTick()
+      expect(dialog()).toBeNull()
+
+      q('gallery-action')!.click()
+      await vi.waitFor(() => expect(q('gallery-overlay')).not.toBeNull())
+      await flushPromises()
+      expect(gallery.pendingDelete).toBeNull()
+      expect(document.body.textContent).not.toContain('Delete “Cat')
+      db.close()
+    })
+  })
 })

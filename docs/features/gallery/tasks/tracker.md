@@ -34,7 +34,7 @@
 | T27 | Overlay closes after confirmed reopen; Esc in dialogs; covers status bar | ui | Blazheiko | M | T26 | done |
 | T28 | Nothing reaches the Work under the open Gallery | wiring | Blazheiko | S | T33 | done |
 | T29 | Connecting state on SCR-01; save the Work opened before connect | app | Blazheiko | S | T28 | done |
-| T30 | Damaged notice Delete, storage-full notice kept | ui | Blazheiko | M | T29 | todo |
+| T30 | Damaged notice Delete, storage-full notice kept | ui | Blazheiko | M | T29 | done |
 | T31 | AC-14 re-ask and AC-18 survival tests | tests | Blazheiko | S | T30 | todo |
 | T32 | Test-plan: migration 0002 clears v1; new rows | docs | Blazheiko | S | T31 | todo |
 | T33 | Regression from T26: latest refresh wins, URLs revoked after render (S2-6) | ui | Blazheiko | S | T27 | done |

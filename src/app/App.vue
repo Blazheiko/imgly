@@ -6,7 +6,13 @@ import { CropOverlay, CropRotateAction, CropRotateTool } from '@/features/crop-r
 import { AdjustAction, AdjustBeforeLabel, AdjustTool } from '@/features/adjust'
 import { DrawAction, DrawOverlay, DrawTool } from '@/features/draw'
 import { ExportAction } from '@/features/export'
-import { GalleryAction, GalleryOverlay, GalleryStart, useGallery } from '@/features/gallery'
+import {
+  DeleteWorkDialog,
+  GalleryAction,
+  GalleryOverlay,
+  GalleryStart,
+  useGallery,
+} from '@/features/gallery'
 import { UndoRedoActions } from '@/features/undo-redo'
 
 // Start-up order: EditorView's setup installs the window drop guard first; the capability gate
@@ -49,4 +55,6 @@ onMounted(() => {
       <DrawTool v-else-if="editor.activeTool === 'draw'" />
     </template>
   </EditorView>
+  <!-- The one delete confirmation: also reachable from the damaged notice, overlay closed. -->
+  <DeleteWorkDialog standby />
 </template>
