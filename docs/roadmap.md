@@ -1,6 +1,6 @@
 ---
 status: living
-updated_at: "2026-10-12"
+updated_at: "2026-10-13"
 ---
 
 # Roadmap — imgly-editor
@@ -27,7 +27,7 @@ draw on and export an image, then reopen any recent work later and re-edit it wi
 | 5 | Adjust brightness, contrast, saturation, temperature/tint, grayscale and sepia with a live preview, plus Compare and Auto adjust ([`adjust`](features/adjust/)) | idea-brief.md §7 Recommendation | M | shipped |
 | 6 | Draw freehand with a brush and an eraser, choosing colour and width, on a separate drawing layer ([`draw`](features/draw/)) | idea-brief.md §7 Recommendation | M | shipped |
 | 7 | Undo and redo every crop, adjust and draw action while the image is open ([`undo-redo`](features/undo-redo/)) | idea-brief.md §7 Recommendation | S | shipped |
-| 8 | Gallery of recent works: autosave, reopen and re-edit without loss, about 20 works with the oldest evicted, an honest notice that browser storage can be evicted | idea-brief.md §7 Recommendation + §6 Risks | M | idea |
+| 8 | Gallery of recent works: autosave, reopen and re-edit without loss, about 20 works with the oldest evicted, an honest notice that browser storage can be evicted ([`gallery`](features/gallery/)) | idea-brief.md §7 Recommendation + §6 Risks | M | spec'd |
 | 9 | Install and update experience: an install prompt and a "new version available" toast | idea-brief.md §1 Raw idea (PWA) | S | idea |
 | 10 | OS integration: paste and copy to the clipboard, and "Open with…" as the system image handler (drag-and-drop moved to step 2) | idea-brief.md §7 Recommendation | M | idea |
 
@@ -49,7 +49,6 @@ _Nothing. Every step can be stated precisely today. What is still undecided is a
 
 | # | Question | Type | Owner | Blocks |
 |---|---|:---:|:---:|:---:|
-| D2 | Is the gallery capped by work count (~20) or by a storage-byte budget, and does the app call `navigator.storage.persist()`? | grilling | human | 8 |
 | D5 | Verify against MDN/caniuse that `file_handlers` + `launchQueue` work only in Chromium and that image clipboard write/paste works in Chrome, Firefox and Safari. The first lookup answered from memory ([MDN](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Manifest/Reference/file_handlers)) | research | agent | 10 |
 
 ## Decisions so far
@@ -57,6 +56,7 @@ _Nothing. Every step can be stated precisely today. What is still undecided is a
 - Client-only Vue 3 + TS + Vite PWA, hosted on GitHub Pages → [`docs/adr/0001-build-a-client-only-vue-pwa.md`](adr/0001-build-a-client-only-vue-pwa.md)
 - Functional core + feature folders + infra shell → [`docs/adr/0002-organize-code-as-functional-core-with-feature-folders.md`](adr/0002-organize-code-as-functional-core-with-feature-folders.md)
 - A work is stored in IndexedDB as original + params + drawing layer, with UUIDv7 IDs → [`docs/adr/0003-persist-works-in-indexeddb-as-original-plus-params-plus-layer.md`](adr/0003-persist-works-in-indexeddb-as-original-plus-params-plus-layer.md)
+- D2 closed: the gallery is capped at 20 works, also evicts the oldest when storage is full, and asks for persistent storage once at the first save → [`features/gallery/spec.md`](features/gallery/spec.md) §1
 - Adjustments render on WebGL2 and drawing on Canvas 2D → [`docs/adr/0004-render-adjustments-on-webgl2-and-drawing-on-canvas2d.md`](adr/0004-render-adjustments-on-webgl2-and-drawing-on-canvas2d.md)
 - Downscale limit on open is 4096 px on the long side (closes former D1) → [`docs/features/open-and-view/spec.md`](features/open-and-view/spec.md) §1
 - Formats the browser cannot encode (WebP in Safari) are shown as unavailable, never selectable and never faked (closes former D4) → [`docs/features/export/spec.md`](features/export/spec.md) §1, AC-12

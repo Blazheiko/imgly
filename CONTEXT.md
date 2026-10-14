@@ -1,6 +1,6 @@
 ---
 status: Living
-updated_at: "2026-10-11"
+updated_at: "2026-10-13"
 ---
 
 # Domain Context — imgly-editor
@@ -8,6 +8,7 @@ updated_at: "2026-10-11"
 ## Glossary
 
 - Adjustments — the Work's seven colour values, applied after its Geometry: brightness, contrast, saturation, temperature and tint from −100 to +100, and grayscale and sepia from 0% to 100%; each has a neutral value (0, or 0%) at which it changes no pixel, and together they change only colour, never transparency, size or position. NOT the Geometry, which decides which part of the Original is shown and how it is turned, and NOT the drawing layer, which is painted over the adjusted image and is never adjusted itself.
+- Autosave — the app storing the open Work's applied state in the Gallery without being asked: once the image has opened, and again after every Step, Undo and Redo. It never stores an open tool's Draft, the View or the Edit history. NOT an Export: the stored copy lives only in this browser and the browser may clear it, while an Export is a file the Editor keeps.
 - Crop — the rectangle of the image, as it stands after its Flip, Rotation and Straighten angle, that the Work keeps; the Preview and every Export show only what is inside it, and it always lies fully inside the image and is at least 1×1 px. NOT the View, which only frames the Preview on screen and is never saved, and NOT a destructive cut: the area outside the Crop stays in the Original and can be brought back by widening the Crop.
 - Downscale limit — the maximum length, in pixels, of an image's long side once it is opened (4096 px); larger images are reduced to it proportionally on open. NOT the export size the Editor chooses later, which can only be equal or smaller.
 - Draft — an open tool's unapplied changes, which the Preview shows while that tool is open; Apply hands them to the Work as one Step when they count as an edit, and Cancel drops them. For Draw it is a full copy of the Drawing layer, owned by the draw tool. NOT a Step and NOT part of the Edit history: Undo and Redo never touch a Draft, and are unavailable while a tool is open.
@@ -16,6 +17,7 @@ updated_at: "2026-10-11"
 - Editor — the person editing an image in the app: the owner or any casual desktop user. NOT the Portfolio reviewer, whose goal is to judge the app rather than to finish an image.
 - Export — an image file the Editor saves from the Work in a chosen format, rendered with all its edits at the Work's full size or a smaller size the Editor chooses, independent of the View; it is the durable copy of the Work. NOT the Preview, which follows the View, and NOT the Work, which stays editable.
 - Flip — mirroring the image horizontally, vertically or both, as part of its Geometry. NOT Rotation: a horizontal Flip followed by a vertical Flip looks like a 180° Rotation, but each is kept as chosen.
+- Gallery — the recent Works kept in this browser so the Editor can reopen and re-edit them later: at most 20, listed with the Work most recently opened or changed (by a Step, Undo or Redo) first. When a Work needs room, because the Gallery is full or the browser's storage space has run out, the least recently opened or changed Work that is not open in this tab is evicted, and the browser itself may also clear the Gallery. NOT the Edit history, which keeps the Steps of the open Work only and is never stored, and NOT a backup: only an Export is a durable copy.
 - Geometry — which part of the Original the Work shows and how it is oriented: its Flip, Rotation, Straighten angle and Crop, applied in that order. NOT the View, which never changes the Work, and NOT the adjustment values or the drawing layer, which are applied after it.
 - Original — the opened image after orientation is applied and it is reduced to the Downscale limit; every later edit starts from it. NOT the source file on disk, which the app never modifies and does not keep.
 - Portfolio reviewer — a recruiter or engineer who opens the deployed app to evaluate it, usually for the first time and on a desktop browser. NOT a separate permission level: the app has no accounts, so a reviewer can do everything an Editor can.
@@ -27,7 +29,7 @@ updated_at: "2026-10-11"
 - Straighten angle — a small free turn of the image between −45° and +45°, used to level a tilted horizon, as part of its Geometry; it is applied after the Rotation, and the Crop shrinks automatically so that no empty corner ever enters the Work. NOT Rotation, which only turns in exact quarter turns and loses no pixels.
 - Stroke — one continuous mark on the Drawing layer, made with the Brush or the Eraser from pressing the pointer down until releasing it. NOT a View gesture: panning or zooming never makes a Stroke, and NOT an object the Editor can select later.
 - Supported image — an image file whose content, not its name, is JPEG, PNG, WebP, AVIF or GIF, or HEIC/HEIF when the current browser can decode it itself; only Supported images can be opened. NOT any image the browser happens to decode: SVG, BMP, ICO, TIFF, camera RAW/DNG and PSD are refused with a named reason even where the browser could open them.
-- Unsaved edits — changes to the open Work made since it was opened or last exported successfully; they would be lost if the Work were replaced. Undoing or redoing back to the save point clears them: the save point is the last successful Export, or the state at open when nothing was exported; a change taken back by hand still counts as an edit. NOT View changes (zoom or pan), which never count as edits, and NOT the ability to re-edit: after an Export the edits are kept in the exported image, but they can no longer be adjusted separately once the Work is replaced.
+- Unsaved edits — changes to the open Work made since it was opened, reopened from the Gallery or last exported successfully; no Export contains them yet. Undoing or redoing back to the save point clears them: the save point is the last successful Export, or the state at open when nothing was exported; a change taken back by hand still counts as an edit. NOT View changes (zoom or pan), which never count as edits, and NOT edits that would be lost on replacing the Work: once Autosave has stored them, the Work keeps them in the Gallery and can be reopened and re-edited piece by piece.
 - View — how the Preview is framed on screen: the zoom level and the pan position. NOT part of the Work: it is never saved or exported, and changing it is not an edit.
 - Work — one image being edited: its Original, Source name and Source format plus everything applied on top of it (its Geometry, adjustment values, the drawing layer). NOT a file on disk, and NOT an exported image.
 
@@ -35,5 +37,6 @@ updated_at: "2026-10-11"
 
 - Only one Work is open at a time.
 - An Original's long side never exceeds the Downscale limit.
-- Opening a new image never discards the open Work unless the new image has been read successfully and, when there are Unsaved edits, the Editor has confirmed the replacement.
+- Opening a new image, or reopening a Work from the Gallery, never discards the open Work unless the new image has been read successfully and, when the open Work has Unsaved edits that Autosave has not stored in the Gallery, the Editor has confirmed the replacement.
+- The Gallery holds at most 20 Works and never evicts or deletes the Work open in this tab.
 - A Work's Crop always lies fully inside its image, as it stands after its Flip, Rotation and Straighten angle, and is at least 1×1 px.
