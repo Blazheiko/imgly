@@ -1,0 +1,158 @@
+import { readonly, ref } from 'vue'
+import { toStoredFields, type AppError, type DrawingLayer, type Result, type Work } from '@/core'
+import { storeWork, type ImglyDb } from '@/infra/db'
+import type { PreviewRenderer } from '@/render'
+import type { useNotices } from '@/shared/notices'
+import { createSaveQueue } from './autosave-queue'
+import { failureSaveFailed, failureStorageFull, infoEvicted, infoNewerVersion } from './messages'
+import type { IDBPDatabase } from 'idb'
+
+type W = Work<ImageBitmap, OffscreenCanvas>
+type Db = IDBPDatabase<ImglyDb>
+
+export interface AutosaveDeps {
+  notices: Pick<ReturnType<typeof useNotices>, 'pushAll' | 'dismiss'>
+  codec: { encodePng(bitmap: ImageBitmap): Promise<Result<Blob, AppError>> }
+  renderer: () => PreviewRenderer
+  rendererReady: () => Promise<unknown>
+  /** A bitmap the codec may transfer away; the renderer's own bitmap is never handed over. */
+  copyBitmap: (source: ImageBitmap | OffscreenCanvas) => Promise<ImageBitmap>
+  encodeThumbnail: (data: ImageData) => Promise<Blob>
+  requestPersistence: () => Promise<boolean>
+  now: () => number
+  damagedIds?: () => ReadonlySet<string>
+}
+
+interface Held {
+  workId: string
+  original: Blob | null
+  layer: Blob | null
+  layerId: string | null
+}
+
+/** Prepares, stores and reports every save of the open Work (gallery ADR-0003, 0004, 0006). */
+export function createAutosave(deps: AutosaveDeps) {
+  const available = ref(false)
+  let db: Db | null = null
+  let closing = false
+  let held: Held | null = null
+  let failure: { kind: 'full' | 'failed'; id: string } | null = null
+  const noDamage: ReadonlySet<string> = new Set()
+
+  function holdFor(workId: string): Held {
+    if (!held || held.workId !== workId) {
+      held = { workId, original: null, layer: null, layerId: null }
+    }
+    return held
+  }
+
+  function withdraw() {
+    if (!failure) return
+    deps.notices.dismiss(failure.id)
+    failure = null
+  }
+
+  function fail(kind: 'full' | 'failed') {
+    if (failure?.kind === kind) return
+    withdraw()
+    const [id] = deps.notices.pushAll([
+      { kind: 'failure', text: kind === 'full' ? failureStorageFull() : failureSaveFailed() },
+    ])
+    failure = { kind, id: id! }
+  }
+
+  async function encode(source: ImageBitmap | OffscreenCanvas): Promise<Blob | null> {
+    const result = await deps.codec.encodePng(await deps.copyBitmap(source))
+    return result.ok ? result.value : null
+  }
+
+  async function prepareAndStore(work: W, target: Db): Promise<boolean> {
+    await deps.rendererReady()
+    const mine = holdFor(work.id)
+    let layerChanged = false
+    mine.original ??= await encode(work.original.pixels)
+    const drawing: DrawingLayer<OffscreenCanvas> | null = work.drawing
+    if (!drawing) {
+      mine.layer = null
+      mine.layerId = null
+    } else if (mine.layerId !== drawing.id || !mine.layer) {
+      mine.layer = await encode(drawing.pixels)
+      mine.layerId = drawing.id
+      layerChanged = true
+    }
+    const pixels = deps.renderer().renderThumbnail(work)
+    if (!mine.original || (drawing && !mine.layer) || !pixels) {
+      if (drawing && !mine.layer) mine.layerId = null
+      fail('failed')
+      return false
+    }
+    const thumbnail = await deps.encodeThumbnail(pixels)
+
+    const stored = await storeWork(
+      target,
+      { ...toStoredFields(work, deps.now()), thumbnail },
+      { original: mine.original, layer: mine.layer, layerChanged },
+      {
+        keep: work.id,
+        damaged: deps.damagedIds?.() ?? noDamage,
+        onFirstSave: () => {
+          // Never awaited: the browser may ask the person, and the save has already committed.
+          void Promise.resolve(deps.requestPersistence()).catch(() => {})
+        },
+      },
+    )
+    if (!stored.ok) {
+      fail(stored.error.code === 'STORAGE_QUOTA' ? 'full' : 'failed')
+      return false
+    }
+    withdraw()
+    if (stored.value.evicted.length > 0) {
+      deps.notices.pushAll([{ kind: 'info', text: infoEvicted(stored.value.evicted) }])
+    }
+    return true
+  }
+
+  const queue = createSaveQueue<W>(async (work) => {
+    if (!db || closing) return false
+    try {
+      return await prepareAndStore(work, db)
+    } catch {
+      fail('failed')
+      return false
+    }
+  })
+
+  async function onVersionChange(connection: Db) {
+    if (closing) return
+    closing = true
+    queue.dropPending()
+    await queue.settled()
+    connection.close()
+    db = null
+    available.value = false
+    deps.notices.pushAll([{ kind: 'info', text: infoNewerVersion() }])
+  }
+
+  return {
+    request(work: W) {
+      if (db && !closing) queue.request(work)
+    },
+    saving: queue.saving,
+    settled: () => queue.settled(),
+    isStored: (work: W) => available.value && queue.isStored(work),
+    galleryAvailable: readonly(available),
+    connectGallery(result: Result<Db, AppError>) {
+      if (!result.ok) return
+      db = result.value
+      closing = false
+      available.value = true
+      db.addEventListener('versionchange', () => void onVersionChange(result.value))
+    },
+    keepEncoded(
+      workId: string,
+      blobs: { original: Blob; layer: Blob | null; layerId: string | null },
+    ) {
+      held = { workId, ...blobs }
+    },
+  }
+}
