@@ -5,6 +5,8 @@
 import { NEUTRAL_ADJUSTMENTS, identityGeometry } from '../../core'
 import type { IDBPDatabase } from 'idb'
 import { newId } from '../../shared/ids'
+import { openDb, DB_NAME } from './open-db'
+import { LATEST_VERSION, migrations } from './migrations'
 import type { ImglyDb, WorkBlobRecord, WorkRecord } from './schema'
 
 const PNG_4X3 =
@@ -160,4 +162,112 @@ export function withFaults(db: IDBPDatabase<ImglyDb>, faults: Faults): IDBPDatab
       })
     }
   })
+}
+
+export { saveFaults } from './works-repository'
+export { setOpenRefusal } from './open-db'
+
+/** Every stored key per store; records come without their Blob bytes. Test-only. */
+export async function readStoredKeys(): Promise<{
+  works: Omit<WorkRecord, 'thumbnail'>[]
+  originals: string[]
+  layers: string[]
+  meta: string[]
+}> {
+  const db = await openDb()
+  try {
+    const [works, originals, layers, meta] = await Promise.all([
+      db.getAll('works'),
+      db.getAllKeys('originals'),
+      db.getAllKeys('layers'),
+      db.getAllKeys('meta'),
+    ])
+    return {
+      works: works.map((w) => {
+        const rest: Partial<WorkRecord> = { ...w }
+        delete rest.thumbnail
+        return rest as Omit<WorkRecord, 'thumbnail'>
+      }),
+      originals,
+      layers,
+      meta,
+    }
+  } finally {
+    db.close()
+  }
+}
+
+export interface StoredWorkInput {
+  sourceName: string
+  sourceFormat: string
+  geometry: WorkRecord['geometry']
+  adjustments: WorkRecord['adjustments']
+  touchedAt: number
+  width?: number
+  height?: number
+  hasTransparency?: boolean
+  originalPng: number[]
+  layerPng?: number[]
+}
+
+const bytesBlob = (bytes: number[]) => new Blob([new Uint8Array(bytes)], { type: 'image/png' })
+
+/** Writes one Work in the `formatVersion: 1` layout straight into the stores; returns its id. */
+export async function writeStoredWork(input: StoredWorkInput): Promise<string> {
+  const record: WorkRecord = {
+    id: newId(),
+    sourceName: input.sourceName,
+    sourceFormat: input.sourceFormat as WorkRecord['sourceFormat'],
+    touchedAt: input.touchedAt,
+    width: input.width ?? 4,
+    height: input.height ?? 3,
+    hasTransparency: input.hasTransparency ?? false,
+    geometry: input.geometry,
+    adjustments: input.adjustments,
+    layerId: input.layerPng ? newId() : null,
+    thumbnail: pngBlob(PNG_4X3),
+    formatVersion: 1,
+  }
+  const db = await openDb()
+  try {
+    const tx = db.transaction(['works', 'originals', 'layers'], 'readwrite')
+    void tx.objectStore('works').put(record)
+    void tx.objectStore('originals').put({ workId: record.id, png: bytesBlob(input.originalPng) })
+    if (input.layerPng) {
+      void tx.objectStore('layers').put({ workId: record.id, png: bytesBlob(input.layerPng) })
+    }
+    await tx.done
+  } finally {
+    db.close()
+  }
+  return record.id
+}
+
+/** Breaks one stored part of a Work: deletes its Original or layer, or corrupts its record. */
+export async function damageStoredPart(
+  id: string,
+  part: 'original' | 'layer' | 'thumbnail' | 'record',
+): Promise<void> {
+  const db = await openDb()
+  try {
+    if (part === 'original') await db.delete('originals', id)
+    else if (part === 'layer') await db.delete('layers', id)
+    else {
+      const record = await db.get('works', id)
+      if (!record) return
+      const broken =
+        part === 'thumbnail'
+          ? { ...record, thumbnail: new Blob([new Uint8Array(1)], { type: 'text/plain' }) }
+          : { ...record, width: 'broken' as unknown as number }
+      await db.put('works', broken)
+    }
+  } finally {
+    db.close()
+  }
+}
+
+/** Opens the database at `LATEST_VERSION + 1`, as a newer app version in another tab would. */
+export async function openNextVersion(): Promise<void> {
+  const db = await openDb(DB_NAME, migrations, LATEST_VERSION + 1)
+  db.close()
 }

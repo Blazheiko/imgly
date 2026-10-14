@@ -24,6 +24,12 @@ export function openDb(
   })
 }
 
+/** Fault seam for the e2e build: when it returns true, `openGalleryDb` refuses. Null in production. */
+let openRefusal: (() => boolean) | null = null
+export function setOpenRefusal(refusal: (() => boolean) | null): void {
+  openRefusal = refusal
+}
+
 export interface OpenGalleryDbOptions {
   name?: string
   /** How long a `blocked` open waits for an older connection to close. Default 3000 ms. */
@@ -43,6 +49,8 @@ export function openGalleryDb(
   const { name = DB_NAME, blockedWaitMs = 3000, onVersionChange } = opts
   const unavailable = (reason: 'refused' | 'held') =>
     err(appError('STORAGE_UNAVAILABLE', { reason }))
+
+  if (openRefusal?.()) return Promise.resolve(unavailable('refused'))
 
   return new Promise((resolve) => {
     let settled = false

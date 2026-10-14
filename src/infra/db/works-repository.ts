@@ -31,6 +31,37 @@ export interface StoreWorkOutcome {
 
 const MARKER = 'persistenceRequested'
 
+export type SaveHoldPoint = 'evictions' | 'record' | 'original' | 'layer'
+
+/**
+ * Fault seams for the e2e build; inert (null/false) unless a test hook sets them. They apply to
+ * whichever handle `storeWork` is given.
+ */
+export const saveFaults: {
+  /** Total stored bytes (thumbnails, Originals, layers) above which a write is refused as quota. */
+  byteBudget: number | null
+  /** Keeps the next save's transaction open at this point. */
+  hold: SaveHoldPoint | null
+  /** Fails the next save with a non-quota error. */
+  failNext: boolean
+} = { byteBudget: null, hold: null, failNext: false }
+
+/** Keeps the transaction alive with pending requests until the page goes away. */
+async function holdOpen(store: { count(): Promise<number> }): Promise<never> {
+  for (;;) await store.count()
+}
+
+async function storedBytes(
+  works: { getAll(): Promise<WorkRecord[]> },
+  originals: { getAll(): Promise<{ png: Blob }[]> },
+  layers: { getAll(): Promise<{ png: Blob }[]> },
+): Promise<number> {
+  const [w, o, l] = await Promise.all([works.getAll(), originals.getAll(), layers.getAll()])
+  return (
+    w.reduce((n, r) => n + r.thumbnail.size, 0) + [...o, ...l].reduce((n, r) => n + r.png.size, 0)
+  )
+}
+
 function isQuota(e: unknown): boolean {
   return (e as { name?: string } | null)?.name === 'QuotaExceededError'
 }
@@ -50,11 +81,19 @@ export async function storeWork(
     const tx = db.transaction(['works', 'originals', 'layers', 'meta'], 'readwrite')
     const done = tx.done
     done.catch(() => {})
+    const hold = saveFaults.hold
+    if (hold) saveFaults.hold = null
     try {
       const works = tx.objectStore('works')
       const originals = tx.objectStore('originals')
       const layers = tx.objectStore('layers')
       const meta = tx.objectStore('meta')
+
+      if (saveFaults.failNext) {
+        saveFaults.failNext = false
+        tx.abort()
+        throw new DOMException('injected save failure', 'UnknownError')
+      }
 
       const records = await works.getAll()
       const ids = evictionCandidates(records, {
@@ -70,10 +109,13 @@ export async function storeWork(
       for (const id of ids) {
         await Promise.all([works.delete(id), originals.delete(id), layers.delete(id)])
       }
+      if (hold === 'evictions') await holdOpen(works)
       await works.put(record)
+      if (hold === 'record') await holdOpen(works)
       if ((await originals.getKey(record.id)) === undefined) {
         await originals.put({ workId: record.id, png: blobs.original })
       }
+      if (hold === 'original') await holdOpen(works)
       if (record.layerId === null) {
         await layers.delete(record.id)
       } else if (
@@ -81,6 +123,14 @@ export async function storeWork(
         (blobs.layerChanged || (await layers.getKey(record.id)) === undefined)
       ) {
         await layers.put({ workId: record.id, png: blobs.layer })
+      }
+      if (hold === 'layer') await holdOpen(works)
+      if (
+        saveFaults.byteBudget !== null &&
+        (await storedBytes(works, originals, layers)) > saveFaults.byteBudget
+      ) {
+        tx.abort()
+        throw new DOMException('over the byte budget', 'QuotaExceededError')
       }
       const firstSave = (await meta.get(MARKER)) === undefined
       if (firstSave) await meta.put({ key: MARKER })
