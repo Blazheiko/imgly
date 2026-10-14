@@ -11,7 +11,7 @@
 | T4 | storeWork: evict and store in one transaction, quota retry, marker | infra | Blazheiko | L | T1, T3 | done |
 | T5 | listWorks, loadWork, deleteWork | infra | Blazheiko | M | T2, T4 | todo |
 | T6 | openGalleryDb as a Result with versionchange, storage-persistence | infra | Blazheiko | M | T1, T3 | done |
-| T7 | work-codec: PNG encode and decode in a fresh worker | infra | Blazheiko | M | T1 | todo |
+| T7 | work-codec: PNG encode and decode in a fresh worker | infra | Blazheiko | M | T1 | done |
 | T8 | renderThumbnail in the Preview renderer | infra | Blazheiko | M | — | done |
 | T9 | Toast action, returned notice ids, --gallery-tile-size | ui | Blazheiko | S | — | done |
 | T10 | Autosave save queue: single flight, latest wins | app | Blazheiko | S | — | done |
