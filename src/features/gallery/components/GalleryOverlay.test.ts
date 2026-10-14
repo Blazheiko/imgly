@@ -7,8 +7,8 @@ import type { IDBPDatabase } from 'idb'
 import { appError, err, ok } from '@/core'
 import { loadWork, openDb, type ImglyDb } from '@/infra/db'
 import { storedWorkFixture } from '@/infra/db/testing'
-import { useEditorStore } from '@/features/editor'
-import { createFakeAutosave } from '@/features/editor/testing'
+import { EditorView, useEditorStore } from '@/features/editor'
+import { createFakeAutosave, createFakeRenderer } from '@/features/editor/testing'
 import { useNotices } from '@/shared'
 import { useGallery } from '../store'
 import * as m from '../messages'
@@ -280,5 +280,95 @@ describe('GalleryOverlay (SCR-03)', () => {
     closeButton().click()
     await nextTick()
     expect(overlay()).toBeNull()
+  })
+
+  describe('a reopen that asks (AC-17)', () => {
+    /** A is open with a failed save (Unsaved edits nothing holds), so choosing B asks. */
+    async function chooseAsking() {
+      const { a, b } = await withOpenWork()
+      editor.applyEdit()
+      expect(editor.hasUnsavedEdits).toBe(true)
+      await openOverlay()
+      await gallery.choose(b)
+      expect(editor.phase).toBe('confirming')
+      return { a, b }
+    }
+
+    it('Replace closes the overlay and clears the gallery panel (S1-5)', async () => {
+      const { b } = await chooseAsking()
+      editor.confirmReplace()
+      await nextTick()
+      expect(editor.work?.id).toBe(b)
+      expect(gallery.overlayOpen).toBe(false)
+      expect(editor.activePanel).not.toBe('gallery')
+      expect(overlay()).toBeNull()
+    })
+
+    it('Cancel keeps the overlay open (S1-5)', async () => {
+      const { a } = await chooseAsking()
+      editor.cancelReplace()
+      await nextTick()
+      expect(editor.work?.id).toBe(a)
+      expect(gallery.overlayOpen).toBe(true)
+      expect(editor.activePanel).toBe('gallery')
+      expect(overlay()).not.toBeNull()
+    })
+  })
+
+  describe('Esc in a dialog over the overlay cancels that dialog only (S1-6)', () => {
+    it('SCR-04: Esc on the delete dialog cancels the delete and the overlay stays', async () => {
+      await withOpenWork()
+      await openOverlay()
+      overlay()!
+        .querySelector<HTMLElement>('[aria-label="' + m.deleteButtonName('B.png') + '"]')!
+        .click()
+      await vi.waitFor(() => expect(gallery.pendingDelete).not.toBeNull())
+      const dialog = await vi.waitFor(() => {
+        const el = document.querySelector<HTMLElement>('[role="alertdialog"]')
+        expect(el).not.toBeNull()
+        return el!
+      })
+
+      press(dialog, { key: 'Escape', code: 'Escape' })
+      await nextTick()
+
+      expect(gallery.pendingDelete).toBeNull()
+      expect(document.querySelector('[role="alertdialog"]')).toBeNull()
+      expect(gallery.overlayOpen).toBe(true)
+      expect(overlay()).not.toBeNull()
+    })
+
+    it('SCR-05: Esc on the replace dialog cancels the replace and the overlay stays', async () => {
+      const { a, b } = await withOpenWork()
+      wrapper?.unmount()
+      const renderer = createFakeRenderer()
+      editor.setRendererFactory(renderer.factory)
+      editor.setCanvasSize(1000, 1000)
+      await editor.runCapabilityGate(async () => ok(undefined))
+      wrapper = mount(EditorView, {
+        attachTo: document.body,
+        slots: { 'top-bar-leading-actions': GalleryAction, overlay: GalleryOverlay },
+      })
+      editor.applyEdit()
+      await gallery.open()
+      await nextTick()
+      await gallery.choose(b)
+      await nextTick()
+      const dialog = await vi.waitFor(() => {
+        const el = document.querySelector<HTMLElement>('[role="alertdialog"]')
+        expect(el).not.toBeNull()
+        return el!
+      })
+      expect(editor.phase).toBe('confirming')
+
+      press(dialog, { key: 'Escape', code: 'Escape' })
+      await nextTick()
+
+      expect(editor.phase).toBe('idle')
+      expect(editor.work?.id).toBe(a)
+      expect(document.querySelector('[role="alertdialog"]')).toBeNull()
+      expect(gallery.overlayOpen).toBe(true)
+      expect(overlay()).not.toBeNull()
+    })
   })
 })

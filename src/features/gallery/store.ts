@@ -1,4 +1,4 @@
-import { computed, ref, shallowRef } from 'vue'
+import { computed, ref, shallowRef, watch } from 'vue'
 import { defineStore } from 'pinia'
 import type { IDBPDatabase } from 'idb'
 import { entryName, storageLine as storageLineKind, touchedLabel } from '@/core'
@@ -104,6 +104,14 @@ export const useGallery = defineStore('gallery', () => {
     overlayOpen.value = false
     editor.setActivePanel(null)
   }
+
+  // A reopen that asked first (AC-17) completes on Replace, outside choose(): the overlay follows.
+  watch(
+    () => editor.openWorkId,
+    () => {
+      if (overlayOpen.value) close()
+    },
+  )
 
   async function choose(id: string) {
     const entry = entries.value.find((e) => e.id === id)

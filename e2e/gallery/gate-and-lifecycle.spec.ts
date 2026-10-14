@@ -19,6 +19,7 @@ import {
   exportPixels,
   expect,
   expectReopened,
+  galleryAction,
   gotoReady,
   holdNextEncode,
   instrumentEncodes,
@@ -232,6 +233,29 @@ test.describe('AC-17: edits that are not stored ask before they are lost', () =>
     await replaceDialog(page).getByRole('button', { name: 'Replace' }).click()
     await expectOpen(page, numberedName(2))
     expect((await work(page))!.id).not.toBe(before!.id)
+  })
+
+  test('a failed save, then choosing a stored Work in the Gallery, asks; Replace hides the overlay and focuses Gallery', async ({
+    page,
+  }) => {
+    test.setTimeout(90_000)
+    await gotoReady(page)
+    await openNumbered(page, 1)
+    await openNumbered(page, 2)
+    await waitForStored(page, (works) => works.length === 2)
+    await page.evaluate(() => window.__imglyTest!.galleryFailNextSave())
+    await applyAdjustments(page, EDIT_A)
+    await expect(notice(page, SAVE_FAILED)).toHaveCount(1)
+
+    await openGallery(page)
+    await chooseEntry(page, numberedName(1))
+    await expect(replaceDialog(page)).toBeVisible()
+    await expect(replaceDialog(page)).toContainText(NOT_SAVED)
+    await replaceDialog(page).getByRole('button', { name: 'Replace' }).click()
+
+    await expectOpen(page, numberedName(1))
+    await expect(overlay(page)).toBeHidden()
+    await expect(galleryAction(page)).toBeFocused()
   })
 
   test('a save that fails while the replacement waits makes it ask', async ({ page }) => {

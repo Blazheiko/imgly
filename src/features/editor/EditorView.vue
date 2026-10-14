@@ -191,57 +191,60 @@ onBeforeUnmount(() => {
       </template>
       <template v-if="live" #actions><slot name="top-bar-actions" /></template>
     </EditorTopBar>
-    <div class="editor-view__workspace">
-      <section
-        class="editor-view__canvas"
-        :class="{ 'editor-view__canvas--start': live && !editor.work }"
-        aria-label="Canvas"
-      >
-        <CanvasMessage
-          v-if="editor.display === 'unsupported'"
-          :title="BLOCKING.UNSUPPORTED_BROWSER.title"
+    <div class="editor-view__body">
+      <div class="editor-view__workspace">
+        <section
+          class="editor-view__canvas"
+          :class="{ 'editor-view__canvas--start': live && !editor.work }"
+          aria-label="Canvas"
         >
-          {{ BLOCKING.UNSUPPORTED_BROWSER.body }}
-        </CanvasMessage>
-        <CanvasMessage
-          v-else-if="editor.display === 'lost'"
-          :title="BLOCKING.DISPLAY_LOST.title"
-          role="alert"
-        >
-          {{ BLOCKING.DISPLAY_LOST.body }}
-          <template #action>
-            <BaseButton ref="reloadButton" variant="primary" @click="reload"
-              >Reload page</BaseButton
-            >
-          </template>
-        </CanvasMessage>
-        <template v-else-if="live">
-          <template v-if="!editor.work">
-            <EmptyCanvas @open="openPicked" />
-            <slot name="start-screen" />
-          </template>
-          <template v-else>
-            <PreviewCanvas />
-            <slot name="overlay" />
-          </template>
-          <!-- An open tool's canvas half (crop-rotate's frame), over the Preview (ADR-0003). -->
-          <slot v-if="editor.work && editor.activeTool" name="tool-canvas" />
-          <div
-            v-if="editor.display === 'restoring'"
-            class="editor-view__restoring"
-            data-testid="restoring"
+          <CanvasMessage
+            v-if="editor.display === 'unsupported'"
+            :title="BLOCKING.UNSUPPORTED_BROWSER.title"
           >
-            <Spinner label="Restoring the display" />
-          </div>
-          <div v-else-if="editor.phase === 'reading'" class="editor-view__loading">
-            <Spinner label="Opening image" />
-          </div>
-        </template>
-      </section>
-      <!-- The tool's panel beside the canvas; it stays when the display is lost, so Cancel works. -->
-      <slot v-if="editor.work && editor.activeTool" name="tool-panel" />
+            {{ BLOCKING.UNSUPPORTED_BROWSER.body }}
+          </CanvasMessage>
+          <CanvasMessage
+            v-else-if="editor.display === 'lost'"
+            :title="BLOCKING.DISPLAY_LOST.title"
+            role="alert"
+          >
+            {{ BLOCKING.DISPLAY_LOST.body }}
+            <template #action>
+              <BaseButton ref="reloadButton" variant="primary" @click="reload"
+                >Reload page</BaseButton
+              >
+            </template>
+          </CanvasMessage>
+          <template v-else-if="live">
+            <template v-if="!editor.work">
+              <EmptyCanvas @open="openPicked" />
+              <slot name="start-screen" />
+            </template>
+            <template v-else>
+              <PreviewCanvas />
+            </template>
+            <!-- An open tool's canvas half (crop-rotate's frame), over the Preview (ADR-0003). -->
+            <slot v-if="editor.work && editor.activeTool" name="tool-canvas" />
+            <div
+              v-if="editor.display === 'restoring'"
+              class="editor-view__restoring"
+              data-testid="restoring"
+            >
+              <Spinner label="Restoring the display" />
+            </div>
+            <div v-else-if="editor.phase === 'reading'" class="editor-view__loading">
+              <Spinner label="Opening image" />
+            </div>
+          </template>
+        </section>
+        <!-- The tool's panel beside the canvas; it stays when the display is lost, so Cancel works. -->
+        <slot v-if="editor.work && editor.activeTool" name="tool-panel" />
+      </div>
+      <EditorStatusBar v-if="live" />
+      <!-- Covers the canvas area and the status bar, under the top bar (SCR-03). -->
+      <slot v-if="live && editor.work" name="overlay" />
     </div>
-    <EditorStatusBar v-if="live" />
     <ToastStack />
     <DropOverlay v-if="dragging" />
     <ReplaceDialog v-if="live && editor.phase === 'confirming'" />
@@ -257,6 +260,14 @@ onBeforeUnmount(() => {
 
 .editor-view--with-status-bar {
   --toast-stack-bottom: calc(var(--toolbar-size) + var(--space-4));
+}
+
+.editor-view__body {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .editor-view__workspace {

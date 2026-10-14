@@ -7,7 +7,7 @@ acs: ["AC-04", "AC-17", "AC-06", "AC-03"]
 files_hint: ["src/features/gallery/store.ts", "src/features/gallery/store.test.ts", "src/features/gallery/components/GalleryOverlay.vue", "src/features/gallery/components/GalleryOverlay.test.ts", "src/features/editor/EditorView.vue", "e2e/gallery/gate-and-lifecycle.spec.ts"]
 owner: "Blazheiko"
 estimate: "M"
-status: "todo"
+status: "done"
 source: "review-2026-10-14 S1-5, S1-6, S2-7"
 ---
 

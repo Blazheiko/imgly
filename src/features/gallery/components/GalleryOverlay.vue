@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, useId, watch } from 'vue'
 import { Spinner } from '@/shared'
+import { useEditorStore } from '@/features/editor'
 import { useGallery } from '../store'
 import * as m from '../messages'
 import GalleryList from './GalleryList.vue'
 
 const gallery = useGallery()
+const editor = useEditorStore()
 const root = ref<HTMLElement>()
 const titleId = useId()
 const inerted: Element[] = []
@@ -59,6 +61,9 @@ function onTab(event: KeyboardEvent) {
 
 function onEscape(event: KeyboardEvent) {
   if (event.key !== 'Escape') return
+  // A dialog over the overlay (delete, replace) takes this Esc; the overlay stays.
+  if (event.defaultPrevented || gallery.pendingDelete !== null || editor.phase === 'confirming')
+    return
   event.preventDefault()
   gallery.close()
 }

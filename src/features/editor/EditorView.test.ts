@@ -649,6 +649,43 @@ describe('EditorView — Gallery slots (SCR-01, SCR-03)', () => {
   })
 })
 
+describe('EditorView — Gallery overlay covers the status bar (SCR-03, S2-7)', () => {
+  it('mounts the overlay slot at the workspace level, outside the canvas area', async () => {
+    setActivePinia(createPinia())
+    const editor = useEditorStore()
+    editor.setRendererFactory(createFakeRenderer().factory)
+    editor.setDecoder(async () =>
+      ok({
+        bitmap: { width: 400, height: 400, close() {} } as unknown as ImageBitmap,
+        sourceWidth: 400,
+        sourceHeight: 400,
+        width: 400,
+        height: 400,
+        format: 'png' as const,
+        animated: false,
+        downscaled: false,
+        hasTransparency: false,
+      }),
+    )
+    editor.setCanvasSize(1000, 1000)
+    await editor.runCapabilityGate(async () => ok(undefined))
+    await editor.openImage(new Blob())
+    const wrapper = mount(EditorView, {
+      attachTo: document.body,
+      slots: { overlay: '<div data-testid="overlay-slot">Overlay</div>' },
+    })
+    await nextTick()
+    const slot = wrapper.get('[data-testid="overlay-slot"]').element
+    // The canvas section does not include the status bar; an overlay inside it cannot cover it.
+    expect(slot.closest('section[aria-label="Canvas"]')).toBeNull()
+    // It is still inside the editor view, so it stays under the top bar.
+    expect(slot.closest('main')).not.toBeNull()
+    expect(slot.closest('[data-testid="editor-top-bar"]')).toBeNull()
+    expect(wrapper.find('[data-testid="editor-status-bar"]').exists()).toBe(true)
+    wrapper.unmount()
+  })
+})
+
 describe('EditorView — leave warning (AC-20)', () => {
   let wrapper: VueWrapper
   let editor: ReturnType<typeof useEditorStore>
