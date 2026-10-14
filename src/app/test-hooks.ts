@@ -132,7 +132,7 @@ export interface ImglyTestHooks {
   galleryRecords(): ReturnType<typeof readStoredKeys>
   /** Writes one Work in the `formatVersion: 1` layout, bypassing Autosave; returns its id. */
   galleryWriteStored(input: StoredWorkInput): Promise<string>
-  galleryDamage(id: string, part: 'original' | 'layer' | 'thumbnail' | 'record'): Promise<void>
+  galleryDamage(id: string, part: 'original' | 'layer' | 'thumbnail' | 'thumbnail-bytes' | 'record'): Promise<void>
   /** Writes over the budget (total stored bytes) fail as a quota error; `null` lifts it. */
   gallerySetByteBudget(bytes: number | null): void
   /** The next `storeWork` transaction stays open at that point; `null` clears it. */

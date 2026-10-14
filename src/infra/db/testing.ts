@@ -264,10 +264,14 @@ export async function writeStoredWork(input: StoredWorkInput): Promise<string> {
   return record.id
 }
 
-/** Breaks one stored part of a Work: deletes its Original or layer, or corrupts its record. */
+/**
+ * Breaks one stored part of a Work: deletes its Original or layer, or corrupts its record. A
+ * `thumbnail` is no longer a PNG Blob (listing sees it); `thumbnail-bytes` is typed image/png but
+ * will not decode (only the browser's image load sees it).
+ */
 export async function damageStoredPart(
   id: string,
-  part: 'original' | 'layer' | 'thumbnail' | 'record',
+  part: 'original' | 'layer' | 'thumbnail' | 'thumbnail-bytes' | 'record',
 ): Promise<void> {
   const db = await openDb()
   try {
@@ -279,7 +283,12 @@ export async function damageStoredPart(
       const broken =
         part === 'thumbnail'
           ? { ...record, thumbnail: new Blob([new Uint8Array(1)], { type: 'text/plain' }) }
-          : { ...record, width: 'broken' as unknown as number }
+          : part === 'thumbnail-bytes'
+            ? {
+                ...record,
+                thumbnail: new Blob([new Uint8Array(64).fill(7)], { type: 'image/png' }),
+              }
+            : { ...record, width: 'broken' as unknown as number }
       await db.put('works', broken)
     }
   } finally {

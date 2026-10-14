@@ -123,6 +123,30 @@ test('AC-07: the open Work cannot be deleted: a hint, no dialog, and it stays li
   expect((await stored(page)).works.map((w) => w.id)).toContain(open)
 })
 
+test('AC-08: a thumbnail typed PNG whose bytes will not decode lists Damaged; the others list normally', async ({
+  page,
+}) => {
+  await gotoReady(page)
+  const a = await openNumbered(page, 1)
+  await openNumbered(page, 2)
+  await openNumbered(page, 3)
+  await page.evaluate((id) => window.__imglyTest!.galleryDamage(id, 'thumbnail-bytes'), a)
+
+  await openGallery(page)
+
+  // Listing passes it (an image/png Blob); only the browser's image load finds it damaged.
+  await expect
+    .poll(() => entryNames(page))
+    .toEqual(['img-03, Open', 'img-02, Just now', 'img-01, Damaged'])
+  await expect(entry(page, 'img-01')).toContainText("Can't be read")
+  await expect(entry(page, 'img-02').locator('img')).toHaveJSProperty('complete', true)
+  expect(
+    await entry(page, 'img-02')
+      .locator('img')
+      .evaluate((i: HTMLImageElement) => i.naturalWidth),
+  ).toBeGreaterThan(0)
+})
+
 test('AC-08: damaged data is marked, named when chosen, deletable; every other Work opens', async ({
   page,
 }) => {

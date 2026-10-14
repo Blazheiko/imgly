@@ -7,7 +7,7 @@ acs: ["AC-08"]
 files_hint: ["src/infra/db/testing.ts", "e2e/gallery/manage-and-limits.spec.ts"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 source: "review-2026-10-14-r2 R2-6"
 ---
 
