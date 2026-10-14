@@ -3,8 +3,9 @@
  * (a 4 x 3 and a 5 x 5 transparent image), so a codec size check passes against a 4 x 3 record.
  */
 import { NEUTRAL_ADJUSTMENTS, identityGeometry } from '../../core'
+import type { IDBPDatabase } from 'idb'
 import { newId } from '../../shared/ids'
-import type { WorkBlobRecord, WorkRecord } from './schema'
+import type { ImglyDb, WorkBlobRecord, WorkRecord } from './schema'
 
 const PNG_4X3 =
   'iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAYAAAC09K7GAAAADElEQVR4nGNgIBkAAAAzAAGHXpxVAAAAAElFTkSuQmCC'
@@ -97,4 +98,66 @@ export function damagedWorkFixture(kind: DamageKind): DamagedWorkFixture {
     case 'unknown-format-version':
       return { ...work, record: { ...work.record, formatVersion: 999 } }
   }
+}
+
+export interface Faults {
+  /** Fails the `n`th (1-based, lifetime) `put` on a store, aborting its transaction. */
+  failPut?: (store: string, n: number) => 'quota' | 'other' | null
+  /** Aborts the transaction once the evictions are done, or right after the named write. */
+  abortAfter?: 'evictions' | 'record' | 'original' | 'layer'
+}
+
+const ABORT_STORE = { record: 'works', original: 'originals', layer: 'layers' } as const
+
+/** Wraps a database so `storeWork`'s writes fail or abort on demand. Test-only. */
+export function withFaults(db: IDBPDatabase<ImglyDb>, faults: Faults): IDBPDatabase<ImglyDb> {
+  const counts = new Map<string, number>()
+  const wrap = <T extends object>(target: T, intercept: (key: string | symbol) => unknown): T =>
+    new Proxy(target, {
+      get(t, key) {
+        const hit = intercept(key)
+        if (hit !== undefined) return hit
+        const value = Reflect.get(t, key, t)
+        return typeof value === 'function' ? value.bind(t) : value
+      },
+    })
+
+  return wrap(db, (key) => {
+    if (key !== 'transaction') return undefined
+    return (...args: Parameters<typeof db.transaction>) => {
+      const tx = db.transaction(...args)
+      return wrap(tx, (txKey) => {
+        if (txKey !== 'objectStore') return undefined
+        return (name: string) => {
+          const store = (tx.objectStore as (n: string) => object)(name)
+          return wrap(store, (storeKey) => {
+            if (storeKey !== 'put') return undefined
+            return async (value: unknown) => {
+              const n = (counts.get(name) ?? 0) + 1
+              counts.set(name, n)
+              if (faults.abortAfter === 'evictions' && name === 'works') {
+                tx.abort()
+                throw new DOMException('aborted before the record', 'AbortError')
+              }
+              const fail = faults.failPut?.(name, n)
+              if (fail) {
+                tx.abort()
+                throw new DOMException(
+                  'injected',
+                  fail === 'quota' ? 'QuotaExceededError' : 'UnknownError',
+                )
+              }
+              const result = await (store as { put: (v: unknown) => Promise<unknown> }).put(value)
+              const after = faults.abortAfter
+              if (after && after !== 'evictions' && ABORT_STORE[after] === name) {
+                tx.abort()
+                throw new DOMException('aborted after the write', 'AbortError')
+              }
+              return result
+            }
+          })
+        }
+      })
+    }
+  })
 }

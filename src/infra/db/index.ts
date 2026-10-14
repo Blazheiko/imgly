@@ -1,3 +1,5 @@
 export { openDb, DB_NAME } from './open-db'
 export { LATEST_VERSION } from './migrations'
 export type { ImglyDb, MetaRecord, WorkBlobRecord, WorkRecord } from './schema'
+export { storeWork } from './works-repository'
+export type { StoreWorkBlobs, StoreWorkOptions, StoreWorkOutcome } from './works-repository'
