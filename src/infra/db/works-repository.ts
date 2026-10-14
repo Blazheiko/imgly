@@ -1,6 +1,7 @@
 import type { IDBPDatabase } from 'idb'
 import {
   appError,
+  compareOldestFirst,
   err,
   evictionCandidates,
   ok,
@@ -96,9 +97,11 @@ export async function storeWork(
       }
 
       const records = await works.getAll()
+      const damaged = new Set(opts.damaged)
+      for (const r of records) if (isDamagedRecord(r)) damaged.add(r.id)
       const ids = evictionCandidates(records, {
         keep: opts.keep,
-        damaged: opts.damaged,
+        damaged,
         extra,
         incoming: record.id,
       })
@@ -179,10 +182,16 @@ export async function listWorks(
   db: IDBPDatabase<ImglyDb>,
 ): Promise<Result<ListedWork[], AppError>> {
   try {
-    const raw: unknown[] = await db.getAllFromIndex('works', 'touchedAt')
-    const listed = raw.reverse().map((r): ListedWork => {
+    // The whole store, not the touchedAt index: the index skips a record with no usable touchedAt.
+    const raw: unknown[] = await db.getAll('works')
+    const newestFirst = (a: unknown, b: unknown) =>
+      compareOldestFirst(
+        b as { id: string; touchedAt: unknown },
+        a as { id: string; touchedAt: unknown },
+      )
+    const listed = raw.sort(newestFirst).map((r): ListedWork => {
       const o = r as Partial<WorkRecord>
-      const damaged = !validateRecordShape(r) || !isPngBlob(o.thumbnail)
+      const damaged = isDamagedRecord(r)
       return {
         id: String(o.id),
         record: damaged ? null : (r as WorkRecord),
@@ -198,6 +207,10 @@ export async function listWorks(
 }
 
 const isPngBlob = (value: unknown) => value instanceof Blob && value.type === 'image/png'
+
+/** A record that fails the shape check or whose thumbnail is not an image/png Blob. */
+const isDamagedRecord = (r: unknown) =>
+  !validateRecordShape(r) || !isPngBlob((r as Partial<WorkRecord>).thumbnail)
 
 /** Reads every part of a Work; a missing part, a bad thumbnail or a layer/layerId mismatch is WORK_DAMAGED. */
 export async function loadWork(

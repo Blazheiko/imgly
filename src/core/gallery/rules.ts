@@ -20,6 +20,22 @@ export interface EvictionOptions {
   incoming?: string
 }
 
+/** A touchedAt that is missing or not a finite number counts as the oldest possible. */
+function touchedKey(r: { touchedAt: unknown }): number {
+  return typeof r.touchedAt === 'number' && Number.isFinite(r.touchedAt) ? r.touchedAt : -Infinity
+}
+
+/** A total order, oldest first: an unusable touchedAt first, then by touchedAt, the id breaking ties. */
+export function compareOldestFirst(
+  a: { id: string; touchedAt: unknown },
+  b: { id: string; touchedAt: unknown },
+): number {
+  const ka = touchedKey(a)
+  const kb = touchedKey(b)
+  if (ka !== kb) return ka < kb ? -1 : 1
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
+}
+
 /**
  * Ids to evict so that at most GALLERY_CAP Works remain once the incoming Work is written, plus
  * `extra` more. Damaged first, then the oldest `touchedAt`, the id breaking ties. Never `keep`.
@@ -38,8 +54,7 @@ export function evictionCandidates(
     .sort((a, b) => {
       const damage = Number(damaged.has(b.id)) - Number(damaged.has(a.id))
       if (damage !== 0) return damage
-      if (a.touchedAt !== b.touchedAt) return a.touchedAt - b.touchedAt
-      return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
+      return compareOldestFirst(a, b)
     })
     .slice(0, wanted)
     .map((r) => r.id)

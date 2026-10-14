@@ -726,3 +726,112 @@ describe('deleteWork', () => {
     raw.close()
   })
 })
+
+function without(r: Record<string, unknown>, key: string): Record<string, unknown> {
+  const copy = { ...r }
+  delete copy[key]
+  return copy
+}
+
+describe('records the touchedAt index cannot see (T25, S1-2)', () => {
+  const badTouchedAt: [string, (r: Record<string, unknown>) => Record<string, unknown>][] = [
+    ['missing', (r) => without(r, 'touchedAt')],
+    ['null', (r) => ({ ...r, touchedAt: null })],
+    ['NaN', (r) => ({ ...r, touchedAt: NaN })],
+  ]
+
+  it.each(badTouchedAt)(
+    'touchedAt %s: listWorks still lists it, damaged, and counts it (AC-08, AC-06)',
+    async (_label, breakIt) => {
+      const db = await openDb(freshName())
+      await seed(db, 2)
+      const w = storedWorkFixture({ record: { sourceName: 'lost' } })
+      await putRaw(db, breakIt({ ...w.record }))
+
+      const listed = await listWorks(db)
+
+      expect(listed.ok).toBe(true)
+      if (!listed.ok) return
+      expect(listed.value).toHaveLength(3)
+      const entry = listed.value.find((e) => e.id === w.record.id)
+      expect(entry).toMatchObject({ id: w.record.id, damaged: true, record: null })
+      db.close()
+    },
+  )
+
+  it.each(badTouchedAt)(
+    'touchedAt %s: deleteWork removes the record and all its parts (AC-08)',
+    async (_label, breakIt) => {
+      const db = await openDb(freshName())
+      const w = storedWorkFixture()
+      await putRaw(db, breakIt({ ...w.record }))
+      await db.put('originals', w.original)
+      await db.put('layers', w.layer!)
+
+      const result = await deleteWork(db, w.record.id, { keep: 'other' })
+
+      expect(result.ok).toBe(true)
+      expect(await db.count('works')).toBe(0)
+      expect(await db.count('originals')).toBe(0)
+      expect(await db.count('layers')).toBe(0)
+      db.close()
+    },
+  )
+
+  it.each(badTouchedAt)(
+    'touchedAt %s among 20: a save evicts that record first and names it (AC-09)',
+    async (_label, breakIt) => {
+      const db = await openDb(freshName())
+      const ids = await seed(db, 20)
+      const target = ids[12]!
+      await putRaw(db, breakIt({ ...(await db.get('works', target))! }))
+      const record = workRecordFixture({ touchedAt: 100, layerId: null })
+
+      const result = await storeWork(db, record, blobs({ layer: null }), {
+        keep: ids[19]!,
+        damaged: NONE,
+      })
+
+      expect(result).toEqual({ ok: true, value: { evicted: ['work-13'], firstSave: true } })
+      expect(await db.get('works', target)).toBeUndefined()
+      expect(await db.get('originals', target)).toBeUndefined()
+      expect(await db.get('works', ids[0]!)).toBeDefined()
+      db.close()
+    },
+  )
+})
+
+describe('storeWork picks damaged records itself (T25, S1-3, test-plan row 143)', () => {
+  const breakages: [string, (r: Record<string, unknown>) => Record<string, unknown>][] = [
+    ['a garbage width', (r) => ({ ...r, width: 'broken' })],
+    ['a missing adjustments field', (r) => without(r, 'adjustments')],
+    [
+      'a thumbnail that is not image/png',
+      (r) => ({ ...r, thumbnail: new Blob([new Uint8Array(1)], { type: 'text/plain' }) }),
+    ],
+  ]
+
+  it.each(breakages)(
+    'at 20 with %s and no caller damaged set: that record is evicted first and named (AC-08, AC-09)',
+    async (_label, breakIt) => {
+      const db = await openDb(freshName())
+      const ids = await seed(db, 20)
+      const target = ids[14]!
+      await putRaw(db, breakIt({ ...(await db.get('works', target))! }))
+      const record = workRecordFixture({ touchedAt: 100, layerId: null })
+
+      const result = await storeWork(db, record, blobs({ layer: null }), {
+        keep: ids[19]!,
+        damaged: new Set<string>(),
+      })
+
+      expect(result).toEqual({ ok: true, value: { evicted: ['work-15'], firstSave: true } })
+      expect(await db.get('works', target)).toBeUndefined()
+      expect(await db.get('originals', target)).toBeUndefined()
+      expect(await db.get('layers', target)).toBeUndefined()
+      expect(await db.get('works', ids[0]!)).toBeDefined()
+      expect(await db.count('works')).toBe(20)
+      db.close()
+    },
+  )
+})

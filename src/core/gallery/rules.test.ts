@@ -187,3 +187,30 @@ describe('storageLine', () => {
     expect(storageLine(undefined)).toBe('not-persisted')
   })
 })
+
+describe('evictionCandidates with an unusable touchedAt (T25, S1-2)', () => {
+  const unusable: [string, number][] = [
+    ['NaN', NaN],
+    ['missing', undefined as unknown as number],
+  ]
+
+  it.each(unusable)('a %s touchedAt sorts as the oldest and is evicted first', (_l, bad) => {
+    const recs = [...records(19), rec('zz-bad', bad)]
+
+    expect(evictionCandidates(recs, { ...none, extra: 1 })).toEqual(['zz-bad', 'r01'])
+  })
+
+  it.each(unusable)('with a %s touchedAt the result does not depend on input order', (_l, bad) => {
+    const base = [...records(19), rec('m-bad', bad)]
+    const orders = [base, [...base].reverse(), [base[10]!, ...base.slice(0, 10), ...base.slice(11)]]
+    for (const recs of orders) {
+      expect(evictionCandidates(recs, { ...none, extra: 2 })).toEqual(['m-bad', 'r01', 'r02'])
+    }
+  })
+
+  it('two NaN records order by id, after nothing is lost', () => {
+    const recs = [rec('b', NaN), rec('a', NaN), ...records(18)]
+
+    expect(evictionCandidates(recs, { ...none, extra: 1 })).toEqual(['a', 'b'])
+  })
+})
