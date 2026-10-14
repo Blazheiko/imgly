@@ -6,7 +6,7 @@
 | # | Task | Layer | Owner | Estimate | Blocked by | Status |
 |---|---|---|---|---|---|---|
 | T1 | Core gallery rules and the three error codes | domain | Blazheiko | M | — | done |
-| T2 | Stored-Work rules: STORED_WORK_FORMAT, toStoredFields, validateStoredWork | domain | Blazheiko | M | T1 | todo |
+| T2 | Stored-Work rules: STORED_WORK_FORMAT, toStoredFields, validateStoredWork | domain | Blazheiko | M | T1 | done |
 | T3 | Promote migration 0002-gallery, schema v2, db fixtures | migration | Blazheiko | S | — | done |
 | T4 | storeWork: evict and store in one transaction, quota retry, marker | infra | Blazheiko | L | T1, T3 | todo |
 | T5 | listWorks, loadWork, deleteWork | infra | Blazheiko | M | T2, T4 | todo |
