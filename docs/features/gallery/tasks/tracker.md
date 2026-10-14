@@ -19,7 +19,7 @@
 | T12 | Editor store: Autosave triggers and the narrowed replace gate | app | Blazheiko | M | T11 | done |
 | T13 | reopenWork(id) | app | Blazheiko | M | T2, T5, T7, T12 | done |
 | T14 | EditorView slots, leave warning, ReplaceDialog wording | ui | Blazheiko | S | T12 | done |
-| T15 | Gallery store and messages | ui | Blazheiko | M | T1, T5, T6, T9, T13 | todo |
+| T15 | Gallery store and messages | ui | Blazheiko | M | T1, T5, T6, T9, T13 | done |
 | T16 | GalleryEntry, GalleryList, DeleteWorkDialog | ui | Blazheiko | M | T9, T15 | todo |
 | T17 | GalleryStart, GalleryAction, GalleryOverlay, App wiring | ui | Blazheiko | M | T14, T16 | todo |
 | T18 | Gallery e2e hooks | wiring | Blazheiko | M | T5, T6, T12 | todo |

@@ -1,0 +1,360 @@
+// @vitest-environment node
+import 'fake-indexeddb/auto'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
+import { unwrap, type IDBPDatabase } from 'idb'
+import { appError, err, ok } from '@/core'
+import { loadWork, openDb, type ImglyDb } from '@/infra/db'
+import { storedWorkFixture } from '@/infra/db/testing'
+import { useEditorStore } from '@/features/editor'
+import { createFakeAutosave } from '@/features/editor/testing'
+import { useNotices } from '@/shared'
+import { useGallery } from './store'
+
+type Db = IDBPDatabase<ImglyDb>
+
+const NOW = 1_700_000_000_000
+const MINUTE = 60_000
+let dbCounter = 0
+
+/** Seeds one complete Work (no layer) and returns its id. */
+async function seed(db: Db, sourceName: string, touchedAt: number): Promise<string> {
+  const w = storedWorkFixture({ layer: null, record: { sourceName, touchedAt } })
+  await db.put('works', w.record)
+  await db.put('originals', w.original)
+  return w.record.id
+}
+
+/** Seeds a Work whose thumbnail is not a PNG, so listing marks it damaged. */
+async function seedDamaged(db: Db, sourceName: string, touchedAt: number): Promise<string> {
+  const w = storedWorkFixture({ layer: null, record: { sourceName, touchedAt } })
+  await db.put('works', { ...w.record, thumbnail: new Blob(['x'], { type: 'text/plain' }) })
+  await db.put('originals', w.original)
+  return w.record.id
+}
+
+const LINE_PERSISTED = 'Works are kept in this browser. Export a Work to keep a copy elsewhere.'
+const LINE_NOT_PERSISTED =
+  'Works are saved in this browser only, and the browser may clear them when space runs low. Export to keep a copy.'
+
+describe('gallery store', () => {
+  let db: Db
+  let editor: ReturnType<typeof useEditorStore>
+  let gallery: ReturnType<typeof useGallery>
+  let notices: ReturnType<typeof useNotices>
+  let autosave: ReturnType<typeof createFakeAutosave>
+  let persisted: ReturnType<typeof vi.fn>
+
+  beforeEach(async () => {
+    setActivePinia(createPinia())
+    db = await openDb(`imgly-gallery-store-${++dbCounter}`)
+    autosave = createFakeAutosave()
+    editor = useEditorStore()
+    editor.setAutosave(autosave.fake)
+    // Pinned API: the Works the editor can reopen come from the same database handle.
+    editor.setReopenSource({
+      loadWork: (id) => loadWork(db, id),
+      decodePng: async () => ok({ width: 4, height: 3, close: vi.fn() } as unknown as ImageBitmap),
+    })
+    notices = useNotices()
+    persisted = vi.fn().mockResolvedValue(true)
+    vi.stubGlobal('navigator', { storage: { persisted } })
+    gallery = useGallery()
+    // Pinned API: the app hands the Result of openGalleryDb to the gallery store, and a clock.
+    gallery.connect(ok(db))
+    gallery.setClock(() => NOW)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+    db.close()
+  })
+
+  describe('refresh (AC-03, AC-08, AC-13)', () => {
+    it('lists every Work newest first with name, touched label, status and thumbnail', async () => {
+      const oldest = await seed(db, 'Old.jpg', NOW - 3 * 60 * MINUTE)
+      const damaged = await seedDamaged(db, 'Cat.png', NOW - 5 * MINUTE)
+      const newest = await seed(db, '', NOW - 10_000)
+
+      await gallery.refresh()
+
+      expect(gallery.entries.map((e) => e.id)).toEqual([newest, damaged, oldest])
+      expect(gallery.entries.map((e) => e.name)).toEqual(['Untitled', 'Cat.png', 'Old.jpg'])
+      expect(gallery.entries.map((e) => e.status)).toEqual(['touched', 'damaged', 'touched'])
+      expect(gallery.entries[0]!.label).toBe('Just now')
+      expect(gallery.entries[2]!.label).toBe('3 hours ago')
+      expect(gallery.entries[0]!.thumbnailUrl).toEqual(expect.stringMatching(/^blob:/))
+      expect(gallery.entries[1]!.thumbnailUrl).toBeNull()
+      expect(gallery.count).toBe(3)
+      expect(gallery.unavailableReason).toBeNull()
+    })
+
+    it('marks the open Work Open, and counts only stored Works', async () => {
+      const a = await seed(db, 'A.png', NOW - MINUTE)
+      await seed(db, 'B.png', NOW - 2 * MINUTE)
+      expect(await editor.reopenWork(a)).toEqual({ kind: 'replaced' })
+
+      await gallery.refresh()
+
+      expect(gallery.entries.map((e) => [e.id === a, e.status])).toEqual([
+        [true, 'open'],
+        [false, 'touched'],
+      ])
+      expect(gallery.count).toBe(2)
+    })
+
+    it('marks no entry Open when the open Work was never stored', async () => {
+      const a = await seed(db, 'A.png', NOW - MINUTE)
+      await editor.reopenWork(a)
+      await db.delete('works', a)
+      await db.delete('originals', a)
+
+      await gallery.refresh()
+
+      expect(gallery.entries).toEqual([])
+      expect(gallery.count).toBe(0)
+    })
+
+    it('stores the name as text, never as markup', async () => {
+      await seed(db, '<img src=x onerror=alert(1)>', NOW)
+      await gallery.refresh()
+      expect(gallery.entries[0]!.name).toBe('<img src=x onerror=alert(1)>')
+    })
+
+    it('reads persisted() on every refresh and follows the answer (AC-13)', async () => {
+      await gallery.refresh()
+      expect(gallery.storageLine).toBe(LINE_PERSISTED)
+
+      persisted.mockResolvedValue(false)
+      await gallery.refresh()
+      expect(gallery.storageLine).toBe(LINE_NOT_PERSISTED)
+      expect(persisted).toHaveBeenCalledTimes(2)
+    })
+
+    it('uses the not-persisted line when the API is missing, also when empty (AC-13)', async () => {
+      vi.stubGlobal('navigator', {})
+      await gallery.refresh()
+      expect(gallery.entries).toEqual([])
+      expect(gallery.storageLine).toBe(LINE_NOT_PERSISTED)
+    })
+
+    it('revokes the earlier object URLs when it refreshes again', async () => {
+      await seed(db, 'A.png', NOW)
+      const revoke = vi.spyOn(URL, 'revokeObjectURL')
+
+      await gallery.refresh()
+      const first = gallery.entries[0]!.thumbnailUrl!
+      await gallery.refresh()
+
+      expect(revoke).toHaveBeenCalledWith(first)
+      expect(gallery.entries[0]!.thumbnailUrl).not.toBe(first)
+    })
+  })
+
+  describe('open and close the overlay (AC-03)', () => {
+    it('opens with a fresh list and tells the editor, then closes without changing anything', async () => {
+      await seed(db, 'A.png', NOW)
+
+      await gallery.open()
+
+      expect(gallery.overlayOpen).toBe(true)
+      expect(editor.activePanel).toBe('gallery')
+      expect(gallery.entries).toHaveLength(1)
+
+      gallery.close()
+
+      expect(gallery.overlayOpen).toBe(false)
+      expect(editor.activePanel).toBeNull()
+      expect(gallery.entries).toHaveLength(1)
+    })
+  })
+
+  describe('unavailable (AC-12)', () => {
+    it('reports refused with no list, count or line', async () => {
+      autosave.available(false)
+      gallery.connect(err(appError('STORAGE_UNAVAILABLE', { reason: 'refused' })))
+
+      await gallery.refresh()
+
+      expect(gallery.unavailableReason).toBe('refused')
+      expect(gallery.entries).toEqual([])
+      expect(gallery.count).toBe(0)
+      expect(gallery.storageLine).toBe('')
+    })
+
+    it('reports held by an older tab', async () => {
+      autosave.available(false)
+      gallery.connect(err(appError('STORAGE_UNAVAILABLE', { reason: 'held' })))
+      await gallery.refresh()
+      expect(gallery.unavailableReason).toBe('held')
+    })
+
+    it('reports closed for a newer version when a connected database becomes unavailable', async () => {
+      autosave.available(false)
+      await gallery.refresh()
+      expect(gallery.unavailableReason).toBe('newer-version')
+    })
+  })
+
+  describe('choose (AC-08, AC-15)', () => {
+    it('closes the overlay when the entry is the open Work, without reopening', async () => {
+      const a = await seed(db, 'A.png', NOW)
+      await editor.reopenWork(a)
+      await gallery.open()
+      const reopen = vi.spyOn(editor, 'reopenWork')
+
+      await gallery.choose(a)
+
+      expect(reopen).not.toHaveBeenCalled()
+      expect(gallery.overlayOpen).toBe(false)
+    })
+
+    it('reopens another Work, shows reopening meanwhile, and closes on replaced', async () => {
+      const b = await seed(db, 'B.png', NOW)
+      await gallery.open()
+      let release!: () => void
+      vi.spyOn(editor, 'reopenWork').mockImplementation(
+        () => new Promise((resolve) => (release = () => resolve({ kind: 'replaced' }))),
+      )
+
+      const choosing = gallery.choose(b)
+      expect(gallery.reopening).toBe(b)
+      release()
+      await choosing
+
+      expect(gallery.reopening).toBeNull()
+      expect(gallery.overlayOpen).toBe(false)
+    })
+
+    it.each([
+      ['exporting', 'Wait for the export to finish, then choose a Work.'],
+      ['confirming', 'Answer the open question first, then choose a Work.'],
+    ] as const)('refused while %s shows the hint and keeps the overlay', async (reason, text) => {
+      const b = await seed(db, 'B.png', NOW)
+      await gallery.open()
+      vi.spyOn(editor, 'reopenWork').mockResolvedValue({ kind: 'refused', reason })
+
+      await gallery.choose(b)
+
+      expect(notices.items.map((n) => [n.kind, n.text])).toEqual([['info', text]])
+      expect(gallery.overlayOpen).toBe(true)
+      expect(gallery.reopening).toBeNull()
+    })
+
+    it('damaged: names the Work, offers Delete…, marks the entry damaged, others untouched', async () => {
+      const b = await seed(db, 'Beach.jpg', NOW - MINUTE)
+      const c = await seed(db, 'C.png', NOW - 2 * MINUTE)
+      await gallery.open()
+      vi.spyOn(editor, 'reopenWork').mockResolvedValue({
+        kind: 'damaged',
+        error: appError('WORK_DAMAGED'),
+      })
+
+      await gallery.choose(b)
+
+      expect(notices.items).toHaveLength(1)
+      const notice = notices.items[0]!
+      expect(notice.kind).toBe('failure')
+      expect(notice.text).toBe("“Beach.jpg” can't be opened: its stored data is damaged.")
+      expect(notice.action?.label).toBe('Delete…')
+      expect(gallery.entries.find((e) => e.id === b)!.status).toBe('damaged')
+      expect(gallery.entries.find((e) => e.id === c)!.status).toBe('touched')
+      expect(gallery.overlayOpen).toBe(true)
+
+      notice.action!.run()
+      expect(gallery.pendingDelete).toEqual({ id: b, name: 'Beach.jpg' })
+    })
+
+    it.each([['confirming'], ['cancelled'], ['superseded']] as const)(
+      'a %s outcome raises no notice',
+      async (kind) => {
+        const b = await seed(db, 'B.png', NOW)
+        await gallery.open()
+        vi.spyOn(editor, 'reopenWork').mockResolvedValue({ kind })
+
+        await gallery.choose(b)
+
+        expect(notices.items).toEqual([])
+        expect(gallery.reopening).toBeNull()
+      },
+    )
+  })
+
+  describe('delete (AC-06, AC-07 hint)', () => {
+    it('refuses the open Work with the hint and asks nothing', async () => {
+      const a = await seed(db, 'A.png', NOW)
+      await editor.reopenWork(a)
+      await gallery.refresh()
+
+      gallery.requestDelete(a)
+
+      expect(gallery.pendingDelete).toBeNull()
+      expect(notices.items.map((n) => [n.kind, n.text])).toEqual([
+        ['info', "The open Work can't be deleted. Open another image first."],
+      ])
+    })
+
+    it('asks first, naming the Work, and cancelling keeps everything', async () => {
+      await seed(db, 'Keep.png', NOW)
+      const b = await seed(db, 'B.png', NOW - MINUTE)
+      await gallery.refresh()
+
+      gallery.requestDelete(b)
+      expect(gallery.pendingDelete).toEqual({ id: b, name: 'B.png' })
+      gallery.cancelDelete()
+
+      expect(gallery.pendingDelete).toBeNull()
+      expect(gallery.entries).toHaveLength(2)
+      expect(await db.get('works', b)).toBeDefined()
+    })
+
+    it('confirming removes the Work from storage and the list, and the count goes down by one', async () => {
+      await seed(db, 'Keep.png', NOW)
+      const b = await seed(db, 'B.png', NOW - MINUTE)
+      await gallery.refresh()
+      expect(gallery.count).toBe(2)
+
+      gallery.requestDelete(b)
+      await gallery.confirmDelete()
+
+      expect(gallery.pendingDelete).toBeNull()
+      expect(gallery.count).toBe(1)
+      expect(gallery.entries.map((e) => e.name)).toEqual(['Keep.png'])
+      expect(await db.get('works', b)).toBeUndefined()
+      expect(await db.get('originals', b)).toBeUndefined()
+    })
+
+    it('deletes a damaged Work like any other', async () => {
+      const d = await seedDamaged(db, 'Cat.png', NOW)
+      await gallery.refresh()
+      gallery.requestDelete(d)
+      await gallery.confirmDelete()
+      expect(gallery.entries).toEqual([])
+    })
+
+    it('a failed delete keeps the entry and the count and raises the failure notice', async () => {
+      const b = await seed(db, 'B.png', NOW)
+      await gallery.refresh()
+      gallery.requestDelete(b)
+      const real = db.transaction.bind(db) as unknown as (...a: unknown[]) => never
+      vi.spyOn(db, 'transaction').mockImplementation(((...a: unknown[]) => {
+        // Hand back the raw transaction: idb wraps a mocked method's result again, and wrapping
+        // an already wrapped one would add a second, unhandled `done` promise.
+        const tx = unwrap(real(...a) as never) as unknown as IDBTransaction
+        queueMicrotask(() => tx.abort())
+        return tx
+      }) as never)
+
+      await gallery.confirmDelete()
+      vi.restoreAllMocks()
+
+      expect(gallery.entries.map((e) => e.id)).toEqual([b])
+      expect(gallery.count).toBe(1)
+      expect(notices.items.map((n) => [n.kind, n.text])).toEqual([
+        ['failure', "“B.png” couldn't be deleted. Try again."],
+      ])
+      expect(await db.get('works', b)).toBeDefined()
+    })
+  })
+})

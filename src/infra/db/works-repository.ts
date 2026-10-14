@@ -169,14 +169,17 @@ export async function deleteWork(
   opts: { keep: string },
 ): Promise<Result<void, AppError>> {
   if (id === opts.keep) return err(appError('STORAGE_FAILED', { reason: 'open-work' }))
-  const tx = db.transaction(['works', 'originals', 'layers'], 'readwrite')
-  tx.done.catch(() => {})
   try {
-    await Promise.all([
+    const tx = db.transaction(['works', 'originals', 'layers'], 'readwrite')
+    tx.done.catch(() => {})
+    const deletes = [
       tx.objectStore('works').delete(id),
       tx.objectStore('originals').delete(id),
       tx.objectStore('layers').delete(id),
-    ])
+    ]
+    // Promise.all reports only the first rejection; silence the rest so an abort stays handled.
+    for (const d of deletes) d.catch(() => {})
+    await Promise.all(deletes)
     await tx.done
     return ok(undefined)
   } catch {
