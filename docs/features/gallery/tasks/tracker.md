@@ -45,6 +45,6 @@
 | T38 | Standby delete dialog holds the keyboard (R2-4) | wiring | Blazheiko | M | T37 | done |
 | T39 | e2e: undecodable thumbnail bytes list Damaged (R2-6) | tests | Blazheiko | S | T38 | done |
 | T40 | Commit-quota fault aborts every save (R2-7) | tests | Blazheiko | S | T39 | done |
-| T41 | Test-plan rows and round-2 resolution | docs | Blazheiko | S | T40 | todo |
+| T41 | Test-plan rows and round-2 resolution | docs | Blazheiko | S | T40 | done |
 
 **Total:** 41 tasks, ~27 person-days (S ≈ 0.5, M ≈ 0.75, L ≈ 1).
