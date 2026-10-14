@@ -37,6 +37,8 @@ import {
   type DecodedImage,
   type DecodeOutcome,
 } from '@/infra/image-decode'
+import { workCodec } from '@/infra/work-codec'
+import { requestPersistence } from '@/infra/platform'
 import {
   createPreviewRenderer,
   probeCapabilities,
@@ -55,8 +57,11 @@ import {
   infoFirstFrame,
   infoOthersIgnored,
 } from './messages'
+import { createAutosave } from './autosave'
 import { createEditHistory } from './edit-history'
 import { createToolSlot } from './tool-slot'
+
+export type Autosave = ReturnType<typeof createAutosave>
 
 export type Decoder = (file: Blob) => Promise<DecodeOutcome>
 
@@ -79,7 +84,7 @@ export type EditorPhase = 'idle' | 'reading' | 'confirming' | 'exporting'
 export type { ToolId, ToolRefusal } from './tool-slot'
 
 /** A panel another feature has open, so a shortcut can stay silent under it (crop-rotate AC-20). */
-export type PanelId = 'export'
+export type PanelId = 'export' | 'gallery'
 
 /** The Work as it was at confirm; the export renders it and the save point is its revision. */
 export interface ExportSnapshot {
@@ -147,6 +152,30 @@ export const useEditorStore = defineStore('editor', () => {
   let decode: Decoder = decodeImage
   let rendererFactory: RendererFactory = createPreviewRenderer
   const notices = useNotices()
+  // The real Autosave, lazy in everything it touches: no Worker or database until a Gallery connects.
+  const autosave = shallowRef<Autosave>(
+    createAutosave({
+      notices,
+      codec: workCodec,
+      renderer: () => {
+        if (!renderer) throw new Error('no Preview renderer')
+        return renderer
+      },
+      // The Preview uploads the new Original on its next flush.
+      rendererReady: () => nextTick(),
+      copyBitmap: (source) => createImageBitmap(source),
+      encodeThumbnail: async (data) => {
+        const canvas = new OffscreenCanvas(data.width, data.height)
+        canvas.getContext('2d')!.putImageData(data, 0, 0)
+        return canvas.convertToBlob({ type: 'image/png' })
+      },
+      requestPersistence,
+      now: Date.now,
+    }),
+  )
+  const saving = computed(() => autosave.value.saving.value)
+  const galleryAvailable = computed(() => autosave.value.galleryAvailable.value)
+  const openWorkId = computed(() => work.value?.id ?? null)
   // Notices that belong to the image awaiting confirmation; raised only if it replaces (AC-15).
   let heldNotices: NoticeInput[] = []
   // The file name of the image awaiting confirmation, for its Source name (export AC-08).
@@ -159,6 +188,37 @@ export const useEditorStore = defineStore('editor', () => {
     const previous = decode
     decode = next
     return previous
+  }
+
+  function setAutosave(next: Autosave) {
+    autosave.value = next
+  }
+
+  function connectGallery(result: Parameters<Autosave['connectGallery']>[0]) {
+    autosave.value.connectGallery(result)
+  }
+
+  /** Hands the Work to Autosave: only after a replace, an Apply, an Undo or a Redo. */
+  function requestSave() {
+    if (work.value) autosave.value.request(work.value)
+  }
+
+  function commit(...args: Parameters<typeof edits.commit>) {
+    const next = edits.commit(...args)
+    requestSave()
+    return next
+  }
+
+  function undo() {
+    const moved = edits.undo()
+    if (moved) requestSave()
+    return moved
+  }
+
+  function redo() {
+    const moved = edits.redo()
+    if (moved) requestSave()
+    return moved
   }
 
   function setRendererFactory(next: RendererFactory) {
@@ -213,7 +273,7 @@ export const useEditorStore = defineStore('editor', () => {
     if (!current || phase.value === 'exporting') return
     const updated = { ...current, adjustments: { ...next } }
     if (adjustmentsEquals(next, current.adjustments)) work.value = updated
-    else edits.commit('adjust', current, updated)
+    else commit('adjust', current, updated)
   }
 
   /** The Work's applied Drawing layer as the browser holds it, or null. */
@@ -247,7 +307,7 @@ export const useEditorStore = defineStore('editor', () => {
     const current = work.value
     if (!current || phase.value === 'exporting') return false
     if (changed) {
-      edits.commit('draw', current, { ...current, drawing: draft && { ...draft, id: newId() } })
+      commit('draw', current, { ...current, drawing: draft && { ...draft, id: newId() } })
     } else if (draft && draft.pixels !== current.drawing?.pixels) {
       releaseLayer(draft)
     }
@@ -263,7 +323,7 @@ export const useEditorStore = defineStore('editor', () => {
     if (!current || phase.value === 'exporting') return
     const updated = { ...current, geometry: next }
     if (geometryEquals(next, current.geometry)) work.value = updated
-    else edits.commit('crop-rotate', current, updated)
+    else commit('crop-rotate', current, updated)
   }
 
   function setActivePanel(panel: PanelId | null) {
@@ -285,11 +345,26 @@ export const useEditorStore = defineStore('editor', () => {
       if (!isSuperseded(outcome) && outcome.ok) closeBitmap(outcome.value.bitmap)
       return { kind: 'superseded' }
     }
+    if (!outcome.ok) {
+      phase.value = 'idle'
+      return { kind: 'refused', error: outcome.error }
+    }
+
+    // Stay in `reading` while a running save finishes, so the spinner stays (gallery AC-16).
+    await autosave.value.settled()
+    if (id !== latestOpenId) {
+      closeBitmap(outcome.value.bitmap)
+      return { kind: 'superseded' }
+    }
     phase.value = 'idle'
-    if (!outcome.ok) return { kind: 'refused', error: outcome.error }
 
     const fileName = file instanceof File ? file.name : ''
-    if (work.value && workHasUnsavedEdits(work.value)) {
+    const open = work.value
+    if (
+      open &&
+      workHasUnsavedEdits(open) &&
+      (!autosave.value.galleryAvailable.value || !autosave.value.isStored(open))
+    ) {
       heldNotices = []
       pending.value = outcome.value
       pendingFileName = fileName
@@ -399,6 +474,7 @@ export const useEditorStore = defineStore('editor', () => {
     const ctx = context()
     view.value = ctx ? fitView(ctx) : UNSIZED_VIEW
     if (old) void nextTick(() => closeBitmap(old))
+    requestSave()
     return { kind: 'replaced', image: facts }
   }
 
@@ -481,6 +557,11 @@ export const useEditorStore = defineStore('editor', () => {
     setSpacePan: (on: boolean) => (spacePan.value = on),
     setStrokeActive: (on: boolean) => (strokeActive.value = on),
     setDecoder,
+    setAutosave,
+    connectGallery,
+    saving,
+    galleryAvailable,
+    openWorkId,
     setRendererFactory,
     createRenderer,
     sampleWork,
@@ -492,8 +573,8 @@ export const useEditorStore = defineStore('editor', () => {
     confirmReplace,
     cancelReplace,
     applyEdit,
-    undo: edits.undo,
-    redo: edits.redo,
+    undo,
+    redo,
     beginExport,
     finishExport,
     zoomAt: (factor: number, point: Point) => updateView((v, c) => zoomView(v, factor, point, c)),
