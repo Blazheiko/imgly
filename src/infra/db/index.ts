@@ -1,4 +1,5 @@
-export { openDb, DB_NAME } from './open-db'
+export { openDb, openGalleryDb, DB_NAME } from './open-db'
+export type { OpenGalleryDbOptions } from './open-db'
 export { LATEST_VERSION } from './migrations'
 export type { ImglyDb, MetaRecord, WorkBlobRecord, WorkRecord } from './schema'
 export { storeWork } from './works-repository'
