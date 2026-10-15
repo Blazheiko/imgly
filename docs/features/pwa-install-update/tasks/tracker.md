@@ -7,7 +7,7 @@
 |---|---|---|---|---|---|---|
 | T1 | Pure update-check schedule `nextCheckDue` | domain | Blazheiko | S | — | done |
 | T2 | Lasting, slotted, keep-open, busy notices | ui | Blazheiko | M | — | done |
-| T3 | Service-worker client and reload marker | infra | Blazheiko | M | — | todo |
+| T3 | Service-worker client and reload marker | infra | Blazheiko | M | — | done |
 | T4 | Install-prompt client + `INSTALL_FAILED` | infra | Blazheiko | S | — | todo |
 | T5 | `APP_PART_UNAVAILABLE` in worker clients | infra | Blazheiko | M | — | todo |
 | T6 | Reload gate `editor.requestReload()` | app | Blazheiko | M | — | todo |
