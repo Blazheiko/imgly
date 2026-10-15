@@ -35,8 +35,9 @@ The app can be open in several windows, as tabs, as the Installed app, or both. 
 
 How it works:
 
-- The feature store subscribes to `controllerchange` through `src/infra/platform/service-worker.ts`. When this window asked for the switch, it reloads. Otherwise it sets the update notice to `updated-elsewhere`, even if the Editor had dismissed the `available` notice.
+- The feature store subscribes to `controllerchange` through `src/infra/platform/service-worker.ts`. When this window asked for the switch, it reloads. When the page loaded with no controller, it ignores the event, because a first install with `clientsClaim` fires it without any version switch (AC-05). Otherwise it sets the update notice to `updated-elsewhere`, even if the Editor had dismissed the `available` notice.
 - `src/features/editor/autosave.ts` keeps ADR-0006's steps: let the running save finish, drop the pending one, close the connection and mark the Gallery unavailable. It sets `storageSuperseded` on the `editor` store instead of pushing `infoNewerVersion()`. The feature rewords the one update notice to `reload-to-save`.
+- Autosave treats a codec worker that fails to load (`APP_PART_UNAVAILABLE`, an outdated window) the same way, and raises `storageSuperseded` instead of the could-not-save notice.
 - After that, `isStored()` is false for every edit, so "Reload" asks for confirmation as AC-12 says.
 
 ## Consequences

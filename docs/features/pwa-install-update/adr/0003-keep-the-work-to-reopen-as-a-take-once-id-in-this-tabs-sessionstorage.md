@@ -39,7 +39,7 @@ How it works:
 - `src/infra/platform/reload-marker.ts` exposes `markReopen(id)` and `takeReopen()`. It uses one fixed key and stores the Work id as a plain string.
 - `markReopen` runs only from the update reload path, after `requestReload()` passes, and only when the open Work has a Stored state. A confirmed reload with no Stored state writes nothing (AC-12).
 - At start, after the Gallery connects, the feature store calls `takeReopen()`, which reads and deletes the marker in one step, then `editor.reopenWork(id)`. A failed reopen, for a Damaged or evicted Work, shows a notice saying why and opens no Work (AC-08).
-- No other code path reads the key. A storage failure (`sessionStorage` blocked) makes the reload open no Work, which is the safe default.
+- Every start takes the marker, but only the update reload path writes it, so a start with no marker opens no Work. No other code path reads the key. A storage failure (`sessionStorage` blocked) makes the reload open no Work, which is the safe default.
 
 ## Consequences
 

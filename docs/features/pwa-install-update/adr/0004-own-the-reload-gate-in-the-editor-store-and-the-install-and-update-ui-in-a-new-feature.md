@@ -27,12 +27,11 @@ Every "Reload" passes the same checks in a fixed order (ux-flows §Platform deci
 ## Considered options
 
 1. **The `editor` store owns `requestReload()`, and a new `pwa-install-update` feature owns the UI and the update lifecycle.**
-2. **Everything goes in the app shell** (`src/app/pwa.ts`, `App.vue`).
-3. **Everything goes in the new feature**, which reads the `editor` store's state and runs the checks itself.
+2. **Everything goes in the new feature**, which reads the `editor` store's state and runs the checks itself.
 
 ## Decision outcome
 
-**Chosen:** Option 1, which matches how gallery ADR-0001 split Autosave (editor store) from the Gallery's UI (feature). The rules that decide whether the Work may be replaced or left stay in one place, so the Replace gate and the Reload gate cannot drift apart. Option 2 puts a business rule and a Pinia-less state machine into the shell, which CLAUDE.md keeps to wiring. Option 3 duplicates the "wait, then ask only for unstored edits" rule and needs `isStored()` exposed.
+**Chosen:** Option 1, which matches how gallery ADR-0001 split Autosave (editor store) from the Gallery's UI (feature). The rules that decide whether the Work may be replaced or left stay in one place, so the Replace gate and the Reload gate cannot drift apart. Option 2 duplicates the "wait, then ask only for unstored edits" rule and needs `isStored()` exposed.
 
 How it works:
 
