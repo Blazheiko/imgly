@@ -1,6 +1,6 @@
 ---
 status: Living
-updated_at: "2026-10-13"
+updated_at: "2026-10-15"
 ---
 
 # Domain Context — imgly-editor
@@ -8,6 +8,7 @@ updated_at: "2026-10-13"
 ## Glossary
 
 - Adjustments — the Work's seven colour values, applied after its Geometry: brightness, contrast, saturation, temperature and tint from −100 to +100, and grayscale and sepia from 0% to 100%; each has a neutral value (0, or 0%) at which it changes no pixel, and together they change only colour, never transparency, size or position. NOT the Geometry, which decides which part of the Original is shown and how it is turned, and NOT the drawing layer, which is painted over the adjusted image and is never adjusted itself.
+- App update — a newer version of the app that the browser has downloaded in the background and that waits to take over: it takes over a window only when the Editor chooses "Reload" in its update notice, or when the app next starts after every window of it has closed. NOT a change to the Work, which an App update never edits, and NOT a reload from the browser's own button, which keeps running the current version.
 - Autosave — the app storing the open Work's applied state in the Gallery without being asked: once the image has opened, and again after every Step, Undo and Redo. It never stores an open tool's Draft, the View or the Edit history. NOT an Export: the stored copy lives only in this browser and the browser may clear it, while an Export is a file the Editor keeps.
 - Crop — the rectangle of the image, as it stands after its Flip, Rotation and Straighten angle, that the Work keeps; the Preview and every Export show only what is inside it, and it always lies fully inside the image and is at least 1×1 px. NOT the View, which only frames the Preview on screen and is never saved, and NOT a destructive cut: the area outside the Crop stays in the Original and can be brought back by widening the Crop.
 - Damaged Work — a Gallery entry whose record, thumbnail, Original or layer can't be read or fails validation. It never replaces the open Work, still counts toward the 20 places, and is evicted first. NOT a Work that was deleted or evicted, which is gone, and NOT a failed Autosave, which leaves the earlier Stored state in place.
@@ -20,6 +21,7 @@ updated_at: "2026-10-13"
 - Flip — mirroring the image horizontally, vertically or both, as part of its Geometry. NOT Rotation: a horizontal Flip followed by a vertical Flip looks like a 180° Rotation, but each is kept as chosen.
 - Gallery — the recent Works kept in this browser so the Editor can reopen and re-edit them later: at most 20, listed with the Work most recently opened or changed (by a Step, Undo or Redo) first. When a Work needs room, because the Gallery is full or the browser's storage space has run out, the least recently opened or changed Work that is not open in this tab is evicted, and the browser itself may also clear the Gallery. NOT the Edit history, which keeps the Steps of the open Work only and is never stored, and NOT a backup: only an Export is a durable copy.
 - Geometry — which part of the Original the Work shows and how it is oriented: its Flip, Rotation, Straighten angle and Crop, applied in that order. NOT the View, which never changes the Work, and NOT the adjustment values or the drawing layer, which are applied after it.
+- Installed app — imgly added to the computer through the browser's install offer, so it opens in its own window from the system's list of apps and starts without a connection; it is the same app from the same site and receives the same App updates. NOT a separate download or a native program, and NOT the app in a browser tab, which is the only place the "Install app" action can appear.
 - Original — the opened image after orientation is applied and it is reduced to the Downscale limit; every later edit starts from it. NOT the source file on disk, which the app never modifies and does not keep.
 - Portfolio reviewer — a recruiter or engineer who opens the deployed app to evaluate it, usually for the first time and on a desktop browser. NOT a separate permission level: the app has no accounts, so a reviewer can do everything an Editor can.
 - Preview — what the canvas currently shows: the Work rendered with all its edits at the current View. NOT an Export, which is rendered separately at the Work's full size or a smaller size the Editor chooses.

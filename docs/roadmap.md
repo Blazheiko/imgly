@@ -28,7 +28,7 @@ draw on and export an image, then reopen any recent work later and re-edit it wi
 | 6 | Draw freehand with a brush and an eraser, choosing colour and width, on a separate drawing layer ([`draw`](features/draw/)) | idea-brief.md §7 Recommendation | M | shipped |
 | 7 | Undo and redo every crop, adjust and draw action while the image is open ([`undo-redo`](features/undo-redo/)) | idea-brief.md §7 Recommendation | S | shipped |
 | 8 | Gallery of recent works: autosave, reopen and re-edit without loss, about 20 works with the oldest evicted, an honest notice that browser storage can be evicted ([`gallery`](features/gallery/)) | idea-brief.md §7 Recommendation + §6 Risks | M | shipped |
-| 9 | Install and update experience: an install prompt and a "new version available" toast | idea-brief.md §1 Raw idea (PWA) | S | idea |
+| 9 | Install and update experience: an install prompt and a "new version available" toast ([`pwa-install-update`](features/pwa-install-update/)) | idea-brief.md §1 Raw idea (PWA) | S | spec'd |
 | 10 | OS integration: paste and copy to the clipboard, and "Open with…" as the system image handler (drag-and-drop moved to step 2) | idea-brief.md §7 Recommendation | M | idea |
 
 ## Not yet specified
