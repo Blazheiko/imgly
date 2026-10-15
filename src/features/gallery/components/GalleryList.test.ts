@@ -225,6 +225,25 @@ describe('GalleryList (SCR-01, SCR-03)', () => {
         ['info', m.hintOpenWorkCannotBeDeleted()],
       ])
     })
+
+    it('Cancel on a delete asked from the damaged notice puts focus on that entry’s Delete (T53, R4-4)', async () => {
+      await seed(db, 'A.png', NOW - MINUTE)
+      const b = await seed(db, 'B.png', NOW - 2 * MINUTE)
+      const w = await show()
+      // The notice's "Delete…" leaves with its toast, so the dialog opens with no opener on the page.
+      ;(document.activeElement as HTMLElement | null)?.blur()
+      gallery.requestDelete(b)
+      await nextTick()
+      const cancel = Array.from(
+        document.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] button'),
+      ).find((el) => el.textContent?.trim() === m.deleteDialogCancel())!
+
+      cancel.click()
+      await nextTick()
+
+      expect(gallery.pendingDelete).toBeNull()
+      expect(document.activeElement).toBe(entryButton(w, m.deleteButtonName('B.png')).element)
+    })
   })
 
   describe('damaged entry (AC-08)', () => {

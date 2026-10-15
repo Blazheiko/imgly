@@ -7,7 +7,7 @@ acs: ["AC-06"]
 files_hint: ["src/features/gallery/components/DeleteWorkDialog.vue", "src/features/gallery/components/GalleryList.test.ts"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 source: "review-2026-10-15-r4 R4-4"
 ---
 

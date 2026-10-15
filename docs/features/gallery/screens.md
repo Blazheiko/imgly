@@ -275,7 +275,7 @@ When the overlay opens, focus moves to its first entry, or to "Close" when it ha
 | default | "Delete" on an entry that is not open, in SCR-01 or SCR-03, or "Delete…" on the damaged-Work notice (Flow 4, AC-06, AC-08). Modal over the screen it came from. Focus is trapped and starts on **Cancel**. The name is the Source name, or "Untitled" | `DeleteWorkDialog` (`Dialog`, `role="alertdialog"`): title "Delete “{name}”?", body, `BaseButton` secondary "Cancel" + `BaseButton` primary "Delete" | wireframe 04-a |
 | damaged Work | The same dialog for a damaged entry. Its name is the stored Source name if it is text, else "Untitled" | as `default` | wireframe 04-a |
 | confirm | "Delete" pressed. The record, the Original and the layer are removed in one transaction (Flow 4) | → the screen it came from, `deleted` | — |
-| cancel | "Cancel", `Esc` or a backdrop click | → the screen it came from, the Work unchanged, focus back on its "Delete" | — |
+| cancel | "Cancel", `Esc` or a backdrop click | → the screen it came from, the Work unchanged, focus back on its "Delete". Asked from the damaged notice, focus goes to that entry's "Delete", or to "Gallery" when no list is on screen (review rounds 3–4, R3-5, R4-4) | — |
 | error | The delete transaction failed (`STORAGE_FAILED`) | → the screen it came from, `delete failed` | — |
 | loading | N/A: one small transaction. The dialog closes on "Delete" and the list updates when it commits | — | — |
 | empty | N/A: opened only for an existing entry | — | — |

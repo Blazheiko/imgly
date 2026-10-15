@@ -11,6 +11,17 @@ const shown = computed(
   () => gallery.pendingDelete !== null && (!props.standby || gallery.listsMounted === 0),
 )
 
+/**
+ * Where focus goes when the opener has left the page (a notice's "Delete…"): the entry's Delete in
+ * a list, which on SCR-01 is the only home and in the overlay the only part not inert (R4-4), and
+ * the Gallery button for the standby instance, whose list is not on screen (R3-5).
+ */
+const returnFocus = computed(() =>
+  props.standby
+    ? '[data-testid="gallery-action"]'
+    : `[data-delete-id="${gallery.pendingDelete?.id ?? ''}"]`,
+)
+
 /** The entry (or, with none left, the empty-state action) that should take focus after a delete. */
 function neighbourSelector(id: string): string {
   const list = gallery.entries
@@ -34,7 +45,7 @@ async function confirm() {
     v-if="shown && gallery.pendingDelete"
     :title="m.deleteDialogTitle(gallery.pendingDelete.name)"
     initial-focus="[data-initial-focus]"
-    return-focus='[data-testid="gallery-action"]'
+    :return-focus="returnFocus"
     @cancel="gallery.cancelDelete()"
   >
     {{ m.deleteDialogBody() }}
