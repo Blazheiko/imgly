@@ -70,6 +70,15 @@ export const useGallery = defineStore('gallery', () => {
     for (const e of list) if (e.thumbnailUrl) URL.revokeObjectURL(e.thumbnailUrl)
   }
 
+  /**
+   * The last list left the screen: its thumbnail URLs go, and the entries forget them, so a kept
+   * entry never shows a revoked URL whose error would read as damage (R4-1).
+   */
+  function releaseThumbnails() {
+    revokeAll(entries.value)
+    entries.value = entries.value.map((e) => ({ ...e, thumbnailUrl: null }))
+  }
+
   let refreshSeq = 0
 
   /** Reads the list again; there is no live refresh. Only the newest call assigns. */
@@ -233,6 +242,7 @@ export const useGallery = defineStore('gallery', () => {
     connect,
     setClock,
     refresh,
+    releaseThumbnails,
     open,
     close,
     choose,

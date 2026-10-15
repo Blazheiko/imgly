@@ -351,4 +351,25 @@ describe('GalleryList (SCR-01, SCR-03)', () => {
       expect([...revoked].sort()).toEqual([...created].sort())
     })
   })
+
+  describe('a failing listing after the list unmounts (T50, R4-1, AC-08, AC-09)', () => {
+    it('shows no revoked thumbnail URL, so an image error marks nothing Damaged', async () => {
+      await seed(db, 'A.png', NOW - MINUTE)
+      await seed(db, 'B.png', NOW - 2 * MINUTE)
+      const first = await show()
+      first.unmount()
+      wrapper = undefined
+      vi.spyOn(db, 'getAll').mockRejectedValue(new DOMException('boom', 'UnknownError') as never)
+
+      const w = await show()
+
+      expect(w.findAll('.gallery-entry')).toHaveLength(2)
+      const imgs = w.findAll('.gallery-entry img')
+      for (const img of imgs) expect(revoked).not.toContain(img.attributes('src'))
+      for (const img of imgs) await img.trigger('error')
+      await nextTick()
+      expect(w.findAll('.gallery-entry--damaged')).toHaveLength(0)
+      expect(editor.damagedIds.size).toBe(0)
+    })
+  })
 })

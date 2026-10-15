@@ -14,7 +14,7 @@ const gallery = useGallery()
 onMounted(() => gallery.listsMounted++)
 onBeforeUnmount(() => {
   gallery.listsMounted--
-  for (const e of gallery.entries) if (e.thumbnailUrl) URL.revokeObjectURL(e.thumbnailUrl)
+  if (gallery.listsMounted === 0) gallery.releaseThumbnails()
 })
 </script>
 

@@ -7,7 +7,7 @@ acs: ["AC-08", "AC-09", "AC-03"]
 files_hint: ["src/features/gallery/store.ts", "src/features/gallery/components/GalleryList.vue", "src/features/gallery/components/GalleryList.test.ts", "src/features/gallery/store.test.ts"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 source: "review-2026-10-15-r4 R4-1"
 ---
 
