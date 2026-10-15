@@ -95,6 +95,9 @@ const FAILURES: Record<AppErrorCode, (details: Record<string, unknown>) => strin
   STORAGE_UNAVAILABLE: () => "This browser's storage isn't available, so Works can't be saved.",
   STORAGE_FAILED: () => failureSaveFailed(),
   WORK_DAMAGED: () => "This Work can't be read in full.",
+  // pwa-install-update codes are worded by that feature's own catalog; these keep the map total.
+  INSTALL_FAILED: () =>
+    "imgly couldn't be installed. Try installing it from the browser's menu instead.",
 }
 
 export function failureMessage(error: AppError): string {

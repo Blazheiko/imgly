@@ -37,6 +37,8 @@ export type AppErrorCode =
   | 'STORAGE_FAILED'
   /** A stored Work can't be read in full. AC-08 */
   | 'WORK_DAMAGED'
+  /** The browser could not show its install confirmation, or did not install after it was accepted. AC-03 */
+  | 'INSTALL_FAILED'
 
 export interface AppError {
   code: AppErrorCode
@@ -74,6 +76,7 @@ const APP_ERROR_CODES: Record<AppErrorCode, true> = {
   STORAGE_UNAVAILABLE: true,
   STORAGE_FAILED: true,
   WORK_DAMAGED: true,
+  INSTALL_FAILED: true,
 }
 
 /** Runtime check for codes that crossed a boundary untyped (e.g. a worker message). */
