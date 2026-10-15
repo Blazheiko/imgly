@@ -5,10 +5,12 @@ import { UPDATE_CHECK_INTERVAL_MS } from '@/core'
 import { useEditorStore } from '@/features/editor'
 import { createFakeAutosave } from '@/features/editor/testing'
 import type { ServiceWorkerCallbacks, ServiceWorkerClient } from '@/infra/platform'
+import { appError, err, ok } from '@/core'
 import { useNotices } from '@/shared'
 import type { ReloadOutcome } from '@/features/editor'
 import {
   ACTION_RELOADING,
+  failureInstall,
   UPDATE_TEXT,
   failureExportRunning,
   failureReopenEvicted,
@@ -17,6 +19,7 @@ import {
   infoOfflineReady,
 } from './messages'
 import { usePwaInstallUpdate } from './store'
+import { fakeInstallPrompt } from './testing'
 
 const MIN = 60 * 1000
 
@@ -523,5 +526,84 @@ describe('pwa-install-update store — Reload and the reopen after the update (A
       expect(reopen).not.toHaveBeenCalled()
       expect(failures()).toEqual([failureReopenUnreadable()])
     })
+  })
+})
+
+describe('pwa-install-update store — the install offer (AC-01 to AC-04)', () => {
+  let store: ReturnType<typeof usePwaInstallUpdate>
+  let notices: ReturnType<typeof useNotices>
+
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    useEditorStore().setAutosave(createFakeAutosave().fake)
+    notices = useNotices()
+    store = usePwaInstallUpdate()
+  })
+
+  it('words the could-not-install notice as the catalog says', () => {
+    expect(failureInstall()).toBe(
+      "imgly couldn't be installed. Try installing it from the browser's menu instead.",
+    )
+  })
+
+  it('offers nothing before an install client is connected', () => {
+    expect(store.canInstall).toBe(false)
+  })
+
+  it('offers to install only while the browser offers (AC-02)', () => {
+    const install = fakeInstallPrompt()
+    store.connectInstall(install.client)
+    expect(store.canInstall).toBe(false)
+
+    install.setOffer(true)
+    expect(store.canInstall).toBe(true)
+    install.setOffer(false)
+    expect(store.canInstall).toBe(false)
+    expect(notices.items).toEqual([])
+  })
+
+  it('takes an offer the browser already made', () => {
+    const install = fakeInstallPrompt({ offer: true })
+    store.connectInstall(install.client)
+    expect(store.canInstall).toBe(true)
+  })
+
+  it('never offers in the Installed app (AC-04)', () => {
+    const install = fakeInstallPrompt({ standalone: true, offer: true })
+    store.connectInstall(install.client)
+    install.setOffer(true)
+    expect(store.canInstall).toBe(false)
+  })
+
+  it('opens the browser confirmation; a dismissal shows no notice (AC-01, AC-03)', async () => {
+    const install = fakeInstallPrompt({ offer: true })
+    store.connectInstall(install.client)
+    install.prompt.mockImplementation(async () => {
+      install.setOffer(false)
+      return ok('dismissed')
+    })
+
+    await store.install()
+    expect(install.prompt).toHaveBeenCalledTimes(1)
+    expect(store.canInstall).toBe(false)
+    expect(notices.items).toEqual([])
+  })
+
+  it('shows no notice once installed (AC-01)', async () => {
+    const install = fakeInstallPrompt({ offer: true })
+    store.connectInstall(install.client)
+    install.prompt.mockResolvedValue(ok('accepted'))
+
+    await store.install()
+    expect(notices.items).toEqual([])
+  })
+
+  it('shows the could-not-install failure on INSTALL_FAILED (AC-03)', async () => {
+    const install = fakeInstallPrompt({ offer: true })
+    store.connectInstall(install.client)
+    install.prompt.mockResolvedValue(err(appError('INSTALL_FAILED')))
+
+    await store.install()
+    expect(notices.items.map((n) => [n.kind, n.text])).toEqual([['failure', failureInstall()]])
   })
 })

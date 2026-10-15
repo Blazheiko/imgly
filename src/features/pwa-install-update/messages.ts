@@ -38,3 +38,12 @@ export function failureReopenEvicted(): string {
 export function failureReopenUnreadable(): string {
   return "The image you had open couldn't be reopened. Open it from the Gallery if it's there."
 }
+
+/** The top-bar action and its tooltip (SCR-01, AC-01). */
+export const INSTALL_LABEL = 'Install app'
+export const INSTALL_TITLE = 'Install imgly as an app on this computer'
+
+/** `INSTALL_FAILED`: no confirmation, or nothing installed after it was accepted (AC-03). */
+export function failureInstall(): string {
+  return "imgly couldn't be installed. Try installing it from the browser's menu instead."
+}

@@ -1,10 +1,11 @@
-import { readonly, ref, watch } from 'vue'
+import { computed, readonly, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { msUntilNextCheck, nextCheckDue } from '@/core'
 import { useEditorStore, type ReloadOutcome } from '@/features/editor'
 import {
   markReopen,
   takeReopen,
+  type InstallPrompt,
   type ServiceWorkerCallbacks,
   type ServiceWorkerClient,
 } from '@/infra/platform'
@@ -14,6 +15,7 @@ import {
   ACTION_RELOADING,
   UPDATE_TEXT,
   failureExportRunning,
+  failureInstall,
   failureReopenEvicted,
   failureReopenUnreadable,
   failureToolOpen,
@@ -268,8 +270,33 @@ export const usePwaInstallUpdate = defineStore('pwa-install-update', () => {
     tick()
   }
 
+  let installClient: InstallPrompt | null = null
+  const installOffered = ref(false)
+  const standalone = ref(false)
+  /** "Install app" shows only while the browser offers and this is not the Installed app (AC-02, AC-04). */
+  const canInstall = computed(() => installOffered.value && !standalone.value)
+
+  /** Follows the browser's install offer (sad.md §5 tactical decision 4). */
+  function connectInstall(next: InstallPrompt) {
+    installClient = next
+    standalone.value = next.isStandalone()
+    installOffered.value = next.hasOffer()
+    next.onOfferChange(() => (installOffered.value = next.hasOffer()))
+  }
+
+  /** The Editor's click on "Install app": the browser's confirmation, never a prompt of our own. */
+  async function install() {
+    if (!installClient) return
+    const result = await installClient.prompt()
+    installOffered.value = installClient.hasOffer()
+    if (!result.ok) notices.pushAll([{ kind: 'failure', text: failureInstall() }])
+  }
+
   return {
     updateNotice: readonly(updateNotice),
+    canInstall,
+    connectInstall,
+    install,
     confirming: readonly(confirming),
     connect,
     confirmReload,
