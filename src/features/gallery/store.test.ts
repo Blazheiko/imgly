@@ -2,6 +2,7 @@
 import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
+import { nextTick } from 'vue'
 import { unwrap, type IDBPDatabase } from 'idb'
 import { appError, err, ok } from '@/core'
 import { loadWork, openDb, type ImglyDb } from '@/infra/db'
@@ -556,6 +557,24 @@ describe('gallery store', () => {
       expect(gallery.listRead).toBe(true)
       for (const u of urls) expect(revoke).not.toHaveBeenCalledWith(u)
       expect(notices.items.map((n) => [n.kind, n.text])).toEqual([['failure', COULD_NOT_LIST]])
+    })
+
+    it('a delete that commits drops its entry even when the listing after it fails (T51, R4-2, AC-06)', async () => {
+      const a = await seed(db, 'A.png', NOW)
+      const b = await seed(db, 'B.png', NOW - MINUTE)
+      await gallery.refresh()
+      const bUrl = gallery.entries.find((e) => e.id === b)!.thumbnailUrl
+      const revoke = vi.spyOn(URL, 'revokeObjectURL')
+      gallery.requestDelete(b)
+      failListing()
+
+      await gallery.confirmDelete()
+      await nextTick()
+
+      expect(await db.get('works', b)).toBeUndefined()
+      expect(gallery.entries.map((e) => e.id)).toEqual([a])
+      expect(gallery.count).toBe(1)
+      expect(revoke).toHaveBeenCalledWith(bUrl)
     })
   })
 })

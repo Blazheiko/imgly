@@ -221,8 +221,16 @@ export const useGallery = defineStore('gallery', () => {
     if (!pending || !c || !c.ok) return
     pendingDelete.value = null
     const result = await deleteWork(c.value, pending.id, { keep: editor.openWorkId ?? '' })
-    if (result.ok) await refresh()
-    else notices.pushAll([{ kind: 'failure', text: failureCouldNotDelete(pending.name) }])
+    if (!result.ok) {
+      notices.pushAll([{ kind: 'failure', text: failureCouldNotDelete(pending.name) }])
+      return
+    }
+    // The Work is gone whatever the next listing says: a listing that fails keeps the rest (R4-2).
+    const gone = entries.value.filter((e) => e.id === pending.id)
+    entries.value = entries.value.filter((e) => e.id !== pending.id)
+    await nextTick()
+    revokeAll(gone)
+    await refresh()
   }
 
   function cancelDelete() {
