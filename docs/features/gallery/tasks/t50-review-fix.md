@@ -17,4 +17,4 @@ Finding R4-1 of [review-2026-10-15-r4.md](../_review/review-2026-10-15-r4.md).
 
 ## Definition of done
 
-The gallery store owns thumbnail URL lifetime: GalleryList no longer revokes URLs the store still holds. After the overlay closes and the next listing fails, the shown entries carry live URLs, and an image error on a stale URL marks nothing. Tested: close the overlay, fail the listing, reopen it, fire an image error, and check the entry is not Damaged and editor.damagedIds is empty.
+The gallery store owns thumbnail URL lifetime: GalleryList no longer revokes URLs the store still holds. After the overlay closes and the next listing fails, the kept entries carry no thumbnail URL (they show empty thumbnail boxes until a listing succeeds), and an image error on a released URL marks nothing. Tested: close the overlay, fail the listing, reopen it, fire an image error, and check the entry is not Damaged and editor.damagedIds is empty.

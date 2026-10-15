@@ -361,7 +361,7 @@ The seed for `src/features/editor/messages.ts` (Autosave, reopen and the replace
 | failure (withdrawable) | `STORAGE_FAILED` on a save | AC-11 | This Work couldn't be saved to the Gallery. Export it to keep a copy. |
 | failure + action | `WORK_DAMAGED` on choose | AC-08 | “{name}” can't be opened: its stored data is damaged. Action: **Delete…** |
 | failure | `STORAGE_FAILED` on choose | AC-08 | “{name}” couldn't be opened. Try again. |
-| failure (withdrawable) | `STORAGE_FAILED` on listing (review round 3 R3-4). The Gallery keeps what it showed, and before a first listing it shows only its title. One notice per run of failing listings, withdrawn when a listing succeeds (review round 4 R4-3) | AC-03 | The Gallery couldn't be read. Try again. |
+| failure (withdrawable) | `STORAGE_FAILED` on listing (review round 3 R3-4). The Gallery keeps what it showed, and before a first listing it shows only its title. After a list unmounted, the kept entries show empty thumbnail boxes until a listing succeeds (review round 4 R4-1). One notice per run of failing listings, withdrawn when a listing succeeds (review round 4 R4-3) | AC-03 | The Gallery couldn't be read. Try again. |
 | failure | `STORAGE_FAILED` on a delete | — (Flow 4) | “{name}” couldn't be deleted. Try again. |
 | info | newer version open in another tab | — (ADR-0006) | A newer version of the editor is open in another tab. Reload this page to keep saving to the Gallery. |
 | info (hint) | "Gallery" while a tool is open | — (ux-flows SCR-02) | Apply or cancel the open tool first. |
