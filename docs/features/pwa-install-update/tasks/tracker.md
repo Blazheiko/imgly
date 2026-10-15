@@ -12,7 +12,7 @@
 | T5 | `APP_PART_UNAVAILABLE` in worker clients | infra | Blazheiko | M | — | done |
 | T6 | Reload gate `editor.requestReload()` | app | Blazheiko | M | — | done |
 | T7 | Autosave raises `storageSuperseded` | app | Blazheiko | S | T5, T6 | done |
-| T8 | Feature store update lifecycle | app | Blazheiko | M | T1, T2, T3, T7 | todo |
+| T8 | Feature store update lifecycle | app | Blazheiko | M | T1, T2, T3, T7 | done |
 | T9 | Reload action and resume after update | app | Blazheiko | M | T6, T8 | todo |
 | T10 | InstallAction and install-offer state | ui | Blazheiko | S | T4, T8 | todo |
 | T11 | ReloadDialog (SCR-06) | ui | Blazheiko | S | T9 | todo |
