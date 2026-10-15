@@ -105,4 +105,4 @@ flowchart LR
 | 5 — Adjust light and colour | 2026-10-09 (merged to main via PRs #5 and #6) | [changelog](features/adjust/_ship/changelog.md) · [PR #5](https://github.com/Blazheiko/imgly/pull/5) · [PR #6](https://github.com/Blazheiko/imgly/pull/6) |
 | 6 — Draw freehand | 2026-10-10 (merged to main via PR #7) | [changelog](features/draw/_ship/changelog.md) · [PR #7](https://github.com/Blazheiko/imgly/pull/7) |
 | 7 — Undo and redo | 2026-10-12 (merged to main via PR #9) | [changelog](features/undo-redo/_ship/changelog.md) · [PR #9](https://github.com/Blazheiko/imgly/pull/9) |
-| 8 — Gallery of recent works | 2026-10-15 (PR from `feat/gallery`, not yet merged) | [changelog](features/gallery/_ship/changelog.md) |
+| 8 — Gallery of recent works | 2026-10-15 (PR #10, not yet merged) | [changelog](features/gallery/_ship/changelog.md) · [PR #10](https://github.com/Blazheiko/imgly/pull/10) |

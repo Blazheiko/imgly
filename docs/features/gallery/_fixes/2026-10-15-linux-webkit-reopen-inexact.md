@@ -74,6 +74,6 @@ lists the new tests.
   so Linux WebKit stays exact there.
 - The e2e CI matrix is the only place Linux WebKit runs. A local `pnpm test:e2e` on macOS can't
   catch an engine-specific rounding like this one. Consider documenting the Docker command used here
-  (see the PR) in `e2e/README` or the test plan.
+  (see PR #10) in the test plan.
 - The Preview path (`uploadTexture` of an `ImageBitmap`) wasn't compared here. The export uploads
   `ImageData`, which is what AC-04 measures.

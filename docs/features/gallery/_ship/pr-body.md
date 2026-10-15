@@ -114,6 +114,7 @@ These commits carry `SDD-Task` and `SDD-AC` trailers. Their task ids come from `
 | T53 | 5a1906d | fix(gallery): Cancel on a Delete asked from the damaged notice puts focus on that entry's Delete |
 | T54 | 8752a74 | fix(gallery): a touchedAt outside the date range sorts as the oldest, like every other unusable time |
 | T55 | 4fd05f5 | docs(gallery): test-plan lists the round-4 review tests, and the round-4 review records its resolution |
+| fix | eb4e878 | fix: gallery reopen is inexact on Linux WebKit for semi-transparent pixels (`SDD-Fix: 2026-10-15-linux-webkit-reopen-inexact`) |
 
 T1–T23 are the planned breakdown. T24–T55 come from the five review rounds. The branch also
 carries the spec, design, sequences, screens, data-model and tasks commits, plus `02046c0` (the
@@ -147,6 +148,7 @@ Verified at `6c2a4bf` on 2026-10-15 (Apple M1 Pro, latest Playwright browsers).
   - The perf numbers come from an M1 Pro, not the M1 MacBook Air that the spec names as the reference machine.
   - Firefox and WebKit perf rows weren't run (they are report-only).
   - **The security review that spec §6.1 requires isn't recorded yet.**
+- **Fix after the first CI run** ([fix record](docs/features/gallery/_fixes/2026-10-15-linux-webkit-reopen-inexact.md)). CI's Linux WebKit failed four AC-04 exactness tests (difference 2–4) that pass on every macOS engine. WebKit on Linux does not keep `premultiplyAlpha: 'none'` through `createImageBitmap` and `drawImage`, so a PNG the app wrote is now read by its own decoder (`core` `png-read.ts` and `work-codec` `png-decode.ts`) and put on a canvas with `putImageData`. Reproduced and verified in the CI image (`mcr.microsoft.com/playwright:v1.63.0-noble`). Before the fix, the four tests and two new no-drawing semi-transparent cases failed. After it, `e2e/gallery` on Linux WebKit has 37 passing and 3 Chromium-only skips. On macOS, `e2e/gallery` passes on all three engines (114 passing, 6 skipped), and `pnpm test` passes 2396 of 2396 (112 files).
 - Review: five rounds on 2026-10-14 and 2026-10-15. The findings were resolved as T24–T55, and round 5 (`docs/features/gallery/_review/review-2026-10-15-r5.md`) returned **PASS**. R3-7 stays deferred in spec §8 (owner Blazheiko, due 2026-11-14).
 
 ## Operational notes
