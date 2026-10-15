@@ -80,6 +80,8 @@ export const useGallery = defineStore('gallery', () => {
   }
 
   let refreshSeq = 0
+  /** The couldn't-be-read notice on screen: one per run of failing listings, gone on success (R4-3). */
+  let listFailureId: string | null = null
 
   /** Reads the list again; there is no live refresh. Only the newest call assigns. */
   async function refresh() {
@@ -100,7 +102,10 @@ export const useGallery = defineStore('gallery', () => {
         : storageLineNotPersisted()
     if (!listed.ok) {
       // Keep what the Gallery showed: an empty list here would read as "no Works" (R3-4).
-      if (seq === refreshSeq) notices.pushAll([{ kind: 'failure', text: failureCouldNotList() }])
+      const shown = listFailureId !== null && notices.items.some((n) => n.id === listFailureId)
+      if (seq === refreshSeq && !shown)
+        listFailureId =
+          notices.pushAll([{ kind: 'failure', text: failureCouldNotList() }])[0] ?? null
       return
     }
     const now = clock()
@@ -117,6 +122,10 @@ export const useGallery = defineStore('gallery', () => {
     if (seq !== refreshSeq) {
       revokeAll(next)
       return
+    }
+    if (listFailureId !== null) {
+      notices.dismiss(listFailureId)
+      listFailureId = null
     }
     // The previous list's URLs go only after the DOM has moved to the new ones.
     const stale = entries.value

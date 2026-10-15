@@ -559,6 +559,30 @@ describe('gallery store', () => {
       expect(notices.items.map((n) => [n.kind, n.text])).toEqual([['failure', COULD_NOT_LIST]])
     })
 
+    it('shows one notice while listings keep failing and withdraws it when one succeeds (T52, R4-3)', async () => {
+      await seed(db, 'A.png', NOW)
+      const failing = failListing()
+
+      await gallery.refresh()
+      await gallery.refresh()
+      expect(notices.items.map((n) => [n.kind, n.text])).toEqual([['failure', COULD_NOT_LIST]])
+
+      failing.mockRestore()
+      await gallery.refresh()
+      expect(gallery.entries.map((e) => e.name)).toEqual(['A.png'])
+      expect(notices.items).toEqual([])
+    })
+
+    it('shows the notice again on a later failure once the Editor dismissed it (T52, R4-3)', async () => {
+      failListing()
+      await gallery.refresh()
+      notices.dismiss(notices.items[0]!.id)
+
+      await gallery.refresh()
+
+      expect(notices.items.map((n) => [n.kind, n.text])).toEqual([['failure', COULD_NOT_LIST]])
+    })
+
     it('a delete that commits drops its entry even when the listing after it fails (T51, R4-2, AC-06)', async () => {
       const a = await seed(db, 'A.png', NOW)
       const b = await seed(db, 'B.png', NOW - MINUTE)
