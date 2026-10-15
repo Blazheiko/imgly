@@ -59,6 +59,6 @@
 | T52 | Couldn't-read notice shows once, withdrawn on success (R4-3) | app | Blazheiko | S | T51 | done |
 | T53 | Delete from the notice: Cancel returns focus to its Delete (R4-4) | ui | Blazheiko | S | T52 | done |
 | T54 | Out-of-range touchedAt sorts oldest (R4-5) | core | Blazheiko | S | — | done |
-| T55 | Test-plan rows and round-4 resolution | docs | Blazheiko | S | T50, T51, T52, T53, T54 | todo |
+| T55 | Test-plan rows and round-4 resolution | docs | Blazheiko | S | T50, T51, T52, T53, T54 | done |
 
 **Total:** 55 tasks, ~34 person-days (S ≈ 0.5, M ≈ 0.75, L ≈ 1).

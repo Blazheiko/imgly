@@ -125,6 +125,9 @@ instead.
 | AC-03 happy | while the database is still opening the Gallery shows only its title | component | before the first listing after connect, SCR-01 has no count, no empty state and no storage line; once the list is read, all three show (R2-3, T37) |
 | AC-03 happy | a `touchedAt` outside the date range never stops the Gallery listing | unit + integration | `touchedLabel` gives no label for ±1e17 and never throws; the shape check refuses it; with such a record stored, `refresh()` and `open()` list every Work and that one as Damaged (review-2026-10-14-r3 R3-1, T42) |
 | AC-03 / AC-05 error | a listing that fails keeps what the Gallery showed | integration + component | `listWorks` fails: on a first listing `listRead` stays false and SCR-01 has no count and no empty state; on a later one the entries and their thumbnail URLs stay; one failure notice "The Gallery couldn't be read. Try again." (R3-4, T45) |
+| AC-03 / AC-08 error | a failing listing after the list unmounts never marks a Work Damaged | component | the list unmounts, the next listing fails and the list mounts again: no rendered thumbnail URL is a revoked one, image errors mark nothing, `damagedIds` stays empty (review-2026-10-15-r4 R4-1, T50) |
+| AC-03 error | the couldn't-be-read notice shows once and goes on success | integration | two failing refreshes show one notice; the next listing that succeeds withdraws it; once the Editor dismissed it, a later failure shows it again (R4-3, T52) |
+| AC-03 / AC-08 happy | an unusable `touchedAt` sorts as the oldest | unit + integration | `evictionCandidates` evicts a NaN, missing or ±1e17 record first and in an input-order-free way; the Gallery lists such a record after every other Work (R4-5, T54) |
 | AC-04 happy | a stored record and its parts serialise and read back to the same Work (property) | unit | for random valid Geometries, Adjustments, sizes, Source names and formats, `toRecord` then `validateStoredWork` gives the same values |
 | AC-04 happy | PNG encode and decode keep the pixels and check the size | integration | `worker-handler` encodes an opaque RGBA buffer and decodes it to the same bytes; a decoded size that differs from the record's is refused |
 | AC-04 happy | reopen gives the stored Work with an empty history, no Unsaved edits and the loaded Blobs kept | integration | after `reopenWork(id)` the Work's id, Source name, Source format, Geometry and Adjustments equal the stored ones; the layer has a new id; the history is empty; there are no Unsaved edits; the next Adjustment Step encodes nothing |
@@ -158,6 +161,8 @@ instead.
 | AC-08 error | the delete confirmation over the Editor holds the keyboard | component | App level: with the damaged notice's SCR-04 up and the overlay closed, C/A/D, Undo, Redo, Ctrl/Cmd+S and the zoom keys change nothing; Esc cancels only the dialog and an open tool keeps its Draft; keys act again once it closes (R2-4, T38) |
 | AC-08 / AC-06 error | the delete confirmation over the Editor holds opens and drops | component | App level: under the standby SCR-04, Ctrl/Cmd+O calls no picker and a file drop opens nothing; the test fails with the `galleryOpen` gate removed (R3-6, T47) |
 | AC-06 happy | closing the standby delete confirmation focuses a real control | component | `Dialog` returns focus to its opener while it is on the page, else to `returnFocus`; App level: Cancel on the SCR-04 opened from the notice puts focus on the Gallery button, not the body (R3-5, T46) |
+| AC-06 happy | closing a delete confirmation asked from the damaged notice focuses that entry's Delete | component | with a list on screen and no opener on the page, Cancel on SCR-04 puts focus on the pending entry's "Delete", not the body (R4-4, T53) |
+| AC-06 error | a delete that commits drops its entry even when the next listing fails | integration | after `deleteWork` commits and `listWorks` fails, the entry is gone, the count drops by one and its thumbnail URL is revoked (R4-2, T51) |
 | AC-08 error | a thumbnail whose bytes don't decode is marked Damaged | component | an `image/png` Blob of garbage bytes: the `<img>` error marks the entry Damaged; an error from a URL the entry no longer shows marks nothing (S1-4, T26, T33) |
 | AC-08 error | the damaged notice's Delete… opens the confirmation with the overlay closed | component | App level: with no GalleryList mounted the action shows SCR-04 at once; closing the overlay cancels a pending delete (S2-4, T30) |
 | AC-08 error | the damaged entry shows "Can't be read" and stays chooseable and deletable | component | SCR-01 `damaged entry`: the box text, the name or "Untitled", the status "Damaged"; Delete opens SCR-04; the notice's Delete opens SCR-04 too |
@@ -256,7 +261,8 @@ model also imply these boundaries:
   (as in export's offline test).
 - The display is lost while the Gallery shows → thumbnails already painted stay; the Preview follows
   open-and-view's display-lost path; nothing stored changes.
-- Thumbnail object URLs → revoked when the list unmounts (a component row counts create and revoke).
+- Thumbnail object URLs → revoked when the last list unmounts, and the kept entries forget them
+  (a component row counts create and revoke; R4-1).
 - Decoded bitmaps rejected by the size check or superseded by a reopen → released through the bitmap
   ledger; each reopen e2e ends with a check of the ledger's retained count.
 
