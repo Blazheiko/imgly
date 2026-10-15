@@ -1,6 +1,6 @@
 ---
 status: living
-updated_at: "2026-10-13"
+updated_at: "2026-10-15"
 ---
 
 # Roadmap — imgly-editor
@@ -27,7 +27,7 @@ draw on and export an image, then reopen any recent work later and re-edit it wi
 | 5 | Adjust brightness, contrast, saturation, temperature/tint, grayscale and sepia with a live preview, plus Compare and Auto adjust ([`adjust`](features/adjust/)) | idea-brief.md §7 Recommendation | M | shipped |
 | 6 | Draw freehand with a brush and an eraser, choosing colour and width, on a separate drawing layer ([`draw`](features/draw/)) | idea-brief.md §7 Recommendation | M | shipped |
 | 7 | Undo and redo every crop, adjust and draw action while the image is open ([`undo-redo`](features/undo-redo/)) | idea-brief.md §7 Recommendation | S | shipped |
-| 8 | Gallery of recent works: autosave, reopen and re-edit without loss, about 20 works with the oldest evicted, an honest notice that browser storage can be evicted ([`gallery`](features/gallery/)) | idea-brief.md §7 Recommendation + §6 Risks | M | spec'd |
+| 8 | Gallery of recent works: autosave, reopen and re-edit without loss, about 20 works with the oldest evicted, an honest notice that browser storage can be evicted ([`gallery`](features/gallery/)) | idea-brief.md §7 Recommendation + §6 Risks | M | shipped |
 | 9 | Install and update experience: an install prompt and a "new version available" toast | idea-brief.md §1 Raw idea (PWA) | S | idea |
 | 10 | OS integration: paste and copy to the clipboard, and "Open with…" as the system image handler (drag-and-drop moved to step 2) | idea-brief.md §7 Recommendation | M | idea |
 
@@ -105,3 +105,4 @@ flowchart LR
 | 5 — Adjust light and colour | 2026-10-09 (merged to main via PRs #5 and #6) | [changelog](features/adjust/_ship/changelog.md) · [PR #5](https://github.com/Blazheiko/imgly/pull/5) · [PR #6](https://github.com/Blazheiko/imgly/pull/6) |
 | 6 — Draw freehand | 2026-10-10 (merged to main via PR #7) | [changelog](features/draw/_ship/changelog.md) · [PR #7](https://github.com/Blazheiko/imgly/pull/7) |
 | 7 — Undo and redo | 2026-10-12 (merged to main via PR #9) | [changelog](features/undo-redo/_ship/changelog.md) · [PR #9](https://github.com/Blazheiko/imgly/pull/9) |
+| 8 — Gallery of recent works | 2026-10-15 (PR from `feat/gallery`, not yet merged) | [changelog](features/gallery/_ship/changelog.md) |
