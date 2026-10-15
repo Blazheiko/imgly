@@ -3,6 +3,10 @@ import * as m from './messages'
 
 // Every catalog text is compared with the string written here (screens.md §Message catalog).
 describe('gallery messages', () => {
+  it('the listing failure notice', () => {
+    expect(m.failureCouldNotList()).toBe("The Gallery couldn't be read. Try again.")
+  })
+
   it('failure notices name the Work', () => {
     expect(m.failureWorkDamaged('Cat.png')).toBe(
       "“Cat.png” can't be opened: its stored data is damaged.",

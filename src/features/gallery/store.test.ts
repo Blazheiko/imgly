@@ -524,4 +524,38 @@ describe('gallery store', () => {
       expect(await db.get('works', b)).toBeDefined()
     })
   })
+
+  describe('a listing that fails (T45, R3-4, AC-03, AC-05)', () => {
+    const COULD_NOT_LIST = "The Gallery couldn't be read. Try again."
+    const failListing = () =>
+      vi.spyOn(db, 'getAll').mockRejectedValue(new DOMException('boom', 'UnknownError') as never)
+
+    it('a first listing that fails reads nothing: no false empty Gallery, one notice', async () => {
+      failListing()
+
+      await gallery.refresh()
+
+      expect(gallery.listRead).toBe(false)
+      expect(gallery.entries).toEqual([])
+      expect(notices.items.map((n) => [n.kind, n.text])).toEqual([['failure', COULD_NOT_LIST]])
+    })
+
+    it('a later failing refresh keeps the list, listRead, and the thumbnail URLs', async () => {
+      await seed(db, 'A.png', NOW)
+      await seed(db, 'B.png', NOW - MINUTE)
+      await gallery.refresh()
+      const names = gallery.entries.map((e) => e.name)
+      const urls = gallery.entries.map((e) => e.thumbnailUrl)
+      expect(names).toHaveLength(2)
+      const revoke = vi.spyOn(URL, 'revokeObjectURL')
+      failListing()
+
+      await gallery.refresh()
+
+      expect(gallery.entries.map((e) => e.name)).toEqual(names)
+      expect(gallery.listRead).toBe(true)
+      for (const u of urls) expect(revoke).not.toHaveBeenCalledWith(u)
+      expect(notices.items.map((n) => [n.kind, n.text])).toEqual([['failure', COULD_NOT_LIST]])
+    })
+  })
 })

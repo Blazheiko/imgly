@@ -11,6 +11,7 @@ import { useNotices } from '@/shared'
 import {
   damagedNoticeAction,
   failureCouldNotDelete,
+  failureCouldNotList,
   failureCouldNotOpen,
   failureWorkDamaged,
   hintChooseWhileConfirming,
@@ -88,24 +89,22 @@ export const useGallery = defineStore('gallery', () => {
       storageLineKind(persisted) === 'persisted'
         ? storageLinePersisted()
         : storageLineNotPersisted()
-    let next: GalleryEntry[] = []
-    if (listed.ok) {
-      const now = clock()
-      const openId = editor.openWorkId
-      next = listed.value.map((w) => ({
-        id: w.id,
-        name: entryName(w.sourceName),
-        // The open Work is live and stored by Autosave, whatever this page marked earlier.
-        status:
-          w.id === openId
-            ? 'open'
-            : w.damaged || editor.damagedIds.has(w.id)
-              ? 'damaged'
-              : 'touched',
-        label: touchedLabel(w.touchedAt, now),
-        thumbnailUrl: w.record ? URL.createObjectURL(w.record.thumbnail) : null,
-      }))
+    if (!listed.ok) {
+      // Keep what the Gallery showed: an empty list here would read as "no Works" (R3-4).
+      if (seq === refreshSeq) notices.pushAll([{ kind: 'failure', text: failureCouldNotList() }])
+      return
     }
+    const now = clock()
+    const openId = editor.openWorkId
+    const next: GalleryEntry[] = listed.value.map((w) => ({
+      id: w.id,
+      name: entryName(w.sourceName),
+      // The open Work is live and stored by Autosave, whatever this page marked earlier.
+      status:
+        w.id === openId ? 'open' : w.damaged || editor.damagedIds.has(w.id) ? 'damaged' : 'touched',
+      label: touchedLabel(w.touchedAt, now),
+      thumbnailUrl: w.record ? URL.createObjectURL(w.record.thumbnail) : null,
+    }))
     if (seq !== refreshSeq) {
       revokeAll(next)
       return

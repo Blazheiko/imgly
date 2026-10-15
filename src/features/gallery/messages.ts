@@ -13,6 +13,11 @@ export function failureCouldNotOpen(name: string): string {
   return `“${name}” couldn't be opened. Try again.`
 }
 
+/** The list couldn't be read; the Gallery keeps what it showed. AC-03 */
+export function failureCouldNotList(): string {
+  return "The Gallery couldn't be read. Try again."
+}
+
 export function failureCouldNotDelete(name: string): string {
   return `“${name}” couldn't be deleted. Try again.`
 }
