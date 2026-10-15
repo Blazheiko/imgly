@@ -229,6 +229,33 @@ describe('gallery store', () => {
     })
   })
 
+  describe('a thumbnail error never damages the open Work (T43, R3-3, AC-07, AC-03)', () => {
+    it('leaves the open Work entry Open and out of the editor damaged set', async () => {
+      const a = await seed(db, 'A.png', NOW - MINUTE)
+      expect(await editor.reopenWork(a)).toEqual({ kind: 'replaced' })
+      await gallery.refresh()
+      expect(gallery.entries.find((e) => e.id === a)!.status).toBe('open')
+
+      gallery.markDamaged(a, gallery.entries.find((e) => e.id === a)!.thumbnailUrl!)
+
+      expect(gallery.entries.find((e) => e.id === a)!.status).toBe('open')
+      expect(editor.damagedIds.has(a)).toBe(false)
+    })
+
+    it('control: a non-open entry still turns Damaged beside the open Work', async () => {
+      const a = await seed(db, 'A.png', NOW - MINUTE)
+      const b = await seed(db, 'B.png', NOW - 2 * MINUTE)
+      expect(await editor.reopenWork(a)).toEqual({ kind: 'replaced' })
+      await gallery.refresh()
+
+      gallery.markDamaged(b, gallery.entries.find((e) => e.id === b)!.thumbnailUrl!)
+
+      expect(gallery.entries.find((e) => e.id === b)!.status).toBe('damaged')
+      expect(editor.damagedIds.has(b)).toBe(true)
+      expect(gallery.entries.find((e) => e.id === a)!.status).toBe('open')
+    })
+  })
+
   describe('open and close the overlay (AC-03)', () => {
     it('opens with a fresh list and tells the editor, then closes without changing anything', async () => {
       await seed(db, 'A.png', NOW)

@@ -7,7 +7,7 @@ acs: ["AC-07", "AC-03"]
 files_hint: ["src/features/gallery/store.ts", "src/features/gallery/store.test.ts", "src/features/gallery/components/GalleryList.test.ts"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 source: "review-2026-10-14-r3 R3-3"
 ---
 

@@ -272,6 +272,31 @@ describe('GalleryList (SCR-01, SCR-03)', () => {
     })
   })
 
+  describe('thumbnail error on the open Work (T43, R3-3, AC-07, AC-03)', () => {
+    it('keeps the open entry Open with its Delete aria-disabled and hinted', async () => {
+      const a = await seed(db, 'A.png', NOW - MINUTE)
+      await editor.reopenWork(a)
+      const w = await show()
+      const entry = w.findAll('.gallery-entry')[0]!
+
+      await entry.get('img').trigger('error')
+      await nextTick()
+
+      const after = w.findAll('.gallery-entry')[0]!
+      expect(after.classes()).toContain('gallery-entry--open')
+      expect(after.classes()).not.toContain('gallery-entry--damaged')
+      expect(after.text()).toContain(m.statusOpen())
+      expect(after.text()).not.toContain(m.statusDamaged())
+      expect(editor.damagedIds.has(a)).toBe(false)
+      const del = entryButton(w, m.deleteButtonName('A.png'))
+      expect(del.attributes('aria-disabled')).toBe('true')
+      const describedBy = del.attributes('aria-describedby')!
+      expect(document.getElementById(describedBy)?.textContent).toBe(
+        m.hintOpenWorkCannotBeDeleted(),
+      )
+    })
+  })
+
   describe('empty (AC-05)', () => {
     it('shows the plain text, 0 of 20, the storage line and Open image when asked', async () => {
       const w = await show({ showOpenImage: true })

@@ -180,8 +180,12 @@ export const useGallery = defineStore('gallery', () => {
     }
   }
 
-  /** A thumbnail that will not decode: the Work is Damaged now, and stays so across refresh. */
+  /**
+   * A thumbnail that will not decode: the Work is Damaged now, and stays so across refresh. The
+   * open Work stays Open: it is live, and Autosave stores it whole (AC-07).
+   */
   function markDamaged(id: string, thumbnailUrl?: string) {
+    if (id === editor.openWorkId) return
     const entry = entries.value.find((e) => e.id === id)
     if (thumbnailUrl !== undefined && entry?.thumbnailUrl !== thumbnailUrl) return
     editor.markDamaged(id)
