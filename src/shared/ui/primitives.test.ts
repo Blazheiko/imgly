@@ -96,6 +96,72 @@ describe('Toast action (gallery AC-08)', () => {
   })
 })
 
+describe('Toast lasting, keep-open and busy (pwa-install-update AC-06, AC-10, AC-11)', () => {
+  it('renders a lasting notice with the info look: polite status and the accent border', () => {
+    const wrapper = mount(Toast, { props: { kind: 'lasting', text: 'A new version.' } })
+    expect(wrapper.attributes('role')).toBe('status')
+    expect(wrapper.attributes('aria-live')).toBe('polite')
+    expect(wrapper.classes()).toContain('toast--lasting')
+  })
+
+  it('stays open when the action returns keep-open, and focus stays on the action', async () => {
+    const run = vi.fn((): 'keep-open' => 'keep-open')
+    const wrapper = mount(Toast, {
+      props: { kind: 'lasting', text: 'A new version.', action: { label: 'Reload', run } },
+      attachTo: document.body,
+    })
+    const button = wrapper.findAll('button')[0]!
+    ;(button.element as HTMLButtonElement).focus()
+    await button.trigger('click')
+
+    expect(run).toHaveBeenCalledTimes(1)
+    expect(wrapper.emitted('dismiss')).toBeUndefined()
+    expect(document.activeElement).toBe(button.element)
+    wrapper.unmount()
+  })
+
+  it('dismisses as before when the action returns nothing', async () => {
+    const wrapper = mount(Toast, {
+      props: { kind: 'lasting', text: 'x', action: { label: 'Go', run: vi.fn() } },
+    })
+    await wrapper.findAll('button')[0]!.trigger('click')
+    expect(wrapper.emitted('dismiss')).toHaveLength(1)
+  })
+
+  it('renders a busy action as an aria-disabled ghost button with a Spinner and its busy label, and ignores clicks', async () => {
+    const run = vi.fn()
+    const wrapper = mount(Toast, {
+      props: {
+        kind: 'lasting',
+        text: 'A new version.',
+        action: { label: 'Reload', run, busy: true, busyLabel: 'Reloading…' },
+      },
+    })
+    const button = wrapper.findAll('button')[0]!
+
+    expect(button.attributes('aria-disabled')).toBe('true')
+    expect(button.attributes('disabled')).toBeUndefined()
+    expect(button.classes()).toContain('base-button--ghost')
+    expect(button.findComponent(Spinner).exists()).toBe(true)
+    expect(button.text()).toContain('Reloading…')
+    expect(button.text()).not.toContain('Reload ')
+
+    await button.trigger('click')
+    expect(run).not.toHaveBeenCalled()
+    expect(wrapper.emitted('dismiss')).toBeUndefined()
+  })
+
+  it('renders a non-busy action without aria-disabled or a Spinner', () => {
+    const wrapper = mount(Toast, {
+      props: { kind: 'lasting', text: 'x', action: { label: 'Reload', run: vi.fn() } },
+    })
+    const button = wrapper.findAll('button')[0]!
+    expect(button.attributes('aria-disabled')).toBeUndefined()
+    expect(button.findComponent(Spinner).exists()).toBe(false)
+    expect(button.text()).toBe('Reload')
+  })
+})
+
 describe('ToastStack', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -142,6 +208,43 @@ describe('ToastStack', () => {
     await button!.trigger('click')
     expect(run).toHaveBeenCalledTimes(1)
     expect(useNotices().items).toHaveLength(0)
+  })
+
+  it('keeps a lasting notice whose action returns keep-open (pwa-install-update AC-10)', async () => {
+    const wrapper = mount(ToastStack)
+    const run = vi.fn((): 'keep-open' => 'keep-open')
+    useNotices().pushAll([
+      {
+        kind: 'lasting',
+        text: 'A new version.',
+        slot: 'app-update',
+        action: { label: 'Reload', run },
+      },
+    ])
+    await nextTick()
+
+    await wrapper
+      .findAll('button')
+      .find((b) => b.text() === 'Reload')!
+      .trigger('click')
+    expect(run).toHaveBeenCalledTimes(1)
+    expect(useNotices().items).toHaveLength(1)
+  })
+
+  it('passes a busy action through (pwa-install-update AC-11)', async () => {
+    const wrapper = mount(ToastStack)
+    useNotices().pushAll([
+      {
+        kind: 'lasting',
+        text: 'A new version.',
+        action: { label: 'Reload', run: vi.fn(), busy: true, busyLabel: 'Reloading…' },
+      },
+    ])
+    await nextTick()
+
+    const button = wrapper.findAll('button')[0]!
+    expect(button.attributes('aria-disabled')).toBe('true')
+    expect(button.text()).toContain('Reloading…')
   })
 })
 
