@@ -46,5 +46,13 @@
 | T39 | e2e: undecodable thumbnail bytes list Damaged (R2-6) | tests | Blazheiko | S | T38 | done |
 | T40 | Commit-quota fault aborts every save (R2-7) | tests | Blazheiko | S | T39 | done |
 | T41 | Test-plan rows and round-2 resolution | docs | Blazheiko | S | T40 | done |
+| T42 | Out-of-range touchedAt lists Damaged (R3-1) | core | Blazheiko | S | — | todo |
+| T43 | Image error leaves the open Work Open (R3-3) | app | Blazheiko | S | T42 | todo |
+| T44 | STORAGE_FAILED reopen: no Damaged, no Delete (R3-2) | app | Blazheiko | S | T43 | todo |
+| T45 | Failed listing keeps the list, no false empty (R3-4) | app | Blazheiko | S | T44 | todo |
+| T46 | Standby dialog close: focus not on body (R3-5) | ui | Blazheiko | S | — | todo |
+| T47 | Standby-dialog test covers Ctrl+O and drop (R3-6) | tests | Blazheiko | S | T46 | todo |
+| T48 | Refresh-race test waits for its reads (R3-8) | tests | Blazheiko | S | T45 | todo |
+| T49 | Test-plan rows and round-3 resolution | docs | Blazheiko | S | T42, T43, T44, T45, T46, T47, T48 | todo |
 
-**Total:** 41 tasks, ~27 person-days (S ≈ 0.5, M ≈ 0.75, L ≈ 1).
+**Total:** 49 tasks, ~31 person-days (S ≈ 0.5, M ≈ 0.75, L ≈ 1).

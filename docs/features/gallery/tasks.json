@@ -918,6 +918,163 @@
       ],
       "file": "docs/features/gallery/tasks/t41-review-fix.md",
       "source": "docs/features/gallery/_review/review-2026-10-14-r2.md round 2 resolution"
+    },
+    {
+      "id": "T42",
+      "title": "A touchedAt outside the date range lists Damaged and never stops the listing",
+      "layer": "core",
+      "deps": [],
+      "acs": [
+        "AC-08",
+        "AC-03"
+      ],
+      "dod": "A record whose touchedAt is finite but beyond ±8.64e15 fails the shape check and lists Damaged; touchedLabel returns '' for it instead of throwing; refresh() and open() list every other entry. Tested with -1e17 in rules.test.ts and gallery/store.test.ts",
+      "files_hint": [
+        "src/core/gallery/rules.ts",
+        "src/core/gallery/stored-work.ts",
+        "src/core/gallery/rules.test.ts",
+        "src/features/gallery/store.test.ts"
+      ],
+      "file": "docs/features/gallery/tasks/t42-review-fix.md",
+      "source": "docs/features/gallery/_review/review-2026-10-14-r3.md R3-1"
+    },
+    {
+      "id": "T43",
+      "title": "A thumbnail that will not decode never turns the open Work's entry Damaged",
+      "layer": "app",
+      "deps": [
+        "T42"
+      ],
+      "acs": [
+        "AC-07",
+        "AC-03"
+      ],
+      "dod": "gallery.markDamaged leaves the entry for editor.openWorkId Open (Delete still aria-disabled with its hint) and does not add the open id to the page's damaged set; tested in the gallery store and GalleryList",
+      "files_hint": [
+        "src/features/gallery/store.ts",
+        "src/features/gallery/store.test.ts",
+        "src/features/gallery/components/GalleryList.test.ts"
+      ],
+      "file": "docs/features/gallery/tasks/t43-review-fix.md",
+      "source": "docs/features/gallery/_review/review-2026-10-14-r3.md R3-3"
+    },
+    {
+      "id": "T44",
+      "title": "A reopen that fails to read storage says so, without marking the Work Damaged or offering Delete",
+      "layer": "app",
+      "deps": [
+        "T43"
+      ],
+      "acs": [
+        "AC-08",
+        "AC-06"
+      ],
+      "dod": "choose() marks the entry and shows the damaged notice with Delete only for WORK_DAMAGED; STORAGE_FAILED shows a plain failure notice with no action and leaves the entry's status alone; screens.md gains the row; gallery-store test covers both codes",
+      "files_hint": [
+        "src/features/gallery/store.ts",
+        "src/features/gallery/store.test.ts",
+        "src/features/gallery/messages.ts",
+        "docs/features/gallery/screens.md"
+      ],
+      "file": "docs/features/gallery/tasks/t44-review-fix.md",
+      "source": "docs/features/gallery/_review/review-2026-10-14-r3.md R3-2"
+    },
+    {
+      "id": "T45",
+      "title": "A listing that fails keeps what the Gallery showed and never shows a false empty Gallery",
+      "layer": "app",
+      "deps": [
+        "T44"
+      ],
+      "acs": [
+        "AC-03",
+        "AC-05"
+      ],
+      "dod": "When listWorks fails, refresh() keeps the previous entries and listRead (a first listing leaves listRead false, so no count, empty-state text or storage line) and shows a failure notice; tested for a first and a later failing listing",
+      "files_hint": [
+        "src/features/gallery/store.ts",
+        "src/features/gallery/store.test.ts",
+        "src/features/gallery/components/GalleryStart.test.ts"
+      ],
+      "file": "docs/features/gallery/tasks/t45-review-fix.md",
+      "source": "docs/features/gallery/_review/review-2026-10-14-r3.md R3-4"
+    },
+    {
+      "id": "T46",
+      "title": "Closing the standby delete dialog puts focus on a real control, not the page body",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-06"
+      ],
+      "dod": "When the element that opened a Dialog is gone, focus returns to a fallback the host names (the standby dialog names the Gallery button or the open tool's panel); a test shows focus is not body after Cancel, Esc and Delete",
+      "files_hint": [
+        "src/shared/ui/Dialog.vue",
+        "src/shared/ui/primitives.test.ts",
+        "src/app/App.vue",
+        "src/app/App.test.ts"
+      ],
+      "file": "docs/features/gallery/tasks/t46-review-fix.md",
+      "source": "docs/features/gallery/_review/review-2026-10-14-r3.md R3-5"
+    },
+    {
+      "id": "T47",
+      "title": "The standby-dialog test presses Ctrl+O and drops a file",
+      "layer": "tests",
+      "deps": [
+        "T46"
+      ],
+      "acs": [
+        "AC-06"
+      ],
+      "dod": "The R2-4 App test also presses Ctrl+O (picker not called) and dispatches a file drop (openDrop not called) with the standby dialog open; checked against a deliberately removed gate",
+      "files_hint": [
+        "src/app/App.test.ts"
+      ],
+      "file": "docs/features/gallery/tasks/t47-review-fix.md",
+      "source": "docs/features/gallery/_review/review-2026-10-14-r3.md R3-6"
+    },
+    {
+      "id": "T48",
+      "title": "The overlapping-refresh test waits for its reads, not for a fixed delay",
+      "layer": "tests",
+      "deps": [
+        "T45"
+      ],
+      "acs": [],
+      "dod": "store.refresh-race.test.ts waits until the expected number of listWorks gates is reached instead of sleeping 10 ms, and no read from an earlier test can push into the shared gates; passes under a loaded parallel run",
+      "files_hint": [
+        "src/features/gallery/store.refresh-race.test.ts"
+      ],
+      "file": "docs/features/gallery/tasks/t48-review-fix.md",
+      "source": "docs/features/gallery/_review/review-2026-10-14-r3.md R3-8"
+    },
+    {
+      "id": "T49",
+      "title": "Test-plan lists the round-3 review tests, and the round-3 review records its resolution",
+      "layer": "docs",
+      "deps": [
+        "T42",
+        "T43",
+        "T44",
+        "T45",
+        "T46",
+        "T47",
+        "T48"
+      ],
+      "acs": [
+        "AC-03",
+        "AC-06",
+        "AC-07",
+        "AC-08"
+      ],
+      "dod": "test-plan.md has rows for the T42–T48 tests; review-2026-10-14-r3.md gains a Resolution section mapping each finding to its commit",
+      "files_hint": [
+        "docs/features/gallery/test-plan.md",
+        "docs/features/gallery/_review/review-2026-10-14-r3.md"
+      ],
+      "file": "docs/features/gallery/tasks/t49-review-fix.md",
+      "source": "docs/features/gallery/_review/review-2026-10-14-r3.md T42–T48"
     }
   ]
 }
