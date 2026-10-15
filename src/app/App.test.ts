@@ -287,6 +287,32 @@ describe('App Gallery wiring (gallery T17)', () => {
       db.close()
     })
 
+    it('R3-5: Cancel on the standby dialog opened from the notice puts focus on the Gallery button, not the body', async () => {
+      const { db, id, gallery } = await withOpenWorkAndOtherEntry()
+      vi.spyOn(editor, 'reopenWork').mockResolvedValue({
+        kind: 'damaged',
+        error: appError('WORK_DAMAGED'),
+      })
+      await gallery.choose(id)
+      // The toast's button holds focus when the action runs, then is dismissed in the same tick.
+      const toastButton = document.createElement('button')
+      document.body.appendChild(toastButton)
+      toastButton.focus()
+      damagedAction(gallery).run()
+      toastButton.remove()
+      await nextTick()
+      expect(dialog()).not.toBeNull()
+
+      const cancel = dialog()!.querySelector<HTMLElement>('[data-initial-focus]')!
+      cancel.click()
+      await nextTick()
+
+      expect(dialog()).toBeNull()
+      expect(document.activeElement).not.toBe(document.body)
+      expect(document.activeElement).toBe(q('gallery-action'))
+      db.close()
+    })
+
     const press = (key: string, init: KeyboardEventInit = {}) =>
       (document.activeElement ?? document.body).dispatchEvent(
         new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...init }),

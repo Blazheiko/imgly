@@ -34,6 +34,7 @@ async function confirm() {
     v-if="shown && gallery.pendingDelete"
     :title="m.deleteDialogTitle(gallery.pendingDelete.name)"
     initial-focus="[data-initial-focus]"
+    return-focus='[data-testid="gallery-action"]'
     @cancel="gallery.cancelDelete()"
   >
     {{ m.deleteDialogBody() }}

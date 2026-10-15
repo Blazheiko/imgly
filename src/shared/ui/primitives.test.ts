@@ -222,6 +222,38 @@ describe('Dialog', () => {
     wrapper.unmount()
     expect(document.activeElement).toBe(opener)
   })
+
+  describe('returnFocus (gallery T46, R3-5)', () => {
+    const mountWith = (returnFocus: string) =>
+      mount(Dialog, {
+        props: { title: 'Delete?', returnFocus },
+        slots: { default: '<p>Body</p>', actions: '<button>Cancel</button>' },
+        attachTo: document.body,
+      })
+
+    it('focuses the fallback when the opener left the document before close', async () => {
+      const fallback = document.createElement('button')
+      fallback.id = 'fallback'
+      document.body.appendChild(fallback)
+      const wrapper = mountWith('#fallback')
+      await nextTick()
+      opener.remove()
+      wrapper.unmount()
+      expect(document.activeElement).toBe(fallback)
+      fallback.remove()
+    })
+
+    it('still returns to a connected opener, not the fallback', async () => {
+      const fallback = document.createElement('button')
+      fallback.id = 'fallback'
+      document.body.appendChild(fallback)
+      const wrapper = mountWith('#fallback')
+      await nextTick()
+      wrapper.unmount()
+      expect(document.activeElement).toBe(opener)
+      fallback.remove()
+    })
+  })
 })
 
 describe('CanvasMessage', () => {
