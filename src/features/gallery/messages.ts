@@ -8,6 +8,11 @@ export function failureWorkDamaged(name: string): string {
   return `“${name}” can't be opened: its stored data is damaged.`
 }
 
+/** The stored parts couldn't be read; that says nothing about the Work, so no Delete. AC-08 */
+export function failureCouldNotOpen(name: string): string {
+  return `“${name}” couldn't be opened. Try again.`
+}
+
 export function failureCouldNotDelete(name: string): string {
   return `“${name}” couldn't be deleted. Try again.`
 }

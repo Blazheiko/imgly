@@ -274,7 +274,10 @@ describe('App Gallery wiring (gallery T17)', () => {
 
     it('AC-08: with the overlay closed, running the action shows the delete dialog at once', async () => {
       const { db, id, gallery } = await withOpenWorkAndOtherEntry()
-      vi.spyOn(editor, 'reopenWork').mockResolvedValue({ kind: 'damaged' } as never)
+      vi.spyOn(editor, 'reopenWork').mockResolvedValue({
+        kind: 'damaged',
+        error: appError('WORK_DAMAGED'),
+      })
       await gallery.choose(id)
       damagedAction(gallery).run()
       await nextTick()

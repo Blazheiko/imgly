@@ -414,6 +414,25 @@ describe('gallery store', () => {
       expect(gallery.pendingDelete).toEqual({ id: b, name: 'Beach.jpg' })
     })
 
+    it('STORAGE_FAILED: says so, leaves the entry as it was, offers no Delete… (R3-2)', async () => {
+      const b = await seed(db, 'Beach.jpg', NOW - MINUTE)
+      await gallery.open()
+      vi.spyOn(editor, 'reopenWork').mockResolvedValue({
+        kind: 'damaged',
+        error: appError('STORAGE_FAILED'),
+      })
+
+      await gallery.choose(b)
+
+      expect(notices.items).toHaveLength(1)
+      const notice = notices.items[0]!
+      expect(notice.kind).toBe('failure')
+      expect(notice.text).toBe("“Beach.jpg” couldn't be opened. Try again.")
+      expect(notice.action).toBeUndefined()
+      expect(gallery.entries.find((e) => e.id === b)!.status).toBe('touched')
+      expect(editor.damagedIds.has(b)).toBe(false)
+    })
+
     it.each([['confirming'], ['cancelled'], ['superseded']] as const)(
       'a %s outcome raises no notice',
       async (kind) => {

@@ -11,6 +11,7 @@ import { useNotices } from '@/shared'
 import {
   damagedNoticeAction,
   failureCouldNotDelete,
+  failureCouldNotOpen,
   failureWorkDamaged,
   hintChooseWhileConfirming,
   hintChooseWhileExporting,
@@ -165,6 +166,11 @@ export const useGallery = defineStore('gallery', () => {
           notices.pushAll([{ kind: 'info', text: hintChooseWhileConfirming() }])
         break
       case 'damaged': {
+        // A read that failed says nothing about the Work: no Damaged mark, no Delete (R3-2).
+        if (outcome.error.code !== 'WORK_DAMAGED') {
+          notices.pushAll([{ kind: 'failure', text: failureCouldNotOpen(entry?.name ?? '') }])
+          break
+        }
         if (entry) entry.status = 'damaged'
         notices.pushAll([
           {

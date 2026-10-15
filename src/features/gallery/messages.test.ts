@@ -8,6 +8,7 @@ describe('gallery messages', () => {
       "“Cat.png” can't be opened: its stored data is damaged.",
     )
     expect(m.failureCouldNotDelete('Cat.png')).toBe("“Cat.png” couldn't be deleted. Try again.")
+    expect(m.failureCouldNotOpen('Cat.png')).toBe("“Cat.png” couldn't be opened. Try again.")
     expect(m.failureWorkDamaged('Untitled')).toBe(
       "“Untitled” can't be opened: its stored data is damaged.",
     )

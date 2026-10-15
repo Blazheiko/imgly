@@ -68,6 +68,7 @@ When the overlay opens, focus moves to its first entry, or to "Close" when it ha
 | reopening | An entry chosen (Critical flow 2). The Work is read and decoded in full (target p95 ≤ 1.5 s to its first Preview, spec §6). A `Spinner` overlay labelled "Opening {name}" is centred over the Gallery section, and the entries are inert until it ends. With no Work open, no replace gate applies | `Spinner` overlay | wireframe 01-d |
 | reopened | The Work was readable in full | → SCR-02 `reopened` | — |
 | reopen failed (damaged) | Any part missing, damaged or invalid (Critical flow 2, `WORK_DAMAGED`, AC-08). The start screen stays, the entry is marked damaged, and a failure notice names the Work with the action "Delete…" | `GalleryEntry` damaged look · `Toast` `failure` with action "Delete…" → SCR-04 | wireframe 01-e |
+| reopen failed (read) | The stored parts couldn't be read (`STORAGE_FAILED` on choose, review round 3 R3-2). This says nothing about the Work, so the entry keeps its look and no Delete is offered. A failure notice names the Work and asks to try again | as `default` + `Toast` `failure`, no action | — |
 | delete | "Delete" on any entry, damaged or not (Flow 4, AC-06). There is no open Work here, so delete is never unavailable | → SCR-04 | — |
 | deleted | SCR-04 confirmed and committed. The entry is gone and the count drops by one. The last delete leaves the `empty` state | as `default` / `empty` | wireframe 01-a / 01-b |
 | delete failed | The delete transaction failed (Flow 4 `storage failure`, `STORAGE_FAILED`). The entry stays as it was | as `default` + `Toast` `failure` | — |
@@ -239,6 +240,7 @@ When the overlay opens, focus moves to its first entry, or to "Close" when it ha
 | replace asks | Unsaved edits are not stored, or the Gallery is unavailable (AC-17) | → SCR-05 over the overlay. Cancel returns here, the open Work unchanged | — |
 | reopened | Readable and replaced (AC-04) | → SCR-02 `reopened`, the overlay closed | — |
 | reopen failed (damaged) | As SCR-01 `reopen failed` (AC-08). The overlay stays open and the open Work stays exactly as it was | `GalleryEntry` damaged look · `Toast` `failure` with "Delete…" | wireframe 01-e |
+| reopen failed (read) | As SCR-01 `reopen failed (read)`. The overlay stays open and the open Work stays exactly as it was | as `default` + `Toast` `failure`, no action | — |
 | delete | "Delete" on any other entry | → SCR-04 over the overlay | — |
 | deleted / delete failed | As on SCR-01. The count drops by one, or the failure notice shows and the entry stays | as SCR-01 | — |
 | open Work not stored | The open Work was never stored (its first save failed or found no room). It has no entry, so nothing is marked "Open", and the count doesn't include it | as `default` | — |
@@ -358,6 +360,7 @@ The seed for `src/features/editor/messages.ts` (Autosave, reopen and the replace
 | failure | `STORAGE_QUOTA`, doesn't fit alone | AC-10 | This Work couldn't be saved to the Gallery because the browser's storage is full. Export it to keep a copy. |
 | failure (withdrawable) | `STORAGE_FAILED` on a save | AC-11 | This Work couldn't be saved to the Gallery. Export it to keep a copy. |
 | failure + action | `WORK_DAMAGED` on choose | AC-08 | “{name}” can't be opened: its stored data is damaged. Action: **Delete…** |
+| failure | `STORAGE_FAILED` on choose | AC-08 | “{name}” couldn't be opened. Try again. |
 | failure | `STORAGE_FAILED` on a delete | — (Flow 4) | “{name}” couldn't be deleted. Try again. |
 | info | newer version open in another tab | — (ADR-0006) | A newer version of the editor is open in another tab. Reload this page to keep saving to the Gallery. |
 | info (hint) | "Gallery" while a tool is open | — (ux-flows SCR-02) | Apply or cancel the open tool first. |
