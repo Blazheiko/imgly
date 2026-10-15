@@ -18,7 +18,15 @@ vi.mock('@/infra/db', async (orig) => ({
   openGalleryDb: gallerydb.openGalleryDb,
 }))
 
+const picked = vi.hoisted(() => ({ pickImageFile: vi.fn() }))
+vi.mock('@/infra/platform', async (orig) => ({
+  ...(await orig<typeof import('@/infra/platform')>()),
+  pickImageFile: picked.pickImageFile,
+}))
+
 beforeEach(() => {
+  picked.pickImageFile.mockReset()
+  picked.pickImageFile.mockResolvedValue(null)
   gallerydb.openGalleryDb.mockReset()
   gallerydb.openGalleryDb.mockResolvedValue(
     err(appError('STORAGE_UNAVAILABLE', { reason: 'refused' })),
@@ -354,6 +362,42 @@ describe('App Gallery wiring (gallery T17)', () => {
       expect(undo).not.toHaveBeenCalled()
       expect(zoom).not.toHaveBeenCalled()
       expect(editor.view).toEqual(view)
+      expect(gallery.pendingDelete?.id).toBe(id)
+      db.close()
+    })
+
+    it('AC-06: under the standby delete dialog, Ctrl+O opens no file picker and a drop opens no file', async () => {
+      const { db, id, gallery } = await withOpenWorkAndOtherEntry()
+      gallery.requestDelete(id)
+      await nextTick()
+      const openFile = vi.spyOn(editor, 'openFile')
+      const openDrop = vi.spyOn(editor, 'openDrop')
+
+      const ctrlO = new KeyboardEvent('keydown', { key: 'o', ctrlKey: true, bubbles: true })
+      document.body.dispatchEvent(ctrlO)
+      press('o', { metaKey: true })
+      await flushPromises()
+      expect(picked.pickImageFile).not.toHaveBeenCalled()
+
+      const file = new File(['x'], 'a.png', { type: 'image/png' })
+      const drop = new Event('drop', { bubbles: true, cancelable: true })
+      Object.defineProperty(drop, 'dataTransfer', {
+        value: {
+          items: [
+            {
+              kind: 'file',
+              getAsFile: () => file,
+              webkitGetAsEntry: () => ({ isDirectory: false }),
+            },
+          ],
+          files: [file],
+        },
+      })
+      window.dispatchEvent(drop)
+      await flushPromises()
+      expect(drop.defaultPrevented).toBe(true)
+      expect(openDrop).not.toHaveBeenCalled()
+      expect(openFile).not.toHaveBeenCalled()
       expect(gallery.pendingDelete?.id).toBe(id)
       db.close()
     })

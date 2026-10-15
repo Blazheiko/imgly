@@ -7,7 +7,7 @@ acs: ["AC-06"]
 files_hint: ["src/app/App.test.ts"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 source: "review-2026-10-14-r3 R3-6"
 ---
 
