@@ -18,6 +18,7 @@ type W = Work<ImageBitmap, OffscreenCanvas>
  */
 export function createFakeAutosave(options: { available?: boolean } = {}) {
   const galleryAvailable = ref(options.available ?? true)
+  const superseded = ref(false)
   const saving = ref(false)
   const stored = new Set<string>()
   let gate: Promise<void> | null = null
@@ -32,6 +33,7 @@ export function createFakeAutosave(options: { available?: boolean } = {}) {
     isStored: vi.fn((work: W) => galleryAvailable.value && stored.has(key(work))),
     hasStoredState: vi.fn((workId: string) => storedIds.has(workId)),
     galleryAvailable,
+    superseded,
     connectGallery: vi.fn<Autosave['connectGallery']>(),
     keepEncoded: vi.fn<Autosave['keepEncoded']>((workId) => void storedIds.add(workId)),
   }
@@ -39,6 +41,11 @@ export function createFakeAutosave(options: { available?: boolean } = {}) {
     fake: fake as unknown as Autosave,
     spies: fake,
     available: (on: boolean) => (galleryAvailable.value = on),
+    /** A newer version took the Gallery: saving stops, as on `versionchange` (pwa-install-update). */
+    supersede() {
+      galleryAvailable.value = false
+      superseded.value = true
+    },
     markStored: (work: W) => {
       stored.add(key(work))
       storedIds.add(work.id)

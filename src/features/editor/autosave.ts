@@ -4,7 +4,7 @@ import { storeWork, type ImglyDb } from '@/infra/db'
 import { RESTORE_DEADLINE_MS, type PreviewRenderer, type RendererStatus } from '@/render'
 import type { useNotices } from '@/shared/notices'
 import { createSaveQueue } from './autosave-queue'
-import { failureSaveFailed, failureStorageFull, infoEvicted, infoNewerVersion } from './messages'
+import { failureSaveFailed, failureStorageFull, infoEvicted } from './messages'
 import type { IDBPDatabase } from 'idb'
 
 type W = Work<ImageBitmap, OffscreenCanvas>
@@ -55,6 +55,9 @@ export interface AutosaveDeps {
   onStored?: (workId: string) => void
 }
 
+/** The codec worker of this build is gone: a newer build replaced it (pwa-install-update AC-14). */
+class PartUnavailable extends Error {}
+
 interface Held {
   workId: string
   original: Blob | null
@@ -65,6 +68,8 @@ interface Held {
 /** Prepares, stores and reports every save of the open Work (gallery ADR-0003, 0004, 0006). */
 export function createAutosave(deps: AutosaveDeps) {
   const available = ref(false)
+  /** A newer version took the Gallery; this window stopped saving (pwa-install-update ADR-0002). */
+  const superseded = ref(false)
   let db: Db | null = null
   let closing = false
   let held: Held | null = null
@@ -101,6 +106,7 @@ export function createAutosave(deps: AutosaveDeps) {
 
   async function encode(source: ImageBitmap | OffscreenCanvas): Promise<Blob | null> {
     const result = await deps.codec.encodePng(await deps.copyBitmap(source))
+    if (!result.ok && result.error.code === 'APP_PART_UNAVAILABLE') throw new PartUnavailable()
     return result.ok ? result.value : null
   }
 
@@ -154,15 +160,23 @@ export function createAutosave(deps: AutosaveDeps) {
 
   const queue = createSaveQueue<W>(async (work) => {
     if (!db || closing) return false
+    const target = db
     try {
-      return await prepareAndStore(work, db)
-    } catch {
-      fail('failed')
+      return await prepareAndStore(work, target)
+    } catch (error) {
+      // Not awaited: the stop waits for this very save to settle.
+      if (error instanceof PartUnavailable) void stop(target)
+      else fail('failed')
       return false
     }
   })
 
-  async function onVersionChange(connection: Db) {
+  /**
+   * A newer version took the Gallery (`versionchange`) or replaced this build's codec worker: let
+   * the running save finish, drop the pending one, close, and go unavailable (gallery ADR-0006).
+   * The update notice says so; Autosave raises only `superseded` (pwa-install-update ADR-0002).
+   */
+  async function stop(connection: Db) {
     if (closing) return
     closing = true
     queue.dropPending()
@@ -170,7 +184,7 @@ export function createAutosave(deps: AutosaveDeps) {
     connection.close()
     db = null
     available.value = false
-    deps.notices.pushAll([{ kind: 'info', text: infoNewerVersion() }])
+    superseded.value = true
   }
 
   return {
@@ -183,12 +197,13 @@ export function createAutosave(deps: AutosaveDeps) {
     /** The Work has a Stored state to reopen, whether or not its latest revision is stored. */
     hasStoredState: (workId: string) => storedIds.has(workId),
     galleryAvailable: readonly(available),
+    superseded: readonly(superseded),
     connectGallery(result: Result<Db, AppError>) {
       if (!result.ok) return
       db = result.value
       closing = false
       available.value = true
-      db.addEventListener('versionchange', () => void onVersionChange(result.value))
+      db.addEventListener('versionchange', () => void stop(result.value))
     },
     keepEncoded(
       workId: string,

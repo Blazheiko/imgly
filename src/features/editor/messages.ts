@@ -49,10 +49,6 @@ export function failurePartUnavailable(): string {
   return 'imgly was updated in another window. Reload this window to continue.'
 }
 
-export function infoNewerVersion(): string {
-  return 'A newer version of the editor is open in another tab. Reload this page to keep saving to the Gallery.'
-}
-
 /** Copy for the blocking screens that replace the canvas area (SCR-04, SCR-05). */
 export const BLOCKING = {
   UNSUPPORTED_BROWSER: {

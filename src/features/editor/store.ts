@@ -239,6 +239,8 @@ export const useEditorStore = defineStore('editor', () => {
   )
   const saving = computed(() => autosave.value.saving.value)
   const galleryAvailable = computed(() => autosave.value.galleryAvailable.value)
+  /** A newer version took the Gallery and this window stopped saving (pwa-install-update AC-14). */
+  const storageSuperseded = computed(() => autosave.value.superseded.value)
   const openWorkId = computed(() => work.value?.id ?? null)
   // Notices that belong to the image awaiting confirmation; raised only if it replaces (AC-15).
   let heldNotices: NoticeInput[] = []
@@ -790,6 +792,7 @@ export const useEditorStore = defineStore('editor', () => {
     reopenWork,
     saving,
     galleryAvailable,
+    storageSuperseded,
     openWorkId,
     setRendererFactory,
     createRenderer,

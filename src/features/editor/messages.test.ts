@@ -9,7 +9,6 @@ import {
   infoDownscaled,
   infoEvicted,
   infoFirstFrame,
-  infoNewerVersion,
   infoOthersIgnored,
 } from './messages'
 
@@ -156,11 +155,5 @@ describe('Autosave messages (gallery screens.md §Message catalog)', () => {
     const copy = "This Work couldn't be saved to the Gallery. Export it to keep a copy."
     expect(failureSaveFailed()).toBe(copy)
     expect(failureMessage(appError('STORAGE_FAILED'))).toBe(copy)
-  })
-
-  it('info: a newer version is open in another tab (ADR-0006)', () => {
-    expect(infoNewerVersion()).toBe(
-      'A newer version of the editor is open in another tab. Reload this page to keep saving to the Gallery.',
-    )
   })
 })

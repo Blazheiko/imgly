@@ -2544,6 +2544,22 @@ describe('editor store — the Reload gate (pwa-install-update AC-07, AC-10 to A
     expect(await pending).toEqual({ kind: 'confirm', reopenId: null })
   })
 
+  it('exposes storageSuperseded from Autosave (pwa-install-update AC-14)', () => {
+    expect(editor.storageSuperseded).toBe(false)
+    autosave.supersede()
+    expect(editor.storageSuperseded).toBe(true)
+  })
+
+  it('asks for confirmation for an edit made after the storage was superseded (AC-12, AC-14)', async () => {
+    await open()
+    editor.applyAdjustments(contrast(20))
+    autosave.markStored(editor.work!)
+    autosave.supersede()
+    editor.applyAdjustments(contrast(30))
+
+    expect(await editor.requestReload()).toEqual({ kind: 'confirm', reopenId: editor.work!.id })
+  })
+
   it('is ignored when an open starts while it waits for the save', async () => {
     await open()
     editor.applyAdjustments(contrast(20))
