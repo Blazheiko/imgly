@@ -159,8 +159,9 @@ describe('gallery store', () => {
       ['null', null],
       ['missing', undefined],
       ['string', 'yesterday'],
-      ['out of the date range', -1e17],
-    ])('a %s touchedAt lists Damaged and every other Work still lists', async (_l, bad) => {
+      ['below the date range', -1e17],
+      ['above the date range', 1e17],
+    ])('a %s touchedAt lists Damaged, after every other Work', async (_l, bad) => {
       const a = await seed(db, 'A.png', NOW - MINUTE)
       const w = storedWorkFixture({ layer: null, record: { sourceName: 'Bad.png' } })
       const record: Record<string, unknown> = { ...w.record, touchedAt: bad }
@@ -177,6 +178,8 @@ describe('gallery store', () => {
           [w.record.id, 'Bad.png', 'damaged'],
         ]),
       )
+      // Unusable times sort as the oldest (T54, R4-5): newest first, the damaged record last.
+      expect(gallery.entries.map((e) => e.id)).toEqual([a, w.record.id])
       expect(gallery.count).toBe(2)
     })
   })

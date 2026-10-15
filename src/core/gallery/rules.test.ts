@@ -206,6 +206,8 @@ describe('evictionCandidates with an unusable touchedAt (T25, S1-2)', () => {
   const unusable: [string, number][] = [
     ['NaN', NaN],
     ['missing', undefined as unknown as number],
+    ['above the date range', 1e17],
+    ['below the date range', -1e17],
   ]
 
   it.each(unusable)('a %s touchedAt sorts as the oldest and is evicted first', (_l, bad) => {

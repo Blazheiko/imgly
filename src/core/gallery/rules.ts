@@ -28,9 +28,9 @@ export interface EvictionOptions {
   incoming?: string
 }
 
-/** A touchedAt that is missing or not a finite number counts as the oldest possible. */
+/** A touchedAt that is not a usable time counts as the oldest possible (R4-5). */
 function touchedKey(r: { touchedAt: unknown }): number {
-  return typeof r.touchedAt === 'number' && Number.isFinite(r.touchedAt) ? r.touchedAt : -Infinity
+  return isUsableTime(r.touchedAt) ? r.touchedAt : -Infinity
 }
 
 /** A total order, oldest first: an unusable touchedAt first, then by touchedAt, the id breaking ties. */
