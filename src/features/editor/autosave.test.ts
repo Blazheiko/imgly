@@ -547,6 +547,34 @@ describe('Autosave failed save (gallery AC-11)', () => {
     expect(onStored).toHaveBeenCalledExactlyOnceWith(work.id)
   })
 
+  it('hasStoredState: true once a save of the Work committed, and after a later failure (pwa-install-update AC-12)', async () => {
+    let failing = true
+    const s = setup({
+      faults: () => ({ failPut: (store) => (failing && store === 'works' ? 'other' : null) }),
+    })
+    await s.connect()
+    const work = makeWork()
+    expect(s.autosave.hasStoredState(work.id)).toBe(false)
+
+    await save(s, work)
+    expect(s.autosave.hasStoredState(work.id)).toBe(false)
+
+    failing = false
+    await save(s, edited(work, 1))
+    expect(s.autosave.hasStoredState(work.id)).toBe(true)
+
+    failing = true
+    await save(s, edited(work, 2))
+    expect(s.autosave.hasStoredState(work.id)).toBe(true)
+    expect(s.autosave.hasStoredState('other-work')).toBe(false)
+  })
+
+  it('hasStoredState: true for a Work reopened from the Gallery (pwa-install-update AC-08)', () => {
+    const s = setup()
+    s.autosave.keepEncoded('reopened', { original: png(1), layer: null, layerId: null })
+    expect(s.autosave.hasStoredState('reopened')).toBe(true)
+  })
+
   it('does not throw and keeps working after a failure', async () => {
     const s = setup({ faults: { failPut: (store) => (store === 'works' ? 'other' : null) } })
     await s.connect()

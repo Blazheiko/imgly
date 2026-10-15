@@ -2398,3 +2398,181 @@ describe('editor store — reopenWork (gallery AC-02, AC-04, AC-08, AC-15, AC-17
     })
   })
 })
+
+describe('editor store — the Reload gate (pwa-install-update AC-07, AC-10 to AC-13, ADR-0004)', () => {
+  let decoder: ReturnType<typeof fakeDecoder>
+  let editor: ReturnType<typeof useEditorStore>
+  let autosave: ReturnType<typeof createFakeAutosave>
+
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    decoder = fakeDecoder()
+    autosave = createFakeAutosave()
+    editor = useEditorStore()
+    editor.setAutosave(autosave.fake)
+    editor.setDecoder(decoder.decode)
+    editor.setCanvasSize(1000, 800)
+  })
+
+  const flush = async () => {
+    for (let i = 0; i < 10; i++) await Promise.resolve()
+  }
+
+  async function open(width = 400, height = 200) {
+    const pending = editor.openImage(file())
+    decoder.answer(decoder.decode.mock.calls.length - 1, ok(decoded(width, height)))
+    return pending
+  }
+
+  const contrast = (value: number) => ({ ...NEUTRAL_ADJUSTMENTS, contrast: value })
+
+  it('is ready with no reopenId when no Work is open (AC-07)', async () => {
+    expect(await editor.requestReload()).toEqual({ kind: 'ready', reopenId: null })
+  })
+
+  it('is ready with the Work id when its latest state is stored (AC-07)', async () => {
+    await open()
+    editor.applyAdjustments(contrast(20))
+    autosave.markStored(editor.work!)
+
+    expect(await editor.requestReload()).toEqual({ kind: 'ready', reopenId: editor.work!.id })
+  })
+
+  it('is ready with no reopenId for a Work without Unsaved edits that was never stored', async () => {
+    await open()
+    expect(await editor.requestReload()).toEqual({ kind: 'ready', reopenId: null })
+  })
+
+  it('refuses with tool-open while a tool is open, and changes nothing (AC-10)', async () => {
+    await open()
+    editor.openTool('adjust')
+    editor.setPreviewAdjustments(contrast(50))
+
+    expect(await editor.requestReload()).toEqual({ kind: 'tool-open' })
+    expect(editor.activeTool).toBe('adjust')
+    expect(editor.previewAdjustments).toEqual(contrast(50))
+    expect(editor.phase).toBe('idle')
+    expect(useNotices().items).toEqual([])
+  })
+
+  it('refuses with exporting while an Export runs (AC-13)', async () => {
+    await open()
+    const snapshot = editor.beginExport()!
+    expect(await editor.requestReload()).toEqual({ kind: 'exporting' })
+    expect(editor.phase).toBe('exporting')
+    editor.finishExport(snapshot, false)
+    expect((await editor.requestReload()).kind).toBe('ready')
+  })
+
+  it('asks for confirmation with no reopenId when the edits were never stored (AC-12)', async () => {
+    autosave.available(false)
+    await open()
+    editor.applyAdjustments(contrast(20))
+
+    expect(await editor.requestReload()).toEqual({ kind: 'confirm', reopenId: null })
+    expect(editor.phase).toBe('idle')
+  })
+
+  it('asks for confirmation with the Work id when the latest edits are not stored after an earlier save (AC-12)', async () => {
+    await open()
+    editor.applyAdjustments(contrast(20))
+    autosave.markStored(editor.work!)
+    editor.applyAdjustments(contrast(30))
+
+    expect(await editor.requestReload()).toEqual({ kind: 'confirm', reopenId: editor.work!.id })
+  })
+
+  it('carries the id of a Work reopened from the Gallery', async () => {
+    await open()
+    autosave.spies.keepEncoded(editor.work!.id, {
+      original: new Blob(),
+      layer: null,
+      layerId: null,
+    })
+    expect(await editor.requestReload()).toEqual({ kind: 'ready', reopenId: editor.work!.id })
+  })
+
+  it('waits for a running save, then is ready once it stored the edits (AC-11)', async () => {
+    await open()
+    editor.applyAdjustments(contrast(20))
+    autosave.hold()
+    const pending = editor.requestReload()
+    let done = false
+    void pending.then(() => (done = true))
+    await flush()
+    expect(done).toBe(false)
+
+    autosave.markStored(editor.work!)
+    autosave.release()
+    expect(await pending).toEqual({ kind: 'ready', reopenId: editor.work!.id })
+  })
+
+  it('checks again after the save: a tool opened during the wait refuses (AC-11)', async () => {
+    await open()
+    editor.applyAdjustments(contrast(20))
+    autosave.hold()
+    const pending = editor.requestReload()
+    await flush()
+    editor.openTool('adjust')
+    autosave.markStored(editor.work!)
+    autosave.release()
+
+    expect(await pending).toEqual({ kind: 'tool-open' })
+  })
+
+  it('checks again after the save: an Export started during the wait refuses (AC-11)', async () => {
+    await open()
+    editor.applyAdjustments(contrast(20))
+    autosave.hold()
+    const pending = editor.requestReload()
+    await flush()
+    editor.beginExport()
+    autosave.markStored(editor.work!)
+    autosave.release()
+
+    expect(await pending).toEqual({ kind: 'exporting' })
+  })
+
+  it('checks again after the save: a save that failed asks for confirmation (AC-11, AC-12)', async () => {
+    await open()
+    editor.applyAdjustments(contrast(20))
+    autosave.hold()
+    const pending = editor.requestReload()
+    await flush()
+    autosave.release()
+
+    expect(await pending).toEqual({ kind: 'confirm', reopenId: null })
+  })
+
+  it('is ignored when an open starts while it waits for the save', async () => {
+    await open()
+    editor.applyAdjustments(contrast(20))
+    autosave.hold()
+    const pending = editor.requestReload()
+    await flush()
+    void editor.openImage(file())
+    autosave.markStored(editor.work!)
+    autosave.release()
+
+    expect(await pending).toEqual({ kind: 'ignored' })
+  })
+
+  it('is ignored while an image is being read', async () => {
+    await open()
+    void editor.openImage(file())
+    expect(editor.phase).toBe('reading')
+
+    expect(await editor.requestReload()).toEqual({ kind: 'ignored' })
+    expect(autosave.spies.settled).toHaveBeenCalledTimes(1)
+  })
+
+  it('is ignored while the Replace confirmation is up', async () => {
+    autosave.available(false)
+    await open()
+    editor.applyAdjustments(contrast(20))
+    expect(await open(800, 600)).toEqual({ kind: 'confirming' })
+
+    expect(await editor.requestReload()).toEqual({ kind: 'ignored' })
+    expect(editor.phase).toBe('confirming')
+  })
+})

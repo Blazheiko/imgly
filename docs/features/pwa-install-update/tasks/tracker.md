@@ -10,7 +10,7 @@
 | T3 | Service-worker client and reload marker | infra | Blazheiko | M | — | done |
 | T4 | Install-prompt client + `INSTALL_FAILED` | infra | Blazheiko | S | — | done |
 | T5 | `APP_PART_UNAVAILABLE` in worker clients | infra | Blazheiko | M | — | done |
-| T6 | Reload gate `editor.requestReload()` | app | Blazheiko | M | — | todo |
+| T6 | Reload gate `editor.requestReload()` | app | Blazheiko | M | — | done |
 | T7 | Autosave raises `storageSuperseded` | app | Blazheiko | S | T5, T6 | todo |
 | T8 | Feature store update lifecycle | app | Blazheiko | M | T1, T2, T3, T7 | todo |
 | T9 | Reload action and resume after update | app | Blazheiko | M | T6, T8 | todo |

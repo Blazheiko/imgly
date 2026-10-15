@@ -5,6 +5,7 @@ export type {
   EditorPhase,
   ExportSnapshot,
   PanelId,
+  ReloadOutcome,
   ReopenOutcome,
   ReopenSource,
   ToolId,

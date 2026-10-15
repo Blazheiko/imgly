@@ -93,6 +93,17 @@ export type ReopenOutcome =
   | { kind: 'superseded' }
   | { kind: 'already-open' }
 
+/**
+ * What the Reload gate allows after a running save settled (pwa-install-update ADR-0004).
+ * `reopenId` is the open Work's id when it has a Stored state to reopen, else null.
+ */
+export type ReloadOutcome =
+  | { kind: 'ignored' }
+  | { kind: 'tool-open' }
+  | { kind: 'exporting' }
+  | { kind: 'confirm'; reopenId: string | null }
+  | { kind: 'ready'; reopenId: string | null }
+
 /** Where `reopenWork` reads a stored Work from; injectable like the decoder. */
 export interface ReopenSource {
   loadWork: (id: string) => Promise<Result<LoadedWork, AppError>>
@@ -441,6 +452,23 @@ export const useEditorStore = defineStore('editor', () => {
     )
   }
 
+  /**
+   * The Reload gate: may this window leave its Work for a new version now? Waits for a running
+   * save, then checks everything again (AC-11): an open tool (AC-10), a running Export (AC-13),
+   * edits the Gallery does not hold (AC-12, the Replace gate's rule). Changes no state.
+   */
+  async function requestReload(): Promise<ReloadOutcome> {
+    const busy = () => phase.value === 'reading' || phase.value === 'confirming'
+    if (busy()) return { kind: 'ignored' }
+    await autosave.value.settled()
+    if (busy()) return { kind: 'ignored' }
+    if (activeTool.value) return { kind: 'tool-open' }
+    if (phase.value === 'exporting') return { kind: 'exporting' }
+    const open = work.value
+    const reopenId = open && autosave.value.hasStoredState(open.id) ? open.id : null
+    return needsConfirmation() ? { kind: 'confirm', reopenId } : { kind: 'ready', reopenId }
+  }
+
   function confirmReplace(): OpenOutcome {
     if (phase.value === 'confirming' && pendingRestore) {
       const restored = pendingRestore
@@ -773,6 +801,7 @@ export const useEditorStore = defineStore('editor', () => {
     openDrop,
     confirmReplace,
     cancelReplace,
+    requestReload,
     applyEdit,
     undo,
     redo,

@@ -68,6 +68,8 @@ export function createAutosave(deps: AutosaveDeps) {
   let db: Db | null = null
   let closing = false
   let held: Held | null = null
+  // Works with a Stored state in the Gallery: a save of theirs committed, or they were reopened.
+  const storedIds = new Set<string>()
   const failures: { full: string | null; failed: string | null } = { full: null, failed: null }
   const noDamage: ReadonlySet<string> = new Set()
 
@@ -142,6 +144,7 @@ export function createAutosave(deps: AutosaveDeps) {
       return false
     }
     withdraw('failed')
+    storedIds.add(work.id)
     deps.onStored?.(work.id)
     if (stored.value.evicted.length > 0) {
       deps.notices.pushAll([{ kind: 'info', text: infoEvicted(stored.value.evicted) }])
@@ -177,6 +180,8 @@ export function createAutosave(deps: AutosaveDeps) {
     saving: queue.saving,
     settled: () => queue.settled(),
     isStored: (work: W) => available.value && queue.isStored(work),
+    /** The Work has a Stored state to reopen, whether or not its latest revision is stored. */
+    hasStoredState: (workId: string) => storedIds.has(workId),
     galleryAvailable: readonly(available),
     connectGallery(result: Result<Db, AppError>) {
       if (!result.ok) return
@@ -190,6 +195,7 @@ export function createAutosave(deps: AutosaveDeps) {
       blobs: { original: Blob; layer: Blob | null; layerId: string | null },
     ) {
       held = { workId, ...blobs }
+      storedIds.add(workId)
     },
   }
 }
