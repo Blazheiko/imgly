@@ -218,140 +218,196 @@ C4Container
 
 ## 6. Runtime view
 
-<!-- 🎯 Why: the RUNTIME FLOW of 1–2 critical scenarios — who talks to whom, when, in what order.
-     Without §6, §5 is just boxes with no life.
-     📋 Write: a Mermaid sequenceDiagram. Participants are names from §5 (don't invent new ones).
-     Messages are semantic («saves a draft»), NO HTTP verbs / paths / status codes — endpoint-level
-     sequences arrive at the `api` stage.
-     📌 e.g. «author → web: composes draft → web → content API: save». Seed the primary flow(s) here;
-     the `sequences` stage then covers every §5 AC (no cap). Never N/A for M+; XS/S keeps ≥1 happy-path flow. -->
+Participants are the §5 building blocks. "Feature store" means the `pwa-install-update` store, and "Editor store" means the `editor` store with its composed Autosave and the Reload gate (ADR-0004). Messages are semantic. Each flow below folds its error branches into `alt` blocks. The `sequences` stage completes coverage of every §5 AC, including the install refusals of AC-02 and AC-04, the offline-ready notice of AC-05, the dismissal rules of AC-09 and the failed checks of AC-15.
 
-**Critical flow 1: <flow name>**
+**Critical flow 1: An App update waits, the Editor chooses Reload, and the Work comes back (AC-06 to AC-13)**
 
 ```mermaid
 sequenceDiagram
-    actor Actor
-    participant Web
-    participant Service
-    participant Store
-    Actor->>Web: <action>
-    Web->>Service: <call>
-    Service->>Store: <write>
-    Store-->>Service: ok
-    Service-->>Web: result
-    Web-->>Actor: confirmation
+    actor Editor
+    participant Feature as Feature store
+    participant Store as Editor store
+    participant SW as Service worker
+    participant Marker as Reopen marker
+    participant DB as Gallery store
+    SW-->>Feature: a new version has downloaded and waits
+    Feature-->>Editor: lasting update notice - a new version is available, Reload
+    Editor->>Feature: Reload
+    Feature->>Store: requestReload
+    Store->>Store: wait until no save is running or pending, the Editor keeps working
+    alt a tool is open
+        Store-->>Feature: tool-open
+        Feature-->>Editor: Apply or cancel the open tool first, the update notice stays
+    else an Export is running
+        Store-->>Feature: exporting
+        Feature-->>Editor: wait for the export to finish, the update notice stays
+    else Unsaved edits not stored in the Gallery
+        Store-->>Feature: confirm, with the id of the last Stored state or none
+        Feature-->>Editor: reload confirmation - unstored edits will be lost, export first to keep them
+        alt cancel
+            Editor->>Feature: cancel
+            Feature-->>Editor: Work, Edit history and update notice unchanged
+        else confirm
+            Editor->>Feature: confirm
+            Feature->>Marker: mark the Work id, only when there is a Stored state
+            Feature->>SW: take over now
+        end
+    else nothing to wait for or lose
+        Store-->>Feature: ready, with the open Work's id or none
+        Feature->>Marker: mark the Work id, only when there is a Stored state
+        Feature->>SW: take over now
+    end
+    SW-->>Feature: controllerchange in this window
+    Feature->>Feature: reload the page into the new version
+    Feature->>Marker: take the marker once, read and delete
+    opt a Work id was marked
+        Feature->>Store: reopenWork with that id
+        Store->>DB: load the stored Work
+        alt readable
+            Store-->>Editor: same Original, Geometry, Adjustments and Drawing layer, empty Edit history, View fitted
+        else damaged or evicted
+            Store-->>Editor: no Work open, notice says why it could not be reopened
+        end
+    end
 ```
 
-**Critical flow 2: <e.g. async event propagation>** — <if applicable, otherwise N/A>.
+**Critical flow 2: Another window switches versions, then upgrades the Gallery store (AC-14)**
+
+```mermaid
+sequenceDiagram
+    actor Editor
+    participant Feature as Feature store
+    participant Store as Editor store
+    participant SW as Service worker
+    participant DB as Gallery store
+    participant Other as Same app in another window
+    Note over Editor,Store: This window runs the older version with a Work open
+    Other->>SW: take over now, after its own Reload checks
+    SW-->>Feature: controllerchange, not asked for by this window
+    Feature-->>Editor: update notice - imgly was updated in another window, Reload, shown even after a dismissal
+    alt an action needs a worker script of the older build
+        Editor->>Store: open, reopen or export
+        Store-->>Editor: nothing changed, imgly was updated in another window and must be reloaded to continue
+    end
+    Other->>DB: first start of the new version upgrades the schema
+    DB-->>Store: versionchange
+    Store->>Store: let the running save finish, close the connection, stop saving
+    Store-->>Feature: storageSuperseded
+    Feature-->>Editor: the same notice reworded - reload to keep saving
+    Editor->>Feature: Reload
+    Feature->>Store: requestReload, edits made since count as not stored
+    Note over Feature,Store: continues as flow 1 from requestReload, then reloads the page
+```
+
+**Critical flow 3: Install the app from a tab (AC-01, AC-03)**
+
+```mermaid
+sequenceDiagram
+    actor Reviewer as Portfolio reviewer
+    participant Install as InstallAction
+    participant Feature as Feature store
+    participant Runtime as Browser PWA runtime
+    Runtime-->>Feature: the browser offers installation, the event is kept
+    Feature-->>Install: show Install app, the window is not the Installed app
+    Reviewer->>Install: Install app
+    Install->>Feature: install
+    Feature->>Runtime: show the install confirmation
+    alt dismissed
+        Runtime-->>Feature: dismissed
+        Feature-->>Install: hide until the browser offers again, no notice
+    else accepted and installed
+        Runtime-->>Feature: accepted, then appinstalled
+        Feature-->>Install: hide, the Installed app opens in its own window without the action
+    else the confirmation fails, or no appinstalled within the bounded wait
+        Runtime-->>Feature: rejected or silent
+        Feature-->>Reviewer: notice - could not install, try the browser's menu
+    end
+```
 
 ## 7. Deployment view
 
-<!-- 🎯 Why: the TOPOLOGY DevOps must know without reading the deploy charts — how many replicas,
-     where the background worker lives, AT WHAT NUMBERS we scale.
-     📋 Write: 2–3 sentences on topology + monitoring + concrete threshold numbers.
-     📌 e.g. «500 authors → partition by quarter» (not «we'll think about scale later»).
-     🎯 N/A allowed for XS/S that reuses an existing deployment unit with no change.
-     Deployment-diagram scaffold → templates/deployment.md. -->
+The deployment unit is unchanged. One static build goes to GitHub Pages under `/imgly/` over HTTPS, and every window runs it in the browser. The browser re-checks `sw.js` at registration and whenever the feature calls `registration.update()`, and it fetches the service-worker script past the HTTP cache by default, so GitHub Pages' caching headers do not delay the update check. What changes is the service-worker lifecycle that ships with the build: `registerType: 'prompt'` and no Workbox `skipWaiting` (ADR-0001). Each deploy replaces every hashed file on GitHub Pages, which is why an older window can miss a worker script once a newer version controls it (AC-14).
 
-<Topology in 2–3 sentences. Where it runs, replicas, scaling thresholds.>
+**Transition release.** Windows that still run the current `autoUpdate` build do not wait for the Editor. They get no update notice and keep their version, and the new worker waits until all of them close. After that one transition, every later release follows this feature's rules (§11).
 
 **Monitoring:**
-- <Metrics — e.g. `<metric_name>`>
-- <Alerts — e.g. «worker lag > 10 min → page on-call»>
-- <Tracing — e.g. spans on the request boundary>
+- None at runtime: the app has no server or telemetry (ADR 0001). The spec's §6 and §7 targets are checked by the update e2e flows and the `@perf` run on the reference machine (§10).
 
 **Scaling thresholds:**
-- <e.g. comfortable in one table up to N rows/year>
-- <e.g. partition by quarter above N rows/year>
-
-<!-- For XS/S with no deployment change: <!-- N/A: reuses existing deployment unit, no infra change --> -->
+- Not applicable. Each check is one conditional request for `sw.js` per visible window, at most once every 60 minutes (spec §6).
 
 ## 8. Crosscutting concepts
 
-<!-- 🎯 Why: CROSS-CUTTING PATTERNS spanning several modules: logging, errors, authorization, ID
-     strategy, events, caching. ⭐ The second-densest section. A pattern inside one module is NOT
-     here; a project-wide convention belongs in the convention file.
-     📋 Write: a table — concept / convention / where defined. One row per concept.
-     📌 e.g. «sortable time-based IDs generated in the app layer» as a default from the convention file. -->
-
 | Concept | Convention | Where defined |
 |---|---|---|
-| Logging | <e.g. structured, fields `module=<name>`> | <convention file §X or here> |
-| Authentication | <e.g. token-based via middleware> | <convention file §X> |
-| Error handling | <e.g. domain sentinel → ports error mapping → JSON> | <convention file §X> |
-| ID strategy | <e.g. sortable time-based ID in the app layer> | <convention file §X> |
-| Internationalisation | <e.g. N/A, single language> | — |
-| Observability | <e.g. tracing on the request boundary> | — |
-| Events | <module-specific patterns, if any> | <here> |
+| Error handling | `infra` returns `Result`. New codes `INSTALL_FAILED` and `APP_PART_UNAVAILABLE` are added to `AppErrorCode`, and their text goes in the owning feature's `messages.ts`. A failed or offline update check is not an error and shows nothing (AC-15) | `src/core/result.ts`, CLAUDE.md §Conventions |
+| Notices | The single `useNotices` boundary gains the kind `'lasting'`, the `slot` that lets a newer notice replace an older one, and actions that keep a notice open. All update wordings share the `app-update` slot, so a window shows at most one (AC-14). Refusals are `failure` notices, and the offline-ready notice is `info` | §5, `docs/design-system.md` (Toast, ToastStack) |
+| Cross-feature coordination | Only through the `editor` store: `requestReload()`, `reopenWork(id)` and `storageSuperseded`. No event bus, and no feature imports another | repo ADR 0002, ADR-0004 |
+| Window-local state | Only the reopen marker, in `sessionStorage`, for the duration of one update reload. Nothing else of this feature is stored, and the Gallery schema is unchanged | ADR-0003 |
+| Security and privacy | Installation always goes through the browser's confirmation, and the app never calls `prompt()` without the Editor's click. The marker holds only the Work id and is deleted before it is used. A new version is accepted only from the app's origin and `/imgly/` scope | spec §6.1, ADR-0003 |
+| ID strategy | No new entities. The marker carries the existing Work id (UUIDv7) | `src/shared/ids.ts` |
+| Timing | The check schedule is a pure `core` function of the last check time, the current time and the window's visibility, driven by a timer and `visibilitychange` in the feature store | `src/core/app-update/`, spec §6 |
+| Internationalisation | N/A: one language, English copy in `messages.ts` | — |
+| Testing hooks | `src/app/test-hooks.ts` gains PWA hooks for the e2e build: a synthetic install offer, the update state and the marker. Real service-worker updates are e2e flows against two builds (spec §8 Q1) | `src/app/test-hooks.ts`, `e2e/test-hooks.d.ts` |
 
 ## 9. Architecture decisions
 
-<!-- 🎯 Why: the REVERSE INDEX onto the adr/ folder. `ls adr/` gives the files; §9 gives the
-     semantics — why they exist, which SAD section they attach to, what status.
-     📋 Write: a 4-column table, one row per ADR. Mixed status is fine.
-     📌 e.g. «0001 | Store content as a table of typed blocks | Accepted | §4». -->
-
 | # | Title | Status | Section |
 |---|---|---|---|
-| <NNNN> | <imperative — e.g. "Use a sliding-window counter for rate limiting"> | Accepted | §<N> |
-| <NNNN> | <imperative — e.g. "Co-locate the worker in the API process"> | Accepted | §<N> |
+| 0001 | [Hold each new version in a waiting service worker until the Editor chooses Reload](adr/0001-hold-each-new-version-in-a-waiting-service-worker-until-the-editor-chooses-reload.md) | Accepted | §4 |
+| 0002 | [Tell other windows of a switch through controllerchange and of a storage change through versionchange](adr/0002-tell-other-windows-of-a-switch-through-controllerchange-and-of-a-storage-change-through-versionchange.md) | Accepted | §4 |
+| 0003 | [Keep the Work to reopen as a take-once id in this tab's sessionStorage](adr/0003-keep-the-work-to-reopen-as-a-take-once-id-in-this-tabs-sessionstorage.md) | Accepted | §4 |
+| 0004 | [Own the Reload gate in the editor store and the install and update UI in a new feature](adr/0004-own-the-reload-gate-in-the-editor-store-and-the-install-and-update-ui-in-a-new-feature.md) | Accepted | §4 |
 
-ADR files live under `docs/features/<slug>/adr/NNNN-<title>.md`.
+ADR files live under `docs/features/pwa-install-update/adr/NNNN-<title>.md`.
 
 ## 10. Quality requirements
 
-<!-- 🎯 Why: the QUALITY TREE — take a goal from §1 and break it into concrete leaves: tests,
-     metrics, configs, drills. ⭐ Without §10, §1 is a manifesto. With §10 each declaration maps
-     to something PROVABLE.
-     📋 Write: per §1 goal — When / Then / How-verify. Numbers from spec §6 NFR VERBATIM (don't
-     round ≤250ms to ≤300ms — that's a critic F6 hit).
-     📌 e.g. «p95 ≤ 500 ms on a block update, verified by a 100 req/s load test». -->
+Reference machine: Apple M1 MacBook Air with the latest stable Chrome. The reference Work is the 4096 × 3072 px Work of gallery §6. Each p95 is taken over 20 runs after 2 warm-up runs (spec §6).
 
-Each top-3 goal from §1 expanded into a full scenario:
+**QG-1. An update never interrupts work**
+- **When:** an App update arrives while the update notice is ignored, a tool is open, an Export is running or a save is running, and the Editor chooses "Reload" where the flow allows it.
+- **Then:** reloads the Editor did not choose = 0 across the update e2e flows (notice ignored, tool open, Export running, save running). Drafts and applied changes lost to an update without the Editor's confirmation = 0 across the same flows.
+- **How verify:** e2e on Chromium, Firefox and WebKit. The harness serves a second build, triggers a check and drives each flow, then asserts that no navigation happened before "Reload". It compares the reopened Work's Export with the Export made before the update. Where Firefox or WebKit cannot run the two-build flow, it is measured there and gated on Chromium (spec §8 Q1).
 
-**QG-1. <quality attribute>**
-- **When:** <trigger condition>
-- **Then:** <expected behaviour with numbers from spec §6 NFR>
-- **How verify:** <test / chaos drill / load test / metric>
+**QG-2. No window stays outdated without a notice**
+- **When:** a newer version is published while a window is open and online, or another window switches versions.
+- **Then:** from a newer version being published to an open, online window showing the update notice takes ≤ 60 minutes plus the download time. Each window checks on start and at most once every 60 minutes while it is visible. A hidden window does not check, and it checks on becoming visible again when 60 minutes have passed. Windows left on an outdated version without a notice = 0 in the two-window e2e flow.
+- **How verify:** a unit test of the check schedule with a fake clock (`src/core/app-update/`). An e2e test publishes a second build and triggers a check. A two-window e2e test asserts the "updated in another window" notice, and after a schema change it asserts the "reload to keep saving" notice and that no further save reaches the Gallery store.
 
-**QG-2. <quality attribute>**
-- **When:** <trigger>
-- **Then:** <expected>
-- **How verify:** <how>
-
-**QG-3. <quality attribute>**
-- **When:** <trigger>
-- **Then:** <expected>
-- **How verify:** <how>
+**QG-3. The way back is fast and exact, and works offline**
+- **When:** the Editor chooses "Reload" with the reference Work open, an update downloads during editing, or the Installed app starts without a connection.
+- **Then:** from choosing "Reload" to the reopened reference Work's first Preview in the new version, p95 ≤ 3 s. Longest interface freeze while the update downloads ≤ 200 ms (the open-and-view target). 100% of starts of the Installed app succeed offline after its first load, on Chromium.
+- **How verify:** an `@perf` e2e performance test on the reference machine for the reload time. A long-task trace during a background download for the freeze. An e2e test in offline mode for the Installed app's starts.
 
 ## 11. Risks and technical debt
 
-<!-- 🎯 Why: ⭐ collects EVERYTHING that can break — not only the technical. Without §11 risks get
-     discussed at standups and lost; debt lives only in the head of whoever accepted it.
-     📋 Write: a risk/debt table — severity — mitigation — owner. Accepted debt in its own block.
-     📌 The first risk is often a product risk, not a technical one. That's normal. -->
-
-<!-- Severity literals: Low / Medium / High for regular risks; "Open question" for rows created by
-     a Save-as-OQ resolution during the Socratic walk (see references/socratic.md). -->
-
 | Risk / debt | Severity | Mitigation | Owner |
 |---|---|---|---|
-| <e.g. Worker lag may reach hours during a downstream outage> | Medium | <alert >10 min, on-call playbook, retry backoff> | <DevOps> |
-| <e.g. No event-schema versioning in v1> | Medium | <ADR-NNNN planned for v2, tolerate unknown fields> | <Backend> |
-| Open architectural decision: <decision-headline> | Open question | Resolve before <stage trigger or YYYY-MM-DD>; <inline rationale from the Save-as-OQ> | <owner> |
+| Transition release: windows on the current `autoUpdate` build get no update notice for the first release that ships this feature, and the new version takes over only once all of them close | Low | One-time. The behaviour is still safe, with no reload and no loss. The release note in the changelog says so, and an e2e test starts from the old build to confirm the new worker waits | Blazheiko |
+| A window that no service worker controls, for example after a hard reload, gets no `controllerchange` and no "updated in another window" notice | Low | It still stops saving and shows "reload to keep saving" on `versionchange` when the storage changed (ADR-0002). A `BroadcastChannel` backup can be added later behind the same store state | Blazheiko |
+| "Duplicate tab" between "Reload" and the new version's start copies the reopen marker, so the duplicate could reopen the same Work | Low | The marker lives for under one page load and is taken before use. The case needs the Security Lead's sign-off in the §6.1 review (ADR-0003) | Security Lead |
+| Two-build e2e on Firefox and WebKit: CI may not drive a real service-worker update on every engine (spec §8 Q1) | Medium | Gated on Chromium and measured on Firefox and WebKit where the browser supports it. Resolve before `sdd:plan-tests` | Tech Lead |
+| "Accepted without `appinstalled`" is detected by a bounded wait (default 10 s), which is a heuristic | Low | Only affects the wording after an accepted install. `tasks` tunes the value, and an e2e test with the synthetic install offer covers both outcomes | Blazheiko |
+| Brownfield drift: `docs/architecture-map.md` reflects `3f248c2` and predates the Gallery, so this SAD reads the code at `9bcf5e0` directly | Low | Run `sdd:survey` after this feature ships, so the map records the Gallery and the update lifecycle together | Blazheiko |
+| Widening the shared notice primitive touches every feature that pushes notices | Low | The change is additive (`info` and `failure` unchanged), covered by the existing `primitives.test.ts` plus new cases, and recorded in `docs/design-system.md` | Blazheiko |
+
+**Closed at design:**
+- Spec §8 Q2 (does Safari's "Add to Dock" app share the Gallery with Safari's tabs?): closed with the spec's default. Nothing in the design depends on the answer. Safari offers no in-app install, so the app shows no install action there and says nothing about it, and the Gallery stays whatever store the browser gives that window (2026-10-15, owner accepted in the easy-depth ledger).
 
 **Accepted debt (acceptable in v1, plan to fix later):**
-- <e.g. the entity is immutable / unversioned — OK for v1, may need audit versioning in v2>
+- The update notice has no release notes (spec §3).
+- An older window cannot keep loading parts of its own build after a newer version takes over. It refuses the action and asks for a reload instead of keeping the old files (AC-14, ADR-0001).
 
 ## 12. Glossary
 
-<!-- 🎯 Why: ⭐ the DOMAIN GLOSSARY that ends arguments a year later («checkpoint — weekly or
-     biweekly? quarter — calendar or fiscal?»).
-     📋 Write: a term / meaning table. Business + technical terms mixed.
-     📌 e.g. «Lesson | a unit inside a course made of blocks (text, video)». -->
-
 | Term | Meaning |
 |---|---|
-| <e.g. domain object A> | <its meaning in this domain> |
-| <e.g. domain object B> | <its meaning> |
-| <e.g. domain invariant name> | <the rule, in plain language> |
+| App update | A newer version that the browser has downloaded and that waits. It takes over a window only on "Reload" or at the next start after every window has closed (CONTEXT) |
+| Installed app | imgly added through the browser's install offer, opened in its own window. It never shows "Install app" (CONTEXT) |
+| Editor, Portfolio reviewer | The people of spec §4 (CONTEXT) |
+| Work, Stored state, Unsaved edits, Draft, Edit history, View, Autosave, Gallery, Damaged Work, Replace gate | As in CONTEXT. After an update reload, the Work comes back from its Stored state with an empty Edit history and a fitted View |
+| Reload checks / Reload gate | The ordered checks every "Reload" passes: wait for a running save, refuse while a tool is open or an Export runs, ask when edits are not stored in the Gallery, otherwise reload. `editor.requestReload()` implements them (ADR-0004). *Not yet in CONTEXT, so a `glossary` follow-up is due* |
+| Update notice | The one lasting notice per window, in three wordings: a new version is available, imgly was updated in another window, imgly must be reloaded to keep saving (ux-flows SCR-05). *Not yet in CONTEXT, so a `glossary` follow-up is due* |
+| Waiting service worker | The browser's copy of a newer build that has downloaded but does not control any window yet (ADR-0001) |
+| Reopen marker | The take-once id of the Work to reopen after an update reload, kept in this tab's `sessionStorage` (ADR-0003) |
