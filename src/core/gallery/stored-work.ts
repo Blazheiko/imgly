@@ -9,6 +9,7 @@ import {
 } from '../geometry'
 import type { ImageFormat } from '../image-header'
 import { appError, err, ok, type AppError, type Result } from '../result'
+import { isUsableTime } from './rules'
 
 /** The layout version of a stored `works` record; unknown values are refused, never guessed at. */
 export const STORED_WORK_FORMAT = 1
@@ -75,14 +76,14 @@ function adjustmentsShapeOk(a: unknown): a is Adjustments {
   return isObj(a) && ADJUSTMENT_KEYS.every((k) => isNum(a[k]))
 }
 
-/** The listing-only check: every field has the right primitive type. No ranges. */
+/** The listing-only check: every field has the right primitive type, and touchedAt is a time. */
 export function validateRecordShape(input: unknown): boolean {
   if (!isObj(input)) return false
   return (
     typeof input.id === 'string' &&
     typeof input.sourceName === 'string' &&
     typeof input.sourceFormat === 'string' &&
-    isNum(input.touchedAt) &&
+    isUsableTime(input.touchedAt) &&
     isNum(input.width) &&
     isNum(input.height) &&
     typeof input.hasTransparency === 'boolean' &&

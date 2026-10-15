@@ -158,6 +158,7 @@ describe('gallery store', () => {
       ['null', null],
       ['missing', undefined],
       ['string', 'yesterday'],
+      ['out of the date range', -1e17],
     ])('a %s touchedAt lists Damaged and every other Work still lists', async (_l, bad) => {
       const a = await seed(db, 'A.png', NOW - MINUTE)
       const w = storedWorkFixture({ layer: null, record: { sourceName: 'Bad.png' } })

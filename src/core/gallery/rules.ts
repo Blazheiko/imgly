@@ -1,3 +1,11 @@
+/** The widest instant a Date can hold, in ms either side of the epoch (ECMA-262 §21.4.1.1). */
+const MAX_TIME_MS = 8.64e15
+
+/** A touchedAt a Date can format; anything else is damage, not a time. AC-08 */
+export function isUsableTime(v: unknown): v is number {
+  return typeof v === 'number' && Number.isFinite(v) && Math.abs(v) <= MAX_TIME_MS
+}
+
 /** The Gallery holds at most this many Works. AC-03, AC-09 */
 export const GALLERY_CAP = 20
 
@@ -70,7 +78,7 @@ export function entryName(sourceName: string): string {
  * A damaged record's touchedAt may be anything; it gets no label rather than a throw (AC-08).
  */
 export function touchedLabel(touchedAt: number, now: number, locale?: string): string {
-  if (typeof touchedAt !== 'number' || !Number.isFinite(touchedAt)) return ''
+  if (!isUsableTime(touchedAt)) return ''
   const seconds = Math.floor((now - touchedAt) / 1000)
   if (seconds < 60) return 'Just now'
   const minutes = Math.floor(seconds / 60)

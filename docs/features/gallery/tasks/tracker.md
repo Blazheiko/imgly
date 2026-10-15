@@ -46,7 +46,7 @@
 | T39 | e2e: undecodable thumbnail bytes list Damaged (R2-6) | tests | Blazheiko | S | T38 | done |
 | T40 | Commit-quota fault aborts every save (R2-7) | tests | Blazheiko | S | T39 | done |
 | T41 | Test-plan rows and round-2 resolution | docs | Blazheiko | S | T40 | done |
-| T42 | Out-of-range touchedAt lists Damaged (R3-1) | core | Blazheiko | S | — | todo |
+| T42 | Out-of-range touchedAt lists Damaged (R3-1) | core | Blazheiko | S | — | done |
 | T43 | Image error leaves the open Work Open (R3-3) | app | Blazheiko | S | T42 | todo |
 | T44 | STORAGE_FAILED reopen: no Damaged, no Delete (R3-2) | app | Blazheiko | S | T43 | todo |
 | T45 | Failed listing keeps the list, no false empty (R3-4) | app | Blazheiko | S | T44 | todo |

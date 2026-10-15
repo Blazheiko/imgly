@@ -295,6 +295,13 @@ describe('validateStoredWork: damage kinds (AC-08, AC-18)', () => {
     expectDamaged(validateStoredWork({ ...validRecord(), touchedAt: '1' }, PARTS))
     expectDamaged(validateStoredWork({ ...validRecord(), hasTransparency: 'no' }, PARTS))
   })
+
+  it.each([
+    ['below the date range', -1e17],
+    ['above the date range', 1e17],
+  ])('refuses a touchedAt %s (T42, R3-1)', (_l, bad) => {
+    expectDamaged(validateStoredWork({ ...validRecord(), touchedAt: bad }, PARTS))
+  })
 })
 
 describe('validateRecordShape', () => {
