@@ -7,7 +7,7 @@ acs: ["AC-03", "AC-06", "AC-07", "AC-08"]
 files_hint: ["docs/features/gallery/test-plan.md", "docs/features/gallery/_review/review-2026-10-14-r3.md"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 source: "review-2026-10-14-r3 T42–T48"
 ---
 
