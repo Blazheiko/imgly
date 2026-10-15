@@ -21,6 +21,7 @@ export function createFakeRenderer() {
     ),
     setLayer: vi.fn<PreviewRenderer['setLayer']>(),
     updateLayer: vi.fn<PreviewRenderer['updateLayer']>(),
+    renderThumbnail: vi.fn<PreviewRenderer['renderThumbnail']>(() => null),
     resize: vi.fn<(width: number, height: number) => void>(),
     dispose: vi.fn(),
     onStatus(listener: (status: RendererStatus) => void) {

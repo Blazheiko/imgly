@@ -28,6 +28,26 @@ export function failureNoImageFiles(): string {
   return 'Only image files can be opened.'
 }
 
+/** Autosave notices (gallery screens.md §Message catalog). A nameless Work is "Untitled". */
+export function infoEvicted(names: readonly string[]): string {
+  const quoted = names.map((name) => `“${name === '' ? 'Untitled' : name}”`)
+  if (quoted.length === 1) return `${quoted[0]} was removed from the Gallery to make room.`
+  const last = quoted[quoted.length - 1]
+  return `${quoted.length} Works were removed from the Gallery to make room: ${quoted.slice(0, -1).join(', ')} and ${last}.`
+}
+
+export function failureStorageFull(): string {
+  return "This Work couldn't be saved to the Gallery because the browser's storage is full. Export it to keep a copy."
+}
+
+export function failureSaveFailed(): string {
+  return "This Work couldn't be saved to the Gallery. Export it to keep a copy."
+}
+
+export function infoNewerVersion(): string {
+  return 'A newer version of the editor is open in another tab. Reload this page to keep saving to the Gallery.'
+}
+
 /** Copy for the blocking screens that replace the canvas area (SCR-04, SCR-05). */
 export const BLOCKING = {
   UNSUPPORTED_BROWSER: {
@@ -43,7 +63,7 @@ export const BLOCKING = {
 const NOT_READ = "This file couldn't be read as an image."
 
 const FAILURES: Record<AppErrorCode, (details: Record<string, unknown>) => string> = {
-  STORAGE_QUOTA: () => "This browser's storage for the editor is full.",
+  STORAGE_QUOTA: () => failureStorageFull(),
   FILE_NOT_PERMITTED: () =>
     "The app wasn't allowed to read this file. Make it available on this computer first, for example by downloading it from your cloud drive.",
   NOT_AN_IMAGE: () => NOT_READ,
@@ -71,6 +91,10 @@ const FAILURES: Record<AppErrorCode, (details: Record<string, unknown>) => strin
   EXPORT_NOT_PERMITTED: () => "The app wasn't allowed to save there. Choose another folder.",
   EXPORT_EXTENSION_MISMATCH: () =>
     "The file name doesn't match the format, so nothing was written.",
+  // Gallery codes: the delete and reopen texts name the Work, so they are worded where they are raised.
+  STORAGE_UNAVAILABLE: () => "This browser's storage isn't available, so Works can't be saved.",
+  STORAGE_FAILED: () => failureSaveFailed(),
+  WORK_DAMAGED: () => "This Work can't be read in full.",
 }
 
 export function failureMessage(error: AppError): string {

@@ -18,7 +18,7 @@ defineEmits<{ open: [] }>()
   align-items: center;
   justify-content: center;
   gap: var(--space-3);
-  height: 100%;
+  padding: var(--space-8) 0;
 }
 
 .empty-canvas__hint {

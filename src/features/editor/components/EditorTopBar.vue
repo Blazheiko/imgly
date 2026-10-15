@@ -9,6 +9,7 @@ defineEmits<{ open: [] }>()
   <header class="editor-top-bar" data-testid="editor-top-bar">
     <span class="editor-top-bar__name">imgly</span>
     <div class="editor-top-bar__actions">
+      <slot name="leading-actions" />
       <BaseButton
         v-if="showOpen"
         variant="secondary"

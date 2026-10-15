@@ -5,6 +5,8 @@ const props = defineProps<{
   title: string
   /** A selector inside the dialog to focus on open; defaults to the first focusable element. */
   initialFocus?: string
+  /** A selector to focus on close when the element that opened the dialog has left the page. */
+  returnFocus?: string
 }>()
 const emit = defineEmits<{ cancel: [] }>()
 
@@ -48,7 +50,11 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  if (opener instanceof HTMLElement) opener.focus()
+  if (opener instanceof HTMLElement && opener.isConnected && opener !== document.body) {
+    opener.focus()
+    return
+  }
+  if (props.returnFocus) document.querySelector<HTMLElement>(props.returnFocus)?.focus()
 })
 </script>
 

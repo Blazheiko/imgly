@@ -4,8 +4,12 @@ import {
   BLOCKING,
   failureMessage,
   failureNoImageFiles,
+  failureSaveFailed,
+  failureStorageFull,
   infoDownscaled,
+  infoEvicted,
   infoFirstFrame,
+  infoNewerVersion,
   infoOthersIgnored,
 } from './messages'
 
@@ -113,5 +117,42 @@ describe('message catalog (screens.md §Message catalog)', () => {
       expect(text.length).toBeGreaterThan(10)
       expect(text).not.toMatch(/undefined|\{|\}/)
     }
+  })
+})
+
+describe('Autosave messages (gallery screens.md §Message catalog)', () => {
+  it('info: one evicted Work is named (AC-09, AC-10, AC-21)', () => {
+    expect(infoEvicted(['Holiday'])).toBe('“Holiday” was removed from the Gallery to make room.')
+  })
+
+  it('info: a nameless evicted Work is "Untitled"', () => {
+    expect(infoEvicted([''])).toBe('“Untitled” was removed from the Gallery to make room.')
+  })
+
+  it('info: several evicted Works are counted and all named (AC-10)', () => {
+    expect(infoEvicted(['a', 'b', 'c'])).toBe(
+      '3 Works were removed from the Gallery to make room: “a”, “b” and “c”.',
+    )
+    expect(infoEvicted(['a', ''])).toBe(
+      '2 Works were removed from the Gallery to make room: “a” and “Untitled”.',
+    )
+  })
+
+  it('failure: storage full even for this Work alone (AC-10)', () => {
+    expect(failureStorageFull()).toBe(
+      "This Work couldn't be saved to the Gallery because the browser's storage is full. Export it to keep a copy.",
+    )
+  })
+
+  it('failure: a save failed for another reason (AC-11)', () => {
+    const copy = "This Work couldn't be saved to the Gallery. Export it to keep a copy."
+    expect(failureSaveFailed()).toBe(copy)
+    expect(failureMessage(appError('STORAGE_FAILED'))).toBe(copy)
+  })
+
+  it('info: a newer version is open in another tab (ADR-0006)', () => {
+    expect(infoNewerVersion()).toBe(
+      'A newer version of the editor is open in another tab. Reload this page to keep saving to the Gallery.',
+    )
   })
 })

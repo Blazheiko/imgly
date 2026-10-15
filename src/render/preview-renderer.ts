@@ -13,6 +13,7 @@ import {
   type ImageSample,
   type Result,
   type View,
+  type Work,
 } from '@/core'
 import {
   buildProgram,
@@ -45,6 +46,9 @@ export const FIRST_FRAME_MARK = 'imgly:first-frame'
  * bottom row, returns the Crop's top row first.
  */
 const SAMPLE_TRANSFORM = new Float32Array([2, 0, 0, 0, 2, 0, -1, -1, 1])
+
+/** The stored Gallery thumbnail's long side in pixels (gallery ADR-0005). */
+export const THUMBNAIL_LONG_SIDE = 320
 
 /** How long a lost context may take to come back before the display counts as lost (AC-19b). */
 export const RESTORE_DEADLINE_MS = 5000
@@ -82,6 +86,13 @@ export interface PreviewRenderer {
    * nothing. Requests one frame. The caller keeps ownership of the layer.
    */
   setLayer(layer: Layer | null): void
+  /**
+   * The applied Work (never a Draft) at fit, reduced from its output size in passes of at most 2:1
+   * to a long side of `min(maxSide, output long side)`, read back top row first (gallery ADR-0005).
+   * The Preview's framebuffer, viewport and filter are restored and everything allocated is freed.
+   * `null` while the context is not ready.
+   */
+  renderThumbnail(work: Work<ImageBitmap, OffscreenCanvas>, maxSide?: number): ImageData | null
   /**
    * Marks a dirty rectangle of the held layer (ADR-0002) and requests one frame. Rectangles marked
    * before that frame are uploaded once, as their union, when it is drawn.
@@ -345,6 +356,110 @@ export function createPreviewRenderer(
         gl.bindFramebuffer(gl.FRAMEBUFFER, null)
         gl.deleteFramebuffer(framebuffer)
         gl.deleteTexture(target)
+        gl.bindTexture(gl.TEXTURE_2D, texture)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
+      }
+    },
+    renderThumbnail(work, maxSide = THUMBNAIL_LONG_SIDE) {
+      if (disposed || status !== 'ready' || !bitmap || !texture || gl.isContextLost()) return null
+      const original = { width: bitmap.width, height: bitmap.height }
+      const { width: ow, height: oh } = work.geometry.crop
+      const scale = Math.min(1, maxSide / Math.max(ow, oh))
+      const targetW = Math.max(1, Math.round(ow * scale))
+      const targetH = Math.max(1, Math.round(oh * scale))
+      const savedViewport = gl.getParameter(gl.VIEWPORT) as Int32Array
+      const textures: (WebGLTexture | null)[] = []
+      const framebuffers: (WebGLFramebuffer | null)[] = []
+      try {
+        const drawingLayer = work.drawing as Layer | null
+        let layerTex: WebGLTexture | null = null
+        if (drawingLayer) {
+          gl.activeTexture(gl.TEXTURE1)
+          if (isBlankLayer(drawingLayer)) {
+            layerTex = allocateBlankTexture(gl, drawingLayer.width, drawingLayer.height)
+          } else {
+            const pixels = readRect(drawingLayer, {
+              x: 0,
+              y: 0,
+              width: drawingLayer.width,
+              height: drawingLayer.height,
+            })
+            layerTex = pixels ? uploadTexture(gl, pixels) : null
+          }
+          if (layerTex) textures.push(layerTex)
+          gl.activeTexture(gl.TEXTURE0)
+        }
+        gl.useProgram(gpu.program)
+        gl.bindVertexArray(gpu.vao)
+        let source: WebGLTexture | null = texture
+        let width = ow
+        let height = oh
+        let data = new Uint8Array(0)
+        for (let first = true; ; first = false) {
+          const target = gl.createTexture()
+          const framebuffer = gl.createFramebuffer()
+          textures.push(target)
+          framebuffers.push(framebuffer)
+          gl.bindTexture(gl.TEXTURE_2D, target)
+          gl.texImage2D(
+            gl.TEXTURE_2D,
+            0,
+            gl.RGBA8,
+            width,
+            height,
+            0,
+            gl.RGBA,
+            gl.UNSIGNED_BYTE,
+            null,
+          )
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+          gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
+          gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, target, 0)
+          gl.viewport(0, 0, width, height)
+          gl.clearColor(0, 0, 0, 0)
+          gl.clear(gl.COLOR_BUFFER_BIT)
+          gl.activeTexture(gl.TEXTURE0)
+          gl.bindTexture(gl.TEXTURE_2D, source)
+          if (first) {
+            if (layerTex) {
+              gl.activeTexture(gl.TEXTURE1)
+              gl.bindTexture(gl.TEXTURE_2D, layerTex)
+              gl.activeTexture(gl.TEXTURE0)
+            }
+            gl.uniformMatrix3fv(
+              gpu.geometry,
+              false,
+              new Float32Array(cropToOriginalUv(work.geometry, original)),
+            )
+          } else {
+            gl.uniformMatrix3fv(gpu.geometry, false, IDENTITY_GEOMETRY)
+          }
+          gl.uniformMatrix3fv(gpu.transform, false, SAMPLE_TRANSFORM)
+          gl.uniform1i(gpu.flatten, 0)
+          setLayerUniforms(gl, gpu, first && layerTex !== null)
+          setAdjustmentUniforms(gl, gpu, first ? work.adjustments : NEUTRAL_ADJUSTMENTS)
+          gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+          if (width === targetW && height === targetH) {
+            data = new Uint8Array(width * height * 4)
+            gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, data)
+            break
+          }
+          source = target
+          width = Math.max(targetW, Math.ceil(width / 2))
+          height = Math.max(targetH, Math.ceil(height / 2))
+        }
+        return new ImageData(new Uint8ClampedArray(data.buffer), width, height)
+      } catch {
+        return null
+      } finally {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+        for (const f of framebuffers) gl.deleteFramebuffer(f)
+        for (const t of textures) gl.deleteTexture(t)
+        gl.viewport(savedViewport[0]!, savedViewport[1]!, savedViewport[2]!, savedViewport[3]!)
+        gl.activeTexture(gl.TEXTURE0)
         gl.bindTexture(gl.TEXTURE_2D, texture)
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
       }

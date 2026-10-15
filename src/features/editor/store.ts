@@ -1,4 +1,4 @@
-import { computed, nextTick, ref, shallowRef } from 'vue'
+import { computed, nextTick, reactive, ref, shallowRef } from 'vue'
 import { defineStore } from 'pinia'
 import {
   adjustmentsEquals,
@@ -16,6 +16,7 @@ import {
   sourceNameOf,
   stepZoom as stepView,
   turnedBounds,
+  validateStoredWork,
   workSize,
   zoomAt as zoomView,
   type Adjustments,
@@ -27,6 +28,7 @@ import {
   type Point,
   type Result,
   type Size,
+  type StoredWorkFields,
   type View,
   type ViewContext,
   type Work,
@@ -37,8 +39,13 @@ import {
   type DecodedImage,
   type DecodeOutcome,
 } from '@/infra/image-decode'
+import { loadWork, type LoadedWork } from '@/infra/db'
+import { workCodec, type PixelSize } from '@/infra/work-codec'
+import { requestPersistence } from '@/infra/platform'
 import {
+  createLayer,
   createPreviewRenderer,
+  layerContext,
   probeCapabilities,
   releaseLayer,
   type Layer,
@@ -55,8 +62,11 @@ import {
   infoFirstFrame,
   infoOthersIgnored,
 } from './messages'
+import { createAutosave } from './autosave'
 import { createEditHistory } from './edit-history'
 import { createToolSlot } from './tool-slot'
+
+export type Autosave = ReturnType<typeof createAutosave>
 
 export type Decoder = (file: Blob) => Promise<DecodeOutcome>
 
@@ -74,12 +84,41 @@ export type OpenOutcome =
   | { kind: 'superseded' }
   | { kind: 'ignored' }
 
+export type ReopenOutcome =
+  | { kind: 'replaced' }
+  | { kind: 'confirming' }
+  | { kind: 'cancelled' }
+  | { kind: 'damaged'; error: AppError }
+  | { kind: 'refused'; reason: 'exporting' | 'confirming' | 'unavailable' }
+  | { kind: 'superseded' }
+  | { kind: 'already-open' }
+
+/** Where `reopenWork` reads a stored Work from; injectable like the decoder. */
+export interface ReopenSource {
+  loadWork: (id: string) => Promise<Result<LoadedWork, AppError>>
+  decodePng: (blob: Blob, size: PixelSize) => Promise<Result<ImageBitmap, AppError>>
+}
+
+/** A stored Work read and decoded in full, waiting for the gate (gallery AC-17). */
+interface RestoredWork {
+  fields: StoredWorkFields
+  bitmap: ImageBitmap
+  layer: Layer | null
+  original: Blob
+  layerBlob: Blob | null
+}
+
+function discardRestored(restored: RestoredWork) {
+  closeBitmap(restored.bitmap)
+  if (restored.layer) releaseLayer(restored.layer)
+}
+
 export type EditorPhase = 'idle' | 'reading' | 'confirming' | 'exporting'
 
 export type { ToolId, ToolRefusal } from './tool-slot'
 
 /** A panel another feature has open, so a shortcut can stay silent under it (crop-rotate AC-20). */
-export type PanelId = 'export'
+export type PanelId = 'export' | 'gallery'
 
 /** The Work as it was at confirm; the export renders it and the save point is its revision. */
 export interface ExportSnapshot {
@@ -136,6 +175,13 @@ export const useEditorStore = defineStore('editor', () => {
   const phase = ref<EditorPhase>('idle')
   const display = ref<DisplayState>('checking')
   const activePanel = ref<PanelId | null>(null)
+  /** The Gallery's delete confirmation is up with no overlay under it (R2-4). */
+  const galleryModal = ref(false)
+  /** The Gallery overlay, or its delete confirmation, covers the editor: keys and drops are its. */
+  const galleryOpen = computed(() => activePanel.value === 'gallery' || galleryModal.value)
+  function setGalleryModal(open: boolean) {
+    galleryModal.value = open
+  }
   const slot = createToolSlot({ work, phase, activePanel, view, fitIfSized })
   const { activeTool, previewGeometry, previewAdjustments, previewLayer } = slot
   const edits = createEditHistory({ work, phase, activeTool, fitIfSized })
@@ -144,9 +190,45 @@ export const useEditorStore = defineStore('editor', () => {
   /** A draw Stroke is in progress: Space must not start a pan until it ends (draw AC-18). */
   const strokeActive = ref(false)
   let latestOpenId = 0
+  let reopenSource: ReopenSource | null = null
+  let pendingRestore: RestoredWork | null = null
   let decode: Decoder = decodeImage
   let rendererFactory: RendererFactory = createPreviewRenderer
   const notices = useNotices()
+  // Works found damaged on this page (a failed reopen, a thumbnail that will not decode); Autosave
+  // reads it so a save cannot overwrite them and the Gallery keeps the mark across refresh. A Work
+  // that reopens or stores whole again leaves it (R2-2).
+  const damagedSet = reactive(new Set<string>())
+  const damagedIds: ReadonlySet<string> = damagedSet
+  function markDamaged(id: string) {
+    damagedSet.add(id)
+  }
+  // The real Autosave, lazy in everything it touches: no Worker or database until a Gallery connects.
+  const autosave = shallowRef<Autosave>(
+    createAutosave({
+      notices,
+      damagedIds: () => damagedSet,
+      onStored: (id) => damagedSet.delete(id),
+      codec: workCodec,
+      renderer: () => {
+        if (!renderer) throw new Error('no Preview renderer')
+        return renderer
+      },
+      // The Preview uploads the new Original on its next flush.
+      rendererReady: () => nextTick(),
+      copyBitmap: (source) => createImageBitmap(source),
+      encodeThumbnail: async (data) => {
+        const canvas = new OffscreenCanvas(data.width, data.height)
+        canvas.getContext('2d')!.putImageData(data, 0, 0)
+        return canvas.convertToBlob({ type: 'image/png' })
+      },
+      requestPersistence,
+      now: Date.now,
+    }),
+  )
+  const saving = computed(() => autosave.value.saving.value)
+  const galleryAvailable = computed(() => autosave.value.galleryAvailable.value)
+  const openWorkId = computed(() => work.value?.id ?? null)
   // Notices that belong to the image awaiting confirmation; raised only if it replaces (AC-15).
   let heldNotices: NoticeInput[] = []
   // The file name of the image awaiting confirmation, for its Source name (export AC-08).
@@ -159,6 +241,46 @@ export const useEditorStore = defineStore('editor', () => {
     const previous = decode
     decode = next
     return previous
+  }
+
+  function setAutosave(next: Autosave) {
+    autosave.value = next
+  }
+
+  function setReopenSource(next: ReopenSource | null) {
+    reopenSource = next
+  }
+
+  function connectGallery(result: Parameters<Autosave['connectGallery']>[0]) {
+    autosave.value.connectGallery(result)
+    if (result.ok) {
+      const db = result.value
+      reopenSource = { loadWork: (id) => loadWork(db, id), decodePng: workCodec.decodePng }
+      requestSave()
+    }
+  }
+
+  /** Hands the Work to Autosave: only after a replace, an Apply, an Undo or a Redo. */
+  function requestSave() {
+    if (work.value) autosave.value.request(work.value)
+  }
+
+  function commit(...args: Parameters<typeof edits.commit>) {
+    const next = edits.commit(...args)
+    requestSave()
+    return next
+  }
+
+  function undo() {
+    const moved = edits.undo()
+    if (moved) requestSave()
+    return moved
+  }
+
+  function redo() {
+    const moved = edits.redo()
+    if (moved) requestSave()
+    return moved
   }
 
   function setRendererFactory(next: RendererFactory) {
@@ -213,7 +335,7 @@ export const useEditorStore = defineStore('editor', () => {
     if (!current || phase.value === 'exporting') return
     const updated = { ...current, adjustments: { ...next } }
     if (adjustmentsEquals(next, current.adjustments)) work.value = updated
-    else edits.commit('adjust', current, updated)
+    else commit('adjust', current, updated)
   }
 
   /** The Work's applied Drawing layer as the browser holds it, or null. */
@@ -247,7 +369,7 @@ export const useEditorStore = defineStore('editor', () => {
     const current = work.value
     if (!current || phase.value === 'exporting') return false
     if (changed) {
-      edits.commit('draw', current, { ...current, drawing: draft && { ...draft, id: newId() } })
+      commit('draw', current, { ...current, drawing: draft && { ...draft, id: newId() } })
     } else if (draft && draft.pixels !== current.drawing?.pixels) {
       releaseLayer(draft)
     }
@@ -263,7 +385,7 @@ export const useEditorStore = defineStore('editor', () => {
     if (!current || phase.value === 'exporting') return
     const updated = { ...current, geometry: next }
     if (geometryEquals(next, current.geometry)) work.value = updated
-    else edits.commit('crop-rotate', current, updated)
+    else commit('crop-rotate', current, updated)
   }
 
   function setActivePanel(panel: PanelId | null) {
@@ -285,11 +407,21 @@ export const useEditorStore = defineStore('editor', () => {
       if (!isSuperseded(outcome) && outcome.ok) closeBitmap(outcome.value.bitmap)
       return { kind: 'superseded' }
     }
+    if (!outcome.ok) {
+      phase.value = 'idle'
+      return { kind: 'refused', error: outcome.error }
+    }
+
+    // Stay in `reading` while a running save finishes, so the spinner stays (gallery AC-16).
+    await autosave.value.settled()
+    if (id !== latestOpenId) {
+      closeBitmap(outcome.value.bitmap)
+      return { kind: 'superseded' }
+    }
     phase.value = 'idle'
-    if (!outcome.ok) return { kind: 'refused', error: outcome.error }
 
     const fileName = file instanceof File ? file.name : ''
-    if (work.value && workHasUnsavedEdits(work.value)) {
+    if (needsConfirmation()) {
       heldNotices = []
       pending.value = outcome.value
       pendingFileName = fileName
@@ -299,7 +431,24 @@ export const useEditorStore = defineStore('editor', () => {
     return replace(outcome.value, fileName)
   }
 
+  /** Whether the open Work has Unsaved edits that the Gallery does not hold (gallery AC-17). */
+  function needsConfirmation(): boolean {
+    const open = work.value
+    return (
+      !!open &&
+      workHasUnsavedEdits(open) &&
+      (!autosave.value.galleryAvailable.value || !autosave.value.isStored(open))
+    )
+  }
+
   function confirmReplace(): OpenOutcome {
+    if (phase.value === 'confirming' && pendingRestore) {
+      const restored = pendingRestore
+      pendingRestore = null
+      phase.value = 'idle'
+      replaceRestored(restored)
+      return { kind: 'replaced', image: restoredFacts(restored) }
+    }
     const image = pending.value
     if (phase.value !== 'confirming' || !image) return { kind: 'ignored' }
     pending.value = null
@@ -312,6 +461,8 @@ export const useEditorStore = defineStore('editor', () => {
 
   function cancelReplace(): OpenOutcome {
     if (phase.value !== 'confirming') return { kind: 'ignored' }
+    if (pendingRestore) discardRestored(pendingRestore)
+    pendingRestore = null
     if (pending.value) closeBitmap(pending.value.bitmap)
     pending.value = null
     phase.value = 'idle'
@@ -380,26 +531,146 @@ export const useEditorStore = defineStore('editor', () => {
    * releases every layer of the old one (undo-redo AC-10).
    */
   function replace(image: DecodedImage, fileName: string): OpenOutcome {
+    const { bitmap, ...facts } = image
+    swapIn(
+      createWork(
+        {
+          width: image.width,
+          height: image.height,
+          pixels: bitmap,
+          hasTransparency: image.hasTransparency,
+        },
+        newId(),
+        { sourceName: sourceNameOf(fileName), sourceFormat: image.format },
+      ),
+    )
+    requestSave()
+    return { kind: 'replaced', image: facts }
+  }
+
+  /** Swaps `next` in at Fit with an empty Edit history; the old Original is closed afterwards. */
+  function swapIn(next: Work<ImageBitmap, OffscreenCanvas>) {
     const previous = work.value
     const old = previous?.original.pixels
     // The open tool's Draft is discarded with the old Work (AC-17).
     slot.discard()
-    const { bitmap, ...facts } = image
-    work.value = createWork(
-      {
-        width: image.width,
-        height: image.height,
-        pixels: bitmap,
-        hasTransparency: image.hasTransparency,
-      },
-      newId(),
-      { sourceName: sourceNameOf(fileName), sourceFormat: image.format },
-    )
-    edits.clear(work.value, previous)
+    work.value = next
+    edits.clear(next, previous)
     const ctx = context()
     view.value = ctx ? fitView(ctx) : UNSIZED_VIEW
     if (old) void nextTick(() => closeBitmap(old))
-    return { kind: 'replaced', image: facts }
+  }
+
+  function restoredFacts(restored: RestoredWork): OpenedImage {
+    const { width, height, sourceFormat, hasTransparency } = restored.fields
+    return {
+      sourceWidth: width,
+      sourceHeight: height,
+      width,
+      height,
+      format: sourceFormat,
+      animated: false,
+      downscaled: false,
+      hasTransparency,
+    }
+  }
+
+  /** Swaps in a stored Work, then hands Autosave its Blobs so the next save encodes nothing. */
+  function replaceRestored(restored: RestoredWork) {
+    const { fields } = restored
+    const base = createWork<ImageBitmap, OffscreenCanvas>(
+      {
+        width: fields.width,
+        height: fields.height,
+        pixels: restored.bitmap,
+        hasTransparency: fields.hasTransparency,
+      },
+      fields.id,
+      { sourceName: fields.sourceName, sourceFormat: fields.sourceFormat },
+      fields.touchedAt,
+    )
+    swapIn({
+      ...base,
+      geometry: fields.geometry,
+      adjustments: fields.adjustments,
+      drawing: restored.layer,
+    })
+    damagedSet.delete(fields.id)
+    autosave.value.keepEncoded(fields.id, {
+      original: restored.original,
+      layer: restored.layerBlob,
+      layerId: restored.layer?.id ?? null,
+    })
+    requestSave()
+  }
+
+  /**
+   * Reopens a stored Work. It is read, validated and decoded in full before the gate, so a Work that
+   * cannot be read never replaces the open one and never asks (gallery AC-08, AC-17); latest open
+   * wins across `openImage` and `reopenWork`.
+   */
+  async function reopenWork(id: string): Promise<ReopenOutcome> {
+    if (phase.value === 'exporting') return { kind: 'refused', reason: 'exporting' }
+    if (phase.value === 'confirming') return { kind: 'refused', reason: 'confirming' }
+    const source = reopenSource
+    if (!source) return { kind: 'refused', reason: 'unavailable' }
+    if (work.value?.id === id) return { kind: 'already-open' }
+    const mine = ++latestOpenId
+    phase.value = 'reading'
+    const damaged = (error: AppError): ReopenOutcome => {
+      phase.value = 'idle'
+      // Storage that could not be read says nothing about the Work itself.
+      if (error.code !== 'STORAGE_FAILED') markDamaged(id)
+      return { kind: 'damaged', error }
+    }
+
+    const loaded = await source.loadWork(id)
+    if (mine !== latestOpenId) return { kind: 'superseded' }
+    if (!loaded.ok) return damaged(loaded.error)
+    const { record, original, layer: layerBlob } = loaded.value
+    const valid = validateStoredWork(record, { hasOriginal: !!original, hasLayer: !!layerBlob })
+    if (!valid.ok) return damaged(valid.error)
+    const fields = valid.value
+    const size = { width: fields.width, height: fields.height }
+
+    const [bitmap, layerBitmap] = await Promise.all([
+      source.decodePng(original, size),
+      layerBlob ? source.decodePng(layerBlob, size) : Promise.resolve(null),
+    ])
+    const closeDecoded = () => {
+      if (bitmap.ok) closeBitmap(bitmap.value)
+      if (layerBitmap?.ok) closeBitmap(layerBitmap.value)
+    }
+    if (mine !== latestOpenId) {
+      closeDecoded()
+      return { kind: 'superseded' }
+    }
+    if (!bitmap.ok || (layerBitmap && !layerBitmap.ok)) {
+      closeDecoded()
+      return damaged(!bitmap.ok ? bitmap.error : (layerBitmap as { error: AppError }).error)
+    }
+    let layer: Layer | null = null
+    if (layerBitmap?.ok) {
+      layer = createLayer(size)
+      layerContext(layer).drawImage(layerBitmap.value, 0, 0)
+      closeBitmap(layerBitmap.value)
+    }
+    const restored: RestoredWork = { fields, bitmap: bitmap.value, layer, original, layerBlob }
+
+    await autosave.value.settled()
+    if (mine !== latestOpenId) {
+      discardRestored(restored)
+      return { kind: 'superseded' }
+    }
+    phase.value = 'idle'
+    if (needsConfirmation()) {
+      heldNotices = []
+      pendingRestore = restored
+      phase.value = 'confirming'
+      return { kind: 'confirming' }
+    }
+    replaceRestored(restored)
+    return { kind: 'replaced' }
   }
 
   /**
@@ -448,6 +719,8 @@ export const useEditorStore = defineStore('editor', () => {
   }
 
   return {
+    damagedIds,
+    markDamaged,
     work,
     pending,
     view,
@@ -459,6 +732,8 @@ export const useEditorStore = defineStore('editor', () => {
     previewAdjustments,
     previewLayer,
     activePanel,
+    galleryOpen,
+    setGalleryModal,
     spacePan,
     strokeActive,
     hasUnsavedEdits,
@@ -481,6 +756,13 @@ export const useEditorStore = defineStore('editor', () => {
     setSpacePan: (on: boolean) => (spacePan.value = on),
     setStrokeActive: (on: boolean) => (strokeActive.value = on),
     setDecoder,
+    setAutosave,
+    connectGallery,
+    setReopenSource,
+    reopenWork,
+    saving,
+    galleryAvailable,
+    openWorkId,
     setRendererFactory,
     createRenderer,
     sampleWork,
@@ -492,8 +774,8 @@ export const useEditorStore = defineStore('editor', () => {
     confirmReplace,
     cancelReplace,
     applyEdit,
-    undo: edits.undo,
-    redo: edits.redo,
+    undo,
+    redo,
     beginExport,
     finishExport,
     zoomAt: (factor: number, point: Point) => updateView((v, c) => zoomView(v, factor, point, c)),

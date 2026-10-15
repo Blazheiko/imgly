@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from '../harness'
 import { compareWithPreview } from '../export/helpers'
 import { identityGeometry, openFixture, setStraighten, type Geometry } from '../crop-rotate/helpers'
 import {

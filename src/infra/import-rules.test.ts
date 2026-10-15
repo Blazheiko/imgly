@@ -24,4 +24,21 @@ describe('infra import rules (ESLint)', () => {
       ),
     ).toEqual([])
   })
+
+  it('applies to work-codec: no Vue, Pinia, features or app shell; core and shared allowed', async () => {
+    const probe = 'src/infra/work-codec/probe.ts'
+    for (const code of [
+      "import { ref } from 'vue'\nexport const x = ref(1)\n",
+      "import { useEditorStore } from '@/features/editor'\nexport const u = useEditorStore\n",
+      "import { x } from '@/app'\nexport const y = x\n",
+    ]) {
+      expect(await lint(code, probe)).not.toEqual([])
+    }
+    expect(
+      await lint(
+        "import { type AppError } from '@/core'\nimport { newId } from '@/shared'\nexport const f: (e: AppError) => unknown = newId as never\n",
+        probe,
+      ),
+    ).toEqual([])
+  })
 })

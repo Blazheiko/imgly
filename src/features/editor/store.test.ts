@@ -1,24 +1,31 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { nextTick, watch } from 'vue'
 import {
   appError,
   err,
+  fitView,
   flipOnScreen,
   identityGeometry,
   NEUTRAL_ADJUSTMENTS,
   ok,
+  STORED_WORK_FORMAT,
   turnedBounds,
+  workSize,
   type Adjustments,
   type AppError,
   type Geometry,
   type Result,
 } from '@/core'
+import type { LoadedWork, WorkRecord } from '@/infra/db'
+import type { PixelSize } from '@/infra/work-codec'
 import { SUPERSEDED, type DecodedImage, type DecodeOutcome } from '@/infra/image-decode'
 import { useNotices } from '@/shared'
-import type { Layer } from '@/render'
+import { setLayerCanvasFactory, type CanvasFactory, type Layer } from '@/render'
+import { createFakeCanvas, getPixel, type FakeCanvas } from '@/render/drawing/fake-canvas'
 import { useEditorStore } from './store'
 import { createFakeRenderer } from './fake-renderer'
+import { createFakeAutosave } from './testing'
 
 type FakeBitmap = ImageBitmap & { close: ReturnType<typeof vi.fn> }
 const bitmap = (width: number, height: number) =>
@@ -1598,5 +1605,796 @@ describe('editor store — Undo and Redo (undo-redo AC-03, AC-05, AC-07, AC-08, 
     editor.redo()
     expect((await open(300, 300)).kind).toBe('replaced')
     expect(editor.canUndo).toBe(false)
+  })
+})
+
+describe('editor store — Autosave triggers and the replace gate (gallery AC-01, AC-02, AC-09, AC-12, AC-16, AC-17)', () => {
+  let decoder: ReturnType<typeof fakeDecoder>
+  let editor: ReturnType<typeof useEditorStore>
+  let autosave: ReturnType<typeof createFakeAutosave>
+
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    decoder = fakeDecoder()
+    autosave = createFakeAutosave()
+    editor = useEditorStore()
+    editor.setAutosave(autosave.fake)
+    editor.setDecoder(decoder.decode)
+    editor.setCanvasSize(1000, 800)
+  })
+
+  const flush = async () => {
+    for (let i = 0; i < 10; i++) await Promise.resolve()
+  }
+
+  async function open(width = 400, height = 200) {
+    const pending = editor.openImage(file())
+    decoder.answer(decoder.decode.mock.calls.length - 1, ok(decoded(width, height)))
+    return pending
+  }
+
+  const saved = () => autosave.spies.request.mock.calls.length
+  const contrast = (value: number) => ({ ...NEUTRAL_ADJUSTMENTS, contrast: value })
+
+  describe('what reaches Autosave (AC-01, AC-02, AC-09)', () => {
+    it('hands over the new Work once, after a replace', async () => {
+      await open()
+      expect(saved()).toBe(1)
+      expect(autosave.spies.request).toHaveBeenLastCalledWith(editor.work)
+      await open(800, 600)
+      expect(saved()).toBe(2)
+      expect(autosave.spies.request).toHaveBeenLastCalledWith(editor.work)
+    })
+
+    it('hands over the Work after each applied change, undo and redo', async () => {
+      await open()
+      editor.applyAdjustments(contrast(20))
+      expect(saved()).toBe(2)
+      expect(autosave.spies.request).toHaveBeenLastCalledWith(editor.work)
+      editor.applyGeometry({ ...editor.work!.geometry, flipH: true })
+      expect(saved()).toBe(3)
+      editor.applyDrawing(
+        {
+          id: 'd',
+          width: 400,
+          height: 200,
+          pixels: { width: 400, height: 200 },
+        } as unknown as Layer,
+        true,
+      )
+      expect(saved()).toBe(4)
+      editor.undo()
+      expect(saved()).toBe(5)
+      expect(autosave.spies.request).toHaveBeenLastCalledWith(editor.work)
+      editor.redo()
+      expect(saved()).toBe(6)
+      expect(autosave.spies.request).toHaveBeenLastCalledWith(editor.work)
+    })
+
+    it('hands over nothing for the test-only edit, tools, Drafts, View or no-op Applies', async () => {
+      await open()
+      const before = saved()
+      editor.applyEdit()
+      editor.openTool('adjust')
+      editor.setPreviewAdjustments(contrast(30))
+      editor.applyAdjustments(NEUTRAL_ADJUSTMENTS)
+      editor.closeTool()
+      editor.openTool('crop-rotate')
+      editor.closeTool()
+      editor.zoomAt(2, { x: 10, y: 10 })
+      editor.panBy(5, 5)
+      editor.fit()
+      editor.applyDrawing(null, false)
+      expect(saved()).toBe(before)
+    })
+
+    it('hands over nothing for a refused or cancelled open', async () => {
+      await open()
+      editor.applyEdit()
+      const before = saved()
+      const refused = editor.openImage(file())
+      decoder.answer(1, err(appError('UNSUPPORTED_FORMAT')))
+      expect((await refused).kind).toBe('refused')
+      expect(saved()).toBe(before)
+
+      autosave.available(false)
+      expect((await open(800, 600)).kind).toBe('confirming')
+      editor.cancelReplace()
+      expect(saved()).toBe(before)
+    })
+
+    it('hands over the new Work after a confirmed replace', async () => {
+      autosave.available(false)
+      await open()
+      editor.applyEdit()
+      await open(800, 600)
+      const before = saved()
+      editor.confirmReplace()
+      expect(saved()).toBe(before + 1)
+      expect(autosave.spies.request).toHaveBeenLastCalledWith(editor.work)
+    })
+  })
+
+  describe('the replace gate (AC-16, AC-17)', () => {
+    it('replaces without asking when the latest state is stored, and discards the Draft', async () => {
+      await open()
+      editor.applyAdjustments(contrast(20))
+      autosave.markStored(editor.work!)
+      editor.openTool('adjust')
+      editor.setPreviewAdjustments(contrast(50))
+
+      const outcome = await open(800, 600)
+
+      expect(outcome).toMatchObject({ kind: 'replaced', image: { width: 800 } })
+      expect(editor.phase).toBe('idle')
+      expect(editor.activeTool).toBeNull()
+    })
+
+    it('waits for a running save, staying in reading, then replaces without asking', async () => {
+      await open()
+      editor.applyAdjustments(contrast(20))
+      autosave.hold()
+      const pending = open(800, 600)
+      let done = false
+      void pending.then(() => (done = true))
+      await flush()
+
+      expect(done).toBe(false)
+      expect(editor.phase).toBe('reading')
+      expect(editor.work!.original.width).toBe(400)
+
+      autosave.markStored(editor.work!)
+      autosave.release()
+      expect((await pending).kind).toBe('replaced')
+      expect(editor.phase).toBe('idle')
+    })
+
+    it('asks when the save that was running fails, and Cancel keeps Work, revision and Draft', async () => {
+      await open()
+      editor.applyAdjustments(contrast(20))
+      editor.openTool('adjust')
+      editor.setPreviewAdjustments(contrast(50))
+      const before = { work: editor.work, revision: editor.work!.revision }
+      autosave.hold()
+      const pending = open(800, 600)
+      await flush()
+
+      autosave.release() // settled, but the latest state was never stored
+      expect(await pending).toEqual({ kind: 'confirming' })
+      expect(editor.phase).toBe('confirming')
+
+      const pendingBitmap = editor.pending!.bitmap as FakeBitmap
+      expect(editor.cancelReplace()).toEqual({ kind: 'cancelled' })
+      expect(pendingBitmap.close).toHaveBeenCalled()
+      expect(editor.work).toBe(before.work)
+      expect(editor.work!.revision).toBe(before.revision)
+      expect(editor.activeTool).toBe('adjust')
+      expect(editor.previewAdjustments).toEqual(contrast(50))
+    })
+
+    it('asks when the latest state is not stored (an earlier save failed)', async () => {
+      await open()
+      editor.applyAdjustments(contrast(20))
+      expect(await open(800, 600)).toEqual({ kind: 'confirming' })
+      expect(editor.work!.original.width).toBe(400)
+    })
+
+    it('asks when the Work changed after the stored revision', async () => {
+      await open()
+      editor.applyAdjustments(contrast(20))
+      autosave.markStored(editor.work!)
+      editor.applyAdjustments(contrast(30))
+      expect(await open(800, 600)).toEqual({ kind: 'confirming' })
+    })
+
+    it('asks whenever the Gallery is unavailable and there are Unsaved edits (AC-12)', async () => {
+      autosave.available(false)
+      await open()
+      editor.applyAdjustments(contrast(20))
+      autosave.markStored(editor.work!)
+      expect(await open(800, 600)).toEqual({ kind: 'confirming' })
+      expect(editor.cancelReplace()).toEqual({ kind: 'cancelled' })
+    })
+
+    it('replaces without asking when there are no Unsaved edits, whatever the save state', async () => {
+      await open()
+      expect(editor.hasUnsavedEdits).toBe(false)
+      expect((await open(800, 600)).kind).toBe('replaced')
+      autosave.available(false)
+      expect((await open(300, 200)).kind).toBe('replaced')
+    })
+
+    it('does not wait or ask for a refused file', async () => {
+      await open()
+      editor.applyAdjustments(contrast(20))
+      autosave.spies.settled.mockClear()
+      const refused = editor.openImage(file())
+      decoder.answer(1, err(appError('UNSUPPORTED_FORMAT')))
+      expect((await refused).kind).toBe('refused')
+      expect(autosave.spies.settled).not.toHaveBeenCalled()
+      expect(editor.phase).toBe('idle')
+    })
+
+    it('a newer open supersedes one waiting for the save, whose bitmap is closed', async () => {
+      await open()
+      editor.applyAdjustments(contrast(20))
+      autosave.hold()
+      const older = editor.openImage(file())
+      const olderImage = decoded(800, 600)
+      decoder.answer(1, ok(olderImage))
+      await flush()
+      const newer = editor.openImage(file())
+      decoder.answer(2, ok(decoded(300, 200)))
+      await flush()
+
+      autosave.markStored(editor.work!)
+      autosave.release()
+
+      expect(await older).toEqual({ kind: 'superseded' })
+      expect(olderImage.bitmap.close).toHaveBeenCalled()
+      expect(await newer).toMatchObject({ kind: 'replaced', image: { width: 300 } })
+    })
+  })
+
+  describe('exposed state', () => {
+    it('mirrors saving, galleryAvailable and the open Work id', async () => {
+      expect(editor.openWorkId).toBeNull()
+      expect(editor.saving).toBe(false)
+      await open()
+      expect(editor.openWorkId).toBe(editor.work!.id)
+      autosave.hold()
+      expect(editor.saving).toBe(true)
+      autosave.release()
+      expect(editor.saving).toBe(false)
+      expect(editor.galleryAvailable).toBe(true)
+      autosave.available(false)
+      expect(editor.galleryAvailable).toBe(false)
+    })
+
+    it('forwards connectGallery to Autosave', () => {
+      const result = ok({}) as unknown as Parameters<typeof editor.connectGallery>[0]
+      editor.connectGallery(result)
+      expect(autosave.spies.connectGallery).toHaveBeenCalledWith(result)
+    })
+
+    describe('a Work opened before the Gallery connects (S1-8)', () => {
+      const dbOk = () => ok({}) as unknown as Parameters<typeof editor.connectGallery>[0]
+
+      it('is handed to Autosave once when the connection arrives', async () => {
+        await open()
+        autosave.spies.request.mockClear()
+        editor.connectGallery(dbOk())
+        expect(saved()).toBe(1)
+        expect(autosave.spies.request).toHaveBeenLastCalledWith(editor.work)
+      })
+
+      it('requests nothing when no Work is open at connect time', () => {
+        editor.connectGallery(dbOk())
+        expect(saved()).toBe(0)
+      })
+
+      it('requests nothing when the connection is unavailable', async () => {
+        await open()
+        autosave.spies.request.mockClear()
+        editor.connectGallery(err(appError('STORAGE_UNAVAILABLE', { reason: 'refused' })))
+        expect(saved()).toBe(0)
+      })
+    })
+
+    it('lets the Gallery take the active panel', () => {
+      editor.setActivePanel('gallery')
+      expect(editor.activePanel).toBe('gallery')
+    })
+
+    it('has no Gallery until one is connected, so it still always asks (AC-12)', async () => {
+      setActivePinia(createPinia())
+      decoder = fakeDecoder()
+      editor = useEditorStore()
+      editor.setDecoder(decoder.decode)
+      editor.setCanvasSize(1000, 800)
+      expect(editor.galleryAvailable).toBe(false)
+      await open()
+      editor.applyEdit()
+      expect(await open(800, 600)).toEqual({ kind: 'confirming' })
+    })
+  })
+})
+
+describe('editor store — reopenWork (gallery AC-02, AC-04, AC-08, AC-15, AC-17)', () => {
+  let decoder: ReturnType<typeof fakeDecoder>
+  let editor: ReturnType<typeof useEditorStore>
+  let autosave: ReturnType<typeof createFakeAutosave>
+  let restoreFactory: CanvasFactory
+  const loadWork = vi.fn<(id: string) => Promise<Result<LoadedWork, AppError>>>()
+  const decodePng = vi.fn<(blob: Blob, size: PixelSize) => Promise<Result<ImageBitmap, AppError>>>()
+
+  type FakeCanvasBitmap = FakeCanvas & { close: ReturnType<typeof vi.fn> }
+  const originalPng = new Blob(['original'])
+  const layerPng = new Blob(['layer'])
+  const layerBitmap = () => Object.assign(createFakeCanvas(400, 200), { close: vi.fn() })
+  let decodedBitmaps: (FakeBitmap | FakeCanvasBitmap)[]
+
+  const adjustments = { ...NEUTRAL_ADJUSTMENTS, contrast: 20, exposure: -15 }
+  const geometry = (): Geometry => ({
+    ...identityGeometry({ width: 400, height: 200 }),
+    flipH: true,
+    straighten: 5,
+    crop: { x: 20, y: 10, width: 300, height: 150 },
+  })
+
+  function stored(extra: Partial<WorkRecord> = {}): LoadedWork {
+    return {
+      record: {
+        id: 'stored-1',
+        sourceName: 'holiday',
+        sourceFormat: 'png',
+        touchedAt: 1_700_000_000_000,
+        width: 400,
+        height: 200,
+        hasTransparency: true,
+        geometry: geometry(),
+        adjustments,
+        layerId: 'stored-layer',
+        thumbnail: new Blob(['t']),
+        formatVersion: STORED_WORK_FORMAT,
+        ...extra,
+      },
+      original: originalPng,
+      layer: extra.layerId === null ? null : layerPng,
+    }
+  }
+
+  const flush = async () => {
+    for (let i = 0; i < 10; i++) await Promise.resolve()
+  }
+
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    decoder = fakeDecoder()
+    autosave = createFakeAutosave()
+    editor = useEditorStore()
+    editor.setAutosave(autosave.fake)
+    editor.setDecoder(decoder.decode)
+    editor.setCanvasSize(1000, 800)
+    restoreFactory = setLayerCanvasFactory((w, h) => createFakeCanvas(w, h) as never)
+    decodedBitmaps = []
+    loadWork.mockReset()
+    decodePng.mockReset()
+    loadWork.mockImplementation(async () => ok(stored()))
+    decodePng.mockImplementation(async (blob) => {
+      const made = blob === layerPng ? layerBitmap() : bitmap(400, 200)
+      decodedBitmaps.push(made)
+      return ok(made as unknown as ImageBitmap)
+    })
+    // Pinned API: the store reads a Work through an injected loader and the codec's decodePng.
+    editor.setReopenSource({ loadWork, decodePng })
+  })
+
+  afterEach(() => {
+    setLayerCanvasFactory(restoreFactory)
+  })
+
+  async function open(width = 100, height = 100) {
+    const pending = editor.openImage(file())
+    decoder.answer(decoder.decode.mock.calls.length - 1, ok(decoded(width, height)))
+    return pending
+  }
+
+  const requests = () => autosave.spies.request.mock.calls.length
+  const closed = (b: FakeBitmap | FakeCanvasBitmap) => b.close.mock.calls.length > 0
+
+  describe('a readable Work replaces the open one (AC-04, AC-02)', () => {
+    it('keeps the stored id, Source, Geometry and Adjustments, with a clean revision and a new layer id', async () => {
+      await open()
+      const outcome = await editor.reopenWork('stored-1')
+
+      expect(outcome).toEqual({ kind: 'replaced' })
+      const work = editor.work!
+      expect(work.id).toBe('stored-1')
+      expect(work.sourceName).toBe('holiday')
+      expect(work.sourceFormat).toBe('png')
+      expect(work.original).toMatchObject({ width: 400, height: 200, hasTransparency: true })
+      expect(work.original.pixels).toBe(decodedBitmaps[0])
+      expect(work.geometry).toEqual(geometry())
+      expect(work.adjustments).toEqual(adjustments)
+      expect(work.revision).toBe(work.cleanRevision)
+      expect(editor.hasUnsavedEdits).toBe(false)
+      expect(work.createdAt).toBe(1_700_000_000_000)
+      expect(work.updatedAt).toBe(1_700_000_000_000)
+      expect(editor.openWorkId).toBe('stored-1')
+      expect(editor.phase).toBe('idle')
+    })
+
+    it('decodes both PNGs at the recorded size and draws the layer into a new layer', async () => {
+      await open()
+      const marked = layerBitmap()
+      marked.getContext('2d').putImageData(
+        {
+          width: 1,
+          height: 1,
+          data: new Uint8ClampedArray([9, 8, 7, 255]),
+        } as ImageData,
+        3,
+        4,
+      )
+      decodePng.mockImplementation(async (blob) => {
+        const made = blob === layerPng ? marked : bitmap(400, 200)
+        decodedBitmaps.push(made)
+        return ok(made as unknown as ImageBitmap)
+      })
+
+      await editor.reopenWork('stored-1')
+
+      expect(decodePng).toHaveBeenCalledWith(originalPng, { width: 400, height: 200 })
+      expect(decodePng).toHaveBeenCalledWith(layerPng, { width: 400, height: 200 })
+      const drawing = editor.work!.drawing!
+      expect(drawing.id).not.toBe('stored-layer')
+      expect(drawing).toMatchObject({ width: 400, height: 200 })
+      expect(drawing.pixels).not.toBe(marked)
+      expect(getPixel(drawing.pixels as never, 3, 4)).toEqual([9, 8, 7, 255])
+      // The decoded layer bitmap is spent once drawn.
+      expect(marked.close).toHaveBeenCalled()
+    })
+
+    it('a record without a layer gives a Work without a drawing and decodes only the Original', async () => {
+      loadWork.mockResolvedValue(ok(stored({ layerId: null })))
+      await open()
+      expect(await editor.reopenWork('stored-1')).toEqual({ kind: 'replaced' })
+      expect(editor.work!.drawing).toBeNull()
+      expect(decodePng).toHaveBeenCalledTimes(1)
+    })
+
+    it('starts an empty Edit history (AC-02)', async () => {
+      await open()
+      editor.applyAdjustments({ ...NEUTRAL_ADJUSTMENTS, contrast: 5 })
+      autosave.markStored(editor.work!)
+      expect(editor.canUndo).toBe(true)
+
+      await editor.reopenWork('stored-1')
+
+      expect(editor.canUndo).toBe(false)
+      expect(editor.canRedo).toBe(false)
+      expect(editor.undo()).toBe(false)
+    })
+
+    it('fits the View, not the zoom of the Work it replaces (AC-02)', async () => {
+      await open()
+      editor.zoomAt(4, { x: 100, y: 100 })
+      editor.panBy(30, 30)
+      expect(editor.view.zoom).toBeGreaterThan(1)
+
+      await editor.reopenWork('stored-1')
+
+      const expected = fitView({
+        image: workSize(editor.work!),
+        canvas: { width: 1000, height: 800 },
+      })
+      expect(editor.view).toEqual(expected)
+      expect(editor.view.autoFit).toBe(true)
+    })
+
+    it('discards an open tool and its Draft (AC-02)', async () => {
+      await open()
+      editor.openTool('adjust')
+      editor.setPreviewAdjustments({ ...NEUTRAL_ADJUSTMENTS, contrast: 50 })
+      autosave.markStored(editor.work!)
+
+      await editor.reopenWork('stored-1')
+
+      expect(editor.activeTool).toBeNull()
+      expect(editor.previewAdjustments).toBeNull()
+    })
+
+    it('works with no Work open yet', async () => {
+      expect(await editor.reopenWork('stored-1')).toEqual({ kind: 'replaced' })
+      expect(editor.work!.id).toBe('stored-1')
+    })
+
+    it('closes the Original it replaces once the new Work is picked up', async () => {
+      await open()
+      const old = editor.work!.original.pixels as unknown as FakeBitmap
+      autosave.markStored(editor.work!)
+      await editor.reopenWork('stored-1')
+      await nextTick()
+      expect(old.close).toHaveBeenCalled()
+    })
+
+    it('hands the loaded Blobs and the new layer id to Autosave, then queues a save', async () => {
+      await open()
+      const before = requests()
+
+      await editor.reopenWork('stored-1')
+
+      expect(autosave.spies.keepEncoded).toHaveBeenCalledWith('stored-1', {
+        original: originalPng,
+        layer: layerPng,
+        layerId: editor.work!.drawing!.id,
+      })
+      expect(requests()).toBe(before + 1)
+      expect(autosave.spies.request).toHaveBeenLastCalledWith(editor.work)
+    })
+
+    it('hands over a null layer and layer id for a Work without a drawing', async () => {
+      loadWork.mockResolvedValue(ok(stored({ layerId: null })))
+      await editor.reopenWork('stored-1')
+      expect(autosave.spies.keepEncoded).toHaveBeenCalledWith('stored-1', {
+        original: originalPng,
+        layer: null,
+        layerId: null,
+      })
+    })
+
+    it('chosen Work already open: nothing is read or replaced', async () => {
+      await editor.reopenWork('stored-1')
+      const work = editor.work
+      loadWork.mockClear()
+      const before = requests()
+
+      expect(await editor.reopenWork('stored-1')).toEqual({ kind: 'already-open' })
+
+      expect(loadWork).not.toHaveBeenCalled()
+      expect(editor.work).toBe(work)
+      expect(requests()).toBe(before)
+    })
+  })
+
+  describe('a Work that cannot be read changes nothing (AC-08, AC-17)', () => {
+    async function expectUnchanged(run: () => Promise<unknown>) {
+      await open()
+      editor.applyAdjustments({ ...NEUTRAL_ADJUSTMENTS, contrast: 5 })
+      editor.zoomAt(2, { x: 50, y: 50 })
+      const work = editor.work
+      const view = { ...editor.view }
+      const before = requests()
+
+      const outcome = await run()
+
+      expect(outcome).toMatchObject({ kind: 'damaged', error: { code: 'WORK_DAMAGED' } })
+      expect(editor.work).toBe(work)
+      expect(editor.view).toEqual(view)
+      expect(editor.canUndo).toBe(true)
+      expect(editor.phase).toBe('idle')
+      expect(requests()).toBe(before)
+      expect(autosave.spies.keepEncoded).not.toHaveBeenCalled()
+    }
+
+    it('loadWork fails, even with Unsaved edits that are not stored: no confirmation', async () => {
+      loadWork.mockResolvedValue(err(appError('WORK_DAMAGED', { reason: 'missing-original' })))
+      await expectUnchanged(() => editor.reopenWork('stored-1'))
+    })
+
+    it('an invalid record (unknown formatVersion) is damaged and decodes nothing', async () => {
+      loadWork.mockResolvedValue(ok(stored({ formatVersion: STORED_WORK_FORMAT + 1 })))
+      await expectUnchanged(() => editor.reopenWork('stored-1'))
+      expect(decodePng).not.toHaveBeenCalled()
+    })
+
+    it('a record with a layer id but no layer Blob is damaged', async () => {
+      loadWork.mockResolvedValue(ok({ ...stored(), layer: null }))
+      await expectUnchanged(() => editor.reopenWork('stored-1'))
+    })
+
+    it('a bad Geometry is damaged', async () => {
+      const bad = stored()
+      bad.record.geometry = { ...geometry(), crop: { x: 0, y: 0, width: 9999, height: 150 } }
+      loadWork.mockResolvedValue(ok(bad))
+      await expectUnchanged(() => editor.reopenWork('stored-1'))
+    })
+
+    it('a layer that fails to decode is damaged and the decoded Original is closed', async () => {
+      decodePng.mockImplementation(async (blob) => {
+        if (blob === layerPng) return err(appError('WORK_DAMAGED', { reason: 'size' }))
+        const made = bitmap(400, 200)
+        decodedBitmaps.push(made)
+        return ok(made as unknown as ImageBitmap)
+      })
+      await expectUnchanged(() => editor.reopenWork('stored-1'))
+      expect(closed(decodedBitmaps[0]!)).toBe(true)
+    })
+
+    it('an Original that fails to decode is damaged and the decoded layer is closed', async () => {
+      decodePng.mockImplementation(async (blob) => {
+        if (blob !== layerPng) return err(appError('WORK_DAMAGED', { reason: 'size' }))
+        const made = layerBitmap()
+        decodedBitmaps.push(made)
+        return ok(made as unknown as ImageBitmap)
+      })
+      await expectUnchanged(() => editor.reopenWork('stored-1'))
+      expect(closed(decodedBitmaps[0]!)).toBe(true)
+    })
+
+    it('a loader that reports a storage failure is not a replacement either', async () => {
+      loadWork.mockResolvedValue(err(appError('STORAGE_FAILED')))
+      await open()
+      const work = editor.work
+      const outcome = await editor.reopenWork('stored-1')
+      expect(outcome.kind).toBe('damaged')
+      expect(editor.work).toBe(work)
+      expect(editor.phase).toBe('idle')
+    })
+  })
+
+  describe('refused while exporting or confirming (AC-15)', () => {
+    it('is refused while exporting: nothing is read and the Work is unchanged', async () => {
+      await open()
+      const work = editor.work
+      editor.beginExport()
+
+      expect(await editor.reopenWork('stored-1')).toEqual({ kind: 'refused', reason: 'exporting' })
+
+      expect(loadWork).not.toHaveBeenCalled()
+      expect(editor.work).toBe(work)
+      expect(editor.phase).toBe('exporting')
+    })
+
+    it('is refused while a replacement waits for confirmation, and the waiting one stays', async () => {
+      autosave.available(false)
+      await open()
+      editor.applyEdit()
+      expect((await open(800, 600)).kind).toBe('confirming')
+      const work = editor.work
+
+      expect(await editor.reopenWork('stored-1')).toEqual({
+        kind: 'refused',
+        reason: 'confirming',
+      })
+
+      expect(loadWork).not.toHaveBeenCalled()
+      expect(editor.phase).toBe('confirming')
+      expect(editor.pending).not.toBeNull()
+      expect(editor.work).toBe(work)
+    })
+
+    it('is not queued: a reopen refused during an export never runs once it ends', async () => {
+      await open()
+      const work = editor.work
+      const snapshot = editor.beginExport()!
+      expect((await editor.reopenWork('stored-1')).kind).toBe('refused')
+
+      editor.finishExport(snapshot, false)
+      await new Promise((resolve) => setTimeout(resolve, 0))
+
+      expect(loadWork).not.toHaveBeenCalled()
+      expect(editor.work).toBe(work)
+      expect(editor.phase).toBe('idle')
+    })
+  })
+
+  describe('the replace gate (AC-17)', () => {
+    async function dirty() {
+      autosave.available(false)
+      await open()
+      editor.applyEdit()
+      return editor.work!
+    }
+
+    it('asks first when the Gallery is unavailable and edits are unsaved; cancel keeps the Work', async () => {
+      const work = await dirty()
+
+      expect(await editor.reopenWork('stored-1')).toEqual({ kind: 'confirming' })
+
+      expect(editor.phase).toBe('confirming')
+      expect(editor.work).toBe(work)
+      const bitmaps = [...decodedBitmaps]
+      expect(editor.cancelReplace()).toEqual({ kind: 'cancelled' })
+      expect(editor.work).toBe(work)
+      expect(editor.phase).toBe('idle')
+      for (const b of bitmaps) expect(closed(b)).toBe(true)
+      expect(autosave.spies.keepEncoded).not.toHaveBeenCalled()
+    })
+
+    it('confirming replaces with the stored Work, its Blobs kept and a save queued', async () => {
+      await dirty()
+      await editor.reopenWork('stored-1')
+      const before = requests()
+
+      expect(editor.confirmReplace()).toMatchObject({ kind: 'replaced' })
+
+      expect(editor.work!.id).toBe('stored-1')
+      expect(editor.work!.revision).toBe(editor.work!.cleanRevision)
+      expect(editor.canUndo).toBe(false)
+      expect(autosave.spies.keepEncoded).toHaveBeenCalledWith(
+        'stored-1',
+        expect.objectContaining({ original: originalPng, layer: layerPng }),
+      )
+      expect(requests()).toBe(before + 1)
+    })
+
+    it('asks when the open Work’s latest edit is not stored although the Gallery is available', async () => {
+      await open()
+      editor.applyAdjustments({ ...NEUTRAL_ADJUSTMENTS, contrast: 5 })
+      expect(await editor.reopenWork('stored-1')).toEqual({ kind: 'confirming' })
+    })
+
+    it('replaces without asking when the latest edit is stored', async () => {
+      await open()
+      editor.applyAdjustments({ ...NEUTRAL_ADJUSTMENTS, contrast: 5 })
+      autosave.markStored(editor.work!)
+      expect(await editor.reopenWork('stored-1')).toEqual({ kind: 'replaced' })
+    })
+
+    it('waits for a running save before deciding, staying in reading', async () => {
+      await open()
+      editor.applyAdjustments({ ...NEUTRAL_ADJUSTMENTS, contrast: 5 })
+      autosave.hold()
+      const pending = editor.reopenWork('stored-1')
+      let done = false
+      void pending.then(() => (done = true))
+      await flush()
+
+      expect(done).toBe(false)
+      expect(editor.phase).toBe('reading')
+      expect(editor.work!.id).not.toBe('stored-1')
+
+      autosave.markStored(editor.work!)
+      autosave.release()
+      expect(await pending).toEqual({ kind: 'replaced' })
+    })
+
+    it('a save that failed while waiting asks for confirmation', async () => {
+      await open()
+      editor.applyAdjustments({ ...NEUTRAL_ADJUSTMENTS, contrast: 5 })
+      autosave.hold()
+      const pending = editor.reopenWork('stored-1')
+      await flush()
+      autosave.release()
+      expect(await pending).toEqual({ kind: 'confirming' })
+    })
+  })
+
+  describe('latest open wins', () => {
+    it('an older reopen superseded by a newer one returns superseded and closes its bitmaps', async () => {
+      await open()
+      const releaseFirst: { go: () => void } = { go: () => {} }
+      loadWork.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            releaseFirst.go = () => resolve(ok(stored()))
+          }),
+      )
+      const older = editor.reopenWork('stored-1')
+      loadWork.mockResolvedValueOnce(ok(stored({ id: 'stored-2', sourceName: 'newer' })))
+      const newer = editor.reopenWork('stored-2')
+      expect(await newer).toEqual({ kind: 'replaced' })
+
+      releaseFirst.go()
+      expect(await older).toEqual({ kind: 'superseded' })
+
+      expect(editor.work!.id).toBe('stored-2')
+      expect(editor.phase).toBe('idle')
+      for (const b of decodedBitmaps.slice(0, -2)) expect(closed(b)).toBe(true)
+    })
+
+    it('an open that starts while a reopen reads wins; the reopen is superseded', async () => {
+      let finish: () => void = () => {}
+      loadWork.mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            finish = () => resolve(ok(stored()))
+          }),
+      )
+      const reopen = editor.reopenWork('stored-1')
+      const opened = editor.openImage(file())
+      decoder.answer(0, ok(decoded(100, 100)))
+      expect((await opened).kind).toBe('replaced')
+      finish()
+      expect(await reopen).toEqual({ kind: 'superseded' })
+      expect(editor.work!.id).not.toBe('stored-1')
+      for (const b of decodedBitmaps) expect(closed(b)).toBe(true)
+    })
+
+    it('leaves no decoded bitmap retained after reopens and a failure', async () => {
+      await editor.reopenWork('stored-1')
+      await editor.reopenWork('stored-1')
+      loadWork.mockResolvedValueOnce(ok(stored({ id: 'stored-2' })))
+      await editor.reopenWork('stored-2')
+      loadWork.mockResolvedValueOnce(err(appError('WORK_DAMAGED')))
+      await editor.reopenWork('stored-3')
+      await nextTick()
+      const open = decodedBitmaps.filter((b) => !closed(b))
+      // Only the open Work's Original stays alive; every layer bitmap was closed after drawing.
+      expect(open).toHaveLength(1)
+      expect(open[0]).toBe(editor.work!.original.pixels)
+    })
   })
 })

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './harness'
 
 test('the app loads at /imgly/ and shows the editor', async ({ page }) => {
   await page.goto('./')

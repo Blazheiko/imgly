@@ -4,7 +4,7 @@
  * no Step (AC-06), the refusals during an export and with Draw open (AC-07, AC-08), and the save
  * point (AC-09).
  */
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from '../harness'
 import { dropGeneratedImage, view } from '../open-and-view/helpers'
 import { exportPng } from '../adjust/helpers'
 import { choose, exportAction, expectSaved, panel, stubSaveFilePicker } from '../export/helpers'
@@ -121,7 +121,7 @@ test.describe('shortcuts and keyboard (AC-14)', () => {
 
   test('Undo is reached by Tab after "Open image" and used with Enter', async ({ page }) => {
     await adjust(page, 10)
-    await page.getByRole('button', { name: 'Open image' }).focus()
+    await page.getByTestId('editor-top-bar').getByRole('button', { name: 'Open image' }).focus()
     // WebKit's Tab reaches buttons only with Alt (Safari's "Press Tab to highlight" off).
     await page.keyboard.press(test.info().project.name === 'webkit' ? 'Alt+Tab' : 'Tab')
     await expect(undoButton(page)).toBeFocused()

@@ -16,6 +16,7 @@ import {
 } from './index'
 import type { SegmentedOption } from './SegmentedControl.vue'
 import segmentedSource from './SegmentedControl.vue?raw'
+import tokensSource from '../styles/tokens.css?raw'
 import { useNotices } from '../notices'
 
 describe('Spinner', () => {
@@ -40,6 +41,58 @@ describe('Toast', () => {
     const wrapper = mount(Toast, { props: { kind: 'failure', text: 'Too large.' } })
     await wrapper.get('button[aria-label="Dismiss"]').trigger('click')
     expect(wrapper.emitted('dismiss')).toHaveLength(1)
+  })
+})
+
+describe('Toast action (gallery AC-08)', () => {
+  const action = (run = vi.fn()) => ({ label: 'Delete…', run })
+
+  it('renders a ghost BaseButton before the dismiss button', () => {
+    const wrapper = mount(Toast, {
+      props: { kind: 'failure', text: 'Cannot be opened.', action: action() },
+    })
+    const buttons = wrapper.findAll('button')
+    expect(buttons).toHaveLength(2)
+    expect(buttons[0]!.text()).toBe('Delete…')
+    expect(buttons[0]!.classes()).toContain('base-button--ghost')
+    expect(buttons[1]!.attributes('aria-label')).toBe('Dismiss')
+    expect(wrapper.findComponent(BaseButton).exists()).toBe(true)
+  })
+
+  it('renders only text and dismiss without an action', () => {
+    const wrapper = mount(Toast, { props: { kind: 'failure', text: 'Too large.' } })
+    expect(wrapper.findAll('button')).toHaveLength(1)
+    expect(wrapper.findComponent(BaseButton).exists()).toBe(false)
+  })
+
+  it('runs the action, then emits dismiss', async () => {
+    const order: string[] = []
+    const run = vi.fn(() => order.push('run'))
+    const wrapper = mount(Toast, {
+      props: {
+        kind: 'failure',
+        text: 'Cannot be opened.',
+        action: action(run),
+        onDismiss: () => order.push('dismiss'),
+      },
+    })
+    await wrapper.findAll('button')[0]!.trigger('click')
+
+    expect(run).toHaveBeenCalledTimes(1)
+    expect(wrapper.emitted('dismiss')).toHaveLength(1)
+    expect(order).toEqual(['run', 'dismiss'])
+  })
+
+  it('renders the label as text, never as HTML', () => {
+    const wrapper = mount(Toast, {
+      props: {
+        kind: 'failure',
+        text: 'x',
+        action: { label: '<b id="x">Delete</b>', run: vi.fn() },
+      },
+    })
+    expect(wrapper.find('#x').exists()).toBe(false)
+    expect(wrapper.findAll('button')[0]!.text()).toBe('<b id="x">Delete</b>')
   })
 })
 
@@ -74,6 +127,27 @@ describe('ToastStack', () => {
 
     await wrapper.get('button[aria-label="Dismiss"]').trigger('click')
     expect(useNotices().items).toHaveLength(0)
+  })
+
+  it('passes a notice action through: running it runs once and removes the notice (AC-08)', async () => {
+    const wrapper = mount(ToastStack)
+    const run = vi.fn()
+    useNotices().pushAll([
+      { kind: 'failure', text: 'Cannot be opened.', action: { label: 'Delete…', run } },
+    ])
+    await nextTick()
+
+    const button = wrapper.findAll('button').find((b) => b.text() === 'Delete…')
+    expect(button).toBeDefined()
+    await button!.trigger('click')
+    expect(run).toHaveBeenCalledTimes(1)
+    expect(useNotices().items).toHaveLength(0)
+  })
+})
+
+describe('--gallery-tile-size token', () => {
+  it('is defined once as 160px in tokens.css', () => {
+    expect(tokensSource.match(/--gallery-tile-size:\s*160px;/g)).toHaveLength(1)
   })
 })
 
@@ -147,6 +221,38 @@ describe('Dialog', () => {
     await nextTick()
     wrapper.unmount()
     expect(document.activeElement).toBe(opener)
+  })
+
+  describe('returnFocus (gallery T46, R3-5)', () => {
+    const mountWith = (returnFocus: string) =>
+      mount(Dialog, {
+        props: { title: 'Delete?', returnFocus },
+        slots: { default: '<p>Body</p>', actions: '<button>Cancel</button>' },
+        attachTo: document.body,
+      })
+
+    it('focuses the fallback when the opener left the document before close', async () => {
+      const fallback = document.createElement('button')
+      fallback.id = 'fallback'
+      document.body.appendChild(fallback)
+      const wrapper = mountWith('#fallback')
+      await nextTick()
+      opener.remove()
+      wrapper.unmount()
+      expect(document.activeElement).toBe(fallback)
+      fallback.remove()
+    })
+
+    it('still returns to a connected opener, not the fallback', async () => {
+      const fallback = document.createElement('button')
+      fallback.id = 'fallback'
+      document.body.appendChild(fallback)
+      const wrapper = mountWith('#fallback')
+      await nextTick()
+      wrapper.unmount()
+      expect(document.activeElement).toBe(opener)
+      fallback.remove()
+    })
   })
 })
 

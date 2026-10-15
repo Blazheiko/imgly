@@ -35,6 +35,7 @@
   --toast-max-width: 420px;
   --dialog-width: 440px;
   --canvas-message-max-width: 520px;
+  --gallery-tile-size: 160px;
 
   /* typography */
   --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;

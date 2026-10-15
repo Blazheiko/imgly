@@ -11,6 +11,8 @@ export type NoticeKind = 'info' | 'failure'
 export interface NoticeInput {
   kind: NoticeKind
   text: string
+  /** An optional button before Dismiss; running it also dismisses the notice. */
+  action?: { label: string; run: () => void }
 }
 
 export interface Notice extends NoticeInput {
@@ -22,12 +24,13 @@ export const useNotices = defineStore('notices', () => {
   const items = ref<Notice[]>([])
 
   /** Adds every notice of one open in one step, after whatever is already shown. */
-  function pushAll(notices: NoticeInput[]): void {
+  function pushAll(notices: NoticeInput[]): string[] {
     const added = notices.map((n) => ({ ...n, id: newId() }))
     items.value.push(...added)
     for (const notice of added) {
       if (notice.kind === 'info') setTimeout(() => dismiss(notice.id), INFO_NOTICE_MS)
     }
+    return added.map((n) => n.id)
   }
 
   function dismiss(id: string): void {

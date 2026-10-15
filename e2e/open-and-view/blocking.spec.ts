@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from '../harness'
 import { dropGeneratedImage, gotoReady, view, waitForWork } from './helpers'
 
 /** Runs WEBGL_lose_context on the Preview's own context. */
@@ -116,7 +116,9 @@ test.describe('graphics interruptions (AC-19, AC-19b)', () => {
     await expect(page.getByTestId('editor-status-bar')).toHaveCount(0)
 
     await page.getByRole('button', { name: 'Reload page' }).click()
-    await expect(page.getByRole('button', { name: 'Open image' })).toBeVisible()
+    await expect(
+      page.getByTestId('empty-canvas').getByRole('button', { name: 'Open image' }),
+    ).toBeVisible()
     await expect(page.getByRole('heading', { name: "The display couldn't recover." })).toHaveCount(
       0,
     )

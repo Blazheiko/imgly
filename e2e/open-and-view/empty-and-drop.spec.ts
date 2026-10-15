@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from '../harness'
 import { dropGeneratedImage, gotoReady, waitForWork, type DropPrevented } from './helpers'
 
 /** Dispatches a real drag-and-drop of in-memory files onto the page body. */
@@ -23,8 +23,12 @@ test.describe('SCR-01 — empty editor', () => {
   test('shows one primary Open image action and the drop hint (AC-17)', async ({ page }) => {
     await gotoReady(page)
 
-    await expect(page.getByRole('button', { name: 'Open image' })).toHaveCount(1)
-    await expect(page.getByRole('button', { name: 'Open image' })).toBeVisible()
+    await expect(
+      page.getByTestId('empty-canvas').getByRole('button', { name: 'Open image' }),
+    ).toHaveCount(1)
+    await expect(
+      page.getByTestId('empty-canvas').getByRole('button', { name: 'Open image' }),
+    ).toBeVisible()
     await expect(page.getByText('or drop an image anywhere in this window')).toBeVisible()
   })
 
@@ -39,7 +43,9 @@ test.describe('SCR-01 — empty editor', () => {
 
     await expect(page.getByRole('alert')).toHaveText(/Only image files can be opened\./)
     expect(prevented).toEqual({ dragover: true, drop: true })
-    await expect(page.getByRole('button', { name: 'Open image' })).toBeVisible()
+    await expect(
+      page.getByTestId('empty-canvas').getByRole('button', { name: 'Open image' }),
+    ).toBeVisible()
   })
 
   test('a dropped file named as an image but holding text gets the unreadable reason (AC-08)', async ({

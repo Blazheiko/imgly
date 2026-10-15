@@ -8,6 +8,8 @@ export default mergeConfig(
       environment: 'happy-dom',
       include: ['src/**/*.test.ts'],
       restoreMocks: true,
+      // Vitest skips CSS by default, which empties a `?raw` import; the token tests read tokens.css.
+      css: { include: [/tokens\.css/] },
     },
   }),
 )

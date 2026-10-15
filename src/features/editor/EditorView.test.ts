@@ -6,6 +6,7 @@ import { appError, err, ok } from '@/core'
 import type { DecodeOutcome } from '@/infra/image-decode'
 import EditorView from './EditorView.vue'
 import { createFakeRenderer } from './fake-renderer'
+import { createFakeAutosave } from './testing'
 import { useEditorStore } from './store'
 
 function dropEvent(type: string, files: File[] = []) {
@@ -587,5 +588,291 @@ describe('EditorView — tool slots (crop-rotate ADR-0003)', () => {
     await nextTick()
     expect(wrapper.find('[data-testid="tool-canvas"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="tool-panel"]').exists()).toBe(true)
+  })
+})
+
+describe('EditorView — Gallery slots (SCR-01, SCR-03)', () => {
+  let wrapper: VueWrapper
+  let editor: ReturnType<typeof useEditorStore>
+
+  const slots = {
+    'start-screen': '<div data-testid="start-slot">Start</div>',
+    overlay: '<div data-testid="overlay-slot">Overlay</div>',
+    'top-bar-leading-actions': '<button data-testid="leading-slot">Gallery</button>',
+  }
+
+  beforeEach(async () => {
+    setActivePinia(createPinia())
+    editor = useEditorStore()
+    editor.setRendererFactory(createFakeRenderer().factory)
+    editor.setDecoder(async () =>
+      ok({
+        bitmap: { width: 400, height: 400, close() {} } as unknown as ImageBitmap,
+        sourceWidth: 400,
+        sourceHeight: 400,
+        width: 400,
+        height: 400,
+        format: 'png' as const,
+        animated: false,
+        downscaled: false,
+        hasTransparency: false,
+      }),
+    )
+    editor.setCanvasSize(1000, 1000)
+    await editor.runCapabilityGate(async () => ok(undefined))
+  })
+  afterEach(() => wrapper.unmount())
+
+  it('renders start-screen under EmptyCanvas with no Work, and no overlay or leading action', () => {
+    wrapper = mount(EditorView, { attachTo: document.body, slots })
+    const area = wrapper.get('section[aria-label="Canvas"]')
+    const start = area.get('[data-testid="start-slot"]').element
+    const openButton = area.get('.base-button--primary').element
+    expect(
+      openButton.compareDocumentPosition(start) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+    expect(wrapper.find('[data-testid="overlay-slot"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="leading-slot"]').exists()).toBe(false)
+  })
+
+  it('shows no start-screen once a Work is open; overlay and leading action appear', async () => {
+    await editor.openImage(new Blob())
+    wrapper = mount(EditorView, { attachTo: document.body, slots })
+    await nextTick()
+    expect(wrapper.find('[data-testid="start-slot"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="overlay-slot"]').exists()).toBe(true)
+
+    const bar = wrapper.get('[data-testid="editor-top-bar"]')
+    const leading = bar.get('[data-testid="leading-slot"]').element
+    const open = bar.findAll('button').find((b) => b.text() === 'Open image')!.element
+    expect(leading.compareDocumentPosition(open) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+})
+
+describe('EditorView — Gallery overlay covers the status bar (SCR-03, S2-7)', () => {
+  it('mounts the overlay slot at the workspace level, outside the canvas area', async () => {
+    setActivePinia(createPinia())
+    const editor = useEditorStore()
+    editor.setRendererFactory(createFakeRenderer().factory)
+    editor.setDecoder(async () =>
+      ok({
+        bitmap: { width: 400, height: 400, close() {} } as unknown as ImageBitmap,
+        sourceWidth: 400,
+        sourceHeight: 400,
+        width: 400,
+        height: 400,
+        format: 'png' as const,
+        animated: false,
+        downscaled: false,
+        hasTransparency: false,
+      }),
+    )
+    editor.setCanvasSize(1000, 1000)
+    await editor.runCapabilityGate(async () => ok(undefined))
+    await editor.openImage(new Blob())
+    const wrapper = mount(EditorView, {
+      attachTo: document.body,
+      slots: { overlay: '<div data-testid="overlay-slot">Overlay</div>' },
+    })
+    await nextTick()
+    const slot = wrapper.get('[data-testid="overlay-slot"]').element
+    // The canvas section does not include the status bar; an overlay inside it cannot cover it.
+    expect(slot.closest('section[aria-label="Canvas"]')).toBeNull()
+    // It is still inside the editor view, so it stays under the top bar.
+    expect(slot.closest('main')).not.toBeNull()
+    expect(slot.closest('[data-testid="editor-top-bar"]')).toBeNull()
+    expect(wrapper.find('[data-testid="editor-status-bar"]').exists()).toBe(true)
+    wrapper.unmount()
+  })
+})
+
+describe('EditorView — leave warning (AC-20)', () => {
+  let wrapper: VueWrapper
+  let editor: ReturnType<typeof useEditorStore>
+  let autosave: ReturnType<typeof createFakeAutosave>
+
+  const leave = () => {
+    const event = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(event)
+    return event
+  }
+  /** Installed minus removed `beforeunload` listeners on the window. */
+  let added: { mock: { calls: unknown[][] } }
+  let removed: { mock: { calls: unknown[][] } }
+  const count = (spy: { mock: { calls: unknown[][] } }) =>
+    spy.mock.calls.filter((call) => call[0] === 'beforeunload').length
+  const active = () => count(added) - count(removed)
+
+  beforeEach(async () => {
+    setActivePinia(createPinia())
+    editor = useEditorStore()
+    autosave = createFakeAutosave()
+    editor.setAutosave(autosave.fake)
+    editor.setRendererFactory(createFakeRenderer().factory)
+    editor.setDecoder(async () =>
+      ok({
+        bitmap: { width: 400, height: 400, close() {} } as unknown as ImageBitmap,
+        sourceWidth: 400,
+        sourceHeight: 400,
+        width: 400,
+        height: 400,
+        format: 'png' as const,
+        animated: false,
+        downscaled: false,
+        hasTransparency: false,
+      }),
+    )
+    editor.setCanvasSize(1000, 1000)
+    await editor.openImage(new Blob())
+    await editor.runCapabilityGate(async () => ok(undefined))
+    added = vi.spyOn(window, 'addEventListener')
+    removed = vi.spyOn(window, 'removeEventListener')
+    wrapper = mount(EditorView, { attachTo: document.body })
+    await nextTick()
+  })
+  afterEach(() => {
+    wrapper.unmount()
+    vi.restoreAllMocks()
+  })
+
+  it('installs no handler with Unsaved edits when no save is running', async () => {
+    editor.applyEdit()
+    await nextTick()
+    expect(editor.hasUnsavedEdits).toBe(true)
+    expect(editor.saving).toBe(false)
+    expect(leave().defaultPrevented).toBe(false)
+  })
+
+  it('warns while a save runs and stops when it finishes, with no custom text', async () => {
+    autosave.hold()
+    await nextTick()
+    const event = leave()
+    expect(event.defaultPrevented).toBe(true)
+    expect((event as BeforeUnloadEvent).returnValue).toBe('')
+
+    autosave.release()
+    await nextTick()
+    expect(leave().defaultPrevented).toBe(false)
+  })
+
+  it('keeps exactly one handler as saving flips true, false, true', async () => {
+    autosave.hold()
+    await nextTick()
+    expect(active()).toBe(1)
+    autosave.release()
+    await nextTick()
+    expect(active()).toBe(0)
+    autosave.hold()
+    await nextTick()
+    expect(active()).toBe(1)
+  })
+
+  it('removes the handler when EditorView unmounts while saving', async () => {
+    autosave.hold()
+    await nextTick()
+    wrapper.unmount()
+    expect(leave().defaultPrevented).toBe(false)
+    wrapper = mount(EditorView, { attachTo: document.body }) // keeps afterEach's unmount valid
+  })
+})
+
+describe('EditorView — nothing reaches the Work under the open Gallery (SCR-03, AC-03, S1-7)', () => {
+  let wrapper: VueWrapper
+  let editor: ReturnType<typeof useEditorStore>
+
+  beforeEach(async () => {
+    setActivePinia(createPinia())
+    editor = useEditorStore()
+    editor.setRendererFactory(createFakeRenderer().factory)
+    editor.setDecoder(async () => ({
+      ok: true,
+      value: {
+        bitmap: { width: 4000, height: 4000, close() {} } as unknown as ImageBitmap,
+        sourceWidth: 4000,
+        sourceHeight: 4000,
+        width: 4000,
+        height: 4000,
+        format: 'png',
+        animated: false,
+        downscaled: false,
+        hasTransparency: false,
+      },
+    }))
+    editor.setCanvasSize(1000, 1000)
+    await editor.openImage(new Blob())
+    await editor.runCapabilityGate(async () => ok(undefined))
+    wrapper = mount(EditorView, { attachTo: document.body })
+    await nextTick()
+  })
+  afterEach(() => {
+    wrapper.unmount()
+    vi.restoreAllMocks()
+  })
+
+  const press = (init: KeyboardEventInit) => {
+    const event = new KeyboardEvent('keydown', { cancelable: true, ...init })
+    window.dispatchEvent(event)
+    return event
+  }
+
+  it.each([{ ctrlKey: true }, { metaKey: true }])(
+    'Ctrl/Cmd+O (%o) opens the picker with no panel, and does nothing under the Gallery',
+    async (mod) => {
+      const click = vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => {})
+      press({ key: 'o', ...mod })
+      await flushPromises()
+      expect(click).toHaveBeenCalledTimes(1) // not vacuous: it acts with no panel
+
+      click.mockClear()
+      editor.setActivePanel('gallery')
+      press({ key: 'o', ...mod })
+      await flushPromises()
+      expect(click).not.toHaveBeenCalled()
+      expect(editor.activePanel).toBe('gallery')
+    },
+  )
+
+  it('a drop opens with no panel, but under the Gallery it is ignored and still never navigates', async () => {
+    const drop = vi.spyOn(editor, 'openDrop').mockResolvedValue(undefined as never)
+    window.dispatchEvent(dropEvent('drop', [new File(['x'], 'a.png')]))
+    expect(drop).toHaveBeenCalledTimes(1) // not vacuous
+
+    drop.mockClear()
+    const id = editor.work!.id
+    editor.setActivePanel('gallery')
+    const event = dropEvent('drop', [new File(['x'], 'a.png')])
+    window.dispatchEvent(event)
+    await flushPromises()
+    expect(event.defaultPrevented).toBe(true)
+    expect(drop).not.toHaveBeenCalled()
+    expect(editor.work!.id).toBe(id)
+  })
+
+  it('shows no drop overlay under the Gallery', async () => {
+    editor.setActivePanel('gallery')
+    window.dispatchEvent(dropEvent('dragenter'))
+    await nextTick()
+    expect(wrapper.text()).not.toContain('Drop an image to open it')
+  })
+
+  it('+ / = / - and Shift+0 / Shift+1 zoom with no panel, but change the View under no circumstances under the Gallery', () => {
+    const keys: KeyboardEventInit[] = [
+      { key: '+', code: 'Equal', shiftKey: true },
+      { key: '=', code: 'Equal' },
+      { key: '-', code: 'Minus' },
+      { key: ')', code: 'Digit0', shiftKey: true },
+      { key: '!', code: 'Digit1', shiftKey: true },
+      { key: '0', code: 'Digit0' },
+    ]
+    press({ key: '=', code: 'Equal' })
+    expect(editor.view.zoom).toBeGreaterThan(0.25) // not vacuous
+    press({ key: '!', code: 'Digit1', shiftKey: true })
+
+    editor.setActivePanel('gallery')
+    const before = { ...editor.view }
+    for (const init of keys) {
+      press(init)
+      expect(editor.view).toEqual(before)
+    }
   })
 })

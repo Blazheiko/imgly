@@ -196,6 +196,8 @@ Traceability: downscale limit 4096 px resolves roadmap decision D1 (`docs/roadma
 **When** the Editor opens another image that has been read successfully
 **Then** the app asks for confirmation and says the current edits will be lost. Choosing to cancel keeps the current Work and View exactly as they were and discards the image that was read. Notices about the new image (downscale, first frame only) appear only after it has actually replaced the Work
 
+*Narrowed by gallery AC-16/AC-17:* the app asks only when the Unsaved edits are not stored in the Gallery, and the dialog now says the latest edits aren't saved in the Gallery. The text above is the original wording.
+
 *Verification note:* until an editing tool exists, this is verified with a Work prepared to have Unsaved edits; the first editing feature (roadmap step 4) re-verifies it with real edits.
 
 ### AC-16 (US-06) — domain invariant

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from '../harness'
 import { dropGeneratedImage, expectOneRetainedOriginal, gotoReady, waitForWork } from './helpers'
 
 const work = (page: Page) => page.evaluate(() => window.__imglyTest!.work())
@@ -10,7 +10,7 @@ async function openOverUnsavedEdits(page: Page) {
   await waitForWork(page, 4000, 3000)
   await page.evaluate(() => window.__imglyTest!.applyEdit())
   await page.getByRole('button', { name: 'Zoom in' }).click()
-  await page.getByRole('button', { name: 'Open image' }).focus()
+  await page.getByTestId('editor-top-bar').getByRole('button', { name: 'Open image' }).focus()
   const before = {
     work: await work(page),
     view: await page.evaluate(() => window.__imglyTest!.view()),
@@ -28,7 +28,9 @@ test.describe('SCR-03 — replace confirmation (AC-15)', () => {
 
     const dialog = page.getByRole('alertdialog')
     await expect(dialog.getByRole('heading')).toHaveText('Replace the current image?')
-    await expect(dialog).toContainText('Your edits to the current image will be lost.')
+    await expect(dialog).toContainText(
+      "Your latest edits aren't saved in the Gallery and will be lost.",
+    )
     await expect(dialog.getByRole('button', { name: 'Cancel' })).toBeFocused()
   })
 
@@ -45,7 +47,9 @@ test.describe('SCR-03 — replace confirmation (AC-15)', () => {
     expect(await page.evaluate(() => window.__imglyTest!.view())).toEqual(before.view)
     await expect(page.getByTestId('zoom-level')).toHaveText(before.level!)
     await expect(page.getByTestId('toast-stack')).toBeEmpty()
-    await expect(page.getByRole('button', { name: 'Open image' })).toBeFocused()
+    await expect(
+      page.getByTestId('editor-top-bar').getByRole('button', { name: 'Open image' }),
+    ).toBeFocused()
     await expectOneRetainedOriginal(page) // the declined image was closed
   })
 

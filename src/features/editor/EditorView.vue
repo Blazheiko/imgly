@@ -18,7 +18,7 @@ const dragging = ref(false)
 const live = computed(() => editor.display === 'ok' || editor.display === 'restoring')
 
 /** View keys and drops are handled on the Preview's screens unless the replace dialog waits. */
-const interactive = () => live.value && editor.phase !== 'confirming'
+const interactive = () => live.value && editor.phase !== 'confirming' && !editor.galleryOpen
 
 /** Opens are also refused while an export runs (export AC-11); zoom and pan stay live. */
 const acceptsOpens = () => interactive() && editor.phase !== 'exporting'
@@ -92,6 +92,7 @@ function onKeydown(event: KeyboardEvent) {
   const mod = event.ctrlKey || event.metaKey
   if (mod && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 'o') {
     event.preventDefault()
+    if (editor.galleryOpen) return
     void openPicked()
     return
   }
@@ -143,6 +144,20 @@ const uninstallDropGuard = installDropGuard(window, {
   },
 })
 
+/** AC-20: warn on leave only while a save runs; the browser shows its own text. */
+function warnOnLeave(event: BeforeUnloadEvent) {
+  event.preventDefault()
+  event.returnValue = ''
+}
+watch(
+  () => editor.saving,
+  (saving) => {
+    if (saving) window.addEventListener('beforeunload', warnOnLeave)
+    else window.removeEventListener('beforeunload', warnOnLeave)
+  },
+)
+if (editor.saving) window.addEventListener('beforeunload', warnOnLeave)
+
 onMounted(() => {
   window.addEventListener('keydown', onKeydown)
   window.addEventListener('keyup', onKeyup)
@@ -151,6 +166,7 @@ onMounted(() => {
   for (const type of GESTURE_EVENTS) window.addEventListener(type, blockPageZoomGesture)
 })
 onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', warnOnLeave)
   window.removeEventListener('keydown', onKeydown)
   window.removeEventListener('keyup', onKeyup)
   window.removeEventListener('blur', endSpacePan)
@@ -171,49 +187,65 @@ onBeforeUnmount(() => {
       :open-disabled="editor.phase === 'exporting'"
       @open="openPicked"
     >
+      <template v-if="live && editor.work" #leading-actions>
+        <slot name="top-bar-leading-actions" />
+      </template>
       <template v-if="live" #actions><slot name="top-bar-actions" /></template>
     </EditorTopBar>
-    <div class="editor-view__workspace">
-      <section class="editor-view__canvas" aria-label="Canvas">
-        <CanvasMessage
-          v-if="editor.display === 'unsupported'"
-          :title="BLOCKING.UNSUPPORTED_BROWSER.title"
+    <div class="editor-view__body">
+      <div class="editor-view__workspace">
+        <section
+          class="editor-view__canvas"
+          :class="{ 'editor-view__canvas--start': live && !editor.work }"
+          aria-label="Canvas"
         >
-          {{ BLOCKING.UNSUPPORTED_BROWSER.body }}
-        </CanvasMessage>
-        <CanvasMessage
-          v-else-if="editor.display === 'lost'"
-          :title="BLOCKING.DISPLAY_LOST.title"
-          role="alert"
-        >
-          {{ BLOCKING.DISPLAY_LOST.body }}
-          <template #action>
-            <BaseButton ref="reloadButton" variant="primary" @click="reload"
-              >Reload page</BaseButton
-            >
-          </template>
-        </CanvasMessage>
-        <template v-else-if="live">
-          <EmptyCanvas v-if="!editor.work" @open="openPicked" />
-          <PreviewCanvas v-else />
-          <!-- An open tool's canvas half (crop-rotate's frame), over the Preview (ADR-0003). -->
-          <slot v-if="editor.work && editor.activeTool" name="tool-canvas" />
-          <div
-            v-if="editor.display === 'restoring'"
-            class="editor-view__restoring"
-            data-testid="restoring"
+          <CanvasMessage
+            v-if="editor.display === 'unsupported'"
+            :title="BLOCKING.UNSUPPORTED_BROWSER.title"
           >
-            <Spinner label="Restoring the display" />
-          </div>
-          <div v-else-if="editor.phase === 'reading'" class="editor-view__loading">
-            <Spinner label="Opening image" />
-          </div>
-        </template>
-      </section>
-      <!-- The tool's panel beside the canvas; it stays when the display is lost, so Cancel works. -->
-      <slot v-if="editor.work && editor.activeTool" name="tool-panel" />
+            {{ BLOCKING.UNSUPPORTED_BROWSER.body }}
+          </CanvasMessage>
+          <CanvasMessage
+            v-else-if="editor.display === 'lost'"
+            :title="BLOCKING.DISPLAY_LOST.title"
+            role="alert"
+          >
+            {{ BLOCKING.DISPLAY_LOST.body }}
+            <template #action>
+              <BaseButton ref="reloadButton" variant="primary" @click="reload"
+                >Reload page</BaseButton
+              >
+            </template>
+          </CanvasMessage>
+          <template v-else-if="live">
+            <template v-if="!editor.work">
+              <EmptyCanvas @open="openPicked" />
+              <slot name="start-screen" />
+            </template>
+            <template v-else>
+              <PreviewCanvas />
+            </template>
+            <!-- An open tool's canvas half (crop-rotate's frame), over the Preview (ADR-0003). -->
+            <slot v-if="editor.work && editor.activeTool" name="tool-canvas" />
+            <div
+              v-if="editor.display === 'restoring'"
+              class="editor-view__restoring"
+              data-testid="restoring"
+            >
+              <Spinner label="Restoring the display" />
+            </div>
+            <div v-else-if="editor.phase === 'reading'" class="editor-view__loading">
+              <Spinner label="Opening image" />
+            </div>
+          </template>
+        </section>
+        <!-- The tool's panel beside the canvas; it stays when the display is lost, so Cancel works. -->
+        <slot v-if="editor.work && editor.activeTool" name="tool-panel" />
+      </div>
+      <EditorStatusBar v-if="live" />
+      <!-- Covers the canvas area and the status bar, under the top bar (SCR-03). -->
+      <slot v-if="live && editor.work" name="overlay" />
     </div>
-    <EditorStatusBar v-if="live" />
     <ToastStack />
     <DropOverlay v-if="dragging" />
     <ReplaceDialog v-if="live && editor.phase === 'confirming'" />
@@ -229,6 +261,14 @@ onBeforeUnmount(() => {
 
 .editor-view--with-status-bar {
   --toast-stack-bottom: calc(var(--toolbar-size) + var(--space-4));
+}
+
+.editor-view__body {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .editor-view__workspace {
@@ -250,6 +290,11 @@ onBeforeUnmount(() => {
   min-width: 0;
   min-height: 0;
   background: var(--color-canvas-surround);
+}
+
+/* The start screen's band and Gallery section scroll when the entries don't fit. */
+.editor-view__canvas--start {
+  overflow-y: auto;
 }
 
 .editor-view__restoring {

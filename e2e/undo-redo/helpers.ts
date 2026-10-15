@@ -35,8 +35,8 @@ export async function openGenerated(page: Page, size = REFERENCE, name = 'refere
 }
 
 /** Opens the reference Work into an empty editor. */
-export async function openReference(page: Page) {
-  await gotoReady(page)
+export async function openReference(page: Page, options: { gallery?: boolean } = {}) {
+  await gotoReady(page, options)
   await openGenerated(page)
   await waitForWork(page, REFERENCE.width, REFERENCE.height)
 }

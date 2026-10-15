@@ -28,6 +28,15 @@ import {
   type Layer,
 } from '@/render'
 import { bitmapLedger } from '@/shared'
+import {
+  damageStoredPart,
+  openNextVersion,
+  readStoredKeys,
+  saveFaults,
+  setOpenRefusal,
+  writeStoredWork,
+  type StoredWorkInput,
+} from '@/infra/db/testing'
 
 /** What e2e tests may read and prepare. Only installed in the Playwright build (VITE_E2E_HOOKS). */
 export interface ImglyTestHooks {
@@ -119,7 +128,26 @@ export interface ImglyTestHooks {
    */
   holdNextOpen(): void
   releaseHeldOpen(): void
+  /** Every stored key per store; records come without Blob bytes (gallery T18). */
+  galleryRecords(): ReturnType<typeof readStoredKeys>
+  /** Writes one Work in the `formatVersion: 1` layout, bypassing Autosave; returns its id. */
+  galleryWriteStored(input: StoredWorkInput): Promise<string>
+  galleryDamage(id: string, part: 'original' | 'layer' | 'thumbnail' | 'thumbnail-bytes' | 'record'): Promise<void>
+  /** Writes over the budget (total stored bytes) fail as a quota error; `null` lifts it. */
+  gallerySetByteBudget(bytes: number | null): void
+  /** The next `storeWork` transaction stays open at that point; `null` clears it. */
+  galleryHoldSave(point: 'evictions' | 'record' | 'original' | 'layer' | null): void
+  /** The next save fails with a non-quota error. */
+  galleryFailNextSave(): void
+  /** Opens the database at `LATEST_VERSION + 1` from this page. */
+  galleryOpenNextVersion(): Promise<void>
+  /** `navigator.storage.persist()` calls since load. */
+  galleryPersistCalls(): number
+  /** Makes the next `openGalleryDb` refuse, on this page or, if none ran, the next load. */
+  galleryFailOpen(): void
 }
+
+const FAIL_OPEN_FLAG = 'imgly-test:fail-open'
 
 declare global {
   interface Window {
@@ -254,6 +282,30 @@ export function installTestHooks(pinia: Pinia): void {
   const editor = useEditorStore(pinia)
   const exporter = useExportStore(pinia)
   let release: (() => void) | undefined
+
+  // Gallery seams start inert on every install.
+  saveFaults.byteBudget = null
+  saveFaults.hold = null
+  saveFaults.failNext = false
+  const armOpenRefusal = () =>
+    setOpenRefusal(() => {
+      sessionStorage.removeItem(FAIL_OPEN_FLAG)
+      setOpenRefusal(null)
+      return true
+    })
+  setOpenRefusal(null)
+  if (sessionStorage.getItem(FAIL_OPEN_FLAG)) armOpenRefusal()
+
+  let persistCalls = 0
+  const storage = navigator.storage
+  const persist = storage?.persist
+  if (persist) {
+    storage.persist = () => {
+      persistCalls++
+      return persist.call(storage)
+    }
+  }
+
   window.__imglyTest = {
     work: () => {
       const work = editor.work
@@ -384,5 +436,23 @@ export function installTestHooks(pinia: Pinia): void {
       })
     },
     releaseHeldOpen: () => release?.(),
+    galleryRecords: () => readStoredKeys(),
+    galleryWriteStored: (input) => writeStoredWork(input),
+    galleryDamage: (id, part) => damageStoredPart(id, part),
+    gallerySetByteBudget: (bytes) => {
+      saveFaults.byteBudget = bytes
+    },
+    galleryHoldSave: (point) => {
+      saveFaults.hold = point
+    },
+    galleryFailNextSave: () => {
+      saveFaults.failNext = true
+    },
+    galleryOpenNextVersion: () => openNextVersion(),
+    galleryPersistCalls: () => persistCalls,
+    galleryFailOpen: () => {
+      sessionStorage.setItem(FAIL_OPEN_FLAG, '1')
+      armOpenRefusal()
+    },
   }
 }

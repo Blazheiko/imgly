@@ -1,5 +1,6 @@
-import { openDB, type IDBPDatabase } from 'idb'
+import { openDB, type IDBPDatabase, type IDBPTransaction } from 'idb'
 import type { ImglyDb } from './schema'
+import { appError, err, ok, type AppError, type Result } from '../../core'
 import { LATEST_VERSION, migrations, type Migration } from './migrations'
 
 export const DB_NAME = 'imgly'
@@ -13,8 +14,90 @@ export function openDb(
   return openDB<ImglyDb>(name, version, {
     upgrade(db, oldVersion, _newVersion, tx) {
       for (const step of steps) {
-        if (step.version > oldVersion) step.upgrade(db, tx)
+        if (step.version > oldVersion)
+          step.upgrade(
+            db as unknown as IDBPDatabase,
+            tx as unknown as IDBPTransaction<unknown, string[], 'versionchange'>,
+          )
       }
     },
+  })
+}
+
+/** Fault seam for the e2e build: when it returns true, `openGalleryDb` refuses. Null in production. */
+let openRefusal: (() => boolean) | null = null
+export function setOpenRefusal(refusal: (() => boolean) | null): void {
+  openRefusal = refusal
+}
+
+export interface OpenGalleryDbOptions {
+  name?: string
+  /** How long a `blocked` open waits for an older connection to close. Default 3000 ms. */
+  blockedWaitMs?: number
+  /** Called with this connection when a newer version opens the database elsewhere. */
+  onVersionChange?: (db: IDBPDatabase<ImglyDb>) => void
+}
+
+/**
+ * Opens the Gallery database as a Result. `STORAGE_UNAVAILABLE` carries `reason: 'refused'` when
+ * the browser refuses the open, and `'held'` when an older connection blocks the upgrade past
+ * `blockedWaitMs`. The returned connection reports `versionchange` through `onVersionChange`.
+ */
+export function openGalleryDb(
+  opts: OpenGalleryDbOptions = {},
+): Promise<Result<IDBPDatabase<ImglyDb>, AppError>> {
+  const { name = DB_NAME, blockedWaitMs = 3000, onVersionChange } = opts
+  const unavailable = (reason: 'refused' | 'held') =>
+    err(appError('STORAGE_UNAVAILABLE', { reason }))
+
+  if (openRefusal?.()) return Promise.resolve(unavailable('refused'))
+
+  return new Promise((resolve) => {
+    let settled = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const finish = (result: Result<IDBPDatabase<ImglyDb>, AppError>) => {
+      settled = true
+      clearTimeout(timer)
+      resolve(result)
+    }
+
+    let opening: Promise<IDBPDatabase<ImglyDb>>
+    try {
+      opening = openDB<ImglyDb>(name, LATEST_VERSION, {
+        upgrade(db, oldVersion, _newVersion, tx) {
+          for (const step of migrations) {
+            if (step.version > oldVersion)
+              step.upgrade(
+                db as unknown as IDBPDatabase,
+                tx as unknown as IDBPTransaction<unknown, string[], 'versionchange'>,
+              )
+          }
+        },
+        blocked() {
+          if (settled || timer !== undefined) return
+          timer = setTimeout(() => {
+            if (!settled) finish(unavailable('held'))
+          }, blockedWaitMs)
+        },
+      })
+    } catch {
+      finish(unavailable('refused'))
+      return
+    }
+
+    opening.then(
+      (db) => {
+        if (settled) {
+          // Gave up as held; the older tab let go late. Don't leak a connection.
+          db.close()
+          return
+        }
+        db.addEventListener('versionchange', () => onVersionChange?.(db))
+        finish(ok(db))
+      },
+      () => {
+        if (!settled) finish(unavailable('refused'))
+      },
+    )
   })
 }

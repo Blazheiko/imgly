@@ -109,11 +109,26 @@ export async function chooserFromCtrlO(page: Page): Promise<FileChooser> {
   }
 }
 
-/** Loads the app and waits until the start-up gate has shown SCR-01. */
-export async function gotoReady(page: Page) {
+/** Tag for tests that need the Gallery unavailable: `test(name, { tag: NO_GALLERY }, …)`. */
+export const NO_GALLERY = '@no-gallery'
+
+/**
+ * Loads the app and waits until the start-up gate has shown SCR-01. The Gallery is enabled unless
+ * `{ gallery: false }`, which refuses its database so the app runs without Autosave.
+ */
+export async function gotoReady(page: Page, options: { gallery?: boolean } = {}) {
+  if (options.gallery === false) {
+    await page.addInitScript(() => {
+      indexedDB.open = () => {
+        throw new DOMException('Storage refused for this test', 'SecurityError')
+      }
+    })
+  }
   await page.goto('./')
   try {
-    await expect(page.getByRole('button', { name: 'Open image' })).toBeVisible()
+    await expect(
+      page.getByTestId('empty-canvas').getByRole('button', { name: 'Open image' }),
+    ).toBeVisible()
   } catch (error) {
     throw new Error(`SCR-01 never showed. ${await startupDiagnosis(page)}`, { cause: error })
   }

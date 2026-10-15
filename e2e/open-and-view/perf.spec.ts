@@ -8,7 +8,7 @@
  *
  * Numbers bind only to the reference machine; elsewhere read them as indicative.
  */
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from '../harness'
 import { p95, settledKiB } from '../perf-memory'
 import { gotoReady } from './helpers'
 

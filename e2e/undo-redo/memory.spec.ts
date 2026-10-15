@@ -3,7 +3,8 @@
  * Steps kept, and the bitmap ledger after each way Steps leave the history. The whole-page row is
  * @perf, as export's (PERF=1 pnpm test:e2e e2e/undo-redo/memory.spec.ts --project chromium).
  */
-import { expect, test } from '@playwright/test'
+import { expect, test } from '../harness'
+import { NO_GALLERY } from '../open-and-view/helpers'
 import { settledKiB } from '../perf-memory'
 import {
   REFERENCE_LAYER_BYTES,
@@ -63,12 +64,13 @@ test('Undo back to the opened image, which shows no layer, stays within 512 000 
 test.describe('0 retained layers once Steps leave the Edit history (spec §6)', () => {
   test.beforeEach(async ({ page }) => {
     test.setTimeout(120_000)
-    await openReference(page)
+    await openReference(page, { gallery: !test.info().tags.includes(NO_GALLERY) })
     await drawSteps(page, 10)
     expect((await historyStats(page)).steps).toBe(10)
   })
 
-  test('after replacing the Work (AC-10)', async ({ page }) => {
+  // Gallery unavailable: replacing always asks for Unsaved edits (gallery AC-12, AC-17)
+  test('after replacing the Work (AC-10)', { tag: NO_GALLERY }, async ({ page }) => {
     await openGenerated(page, { width: 800, height: 600 }, 'next.jpg')
     await page.getByRole('button', { name: 'Replace' }).click()
     await waitForWork(page, 800, 600)
@@ -80,16 +82,19 @@ test.describe('0 retained layers once Steps leave the Edit history (spec §6)', 
     expect((await layers(page)).retained).toBe(0)
   })
 
-  test('a cancelled replace keeps the Work, its history and its layers (AC-10)', async ({
-    page,
-  }) => {
-    const before = { stats: await historyStats(page), layers: await layers(page) }
-    await openGenerated(page, { width: 800, height: 600 }, 'next.jpg')
-    await page.getByRole('button', { name: 'Cancel' }).click()
-    expect((await work(page))!.width).toBe(4096)
-    expect(await historyStats(page)).toEqual(before.stats)
-    expect(await layers(page)).toEqual(before.layers)
-  })
+  // Gallery unavailable: replacing always asks for Unsaved edits (gallery AC-12, AC-17)
+  test(
+    'a cancelled replace keeps the Work, its history and its layers (AC-10)',
+    { tag: NO_GALLERY },
+    async ({ page }) => {
+      const before = { stats: await historyStats(page), layers: await layers(page) }
+      await openGenerated(page, { width: 800, height: 600 }, 'next.jpg')
+      await page.getByRole('button', { name: 'Cancel' }).click()
+      expect((await work(page))!.width).toBe(4096)
+      expect(await historyStats(page)).toEqual(before.stats)
+      expect(await layers(page)).toEqual(before.layers)
+    },
+  )
 
   test('after a new Step discards the redoable Steps (AC-04)', async ({ page }) => {
     expect(await countUndos(page)).toBe(10) // back to the opened image: every layer is redoable

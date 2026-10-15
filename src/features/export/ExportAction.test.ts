@@ -131,6 +131,26 @@ describe('ExportAction and Ctrl/Cmd+S (AC-11, AC-17)', () => {
     },
   )
 
+  it.each([{ ctrlKey: true }, { metaKey: true }])(
+    'Ctrl/Cmd+S (%o) under the open Gallery does not open the Export panel (AC-03)',
+    async (mod) => {
+      openWork()
+      await flush()
+      pressSave(mod)
+      await flush()
+      expect(store.panelOpen).toBe(true) // not vacuous: it opens with no panel
+      store.closePanel()
+      await flush()
+
+      editor.setActivePanel('gallery')
+      pressSave(mod)
+      await flush()
+      expect(store.panelOpen).toBe(false)
+      expect(editor.activePanel).toBe('gallery')
+      expect(exporter).not.toHaveBeenCalled()
+    },
+  )
+
   it('Ctrl/Cmd+S with the panel open confirms, after applying a value still being typed', async () => {
     openWork()
     await flush()

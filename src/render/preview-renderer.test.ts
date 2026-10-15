@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  createWork,
   cropToOriginalUv,
   identityGeometry,
   NEUTRAL_ADJUSTMENTS,
@@ -9,7 +10,11 @@ import {
   type View,
 } from '@/core'
 import { viewToTransform } from './view-transform'
-import { createPreviewRenderer, type PreviewRenderer } from './preview-renderer'
+import {
+  createPreviewRenderer,
+  THUMBNAIL_LONG_SIDE,
+  type PreviewRenderer,
+} from './preview-renderer'
 import { createFakeCanvas, createFakeFrames, createFakeGl, type FakeGl } from './fake-gl'
 import {
   createLayer,
@@ -616,5 +621,226 @@ describe('PreviewRenderer.setLayer / updateLayer (draw ADR-0003)', () => {
     fake.calls.length = 0
     renderer.sampleCrop(identityGeometry(original), 512)
     expect(drawFlag()).toBe(0)
+  })
+})
+
+describe('PreviewRenderer.renderThumbnail (gallery ADR-0005, AC-01, AC-03)', () => {
+  type EditorWork = ReturnType<typeof createWork<ImageBitmap, OffscreenCanvas>>
+  const PREVIEW = { width: 800, height: 600 }
+  let fake: FakeGl
+  let frames: ReturnType<typeof createFakeFrames>
+  let renderer: PreviewRenderer
+  let canvas: ReturnType<typeof createFakeCanvas>
+  let previousFactory: CanvasFactory
+
+  const workOf = (width: number, height: number, over: Partial<EditorWork> = {}): EditorWork => ({
+    ...createWork<ImageBitmap, OffscreenCanvas>(
+      { width, height, pixels: bitmap(width, height), hasTransparency: false },
+      'w1',
+      { sourceName: 'a.jpg', sourceFormat: 'jpeg' },
+      0,
+    ),
+    ...over,
+  })
+
+  function open(width: number, height: number) {
+    renderer.setOriginal(bitmap(width, height))
+    renderer.setView(view(0.19))
+    frames.flush()
+    fake.calls.length = 0
+  }
+
+  // Calls made by renderThumbnail itself (the fake's saved Preview state is not a pass size).
+  const passSizes = () =>
+    fake.calls
+      .filter(
+        ([n, x, y, w, h]) =>
+          n === 'viewport' && !(x === 0 && y === 0 && w === PREVIEW.width && h === PREVIEW.height),
+      )
+      .map(([, , , w, h]) => [w as number, h as number])
+
+  beforeEach(() => {
+    previousFactory = setLayerCanvasFactory(
+      (w, h) => createFakeLayerCanvas(w, h) as unknown as OffscreenCanvas,
+    )
+    fake = createFakeGl()
+    fake.returns.getParameter = (pname) =>
+      pname === 'VIEWPORT' ? new Int32Array([0, 0, PREVIEW.width, PREVIEW.height]) : null
+    frames = createFakeFrames()
+    canvas = createFakeCanvas(fake.gl)
+    const result = createPreviewRenderer(canvas as unknown as HTMLCanvasElement, frames)
+    if (!result.ok) throw new Error('renderer failed')
+    renderer = result.value
+    renderer.resize(PREVIEW.width, PREVIEW.height)
+  })
+  afterEach(() => {
+    setLayerCanvasFactory(previousFactory)
+  })
+
+  it('has a long side of 320 px', () => {
+    expect(THUMBNAIL_LONG_SIDE).toBe(320)
+  })
+
+  it('reduces 4096×3072 in passes of at most 2:1 down to exactly 320×240, read back as ImageData', () => {
+    open(4096, 3072)
+    const image = renderer.renderThumbnail(workOf(4096, 3072))
+
+    expect(image).not.toBeNull()
+    expect({ width: image!.width, height: image!.height }).toEqual({ width: 320, height: 240 })
+    expect(image!.data.length).toBe(320 * 240 * 4)
+    const sizes = passSizes()
+    expect(sizes[0]).toEqual([4096, 3072])
+    expect(sizes.at(-1)).toEqual([320, 240])
+    for (let i = 1; i < sizes.length; i++) {
+      expect(sizes[i - 1]![0]! / sizes[i]![0]!).toBeLessThanOrEqual(2)
+      expect(sizes[i - 1]![1]! / sizes[i]![1]!).toBeLessThanOrEqual(2)
+      expect(sizes[i]![0]).toBeLessThan(sizes[i - 1]![0]!)
+    }
+    expect(fake.calls).toContainEqual([
+      'readPixels',
+      0,
+      0,
+      320,
+      240,
+      'RGBA',
+      'UNSIGNED_BYTE',
+      expect.any(Uint8Array),
+    ])
+  })
+
+  it('makes a 4096×4096 Original 320×320', () => {
+    open(4096, 4096)
+    const image = renderer.renderThumbnail(workOf(4096, 4096))
+    expect([image?.width, image?.height]).toEqual([320, 320])
+    const sizes = passSizes()
+    for (let i = 1; i < sizes.length; i++) {
+      expect(sizes[i - 1]![0]! / sizes[i]![0]!).toBeLessThanOrEqual(2)
+    }
+  })
+
+  it('never upscales: a 1×1 Work is one pass at 1×1', () => {
+    open(1, 1)
+    const image = renderer.renderThumbnail(workOf(1, 1))
+    expect([image?.width, image?.height]).toEqual([1, 1])
+    expect(passSizes()).toEqual([[1, 1]])
+  })
+
+  it('honours maxSide: min(maxSide, output long side)', () => {
+    open(4096, 3072)
+    const image = renderer.renderThumbnail(workOf(4096, 3072), 512)
+    expect([image?.width, image?.height]).toEqual([512, 384])
+  })
+
+  it('follows the cropped, turned output aspect', () => {
+    open(4096, 3072)
+    const g: Geometry = {
+      ...identityGeometry({ width: 4096, height: 3072 }),
+      rotation: 90,
+      crop: { x: 0, y: 0, width: 1000, height: 500 },
+    }
+    const image = renderer.renderThumbnail(workOf(4096, 3072, { geometry: g }))
+    expect([image?.width, image?.height]).toEqual([320, 160])
+  })
+
+  it('draws the applied Work, never the Draft shown in a tool', () => {
+    open(4096, 3072)
+    const draftGeometry = { ...identityGeometry({ width: 4096, height: 3072 }), straighten: 200 }
+    renderer.setGeometry(draftGeometry, 'whole')
+    renderer.setAdjustments({ ...NEUTRAL_ADJUSTMENTS, contrast: 90 })
+    frames.flush()
+    fake.calls.length = 0
+
+    const applied: Geometry = {
+      ...identityGeometry({ width: 4096, height: 3072 }),
+      crop: { x: 10, y: 20, width: 2000, height: 1000 },
+    }
+    const adjusted = { ...NEUTRAL_ADJUSTMENTS, contrast: 40 }
+    renderer.renderThumbnail(workOf(4096, 3072, { geometry: applied, adjustments: adjusted }))
+
+    expect(uniformCalls(fake, 'u_geometry').map((c) => c[3])).toContainEqual(
+      new Float32Array(cropToOriginalUv(applied, { width: 4096, height: 3072 })),
+    )
+    expect(uniformCalls(fake, 'u_geometry').map((c) => c[3])).not.toContainEqual(
+      new Float32Array(turnedImageToOriginalUv(draftGeometry, { width: 4096, height: 3072 })),
+    )
+    expect(uniformCalls(fake, 'u_adjust')).toContainEqual(['uniform1i', { uniform: 'u_adjust' }, 1])
+    const contrasts = uniformCalls(fake, 'u_contrast').map((c) => c[2] as number)
+    expect(contrasts).toContainEqual(expect.closeTo(1 / (1 - 0.75 * 0.4), 10))
+    expect(contrasts).not.toContainEqual(expect.closeTo(1 / (1 - 0.75 * 0.9), 10))
+  })
+
+  it("draws the Work's applied layer over the image, not the Preview's Draft layer", () => {
+    open(64, 32)
+    const draft = createLayer({ width: 64, height: 32 })
+    layerContext(draft)
+    renderer.setLayer(draft)
+    frames.flush()
+    fake.calls.length = 0
+
+    const applied = createLayer({ width: 64, height: 32 })
+    layerContext(applied)
+    const drawing = { id: applied.id, width: 64, height: 32, pixels: applied.pixels }
+    renderer.renderThumbnail(
+      workOf(64, 32, { drawing: drawing as unknown as EditorWork['drawing'] }),
+    )
+
+    expect(uniformCalls(fake, 'u_draw')).toContainEqual(['uniform1i', { uniform: 'u_draw' }, 1])
+    expect(fake.calls).toContainEqual(['activeTexture', 'TEXTURE1'])
+  })
+
+  it('draws without a layer texture when the Work has no Drawing, as the Preview does', () => {
+    open(64, 32)
+    renderer.renderThumbnail(workOf(64, 32))
+    expect(uniformCalls(fake, 'u_draw')).not.toContainEqual(['uniform1i', { uniform: 'u_draw' }, 1])
+  })
+
+  it('draws into offscreen framebuffers and frees every texture and framebuffer it made', () => {
+    open(4096, 3072)
+    renderer.renderThumbnail(workOf(4096, 3072))
+    const count = (n: string) => fake.names().filter((x) => x === n).length
+    expect(count('createFramebuffer')).toBeGreaterThan(0)
+    expect(count('framebufferTexture2D')).toBeGreaterThan(0)
+    expect(count('deleteFramebuffer')).toBe(count('createFramebuffer'))
+    expect(count('deleteTexture')).toBe(count('createTexture'))
+  })
+
+  it('restores the framebuffer, viewport and filter so the next Preview draw is unchanged', () => {
+    open(4096, 3072)
+    const previewFrame = () => {
+      renderer.setView(view(0.6))
+      frames.flush()
+      renderer.setView(view(0.5))
+      fake.calls.length = 0
+      frames.flush()
+      return fake.calls.map((c) => JSON.stringify(c))
+    }
+    const before = previewFrame()
+
+    fake.calls.length = 0
+    renderer.renderThumbnail(workOf(4096, 3072))
+    const bindings = fake.calls.filter(([n, target]) => n === 'bindFramebuffer' && target)
+    expect(bindings.at(-1)).toEqual(['bindFramebuffer', 'FRAMEBUFFER', null])
+    expect(fake.calls.filter(([n]) => n === 'viewport').at(-1)).toEqual([
+      'viewport',
+      0,
+      0,
+      PREVIEW.width,
+      PREVIEW.height,
+    ])
+    const minFilters = fake.calls.filter(
+      ([n, , p]) => n === 'texParameteri' && p === 'TEXTURE_MIN_FILTER',
+    )
+    if (minFilters.length) expect(minFilters.at(-1)?.[3]).toBe('LINEAR_MIPMAP_LINEAR')
+
+    expect(previewFrame()).toEqual(before)
+  })
+
+  it('returns null and allocates nothing while the display is lost or restoring', () => {
+    open(4096, 3072)
+    canvas.dispatch('webglcontextlost')
+    expect(renderer.status).toBe('restoring')
+    expect(renderer.renderThumbnail(workOf(4096, 3072))).toBeNull()
+    expect(fake.names()).not.toContain('createFramebuffer')
+    expect(fake.names()).not.toContain('drawArrays')
   })
 })
