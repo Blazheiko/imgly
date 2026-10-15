@@ -9,6 +9,7 @@ import { HEADER_WINDOW_BYTES, type ImageHeader } from './types'
 
 export * from './types'
 export { pngFile, pngScanlines } from './png-write'
+export { pngRgbaParts, pngUnfilter, type PngRgbaParts } from './png-read'
 export {
   continueGifWalk,
   GIF_WALK_MAX_BYTES,

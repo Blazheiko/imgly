@@ -35,11 +35,17 @@ function makeDeps() {
             drawn = b as FakeBitmap
           },
           getImageData: () => ({ width, height, data: drawn!.data }),
+          putImageData: (image: ImageData) => {
+            drawn = fakeBitmap(width, height, image.data)
+          },
         }),
+        transferToImageBitmap: () => asBitmap(drawn!),
       } as unknown as OffscreenCanvas
     },
     encodePng: async (width, height, rgba) =>
       new Blob([new Uint8Array([width, height]), rgba as BlobPart], { type: 'image/png' }),
+    // The fakes' "PNG" is never in the app's own format, so it decodes through the browser.
+    readRgbaPng: async () => 'other',
     createBitmap: async (blob, options) => {
       decodeOptions.push(options)
       const bytes = new Uint8Array(await blob.arrayBuffer())
@@ -161,5 +167,56 @@ describe('handleCodecRequest, decode (AC-04, AC-08)', () => {
       deps,
     )
     expect(post).toHaveBeenCalledWith({ ok: false, error: { code: 'WORK_DAMAGED' } })
+  })
+})
+
+describe('handleCodecRequest, decode of a PNG the app wrote (AC-04, Linux WebKit)', () => {
+  const TRANSLUCENT = new Uint8ClampedArray([
+    203, 123, 43, 64, 255, 0, 0, 1, 0, 0, 0, 0, 9, 9, 9, 255,
+  ])
+
+  it('puts the straight bytes on a canvas and transfers its bitmap, never createImageBitmap', async () => {
+    const { deps, post, decodeOptions, created } = makeDeps()
+    deps.readRgbaPng = async () => ({ width: 2, height: 2, rgba: new Uint8Array(TRANSLUCENT) })
+
+    await handleCodecRequest(
+      { kind: 'decode', blob: new Blob([new Uint8Array([9])]), expected: { width: 2, height: 2 } },
+      deps,
+    )
+
+    expect(decodeOptions).toEqual([])
+    expect(created).toEqual([{ width: 2, height: 2 }])
+    const [message, transfer] = post.mock.calls[0]!
+    if (!message.ok) throw new Error('decode failed')
+    expect(Array.from((message.value as unknown as FakeBitmap).data)).toEqual(
+      Array.from(TRANSLUCENT),
+    )
+    expect(transfer).toEqual([message.value])
+  })
+
+  it('refuses its size when it differs from the record: WORK_DAMAGED, no canvas', async () => {
+    const { deps, post, created } = makeDeps()
+    deps.readRgbaPng = async () => ({ width: 3, height: 2, rgba: new Uint8Array(24) })
+
+    await handleCodecRequest(
+      { kind: 'decode', blob: new Blob([new Uint8Array([9])]), expected: { width: 2, height: 2 } },
+      deps,
+    )
+
+    expect(post).toHaveBeenCalledWith({ ok: false, error: { code: 'WORK_DAMAGED' } })
+    expect(created).toEqual([])
+  })
+
+  it('returns WORK_DAMAGED when its pixel data does not inflate or unfilter', async () => {
+    const { deps, post, decodeOptions } = makeDeps()
+    deps.readRgbaPng = async () => 'damaged'
+
+    await handleCodecRequest(
+      { kind: 'decode', blob: new Blob([new Uint8Array([9])]), expected: { width: 2, height: 2 } },
+      deps,
+    )
+
+    expect(post).toHaveBeenCalledWith({ ok: false, error: { code: 'WORK_DAMAGED' } })
+    expect(decodeOptions).toEqual([])
   })
 })

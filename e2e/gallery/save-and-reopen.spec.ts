@@ -317,6 +317,25 @@ test.describe('AC-04: a reopened Work exports identically', () => {
     })
   }
 
+  for (const image of SEMI_TRANSPARENT_SET) {
+    test(`${image.name} with no drawing reopens exactly, alpha included`, async ({
+      page,
+      browserName,
+    }) => {
+      await gotoReady(page)
+      await openNamed(page, image.name, image.width, image.height)
+      await waitForCommittedSave(page, { drawing: false })
+      const before = await exportPixels(page, browserName)
+
+      await reloadToStart(page, 1)
+      await chooseEntry(page, image.name)
+      await expectReopened(page, image.name, image)
+      const after = await exportPixels(page, browserName)
+      expect(maxDifference(after, before), 'per channel, alpha included').toBe(0)
+      await expectNoLeakedBitmaps(page)
+    })
+  }
+
   test('photo.png chosen with another Work open reopens exactly too', async ({
     page,
     browserName,
