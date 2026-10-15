@@ -51,8 +51,8 @@
 | T44 | STORAGE_FAILED reopen: no Damaged, no Delete (R3-2) | app | Blazheiko | S | T43 | done |
 | T45 | Failed listing keeps the list, no false empty (R3-4) | app | Blazheiko | S | T44 | done |
 | T46 | Standby dialog close: focus not on body (R3-5) | ui | Blazheiko | S | — | done |
-| T47 | Standby-dialog test covers Ctrl+O and drop (R3-6) | tests | Blazheiko | S | T46 | todo |
-| T48 | Refresh-race test waits for its reads (R3-8) | tests | Blazheiko | S | T45 | todo |
+| T47 | Standby-dialog test covers Ctrl+O and drop (R3-6) | tests | Blazheiko | S | T46 | done |
+| T48 | Refresh-race test waits for its reads (R3-8) | tests | Blazheiko | S | T45 | done |
 | T49 | Test-plan rows and round-3 resolution | docs | Blazheiko | S | T42, T43, T44, T45, T46, T47, T48 | todo |
 
 **Total:** 49 tasks, ~31 person-days (S ≈ 0.5, M ≈ 0.75, L ≈ 1).

@@ -14,14 +14,17 @@ import { useGallery } from './store'
 type Db = IDBPDatabase<ImglyDb>
 
 // Each listWorks call reads the real list at call time, then waits for a gate the test controls.
-const gates: Array<() => void> = []
+// A fresh array per test: a read still in flight from an earlier test pushes into that test's
+// own (stale) array, captured at call time, never into the current one.
+let gates: Array<() => void> = []
 vi.mock('@/infra/db', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/infra/db')>()
   return {
     ...actual,
     listWorks: async (...args: Parameters<typeof actual.listWorks>) => {
+      const mine = gates
       const result = await actual.listWorks(...args)
-      await new Promise<void>((resolve) => gates.push(resolve))
+      await new Promise<void>((resolve) => mine.push(resolve))
       return result
     },
   }
@@ -37,10 +40,9 @@ async function seed(db: Db, sourceName: string, touchedAt: number): Promise<stri
   return w.record.id
 }
 
-/** Lets the pending refresh reach its listWorks gate. */
-async function settle() {
-  for (let i = 0; i < 20; i++) await Promise.resolve()
-  await new Promise((r) => setTimeout(r, 10))
+/** Waits until the pending refreshes have reached `count` listWorks gates. */
+async function settle(count: number) {
+  await vi.waitFor(() => expect(gates).toHaveLength(count), { timeout: 5000, interval: 5 })
 }
 
 describe('gallery store: overlapping refresh (T33, S2-6)', () => {
@@ -51,7 +53,7 @@ describe('gallery store: overlapping refresh (T33, S2-6)', () => {
   let revokedWhileReferenced: string[]
 
   beforeEach(async () => {
-    gates.length = 0
+    gates = []
     setActivePinia(createPinia())
     db = await openDb(`imgly-gallery-race-${++dbCounter}`)
     const editor = useEditorStore()
@@ -74,7 +76,10 @@ describe('gallery store: overlapping refresh (T33, S2-6)', () => {
     })
   })
 
-  afterEach(() => {
+  afterEach(async () => {
+    // Release any gate still held so no read is left in flight when the db closes.
+    for (const release of gates) release()
+    await new Promise((r) => setTimeout(r, 0))
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
     db.close()
@@ -84,11 +89,10 @@ describe('gallery store: overlapping refresh (T33, S2-6)', () => {
   async function overlap(finishOrder: 'second-first' | 'first-first') {
     await seed(db, 'A.png', NOW - 1000)
     const p1 = gallery.refresh()
-    await settle()
+    await settle(1)
     await seed(db, 'B.png', NOW)
     const p2 = gallery.refresh()
-    await settle()
-    expect(gates).toHaveLength(2)
+    await settle(2)
     const [g1, g2] = gates as [() => void, () => void]
     if (finishOrder === 'second-first') {
       g2()
@@ -129,13 +133,13 @@ describe('gallery store: overlapping refresh (T33, S2-6)', () => {
   it('never revokes a URL the entries currently reference, also across sequential refreshes', async () => {
     await seed(db, 'A.png', NOW)
     const p = gallery.refresh()
-    await settle()
+    await settle(1)
     gates[0]!()
     await p
     const first = gallery.entries[0]!.thumbnailUrl!
 
     const p2 = gallery.refresh()
-    await settle()
+    await settle(2)
     // The old list stays assigned (and its URLs unrevoked) until the new list is assigned.
     expect(revoked).not.toContain(first)
     gates[1]!()

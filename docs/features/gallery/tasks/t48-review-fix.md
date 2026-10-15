@@ -7,7 +7,7 @@ acs: []
 files_hint: ["src/features/gallery/store.refresh-race.test.ts"]
 owner: "Blazheiko"
 estimate: "S"
-status: "todo"
+status: "done"
 source: "review-2026-10-14-r3 R3-8"
 ---
 
