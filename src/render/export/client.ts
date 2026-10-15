@@ -1,4 +1,5 @@
 import { appError, err, isAppErrorCode, ok, type AppError, type Result } from '@/core'
+import { isScriptLoadFailure } from '@/shared'
 import type {
   AlphaRequest,
   ExportRequest,
@@ -72,9 +73,12 @@ export interface InWindowExport {
 const transferOf = (request: { bitmap: ImageBitmap; layer: ImageData | null }): Transferable[] =>
   request.layer ? [request.bitmap, request.layer.data.buffer] : [request.bitmap]
 
+const PART_UNAVAILABLE = err(appError('APP_PART_UNAVAILABLE'))
+
 /**
- * Runs one message in a fresh worker and settles with `parse(reply)` or `fallback` on any crash.
- * The worker is terminated in every branch, which frees its WebGL2 context (export ADR-0002).
+ * Runs one message in a fresh worker and settles with `parse(reply)` or `fallback` on any crash, or
+ * `unloaded` when the worker script failed to load (pwa-install-update AC-14). The worker is
+ * terminated in every branch, which frees its WebGL2 context (export ADR-0002).
  */
 function runInWorker<T>(
   createWorker: () => Worker,
@@ -83,6 +87,7 @@ function runInWorker<T>(
   parse: (data: unknown) => T,
   fallback: T,
   timeoutMs: number,
+  unloaded: T = fallback,
 ): Promise<{ value: T; posted: boolean }> {
   return new Promise((resolve) => {
     let worker: Worker
@@ -100,7 +105,7 @@ function runInWorker<T>(
       resolve({ value, posted })
     }
     worker.onmessage = (event) => finish(parse(event.data))
-    worker.onerror = () => finish(fallback)
+    worker.onerror = (event) => finish(isScriptLoadFailure(event) ? unloaded : fallback)
     worker.onmessageerror = () => finish(fallback)
     try {
       worker.postMessage(message, transfer as Transferable[])
@@ -130,6 +135,7 @@ export function createExportClient(createWorker: () => Worker, inWindow?: InWind
         parseExportReply,
         err(appError('EXPORT_FAILED')),
         EXPORT_TIMEOUT_MS,
+        PART_UNAVAILABLE,
       )
       if (!posted) request.bitmap.close()
       return value
@@ -149,6 +155,7 @@ export function createExportClient(createWorker: () => Worker, inWindow?: InWind
         parseAlphaReply,
         err(appError('EXPORT_FAILED')),
         ALPHA_TIMEOUT_MS,
+        PART_UNAVAILABLE,
       )
       if (!posted) request.bitmap.close()
       return value

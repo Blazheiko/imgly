@@ -120,6 +120,14 @@ describe('message catalog (screens.md §Message catalog)', () => {
   })
 })
 
+describe('APP_PART_UNAVAILABLE (pwa-install-update screens.md §Message catalog, AC-14)', () => {
+  it('says the app was updated in another window and must be reloaded', () => {
+    expect(failureMessage(appError('APP_PART_UNAVAILABLE'))).toBe(
+      'imgly was updated in another window. Reload this window to continue.',
+    )
+  })
+})
+
 describe('Autosave messages (gallery screens.md §Message catalog)', () => {
   it('info: one evicted Work is named (AC-09, AC-10, AC-21)', () => {
     expect(infoEvicted(['Holiday'])).toBe('“Holiday” was removed from the Gallery to make room.')

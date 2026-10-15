@@ -63,6 +63,19 @@ describe('encodePng client (AC-04)', () => {
     expect(workers.every((w) => w.terminated)).toBe(true)
   })
 
+  it('returns APP_PART_UNAVAILABLE when the encode or decode worker script fails to load (pwa-install-update AC-14)', async () => {
+    const { codec, workers } = setup()
+    const encoded = codec.encodePng(bitmap)
+    workers[0]!.onerror?.(new Event('error'))
+    await expect(encoded).resolves.toEqual({ ok: false, error: { code: 'APP_PART_UNAVAILABLE' } })
+    expect(workers[0]!.terminated).toBe(true)
+
+    const decoded = codec.decodePng(new Blob(), { width: 1, height: 1 })
+    workers[1]!.onerror?.(new Event('error'))
+    await expect(decoded).resolves.toEqual({ ok: false, error: { code: 'APP_PART_UNAVAILABLE' } })
+    expect(workers[1]!.terminated).toBe(true)
+  })
+
   it('returns STORAGE_FAILED and terminates when the worker errors', async () => {
     const { codec, workers } = setup()
     const pending = codec.encodePng(bitmap)

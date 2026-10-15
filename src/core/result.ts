@@ -39,6 +39,8 @@ export type AppErrorCode =
   | 'WORK_DAMAGED'
   /** The browser could not show its install confirmation, or did not install after it was accepted. AC-03 */
   | 'INSTALL_FAILED'
+  /** A worker script of this build could not be loaded, because a newer build replaced it. AC-14 */
+  | 'APP_PART_UNAVAILABLE'
 
 export interface AppError {
   code: AppErrorCode
@@ -77,6 +79,7 @@ const APP_ERROR_CODES: Record<AppErrorCode, true> = {
   STORAGE_FAILED: true,
   WORK_DAMAGED: true,
   INSTALL_FAILED: true,
+  APP_PART_UNAVAILABLE: true,
 }
 
 /** Runtime check for codes that crossed a boundary untyped (e.g. a worker message). */

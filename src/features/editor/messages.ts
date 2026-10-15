@@ -44,6 +44,11 @@ export function failureSaveFailed(): string {
   return "This Work couldn't be saved to the Gallery. Export it to keep a copy."
 }
 
+/** A worker script of this build is gone after a newer build replaced it (pwa-install-update AC-14). */
+export function failurePartUnavailable(): string {
+  return 'imgly was updated in another window. Reload this window to continue.'
+}
+
 export function infoNewerVersion(): string {
   return 'A newer version of the editor is open in another tab. Reload this page to keep saving to the Gallery.'
 }
@@ -98,6 +103,7 @@ const FAILURES: Record<AppErrorCode, (details: Record<string, unknown>) => strin
   // pwa-install-update codes are worded by that feature's own catalog; these keep the map total.
   INSTALL_FAILED: () =>
     "imgly couldn't be installed. Try installing it from the browser's menu instead.",
+  APP_PART_UNAVAILABLE: () => failurePartUnavailable(),
 }
 
 export function failureMessage(error: AppError): string {
