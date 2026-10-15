@@ -1075,6 +1075,123 @@
       ],
       "file": "docs/features/gallery/tasks/t49-review-fix.md",
       "source": "docs/features/gallery/_review/review-2026-10-14-r3.md T42–T48"
+    },
+    {
+      "id": "T50",
+      "title": "Closing the overlay and then failing a listing leaves no entry Damaged",
+      "layer": "app",
+      "deps": [],
+      "acs": [
+        "AC-08",
+        "AC-09",
+        "AC-03"
+      ],
+      "dod": "The gallery store owns thumbnail URL lifetime: GalleryList no longer revokes URLs the store still holds. After the overlay closes and the next listing fails, the shown entries carry live URLs, and an image error on a stale URL marks nothing. Tested: close the overlay, fail the listing, reopen it, fire an image error, and check the entry is not Damaged and editor.damagedIds is empty",
+      "files_hint": [
+        "src/features/gallery/store.ts",
+        "src/features/gallery/components/GalleryList.vue",
+        "src/features/gallery/components/GalleryList.test.ts",
+        "src/features/gallery/store.test.ts"
+      ],
+      "file": "docs/features/gallery/tasks/t50-review-fix.md",
+      "source": "docs/features/gallery/_review/review-2026-10-15-r4.md R4-1"
+    },
+    {
+      "id": "T51",
+      "title": "A delete that commits removes its entry even when the listing after it fails",
+      "layer": "app",
+      "deps": [
+        "T50"
+      ],
+      "acs": [
+        "AC-06"
+      ],
+      "dod": "When deleteWork succeeds, the entry leaves entries (its URL revoked after nextTick) before refresh(); a listing that then fails still shows the entry gone and the count one lower. Tested in gallery/store.test.ts",
+      "files_hint": [
+        "src/features/gallery/store.ts",
+        "src/features/gallery/store.test.ts"
+      ],
+      "file": "docs/features/gallery/tasks/t51-review-fix.md",
+      "source": "docs/features/gallery/_review/review-2026-10-15-r4.md R4-2"
+    },
+    {
+      "id": "T52",
+      "title": "The Gallery couldn't-be-read notice shows once and is withdrawn when a listing succeeds",
+      "layer": "app",
+      "deps": [
+        "T51"
+      ],
+      "acs": [
+        "AC-03"
+      ],
+      "dod": "A failing refresh pushes the notice only when none is shown; the next listing that succeeds dismisses it. screens.md marks the catalog row withdrawable. Tested: two failing refreshes show one notice, then a succeeding refresh shows none",
+      "files_hint": [
+        "src/features/gallery/store.ts",
+        "src/features/gallery/store.test.ts",
+        "docs/features/gallery/screens.md"
+      ],
+      "file": "docs/features/gallery/tasks/t52-review-fix.md",
+      "source": "docs/features/gallery/_review/review-2026-10-15-r4.md R4-3"
+    },
+    {
+      "id": "T53",
+      "title": "Cancelling a Delete opened from the damaged notice returns focus to that entry's Delete",
+      "layer": "ui",
+      "deps": [
+        "T52"
+      ],
+      "acs": [
+        "AC-06"
+      ],
+      "dod": "Outside standby, DeleteWorkDialog returns focus to the pending entry's Delete button; standby keeps the Gallery button. Tested in GalleryList/GalleryStart: Delete… on the notice, Cancel, focus is on [data-delete-id=<id>], not body",
+      "files_hint": [
+        "src/features/gallery/components/DeleteWorkDialog.vue",
+        "src/features/gallery/components/GalleryList.test.ts"
+      ],
+      "file": "docs/features/gallery/tasks/t53-review-fix.md",
+      "source": "docs/features/gallery/_review/review-2026-10-15-r4.md R4-4"
+    },
+    {
+      "id": "T54",
+      "title": "A touchedAt outside the date range sorts oldest, as every other unusable time",
+      "layer": "core",
+      "deps": [],
+      "acs": [
+        "AC-03",
+        "AC-08"
+      ],
+      "dod": "touchedKey uses isUsableTime, so 1e17 sorts before every usable time. 1e17 is in the unusable table of rules.test.ts and the store test asserts it lists after the valid Work",
+      "files_hint": [
+        "src/core/gallery/rules.ts",
+        "src/core/gallery/rules.test.ts",
+        "src/features/gallery/store.test.ts"
+      ],
+      "file": "docs/features/gallery/tasks/t54-review-fix.md",
+      "source": "docs/features/gallery/_review/review-2026-10-15-r4.md R4-5"
+    },
+    {
+      "id": "T55",
+      "title": "Test-plan lists the round-4 review tests, and the round-4 review records its resolution",
+      "layer": "docs",
+      "deps": [
+        "T50",
+        "T51",
+        "T52",
+        "T53",
+        "T54"
+      ],
+      "acs": [
+        "AC-03",
+        "AC-06",
+        "AC-08"
+      ],
+      "dod": "test-plan.md has rows for the T50–T54 tests; review-2026-10-15-r4.md gains a Resolution section mapping each finding to its commit",
+      "files_hint": [
+        "docs/features/gallery/test-plan.md",
+        "docs/features/gallery/_review/review-2026-10-15-r4.md"
+      ],
+      "file": "docs/features/gallery/tasks/t55-review-fix.md",
+      "source": "docs/features/gallery/_review/review-2026-10-15-r4.md T50–T54"
     }
   ]
 }

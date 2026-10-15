@@ -54,5 +54,11 @@
 | T47 | Standby-dialog test covers Ctrl+O and drop (R3-6) | tests | Blazheiko | S | T46 | done |
 | T48 | Refresh-race test waits for its reads (R3-8) | tests | Blazheiko | S | T45 | done |
 | T49 | Test-plan rows and round-3 resolution | docs | Blazheiko | S | T42, T43, T44, T45, T46, T47, T48 | done |
+| T50 | Overlay close + failed listing: no false Damaged (R4-1) | app | Blazheiko | S | — | todo |
+| T51 | Committed delete drops its entry if the listing fails (R4-2) | app | Blazheiko | S | T50 | todo |
+| T52 | Couldn't-read notice shows once, withdrawn on success (R4-3) | app | Blazheiko | S | T51 | todo |
+| T53 | Delete from the notice: Cancel returns focus to its Delete (R4-4) | ui | Blazheiko | S | T52 | todo |
+| T54 | Out-of-range touchedAt sorts oldest (R4-5) | core | Blazheiko | S | — | todo |
+| T55 | Test-plan rows and round-4 resolution | docs | Blazheiko | S | T50, T51, T52, T53, T54 | todo |
 
-**Total:** 49 tasks, ~31 person-days (S ≈ 0.5, M ≈ 0.75, L ≈ 1).
+**Total:** 55 tasks, ~34 person-days (S ≈ 0.5, M ≈ 0.75, L ≈ 1).
