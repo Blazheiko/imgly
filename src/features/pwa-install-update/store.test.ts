@@ -4,7 +4,6 @@ import { nextTick } from 'vue'
 import { UPDATE_CHECK_INTERVAL_MS } from '@/core'
 import { useEditorStore } from '@/features/editor'
 import { createFakeAutosave } from '@/features/editor/testing'
-import type { ServiceWorkerCallbacks, ServiceWorkerClient } from '@/infra/platform'
 import { appError, err, ok } from '@/core'
 import { useNotices } from '@/shared'
 import type { ReloadOutcome } from '@/features/editor'
@@ -19,49 +18,9 @@ import {
   infoOfflineReady,
 } from './messages'
 import { usePwaInstallUpdate } from './store'
-import { fakeInstallPrompt } from './testing'
+import { fakeClient, fakeDocument, fakeInstallPrompt } from './testing'
 
 const MIN = 60 * 1000
-
-function fakeDocument(visible = true) {
-  const target = new EventTarget()
-  const doc = Object.assign(target, {
-    visibilityState: (visible ? 'visible' : 'hidden') as DocumentVisibilityState,
-  })
-  return {
-    doc,
-    setVisible(on: boolean) {
-      doc.visibilityState = on ? 'visible' : 'hidden'
-      doc.dispatchEvent(new Event('visibilitychange'))
-    },
-  }
-}
-
-function fakeClient(options: { hadControllerAtLoad?: boolean } = {}) {
-  let callbacks!: ServiceWorkerCallbacks
-  let waiting: object | null = { worker: 1 }
-  const client = {
-    hadControllerAtLoad: options.hadControllerAtLoad ?? true,
-    check: vi.fn(async () => {}),
-    activateWaiting: vi.fn(async () => {}),
-    waitingKey: vi.fn(() => waiting),
-  } satisfies ServiceWorkerClient
-  const create = vi.fn((cb: ServiceWorkerCallbacks) => {
-    callbacks = cb
-    return client
-  })
-  return {
-    client,
-    create,
-    callbacks: () => callbacks,
-    /** A (new) waiting worker has downloaded. */
-    newWaiting(key: object = { worker: Math.random() }) {
-      waiting = key
-      callbacks.onNeedRefresh()
-      return key
-    },
-  }
-}
 
 describe('pwa-install-update store — the update lifecycle', () => {
   let store: ReturnType<typeof usePwaInstallUpdate>

@@ -47,3 +47,16 @@ export const INSTALL_TITLE = 'Install imgly as an app on this computer'
 export function failureInstall(): string {
   return "imgly couldn't be installed. Try installing it from the browser's menu instead."
 }
+
+/** The Reload confirmation (SCR-06, AC-12), worded by whether a Stored state will reopen. */
+export function reloadDialogCopy(hasStoredState: boolean): { title: string; body: string } {
+  return hasStoredState
+    ? {
+        title: 'Reload and lose your latest edits?',
+        body: "Your latest edits aren't saved in the Gallery and will be lost. The last saved version will reopen. Export the image first to keep them.",
+      }
+    : {
+        title: 'Reload and lose this image?',
+        body: "This image isn't saved in the Gallery, so it won't come back after the reload. Export it first to keep it.",
+      }
+}

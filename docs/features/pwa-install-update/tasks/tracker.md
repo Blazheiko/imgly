@@ -15,7 +15,7 @@
 | T8 | Feature store update lifecycle | app | Blazheiko | M | T1, T2, T3, T7 | done |
 | T9 | Reload action and resume after update | app | Blazheiko | M | T6, T8 | done |
 | T10 | InstallAction and install-offer state | ui | Blazheiko | S | T4, T8 | done |
-| T11 | ReloadDialog (SCR-06) | ui | Blazheiko | S | T9 | todo |
+| T11 | ReloadDialog (SCR-06) | ui | Blazheiko | S | T9 | done |
 | T12 | Prompt mode + app shell wiring + hooks | wiring | Blazheiko | M | T9, T10, T11 | todo |
 | T13 | Two-build e2e: single-window update flows | tests | Blazheiko | L | T12 | todo |
 | T14 | e2e: install, offline, two windows | tests | Blazheiko | M | T12 | todo |
