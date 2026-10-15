@@ -328,6 +328,164 @@ sequenceDiagram
     end
 ```
 
+### Critical flow 4: The install action follows the window and the browser's offer (US-02, AC-02, AC-04)
+
+Generic participants: `<ui>` is the top bar, `<service>` the feature store, `<external-system>` the browser's PWA runtime. The install offer lives only in memory, so this flow persists nothing.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant UI as <ui>
+    participant S as <service>
+    participant X as <external-system>
+
+    Note over UI,X: Precondition - a window of the app opens, in a browser tab or as the Installed app
+    UI->>S: window opened, ask whether to show Install app
+    S->>X: read the display mode
+    alt the window runs as the Installed app
+        X-->>S: standalone
+        S-->>UI: never show Install app, ignore every later install offer
+        Note over UI,S: AC-04 holds for the whole life of the window
+    else a browser tab
+        alt the browser offers installation
+            X-->>S: install offer, the offer is kept
+            S-->>UI: show Install app
+        else no offer - cannot install, menu only, stopped offering, or already installed
+            S-->>UI: no Install app, nothing else in the app changes
+        end
+        opt the offer changes while the tab is open
+            X-->>S: an offer arrives, or the offer is withdrawn or the app gets installed
+            S-->>UI: show Install app, or hide it
+        end
+    end
+    UI-->>U: top bar with or without Install app
+    Note over UI,S: Postcondition - Install app is shown only in a tab while the browser holds an offer
+```
+
+### Critical flow 5: The app becomes ready to work offline, and says so once (US-03, AC-05)
+
+Generic participants: `<service>` is the feature store, `<external-system>` the browser's service-worker runtime, and `<data-store>` the browser's store of the app's own files for offline use. The only write is those files, which hold no user data and need no index.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant UI as <ui>
+    participant S as <service>
+    participant X as <external-system>
+    participant D as <data-store>
+
+    Note over UI,D: Precondition - the app has started in a window, online
+    S->>X: register the offline worker
+    X->>D: look for the app's stored files
+    alt none stored yet - first time in this browser, or after the browser cleared them
+        X->>D: store every file needed to start and edit without a connection
+        Note over X,D: persists the app's offline files, no user data, no index
+        alt every file stored
+            X-->>S: offline ready, first install
+            S-->>UI: short notice - imgly is ready to work offline
+            UI-->>U: the notice closes by itself
+        else storing fails or the window closes first
+            Note over S,UI: no notice, the next start tries again
+        end
+    else files already stored - an App update, or ready before this release
+        X->>D: store the new version's files beside the current ones
+        Note over X,D: persists the new version's offline files
+        X-->>S: no offline-ready signal, a new version waits
+        Note over S,UI: no offline notice, flow 6 shows the update notice instead
+    end
+    Note over UI,D: Postcondition - the notice appeared at most once per stored copy of the app's files
+```
+
+### Critical flow 6: Scheduled check, failed check, dismissal and takeover at the next start (US-04, AC-06, AC-09, AC-15)
+
+Generic participants: `<service>` is the feature store with the pure check schedule, the first `<external-system>` is the browser's service-worker runtime, and the second is the static host of the latest build. The flow is scheduled, so its first handler step is the idempotency check (the key is the waiting version), and a failed check is retried only at the next scheduled check. Nothing is persisted: the dismissal lives in memory for this page only.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as <user>
+    participant UI as <ui>
+    participant S as <service>
+    participant X as <external-system> runtime
+    participant H as <external-system> host
+
+    Note over UI,S: Precondition - a window is open on the current version, no update notice shown
+    loop on start, at most once every 60 minutes while visible, and on becoming visible after 60 minutes
+        S->>S: ask the schedule whether a check is due, a hidden window never checks
+        S->>X: check for a new version
+        X->>H: fetch the latest worker script
+        alt offline, or the check fails
+            H-->>X: no answer or an error
+            X-->>S: check failed
+            S->>S: drop it silently, no notice and no error, keep the current version
+            Note over S,H: retried only at the next scheduled check, never in a burst
+        else no newer version
+            H-->>X: same version
+        else a newer version
+            H-->>X: new build
+            X->>X: download it, then let it wait
+            X-->>S: a new version waits
+            S->>S: check the key - skip if this waiting version was dismissed in this page
+            S-->>UI: lasting update notice - a new version is available, Reload
+            Note over UI,S: editing, Autosave and Export keep working on the current version
+        end
+    end
+    alt the Editor chooses Reload
+        U->>UI: Reload
+        Note over UI,S: continues as flow 1 from requestReload
+    else the Editor dismisses the notice, or keeps working
+        U->>UI: dismiss, or ignore
+        UI->>S: dismissed
+        S->>S: remember the dismissal for this waiting version, in memory for this page only
+        alt this window's page loads again, or a new window opens, while the version still waits
+            S-->>UI: update notice shown again
+        else a still newer version waits
+            X-->>S: a different version waits
+            S-->>UI: update notice shown again at once
+        else every window of the app closes, then the app starts
+            X->>X: the waiting version takes over before any page loads
+            S-->>UI: app starts on the new version, no notice, no Work reopened
+        end
+    end
+    Note over UI,S: Postcondition - the version changes only through Reload or a start after every window closed
+```
+
+### Coverage: user stories and acceptance criteria
+
+| Spec item | Shown by |
+|---|---|
+| US-01 | Flow 3 |
+| US-02 | Flow 4 |
+| US-03 | Flow 5 |
+| US-04 | Flow 1 (from the notice to Reload), Flow 6 (check, dismissal, next start) |
+| US-05 | Flow 1 |
+| US-06 | Flow 2 |
+| AC-01 | Flow 3, branch accepted and installed |
+| AC-02 | Flow 4, branch browser tab: no offer, and the offer changing while the tab is open |
+| AC-03 | Flow 3, branches dismissed and failure or silence |
+| AC-04 | Flow 4, branch the window runs as the Installed app |
+| AC-05 | Flow 5, every branch |
+| AC-06 | Flow 1 (first steps), Flow 6 (branch a newer version) |
+| AC-07 | Flow 1, branch nothing to wait for or lose |
+| AC-08 | Flow 1, the marked-Work step after the reload, with its readable and damaged-or-evicted branches |
+| AC-09 | Flow 6, branch dismisses or keeps working, with its three sub-branches |
+| AC-10 | Flow 1, branch a tool is open |
+| AC-11 | Flow 1, the wait-for-save step before the checks |
+| AC-12 | Flow 1, branch Unsaved edits with cancel and confirm, and Flow 2 (edits after the stop count as not stored) |
+| AC-13 | Flow 1, branch an Export is running |
+| AC-14 | Flow 2, every step |
+| AC-15 | Flow 6, branch offline or the check fails |
+
+Every user story and every acceptance criterion is shown at runtime, and none is marked N/A.
+
+**Flags for `design` and `data-model` (flagged only, no ADR written):**
+
+- Flows 1 to 3 (from `design`) name concrete §5 blocks as participants. Flows 4 to 6 (from `sequences`) use the generic vocabulary. The two styles were left mixed on purpose, because the existing blocks are never rewritten.
+- Flow 6 is scheduled, so it uses an idempotency key (the waiting version) and a retry note (the next scheduled check). A dead-letter branch is N/A: the app has no server and no queue, and AC-15 requires that a failed check be dropped silently.
+- No flow adds a stored entity, field or index in the Gallery store. The only writes are the app's offline files (flow 5, handled by the browser) and the reopen marker in session storage (flow 1, ADR-0003). `data-model` has no schema change to model.
+
 ## 7. Deployment view
 
 The deployment unit is unchanged. One static build goes to GitHub Pages under `/imgly/` over HTTPS, and every window runs it in the browser. The browser re-checks `sw.js` at registration and whenever the feature calls `registration.update()`, and it fetches the service-worker script past the HTTP cache by default, so GitHub Pages' caching headers do not delay the update check. What changes is the service-worker lifecycle that ships with the build: `registerType: 'prompt'` and no Workbox `skipWaiting` (ADR-0001). Each deploy replaces every hashed file on GitHub Pages, which is why an older window can miss a worker script once a newer version controls it (AC-14).

@@ -1,0 +1,321 @@
+{
+  "slug": "pwa-install-update",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Add the pure update-check schedule nextCheckDue in src/core/app-update",
+      "layer": "domain",
+      "deps": [],
+      "acs": [
+        "AC-15"
+      ],
+      "dod": "Fake-clock Vitest proves nextCheckDue at start, at the 60-minute boundary, while hidden, on becoming visible and with a backwards clock, and src/core imports nothing outside core",
+      "files_hint": [
+        "src/core/app-update/",
+        "src/core/index.ts"
+      ],
+      "file": "docs/features/pwa-install-update/tasks/t01-core-update-check-schedule.md"
+    },
+    {
+      "id": "T2",
+      "title": "Widen useNotices and Toast: kind 'lasting', a replacing slot, a keep-open action and a busy action",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-06",
+        "AC-10",
+        "AC-14"
+      ],
+      "dod": "Vitest proves 'lasting' never times out, a slotted push replaces in place, a 'keep-open' action leaves the notice, a busy action is aria-disabled and inert, and info/failure behave as before; design-system.md records the change",
+      "files_hint": [
+        "src/shared/notices/store.ts",
+        "src/shared/notices/notices.test.ts",
+        "src/shared/ui/Toast.vue",
+        "src/shared/ui/ToastStack.vue",
+        "src/shared/ui/primitives.test.ts",
+        "docs/design-system.md"
+      ],
+      "file": "docs/features/pwa-install-update/tasks/t02-shared-lasting-slotted-notices.md"
+    },
+    {
+      "id": "T3",
+      "title": "Add the infra/platform service-worker client (prompt mode) and the take-once reload marker",
+      "layer": "infra",
+      "deps": [],
+      "acs": [
+        "AC-05",
+        "AC-08",
+        "AC-15"
+      ],
+      "dod": "Vitest with injected fakes proves the service-worker client fires needRefresh/offlineReady/controllerchange, swallows a failed update(), activates the waiting worker, and that the reload marker is take-once with a safe default when sessionStorage is blocked",
+      "files_hint": [
+        "src/infra/platform/service-worker.ts",
+        "src/infra/platform/service-worker.test.ts",
+        "src/infra/platform/reload-marker.ts",
+        "src/infra/platform/reload-marker.test.ts",
+        "src/infra/platform/index.ts"
+      ],
+      "file": "docs/features/pwa-install-update/tasks/t03-infra-service-worker-and-reload-marker.md"
+    },
+    {
+      "id": "T4",
+      "title": "Add the infra/platform install-prompt client and the INSTALL_FAILED error code",
+      "layer": "infra",
+      "deps": [],
+      "acs": [
+        "AC-01",
+        "AC-02",
+        "AC-03",
+        "AC-04"
+      ],
+      "dod": "Vitest with a fake event target proves the install-prompt client keeps the offer, reports dismissed and accepted, returns INSTALL_FAILED on reject or on no appinstalled within the bounded wait, and reports standalone",
+      "files_hint": [
+        "src/infra/platform/install-prompt.ts",
+        "src/infra/platform/install-prompt.test.ts",
+        "src/infra/platform/index.ts",
+        "src/core/result.ts"
+      ],
+      "file": "docs/features/pwa-install-update/tasks/t04-infra-install-prompt.md"
+    },
+    {
+      "id": "T5",
+      "title": "Map a worker script that fails to load to APP_PART_UNAVAILABLE in the decode, codec and export clients, and word it",
+      "layer": "infra",
+      "deps": [],
+      "acs": [
+        "AC-14"
+      ],
+      "dod": "Each worker client's test proves a script that fails to load returns APP_PART_UNAVAILABLE while a runtime error keeps its old code, and messages tests prove the catalog copy",
+      "files_hint": [
+        "src/core/result.ts",
+        "src/infra/image-decode/client.ts",
+        "src/infra/image-decode/client.test.ts",
+        "src/infra/work-codec/client.ts",
+        "src/infra/work-codec/client.test.ts",
+        "src/render/export/client.ts",
+        "src/render/export/client.test.ts",
+        "src/features/editor/messages.ts",
+        "src/features/editor/messages.test.ts",
+        "src/features/export/messages.ts"
+      ],
+      "file": "docs/features/pwa-install-update/tasks/t05-infra-app-part-unavailable.md"
+    },
+    {
+      "id": "T6",
+      "title": "Add the Reload gate editor.requestReload(): wait on settled(), then tool-open | exporting | confirm | ready with reopenId",
+      "layer": "app",
+      "deps": [],
+      "acs": [
+        "AC-07",
+        "AC-10",
+        "AC-11",
+        "AC-12",
+        "AC-13"
+      ],
+      "dod": "store.test.ts proves requestReload waits on settled() then returns tool-open, exporting, confirm or ready with the right reopenId, and ignored while reading or confirming",
+      "files_hint": [
+        "src/features/editor/store.ts",
+        "src/features/editor/store.test.ts",
+        "src/features/editor/index.ts"
+      ],
+      "file": "docs/features/pwa-install-update/tasks/t06-editor-reload-gate.md"
+    },
+    {
+      "id": "T7",
+      "title": "Make Autosave raise editor.storageSuperseded on versionchange and on APP_PART_UNAVAILABLE, instead of infoNewerVersion()",
+      "layer": "app",
+      "deps": [
+        "T5",
+        "T6"
+      ],
+      "acs": [
+        "AC-12",
+        "AC-14"
+      ],
+      "dod": "autosave.test.ts proves versionchange and a codec APP_PART_UNAVAILABLE stop saving and raise storageSuperseded with no notice, and store.test.ts proves a later edit makes requestReload return confirm",
+      "files_hint": [
+        "src/features/editor/autosave.ts",
+        "src/features/editor/autosave.test.ts",
+        "src/features/editor/store.ts",
+        "src/features/editor/store.test.ts",
+        "src/features/editor/messages.ts",
+        "src/features/editor/messages.test.ts",
+        "src/features/editor/index.ts"
+      ],
+      "file": "docs/features/pwa-install-update/tasks/t07-autosave-storage-superseded.md"
+    },
+    {
+      "id": "T8",
+      "title": "Add the pwa-install-update feature store's update lifecycle: one slotted update notice in three wordings, dismissal per waiting worker, check timer, offline-ready notice",
+      "layer": "app",
+      "deps": [
+        "T1",
+        "T2",
+        "T3",
+        "T7"
+      ],
+      "acs": [
+        "AC-05",
+        "AC-06",
+        "AC-09",
+        "AC-14",
+        "AC-15"
+      ],
+      "dod": "store.test.ts proves the slotted update notice, its three wordings and precedence, the per-waiting-worker dismissal, the ignored first-install controllerchange, the single offline-ready notice and the silent 60-minute check schedule",
+      "files_hint": [
+        "src/features/pwa-install-update/store.ts",
+        "src/features/pwa-install-update/store.test.ts",
+        "src/features/pwa-install-update/messages.ts",
+        "src/features/pwa-install-update/index.ts"
+      ],
+      "file": "docs/features/pwa-install-update/tasks/t08-feature-store-update-lifecycle.md"
+    },
+    {
+      "id": "T9",
+      "title": "Add the feature store's Reload action (refusals, busy wait, confirm, mark, activate or reload) and resumeAfterUpdate() that takes the marker and reopens the Work",
+      "layer": "app",
+      "deps": [
+        "T6",
+        "T8"
+      ],
+      "acs": [
+        "AC-07",
+        "AC-08",
+        "AC-10",
+        "AC-11",
+        "AC-12",
+        "AC-13"
+      ],
+      "dod": "store.test.ts proves Reload maps every requestReload outcome to its effect (busy wait, de-duplicated refusals, confirm/cancel, marker only with a Stored state, activate or reload) and resumeAfterUpdate takes the marker once and words each failed reopen",
+      "files_hint": [
+        "src/features/pwa-install-update/store.ts",
+        "src/features/pwa-install-update/store.test.ts",
+        "src/features/pwa-install-update/messages.ts",
+        "src/features/pwa-install-update/index.ts"
+      ],
+      "file": "docs/features/pwa-install-update/tasks/t09-feature-store-reload-and-resume.md"
+    },
+    {
+      "id": "T10",
+      "title": "Add InstallAction (BaseButton ghost 'Install app') and the store's install-offer state, install() and could-not-install notice",
+      "layer": "ui",
+      "deps": [
+        "T4",
+        "T8"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-02",
+        "AC-03",
+        "AC-04"
+      ],
+      "dod": "InstallAction.test.ts and store.test.ts prove the action shows only with an offer outside standalone, opens the browser prompt on click, hides silently on dismissal and shows the could-not-install notice on INSTALL_FAILED",
+      "files_hint": [
+        "src/features/pwa-install-update/InstallAction.vue",
+        "src/features/pwa-install-update/InstallAction.test.ts",
+        "src/features/pwa-install-update/store.ts",
+        "src/features/pwa-install-update/store.test.ts",
+        "src/features/pwa-install-update/messages.ts",
+        "src/features/pwa-install-update/index.ts"
+      ],
+      "file": "docs/features/pwa-install-update/tasks/t10-install-action.md"
+    },
+    {
+      "id": "T11",
+      "title": "Add ReloadDialog (SCR-06): Dialog + Cancel / Reload, two bodies for a Stored state or none",
+      "layer": "ui",
+      "deps": [
+        "T9"
+      ],
+      "acs": [
+        "AC-12"
+      ],
+      "dod": "ReloadDialog.test.ts proves both bodies, initial focus on Cancel, Cancel/Esc/backdrop calling cancelReload and Reload calling confirmReload once",
+      "files_hint": [
+        "src/features/pwa-install-update/ReloadDialog.vue",
+        "src/features/pwa-install-update/ReloadDialog.test.ts",
+        "src/features/pwa-install-update/messages.ts",
+        "src/features/pwa-install-update/index.ts"
+      ],
+      "file": "docs/features/pwa-install-update/tasks/t11-reload-dialog.md"
+    },
+    {
+      "id": "T12",
+      "title": "Switch vite-plugin-pwa to prompt mode, connect the feature store in pwa.ts, mount InstallAction and ReloadDialog, resume after the update, add PWA e2e hooks and glossary terms",
+      "layer": "wiring",
+      "deps": [
+        "T9",
+        "T10",
+        "T11"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-06",
+        "AC-08",
+        "AC-09"
+      ],
+      "dod": "App.test.ts and test-hooks.test.ts pass with InstallAction last in the top bar, ReloadDialog mounted and resumeAfterUpdate after connectGallery, and the built sw.js no longer skips waiting",
+      "files_hint": [
+        "vite.config.ts",
+        "src/app/pwa.ts",
+        "src/main.ts",
+        "src/app/App.vue",
+        "src/app/App.test.ts",
+        "src/app/test-hooks.ts",
+        "src/app/test-hooks.test.ts",
+        "e2e/test-hooks.d.ts",
+        "CONTEXT.md"
+      ],
+      "file": "docs/features/pwa-install-update/tasks/t12-wiring-prompt-mode-and-app-shell.md"
+    },
+    {
+      "id": "T13",
+      "title": "Add the two-build e2e harness and the single-window update flows: notice, ignore, tool open, Export running, save running, confirm, reopen, failed check, @perf reload",
+      "layer": "tests",
+      "deps": [
+        "T12"
+      ],
+      "acs": [
+        "AC-06",
+        "AC-07",
+        "AC-08",
+        "AC-09",
+        "AC-10",
+        "AC-11",
+        "AC-12",
+        "AC-13",
+        "AC-15"
+      ],
+      "dod": "Playwright on Chromium proves, against two real builds, the update notice, zero unchosen reloads in the ignored/tool/Export/save flows, cancel and confirm, an identical Export after reopen and a silent failed check; other engines pass or skip with a reason",
+      "files_hint": [
+        "e2e/pwa-install-update/",
+        "e2e/pwa-install-update/two-builds.ts",
+        "playwright.config.ts"
+      ],
+      "file": "docs/features/pwa-install-update/tasks/t13-e2e-update-reload-flows.md"
+    },
+    {
+      "id": "T14",
+      "title": "Add e2e for install (synthetic offer), the offline-ready notice and offline Installed-app start, and the two-window switch and storage-change flows",
+      "layer": "tests",
+      "deps": [
+        "T12"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-02",
+        "AC-03",
+        "AC-04",
+        "AC-05",
+        "AC-14"
+      ],
+      "dod": "Playwright on Chromium proves install with the synthetic offer, the one-time offline-ready notice and offline start, and the two-window updated-elsewhere, part-unavailable and reload-to-save flows; other engines pass or skip with a reason",
+      "files_hint": [
+        "e2e/pwa-install-update/",
+        "e2e/pwa-install-update/two-builds.ts",
+        "playwright.config.ts"
+      ],
+      "file": "docs/features/pwa-install-update/tasks/t14-e2e-install-two-window-offline.md"
+    }
+  ]
+}
