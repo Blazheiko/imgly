@@ -5,7 +5,7 @@
 
 | # | Task | Layer | Owner | Estimate | Blocked by | Status |
 |---|---|---|---|---|---|---|
-| T1 | Pure update-check schedule `nextCheckDue` | domain | Blazheiko | S | — | todo |
+| T1 | Pure update-check schedule `nextCheckDue` | domain | Blazheiko | S | — | done |
 | T2 | Lasting, slotted, keep-open, busy notices | ui | Blazheiko | M | — | todo |
 | T3 | Service-worker client and reload marker | infra | Blazheiko | M | — | todo |
 | T4 | Install-prompt client + `INSTALL_FAILED` | infra | Blazheiko | S | — | todo |
