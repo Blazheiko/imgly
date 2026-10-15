@@ -9,6 +9,11 @@ const BASE = '/imgly/'
 
 export default defineConfig({
   base: BASE,
+  build: {
+    // The update e2e (pwa-install-update) serves a second build whose hashed files all have new
+    // URLs, as a deploy to Pages makes them; the shipped build always uses `assets`.
+    assetsDir: process.env.VITE_E2E_BUILD === 'B' ? 'assets-b' : 'assets',
+  },
   plugins: [
     vue(),
     VitePWA({

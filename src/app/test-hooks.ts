@@ -149,6 +149,8 @@ export interface ImglyTestHooks {
   galleryPersistCalls(): number
   /** Makes the next `openGalleryDb` refuse, on this page or, if none ran, the next load. */
   galleryFailOpen(): void
+  /** Which e2e build runs: `A`, or `B` for the second build the update e2e publishes. */
+  buildMark(): string
   /** The update notice's state: `none`, `available`, `updated-elsewhere` or `reload-to-save`. */
   pwaUpdateNotice(): string
   /** "Install app" is shown: an offer is held and this is not the Installed app. */
@@ -473,6 +475,7 @@ export function installTestHooks(pinia: Pinia): void {
       sessionStorage.setItem(FAIL_OPEN_FLAG, '1')
       armOpenRefusal()
     },
+    buildMark: () => import.meta.env.VITE_E2E_BUILD ?? 'A',
     pwaUpdateNotice: () => pwa.updateNotice,
     pwaCanInstall: () => pwa.canInstall,
     pwaOfferInstall: (choice, { installs = true } = {}) => {

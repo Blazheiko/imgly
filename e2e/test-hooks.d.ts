@@ -126,6 +126,8 @@ declare global {
       galleryPersistCalls(): number
       /** Makes the next `openGalleryDb` refuse. */
       galleryFailOpen(): void
+      /** Which e2e build runs: `A`, or `B` for the second build the update e2e publishes. */
+      buildMark(): string
       /** The update notice's state: `none`, `available`, `updated-elsewhere` or `reload-to-save`. */
       pwaUpdateNotice(): string
       /** "Install app" is shown: an offer is held and this is not the Installed app. */

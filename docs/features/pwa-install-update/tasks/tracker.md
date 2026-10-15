@@ -17,7 +17,7 @@
 | T10 | InstallAction and install-offer state | ui | Blazheiko | S | T4, T8 | done |
 | T11 | ReloadDialog (SCR-06) | ui | Blazheiko | S | T9 | done |
 | T12 | Prompt mode + app shell wiring + hooks | wiring | Blazheiko | M | T9, T10, T11 | done |
-| T13 | Two-build e2e: single-window update flows | tests | Blazheiko | L | T12 | todo |
+| T13 | Two-build e2e: single-window update flows | tests | Blazheiko | L | T12 | done |
 | T14 | e2e: install, offline, two windows | tests | Blazheiko | M | T12 | todo |
 
 **Total:** 14 tasks, ~9.5 person-days (S = 0.5, M = 0.75, L = 1).
