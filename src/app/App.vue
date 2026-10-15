@@ -13,25 +13,33 @@ import {
   GalleryStart,
   useGallery,
 } from '@/features/gallery'
+import { InstallAction, ReloadDialog, usePwaInstallUpdate } from '@/features/pwa-install-update'
 import { UndoRedoActions } from '@/features/undo-redo'
 
 // Start-up order: EditorView's setup installs the window drop guard first; the capability gate
 // runs once it is mounted, and decides between SCR-01 and SCR-04 (AC-18).
 const editor = useEditorStore()
 const gallery = useGallery()
+const pwa = usePwaInstallUpdate()
 
 // The Gallery database opens next to the gate; a refusal only makes the Gallery unavailable for
-// this page load. Nothing is loaded or reopened here (AC-05, AC-12).
-async function connectGallery() {
+// this page load. Nothing is loaded or reopened here (AC-05, AC-12), except the Work an update
+// reload marked in this tab, once the Gallery is listed and the display is up (pwa-install-update
+// AC-08). It reopens through the Gallery, with its spinner and its damaged-Work notice.
+async function connectGallery(gate: Promise<void>) {
   const opened = await openGalleryDb()
   editor.connectGallery(opened)
   gallery.connect(opened)
   await gallery.refresh()
+  await gate
+  await pwa.resumeAfterUpdate({
+    isListed: (id) => gallery.entries.some((entry) => entry.id === id),
+    reopen: (id) => gallery.choose(id),
+  })
 }
 
 onMounted(() => {
-  void editor.runCapabilityGate()
-  void connectGallery()
+  void connectGallery(editor.runCapabilityGate())
 })
 </script>
 
@@ -41,7 +49,7 @@ onMounted(() => {
     <template #start-screen><GalleryStart /></template>
     <template #overlay><GalleryOverlay /></template>
     <template #top-bar-actions
-      ><UndoRedoActions /><CropRotateAction /><AdjustAction /><DrawAction /><ExportAction
+      ><UndoRedoActions /><CropRotateAction /><AdjustAction /><DrawAction /><ExportAction /><InstallAction
     /></template>
     <!-- Each tool's halves mount only for its own tool in the slot. -->
     <template #tool-canvas>
@@ -57,4 +65,6 @@ onMounted(() => {
   </EditorView>
   <!-- The one delete confirmation: also reachable from the damaged notice, overlay closed. -->
   <DeleteWorkDialog standby />
+  <!-- The Reload confirmation of the update notice (pwa-install-update SCR-06). -->
+  <ReloadDialog />
 </template>

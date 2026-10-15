@@ -1,6 +1,7 @@
 import type { Pinia } from 'pinia'
 import { useEditorStore, type HistoryStats } from '@/features/editor'
 import { useExportStore } from '@/features/export'
+import { usePwaInstallUpdate } from '@/features/pwa-install-update'
 import {
   catmullRomSegment,
   cropToOriginalUv,
@@ -132,7 +133,10 @@ export interface ImglyTestHooks {
   galleryRecords(): ReturnType<typeof readStoredKeys>
   /** Writes one Work in the `formatVersion: 1` layout, bypassing Autosave; returns its id. */
   galleryWriteStored(input: StoredWorkInput): Promise<string>
-  galleryDamage(id: string, part: 'original' | 'layer' | 'thumbnail' | 'thumbnail-bytes' | 'record'): Promise<void>
+  galleryDamage(
+    id: string,
+    part: 'original' | 'layer' | 'thumbnail' | 'thumbnail-bytes' | 'record',
+  ): Promise<void>
   /** Writes over the budget (total stored bytes) fail as a quota error; `null` lifts it. */
   gallerySetByteBudget(bytes: number | null): void
   /** The next `storeWork` transaction stays open at that point; `null` clears it. */
@@ -145,6 +149,18 @@ export interface ImglyTestHooks {
   galleryPersistCalls(): number
   /** Makes the next `openGalleryDb` refuse, on this page or, if none ran, the next load. */
   galleryFailOpen(): void
+  /** The update notice's state: `none`, `available`, `updated-elsewhere` or `reload-to-save`. */
+  pwaUpdateNotice(): string
+  /** "Install app" is shown: an offer is held and this is not the Installed app. */
+  pwaCanInstall(): boolean
+  /**
+   * Makes a synthetic `beforeinstallprompt` (Playwright can't drive the real one). Its `prompt()`
+   * answers `choice`: `accepted` (then `appinstalled` unless `installs` is false), `dismissed`, or
+   * `fail` (the prompt rejects).
+   */
+  pwaOfferInstall(choice: 'accepted' | 'dismissed' | 'fail', options?: { installs?: boolean }): void
+  /** `prompt()` calls on synthetic offers since load. */
+  pwaInstallPrompts(): number
 }
 
 const FAIL_OPEN_FLAG = 'imgly-test:fail-open'
@@ -306,6 +322,9 @@ export function installTestHooks(pinia: Pinia): void {
     }
   }
 
+  const pwa = usePwaInstallUpdate(pinia)
+  let installPrompts = 0
+
   window.__imglyTest = {
     work: () => {
       const work = editor.work
@@ -454,5 +473,24 @@ export function installTestHooks(pinia: Pinia): void {
       sessionStorage.setItem(FAIL_OPEN_FLAG, '1')
       armOpenRefusal()
     },
+    pwaUpdateNotice: () => pwa.updateNotice,
+    pwaCanInstall: () => pwa.canInstall,
+    pwaOfferInstall: (choice, { installs = true } = {}) => {
+      const outcome = choice === 'fail' ? 'dismissed' : choice
+      let answer!: (value: { outcome: string; platform: string }) => void
+      const offer = Object.assign(new Event('beforeinstallprompt', { cancelable: true }), {
+        userChoice: new Promise((resolve) => (answer = resolve)),
+        prompt: async () => {
+          installPrompts++
+          if (choice === 'fail') throw new DOMException('synthetic', 'NotAllowedError')
+          answer({ outcome, platform: 'web' })
+          if (choice === 'accepted' && installs) {
+            setTimeout(() => window.dispatchEvent(new Event('appinstalled')), 0)
+          }
+        },
+      })
+      window.dispatchEvent(offer)
+    },
+    pwaInstallPrompts: () => installPrompts,
   }
 }

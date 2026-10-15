@@ -13,6 +13,9 @@ import {
 
 // AC-18: after one load, an export works with no network — the export worker comes from the
 // precache, like the decode worker (open-and-view QG-1b).
+// The precaching service worker is what makes the offline start work.
+test.use({ serviceWorkers: 'allow' })
+
 test('exports a file after going offline and reloading', async ({
   page,
   context,

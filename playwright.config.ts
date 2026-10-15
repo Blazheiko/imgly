@@ -13,6 +13,10 @@ export default defineConfig({
   use: {
     baseURL: `http://localhost:${PORT}/imgly/`,
     trace: 'on-first-retry',
+    // The service worker shows a one-time "ready to work offline" notice on first load
+    // (pwa-install-update AC-05); specs that are not about it run without one, and the PWA specs
+    // opt in with `test.use({ serviceWorkers: 'allow' })`.
+    serviceWorkers: 'block',
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },

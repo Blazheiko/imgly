@@ -33,6 +33,7 @@ export const test = base.extend({
       timezoneId,
       permissions,
       colorScheme,
+      serviceWorkers,
     },
     use,
   ) => {
@@ -54,6 +55,7 @@ export const test = base.extend({
       timezoneId,
       permissions,
       colorScheme,
+      serviceWorkers,
       acceptDownloads: true,
     })
     await use(persistent)

@@ -23,6 +23,8 @@ import {
 } from '@/infra/db'
 import { storedWorkFixture } from '@/infra/db/testing'
 import { requestPersistence } from '@/infra/platform'
+import { usePwaInstallUpdate } from '@/features/pwa-install-update'
+import { createInstallPrompt } from '@/infra/platform'
 import { installTestHooks } from './test-hooks'
 
 describe('window.__imglyTest.historyStats (undo-redo AC-11, sad §8)', () => {
@@ -353,5 +355,53 @@ describe('window.__imglyTest Gallery hooks (gallery T18)', () => {
 
     expect(hooks().galleryPersistCalls()).toBe(2)
     expect(persist).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('window.__imglyTest PWA hooks (pwa-install-update T12)', () => {
+  afterEach(() => {
+    delete window.__imglyTest
+  })
+
+  function setup() {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    installTestHooks(pinia)
+    const pwa = usePwaInstallUpdate(pinia)
+    pwa.connectInstall(createInstallPrompt({ matchMedia: () => ({ matches: false }) }))
+    return { pwa, hooks: window.__imglyTest! }
+  }
+
+  it('reads the update notice state', () => {
+    const { hooks } = setup()
+    expect(hooks.pwaUpdateNotice()).toBe('none')
+  })
+
+  it('makes a synthetic install offer the real client keeps (AC-01, AC-02)', () => {
+    const { pwa, hooks } = setup()
+    expect(hooks.pwaCanInstall()).toBe(false)
+    hooks.pwaOfferInstall('accepted')
+    expect(pwa.canInstall).toBe(true)
+    expect(hooks.pwaCanInstall()).toBe(true)
+    expect(hooks.pwaInstallPrompts()).toBe(0)
+  })
+
+  it('answers the prompt as asked: accepted then installed hides the action (AC-01)', async () => {
+    const { pwa, hooks } = setup()
+    hooks.pwaOfferInstall('accepted')
+    await pwa.install()
+    expect(hooks.pwaInstallPrompts()).toBe(1)
+    expect(pwa.canInstall).toBe(false)
+  })
+
+  it('answers dismissed, or a prompt that fails (AC-03)', async () => {
+    const { pwa, hooks } = setup()
+    hooks.pwaOfferInstall('dismissed')
+    await pwa.install()
+    expect(pwa.canInstall).toBe(false)
+
+    hooks.pwaOfferInstall('fail')
+    await pwa.install()
+    expect(hooks.pwaInstallPrompts()).toBe(2)
   })
 })

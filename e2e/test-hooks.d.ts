@@ -110,7 +110,10 @@ declare global {
         originalPng: number[]
         layerPng?: number[]
       }): Promise<string>
-      galleryDamage(id: string, part: 'original' | 'layer' | 'thumbnail' | 'thumbnail-bytes' | 'record'): Promise<void>
+      galleryDamage(
+        id: string,
+        part: 'original' | 'layer' | 'thumbnail' | 'thumbnail-bytes' | 'record',
+      ): Promise<void>
       /** Writes over the budget (total stored bytes) fail as a quota error; `null` lifts it. */
       gallerySetByteBudget(bytes: number | null): void
       /** The next `storeWork` transaction stays open at that point; `null` clears it. */
@@ -123,6 +126,17 @@ declare global {
       galleryPersistCalls(): number
       /** Makes the next `openGalleryDb` refuse. */
       galleryFailOpen(): void
+      /** The update notice's state: `none`, `available`, `updated-elsewhere` or `reload-to-save`. */
+      pwaUpdateNotice(): string
+      /** "Install app" is shown: an offer is held and this is not the Installed app. */
+      pwaCanInstall(): boolean
+      /** A synthetic install offer whose `prompt()` answers `choice` (`accepted` installs unless `installs: false`). */
+      pwaOfferInstall(
+        choice: 'accepted' | 'dismissed' | 'fail',
+        options?: { installs?: boolean },
+      ): void
+      /** `prompt()` calls on synthetic offers since load. */
+      pwaInstallPrompts(): number
     }
   }
 }

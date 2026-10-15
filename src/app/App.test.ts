@@ -6,9 +6,12 @@ import { nextTick } from 'vue'
 import { appError, createWork, err, ok } from '@/core'
 import { openDb } from '@/infra/db'
 import { storedWorkFixture } from '@/infra/db/testing'
-import { useEditorStore } from '@/features/editor'
+import { useEditorStore, type ReloadOutcome } from '@/features/editor'
 import { createFakeRenderer } from '@/features/editor/testing'
 import { useGallery } from '@/features/gallery'
+import { usePwaInstallUpdate } from '@/features/pwa-install-update'
+import { fakeClient, fakeDocument, fakeInstallPrompt } from '@/features/pwa-install-update/testing'
+import { markReopen, takeReopen } from '@/infra/platform'
 import { useNotices } from '@/shared'
 import App from './App.vue'
 
@@ -432,5 +435,105 @@ describe('App Gallery wiring (gallery T17)', () => {
       expect(document.body.textContent).not.toContain('Delete “Cat')
       db.close()
     })
+  })
+})
+
+describe('App install and update wiring (pwa-install-update T12)', () => {
+  let wrapper: VueWrapper | undefined
+  let editor: ReturnType<typeof useEditorStore>
+  let pwa: ReturnType<typeof usePwaInstallUpdate>
+
+  beforeEach(async () => {
+    const { Blob: NodeBlob } = await vi.importActual<{ Blob: typeof Blob }>('node:buffer')
+    vi.stubGlobal('Blob', NodeBlob)
+    setActivePinia(createPinia())
+    editor = useEditorStore()
+    editor.setRendererFactory(createFakeRenderer().factory)
+    pwa = usePwaInstallUpdate()
+    URL.createObjectURL = () => 'blob:test/x'
+    URL.revokeObjectURL = () => {}
+    takeReopen()
+  })
+
+  afterEach(() => {
+    wrapper?.unmount()
+    wrapper = undefined
+    document.body.innerHTML = ''
+    vi.unstubAllGlobals()
+    takeReopen()
+  })
+
+  async function mountLive() {
+    wrapper = mount(App, { attachTo: document.body })
+    await flushPromises()
+    await editor.runCapabilityGate(async () => ok(undefined))
+    await nextTick()
+  }
+
+  it('puts "Install app" last in the top bar, after Export, while the browser offers (SCR-01, AC-01)', async () => {
+    pwa.connectInstall(fakeInstallPrompt({ offer: true }).client)
+    await mountLive()
+    const labels = [...wrapper!.element.querySelectorAll('button')].map((b) =>
+      b.textContent?.trim(),
+    )
+    expect(labels.indexOf('Install app')).toBe(labels.indexOf('Export') + 1)
+    const actions = document.querySelector('.editor-top-bar__actions')!
+    expect(actions.lastElementChild?.textContent?.trim()).toBe('Install app')
+  })
+
+  it('shows no "Install app" without an offer (AC-02)', async () => {
+    pwa.connectInstall(fakeInstallPrompt().client)
+    await mountLive()
+    expect(wrapper!.text()).not.toContain('Install app')
+  })
+
+  it('mounts ReloadDialog at the root, shown while Reload asks (SCR-06, AC-12)', async () => {
+    const sw = fakeClient()
+    pwa.connect(sw.create, { now: () => 0, document: fakeDocument().doc, reloadPage: vi.fn() })
+    sw.newWaiting()
+    await mountLive()
+    vi.spyOn(editor, 'requestReload').mockResolvedValue({
+      kind: 'confirm',
+      reopenId: null,
+    } satisfies ReloadOutcome)
+
+    useNotices()
+      .items.find((n) => n.slot === 'app-update')!
+      .action!.run()
+    await flushPromises()
+    expect(document.querySelector('[role="alertdialog"]')?.textContent).toContain(
+      'Reload and lose this image?',
+    )
+  })
+
+  it('reopens the Work the update reload marked, after the Gallery connected and refreshed (AC-08)', async () => {
+    const db = await openDb(`imgly-app-resume-${Math.random()}`)
+    const w = storedWorkFixture({ layer: null, record: { sourceName: 'Cat.png' } })
+    await db.put('works', w.record)
+    await db.put('originals', w.original)
+    gallerydb.openGalleryDb.mockResolvedValue(ok(db))
+    markReopen(w.record.id)
+    const gallery = useGallery()
+    const refresh = vi.spyOn(gallery, 'refresh')
+    const choose = vi.spyOn(gallery, 'choose').mockResolvedValue(undefined)
+    const resume = vi.spyOn(pwa, 'resumeAfterUpdate')
+
+    await mountLive()
+    await vi.waitFor(() => expect(choose).toHaveBeenCalledExactlyOnceWith(w.record.id))
+    expect(resume.mock.invocationCallOrder[0]!).toBeGreaterThan(
+      refresh.mock.invocationCallOrder[0]!,
+    )
+    expect(takeReopen()).toBeNull()
+    db.close()
+  })
+
+  it('says a marked Work could not be reopened when the Gallery fails to open (AC-08)', async () => {
+    markReopen('work-1')
+    await mountLive()
+    await vi.waitFor(() =>
+      expect(useNotices().items.map((n) => n.text)).toContain(
+        "The image you had open couldn't be reopened. Open it from the Gallery if it's there.",
+      ),
+    )
   })
 })
