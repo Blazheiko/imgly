@@ -136,11 +136,17 @@ export const checkForUpdate = (page: Page) =>
     await registration?.update().catch(() => {})
   })
 
-/** Publishes build B and makes the page look for it; resolves once the update notice shows. */
+/**
+ * Publishes build B and makes the page look for it; resolves once the update notice shows. The
+ * new worker precaches the whole build first, which under a loaded parallel run can outlast one
+ * wait, so it looks again every 10 s for up to a minute, as later scheduled checks would.
+ */
 export async function publishUpdate(builds: TwoBuilds, page: Page) {
   builds.publish('B')
-  await checkForUpdate(page)
-  await expect(updateNotice(page)).toBeVisible({ timeout: 30_000 })
+  await expect(async () => {
+    await checkForUpdate(page)
+    await expect(updateNotice(page)).toBeVisible({ timeout: 10_000 })
+  }).toPass({ timeout: 60_000 })
 }
 
 /** The one update notice (`.toast` with "Reload"). */

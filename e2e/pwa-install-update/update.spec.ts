@@ -41,10 +41,7 @@ const EXPORTING = 'Wait for the export to finish, then reload.'
 const EDIT_A = { ...NEUTRAL_ADJUSTMENTS, brightness: 30 }
 const EDIT_B = { ...NEUTRAL_ADJUSTMENTS, brightness: 30, contrast: -20 }
 
-test.beforeEach(({ browserName }) => {
-  // spec §8 Q1: the two-build flow is the gate on Chromium; Playwright's Firefox and WebKit do not
-  // run a service-worker update between two builds of one origin reliably.
-  test.skip(browserName !== 'chromium', 'the two-build service-worker update runs on Chromium')
+test.beforeEach(() => {
   test.setTimeout(120_000)
 })
 
