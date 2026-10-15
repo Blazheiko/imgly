@@ -33,7 +33,12 @@ async function connectGallery(gate: Promise<void>) {
   await gallery.refresh()
   await gate
   await pwa.resumeAfterUpdate({
-    isListed: (id) => gallery.entries.some((entry) => entry.id === id),
+    // A listing of its own: the start screen lists the Gallery too as it mounts, and only the newest
+    // listing fills the entries, so the one awaited above may have left them empty.
+    isListed: async (id) => {
+      await gallery.refresh()
+      return gallery.entries.some((entry) => entry.id === id)
+    },
     reopen: (id) => gallery.choose(id),
   })
 }

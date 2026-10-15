@@ -47,8 +47,8 @@ export interface UpdateEnv {
 
 /** How the reopen after the update reaches the Gallery, wired by the app shell (T9 decision). */
 export interface ResumeDeps {
-  /** The Work is listed in the Gallery. */
-  isListed: (workId: string) => boolean
+  /** The Work is listed in the Gallery, by a listing that is current when it resolves. */
+  isListed: (workId: string) => boolean | Promise<boolean>
   /** Reopens it as the Gallery does: its spinner, and its damaged notice with Delete…. */
   reopen: (workId: string) => Promise<unknown>
   take?: () => string | null
@@ -219,7 +219,7 @@ export const usePwaInstallUpdate = defineStore('pwa-install-update', () => {
     const workId = (deps.take ?? takeReopen)()
     if (workId === null) return
     if (!editor.galleryAvailable) fail(failureReopenUnreadable())
-    else if (!deps.isListed(workId)) fail(failureReopenEvicted())
+    else if (!(await deps.isListed(workId))) fail(failureReopenEvicted())
     else await deps.reopen(workId)
   }
 

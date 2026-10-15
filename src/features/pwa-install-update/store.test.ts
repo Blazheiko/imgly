@@ -478,6 +478,30 @@ describe('pwa-install-update store — Reload and the reopen after the update (A
       expect(failures()).toEqual([failureReopenEvicted()])
     })
 
+    it('waits for an asynchronous listing before deciding the Work is gone', async () => {
+      const reopen = vi.fn(async () => {})
+      let listed!: (on: boolean) => void
+      const done = store.resumeAfterUpdate({
+        take: () => 'work-1',
+        isListed: () => new Promise<boolean>((resolve) => (listed = resolve)),
+        reopen,
+      })
+      await vi.advanceTimersByTimeAsync(0)
+      expect(reopen).not.toHaveBeenCalled()
+      expect(failures()).toEqual([])
+      listed(true)
+      await done
+      expect(reopen).toHaveBeenCalledExactlyOnceWith('work-1')
+      expect(failures()).toEqual([])
+    })
+
+    it('says the Work was removed when an asynchronous listing does not have it', async () => {
+      const reopen = vi.fn(async () => {})
+      await store.resumeAfterUpdate({ take: () => 'gone', isListed: async () => false, reopen })
+      expect(reopen).not.toHaveBeenCalled()
+      expect(failures()).toEqual([failureReopenEvicted()])
+    })
+
     it('says it could not be reopened when the Gallery is unavailable', async () => {
       autosave.available(false)
       const { reopen, done } = resume(() => 'work-1')

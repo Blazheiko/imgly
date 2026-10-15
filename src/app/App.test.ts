@@ -527,6 +527,31 @@ describe('App install and update wiring (pwa-install-update T12)', () => {
     db.close()
   })
 
+  it('lists the Gallery afresh before deciding, so a listing still in flight elsewhere does not read as evicted (AC-08)', async () => {
+    const db = await openDb(`imgly-app-resume-race-${Math.random()}`)
+    const w = storedWorkFixture({ layer: null, record: { sourceName: 'Cat.png' } })
+    await db.put('works', w.record)
+    await db.put('originals', w.original)
+    gallerydb.openGalleryDb.mockResolvedValue(ok(db))
+    markReopen(w.record.id)
+    const gallery = useGallery()
+    const choose = vi.spyOn(gallery, 'choose').mockResolvedValue(undefined)
+    // Every listing but the newest leaves the entries as they were (only the newest assigns).
+    const refresh = gallery.refresh
+    let calls = 0
+    vi.spyOn(gallery, 'refresh').mockImplementation(async () => {
+      if (++calls === 1) return
+      await refresh()
+    })
+
+    await mountLive()
+    await vi.waitFor(() => expect(choose).toHaveBeenCalledExactlyOnceWith(w.record.id))
+    expect(useNotices().items.map((n) => n.text)).not.toContain(
+      "The image you had open couldn't be reopened: it was removed from the Gallery to make room.",
+    )
+    db.close()
+  })
+
   it('says a marked Work could not be reopened when the Gallery fails to open (AC-08)', async () => {
     markReopen('work-1')
     await mountLive()
