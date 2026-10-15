@@ -1,10 +1,25 @@
 import { readonly, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { msUntilNextCheck, nextCheckDue } from '@/core'
-import { useEditorStore } from '@/features/editor'
-import type { ServiceWorkerCallbacks, ServiceWorkerClient } from '@/infra/platform'
-import { useNotices } from '@/shared'
-import { ACTION_RELOAD, UPDATE_TEXT, infoOfflineReady, type UpdateWording } from './messages'
+import { useEditorStore, type ReloadOutcome } from '@/features/editor'
+import {
+  markReopen,
+  takeReopen,
+  type ServiceWorkerCallbacks,
+  type ServiceWorkerClient,
+} from '@/infra/platform'
+import { useNotices, type NoticeAction } from '@/shared'
+import {
+  ACTION_RELOAD,
+  ACTION_RELOADING,
+  UPDATE_TEXT,
+  failureExportRunning,
+  failureReopenEvicted,
+  failureReopenUnreadable,
+  failureToolOpen,
+  infoOfflineReady,
+  type UpdateWording,
+} from './messages'
 
 export type UpdateNotice = 'none' | UpdateWording
 
@@ -19,10 +34,22 @@ const RANK: Record<UpdateNotice, number> = {
 /** The notices slot the one update notice lives in (AC-14). */
 export const UPDATE_SLOT = 'app-update'
 
-/** What `connect` reads from the page; injectable so Vitest drives the clock and visibility. */
+/** What `connect` touches on the page; injectable so Vitest drives clock, visibility and reload. */
 export interface UpdateEnv {
   now: () => number
   document: Pick<Document, 'visibilityState' | 'addEventListener'>
+  /** Writes the take-once reopen marker (ADR-0003). */
+  mark: (workId: string) => void
+  reloadPage: () => void
+}
+
+/** How the reopen after the update reaches the Gallery, wired by the app shell (T9 decision). */
+export interface ResumeDeps {
+  /** The Work is listed in the Gallery. */
+  isListed: (workId: string) => boolean
+  /** Reopens it as the Gallery does: its spinner, and its damaged notice with Delete…. */
+  reopen: (workId: string) => Promise<unknown>
+  take?: () => string | null
 }
 
 /**
@@ -43,6 +70,21 @@ export const usePwaInstallUpdate = defineStore('pwa-install-update', () => {
   // The waiting worker whose `available` notice was dismissed (AC-09).
   let dismissedWaiting: object | null = null
   let offlineReadyShown = false
+  // Reload is waiting for its checks, the confirmation, or the switch (AC-11).
+  let busy = false
+  /** The Reload confirmation is up (SCR-06, AC-12). */
+  const confirming = ref<{ reopenId: string | null } | null>(null)
+  // This window asked the waiting worker to take over: its controllerchange reloads (ADR-0002).
+  let switchRequested = false
+  let lastRefusal: { id: string; text: string } | null = null
+  let env: Pick<UpdateEnv, 'mark' | 'reloadPage'> = {
+    mark: markReopen,
+    reloadPage: () => location.reload(),
+  }
+
+  function action(): NoticeAction {
+    return { label: ACTION_RELOAD, run: reload, busy, busyLabel: ACTION_RELOADING }
+  }
 
   function render() {
     if (updateNotice.value === 'none' || hidden) {
@@ -58,7 +100,7 @@ export const usePwaInstallUpdate = defineStore('pwa-install-update', () => {
           kind: 'lasting',
           slot: UPDATE_SLOT,
           text: UPDATE_TEXT[updateNotice.value],
-          action: { label: ACTION_RELOAD, run: () => reload() },
+          action: action(),
         },
       ])
       noticeId = id!
@@ -98,18 +140,95 @@ export const usePwaInstallUpdate = defineStore('pwa-install-update', () => {
     { immediate: true },
   )
 
-  /** Chooses "Reload"; the notice stays open while the Reload checks run. */
+  function setBusy(on: boolean) {
+    busy = on
+    if (noticeId) notices.update(noticeId, { action: action() })
+  }
+
+  /** A refusal notice; the same refusal again replaces the earlier one (SCR-07 `repeated`). */
+  function refuse(text: string) {
+    if (lastRefusal?.text === text) notices.dismiss(lastRefusal.id)
+    lastRefusal = { id: notices.pushAll([{ kind: 'failure', text }])[0]!, text }
+  }
+
+  function fail(text: string) {
+    notices.pushAll([{ kind: 'failure', text }])
+  }
+
+  /** Chooses "Reload": the notice stays open while the Reload gate runs (ADR-0004). */
   function reload(): 'keep-open' {
+    if (busy) return 'keep-open'
+    setBusy(true)
+    void editor.requestReload().then(onReloadOutcome)
     return 'keep-open'
+  }
+
+  function onReloadOutcome(outcome: ReloadOutcome) {
+    switch (outcome.kind) {
+      case 'ignored':
+        setBusy(false)
+        break
+      case 'tool-open':
+        setBusy(false)
+        refuse(failureToolOpen())
+        break
+      case 'exporting':
+        setBusy(false)
+        refuse(failureExportRunning())
+        break
+      case 'confirm':
+        confirming.value = { reopenId: outcome.reopenId }
+        break
+      case 'ready':
+        leave(outcome.reopenId)
+        break
+    }
+  }
+
+  function confirmReload() {
+    const asked = confirming.value
+    if (!asked) return
+    confirming.value = null
+    leave(asked.reopenId)
+  }
+
+  function cancelReload() {
+    if (!confirming.value) return
+    confirming.value = null
+    setBusy(false)
+  }
+
+  /**
+   * Leaves for the new version: marks the Work to reopen, then lets the waiting worker take over
+   * (this window reloads on its controllerchange) or, once the switch already happened, reloads.
+   */
+  function leave(reopenId: string | null) {
+    if (reopenId !== null) env.mark(reopenId)
+    if (updateNotice.value === 'available' && client) {
+      switchRequested = true
+      void client.activateWaiting()
+    } else {
+      env.reloadPage()
+    }
+  }
+
+  /** At start, after the Gallery connected: reopens the Work the update reload marked (AC-08). */
+  async function resumeAfterUpdate(deps: ResumeDeps) {
+    const workId = (deps.take ?? takeReopen)()
+    if (workId === null) return
+    if (!editor.galleryAvailable) fail(failureReopenUnreadable())
+    else if (!deps.isListed(workId)) fail(failureReopenEvicted())
+    else await deps.reopen(workId)
   }
 
   /** Connects the service-worker client and starts the check schedule (ADR-0001, ADR-0002). */
   function connect(
     create: (callbacks: ServiceWorkerCallbacks) => ServiceWorkerClient,
-    env: Partial<UpdateEnv> = {},
+    options: Partial<UpdateEnv> = {},
   ) {
-    const now = env.now ?? Date.now
-    const page = env.document ?? document
+    const now = options.now ?? Date.now
+    const page = options.document ?? document
+    env = { mark: options.mark ?? env.mark, reloadPage: options.reloadPage ?? env.reloadPage }
     // A first install takes control without any version switch: that one change is not an update.
     let controlled = false
     client = create({
@@ -120,6 +239,10 @@ export const usePwaInstallUpdate = defineStore('pwa-install-update', () => {
         notices.pushAll([{ kind: 'info', text: infoOfflineReady() }])
       },
       onControllerChange() {
+        if (switchRequested) {
+          env.reloadPage()
+          return
+        }
         if (!controlled) {
           controlled = true
           return
@@ -145,5 +268,12 @@ export const usePwaInstallUpdate = defineStore('pwa-install-update', () => {
     tick()
   }
 
-  return { updateNotice: readonly(updateNotice), connect }
+  return {
+    updateNotice: readonly(updateNotice),
+    confirming: readonly(confirming),
+    connect,
+    confirmReload,
+    cancelReload,
+    resumeAfterUpdate,
+  }
 })

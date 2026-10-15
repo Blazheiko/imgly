@@ -6,7 +6,16 @@ import { useEditorStore } from '@/features/editor'
 import { createFakeAutosave } from '@/features/editor/testing'
 import type { ServiceWorkerCallbacks, ServiceWorkerClient } from '@/infra/platform'
 import { useNotices } from '@/shared'
-import { UPDATE_TEXT, infoOfflineReady } from './messages'
+import type { ReloadOutcome } from '@/features/editor'
+import {
+  ACTION_RELOADING,
+  UPDATE_TEXT,
+  failureExportRunning,
+  failureReopenEvicted,
+  failureReopenUnreadable,
+  failureToolOpen,
+  infoOfflineReady,
+} from './messages'
 import { usePwaInstallUpdate } from './store'
 
 const MIN = 60 * 1000
@@ -257,6 +266,262 @@ describe('pwa-install-update store — the update lifecycle', () => {
       clock += 30 * MIN
       await vi.advanceTimersByTimeAsync(30 * MIN)
       expect(sw.client.check).toHaveBeenCalledTimes(1)
+    })
+  })
+})
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((r) => (resolve = r))
+  return { promise, resolve }
+}
+
+describe('pwa-install-update store — Reload and the reopen after the update (AC-07, AC-08, AC-10 to AC-13)', () => {
+  let store: ReturnType<typeof usePwaInstallUpdate>
+  let editor: ReturnType<typeof useEditorStore>
+  let notices: ReturnType<typeof useNotices>
+  let autosave: ReturnType<typeof createFakeAutosave>
+  let sw: ReturnType<typeof fakeClient>
+  let gate: ReturnType<typeof deferred<ReloadOutcome>>
+  let requestReload: ReturnType<typeof vi.fn<() => Promise<ReloadOutcome>>>
+  const mark = vi.fn<(id: string) => void>()
+  const reloadPage = vi.fn()
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    setActivePinia(createPinia())
+    autosave = createFakeAutosave()
+    editor = useEditorStore()
+    editor.setAutosave(autosave.fake)
+    notices = useNotices()
+    store = usePwaInstallUpdate()
+    sw = fakeClient()
+    gate = deferred<ReloadOutcome>()
+    requestReload = vi.fn<() => Promise<ReloadOutcome>>(() => gate.promise)
+    vi.spyOn(editor, 'requestReload').mockImplementation(requestReload)
+    mark.mockReset()
+    reloadPage.mockReset()
+    store.connect(sw.create, {
+      now: () => 0,
+      document: fakeDocument().doc,
+      mark,
+      reloadPage,
+    })
+  })
+  afterEach(() => vi.useRealTimers())
+
+  const updateNotice = () => notices.items.find((n) => n.slot === 'app-update')!
+  const chooseReload = () => updateNotice().action!.run()
+  const failures = () => notices.items.filter((n) => n.kind === 'failure').map((n) => n.text)
+  const answer = async (outcome: ReloadOutcome) => {
+    gate.resolve(outcome)
+    await vi.advanceTimersByTimeAsync(0)
+  }
+
+  it('words the refusals and the failed reopens as the catalog says', () => {
+    expect(failureToolOpen()).toBe('Apply or cancel the open tool first.')
+    expect(failureExportRunning()).toBe('Wait for the export to finish, then reload.')
+    expect(failureReopenEvicted()).toBe(
+      "The image you had open couldn't be reopened: it was removed from the Gallery to make room.",
+    )
+    expect(failureReopenUnreadable()).toBe(
+      "The image you had open couldn't be reopened. Open it from the Gallery if it's there.",
+    )
+    expect(ACTION_RELOADING).toBe('Reloading…')
+  })
+
+  describe('Reload with a waiting version (AC-07)', () => {
+    beforeEach(() => void sw.newWaiting())
+
+    it('marks the Work, activates the waiting worker and reloads once it takes control', async () => {
+      expect(chooseReload()).toBe('keep-open')
+      await answer({ kind: 'ready', reopenId: 'work-1' })
+
+      expect(mark).toHaveBeenCalledExactlyOnceWith('work-1')
+      expect(sw.client.activateWaiting).toHaveBeenCalledTimes(1)
+      expect(reloadPage).not.toHaveBeenCalled()
+
+      sw.callbacks().onControllerChange()
+      expect(reloadPage).toHaveBeenCalledTimes(1)
+      expect(store.updateNotice).toBe('available')
+    })
+
+    it('writes no marker when there is no Stored state', async () => {
+      chooseReload()
+      await answer({ kind: 'ready', reopenId: null })
+      expect(mark).not.toHaveBeenCalled()
+      expect(sw.client.activateWaiting).toHaveBeenCalledTimes(1)
+    })
+
+    it('shows Reloading… as a busy action while it waits, and ignores Reload meanwhile (AC-11)', async () => {
+      chooseReload()
+      expect(updateNotice().action).toMatchObject({ busy: true, busyLabel: ACTION_RELOADING })
+
+      expect(chooseReload()).toBe('keep-open')
+      expect(requestReload).toHaveBeenCalledTimes(1)
+
+      await answer({ kind: 'ready', reopenId: null })
+      expect(updateNotice().action?.busy).toBe(true)
+    })
+
+    it('keeps the busy action when the wording changes while it waits', () => {
+      chooseReload()
+      sw.callbacks().onControllerChange()
+      expect(updateNotice().text).toBe(UPDATE_TEXT['updated-elsewhere'])
+      expect(updateNotice().action?.busy).toBe(true)
+    })
+  })
+
+  describe('Reload after the version switched elsewhere (AC-14)', () => {
+    it('reloads the page without activating a worker', async () => {
+      sw.callbacks().onControllerChange()
+      chooseReload()
+      await answer({ kind: 'ready', reopenId: 'work-1' })
+
+      expect(mark).toHaveBeenCalledExactlyOnceWith('work-1')
+      expect(sw.client.activateWaiting).not.toHaveBeenCalled()
+      expect(reloadPage).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('refusals (AC-10, AC-13)', () => {
+    beforeEach(() => void sw.newWaiting())
+
+    it.each([
+      [{ kind: 'tool-open' } as const, failureToolOpen()],
+      [{ kind: 'exporting' } as const, failureExportRunning()],
+    ])('%j refuses, keeps the notice and enables Reload again', async (outcome, text) => {
+      chooseReload()
+      await answer(outcome)
+
+      expect(failures()).toEqual([text])
+      expect(updateNotice().text).toBe(UPDATE_TEXT.available)
+      expect(updateNotice().action?.busy).toBeFalsy()
+      expect(mark).not.toHaveBeenCalled()
+      expect(sw.client.activateWaiting).not.toHaveBeenCalled()
+      expect(reloadPage).not.toHaveBeenCalled()
+    })
+
+    it('shows one refusal notice for the same refusal twice', async () => {
+      chooseReload()
+      await answer({ kind: 'tool-open' })
+      gate = deferred<ReloadOutcome>()
+      chooseReload()
+      await answer({ kind: 'tool-open' })
+
+      expect(failures()).toEqual([failureToolOpen()])
+    })
+
+    it('keeps a different earlier refusal', async () => {
+      chooseReload()
+      await answer({ kind: 'tool-open' })
+      gate = deferred<ReloadOutcome>()
+      chooseReload()
+      await answer({ kind: 'exporting' })
+
+      expect(failures()).toEqual([failureToolOpen(), failureExportRunning()])
+    })
+
+    it('un-busies an ignored Reload and does nothing else', async () => {
+      chooseReload()
+      await answer({ kind: 'ignored' })
+
+      expect(updateNotice().action?.busy).toBeFalsy()
+      expect(failures()).toEqual([])
+      expect(sw.client.activateWaiting).not.toHaveBeenCalled()
+      expect(reloadPage).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('confirmation (AC-12)', () => {
+    beforeEach(() => void sw.newWaiting())
+
+    it('asks, and Cancel changes nothing', async () => {
+      chooseReload()
+      await answer({ kind: 'confirm', reopenId: 'work-1' })
+      expect(store.confirming).toEqual({ reopenId: 'work-1' })
+
+      store.cancelReload()
+      expect(store.confirming).toBeNull()
+      expect(updateNotice().action?.busy).toBeFalsy()
+      expect(updateNotice().text).toBe(UPDATE_TEXT.available)
+      expect(mark).not.toHaveBeenCalled()
+      expect(sw.client.activateWaiting).not.toHaveBeenCalled()
+      expect(reloadPage).not.toHaveBeenCalled()
+    })
+
+    it('confirming marks the Stored state and leaves', async () => {
+      chooseReload()
+      await answer({ kind: 'confirm', reopenId: 'work-1' })
+      store.confirmReload()
+
+      expect(store.confirming).toBeNull()
+      expect(mark).toHaveBeenCalledExactlyOnceWith('work-1')
+      expect(sw.client.activateWaiting).toHaveBeenCalledTimes(1)
+    })
+
+    it('confirming with no Stored state writes no marker', async () => {
+      chooseReload()
+      await answer({ kind: 'confirm', reopenId: null })
+      store.confirmReload()
+
+      expect(mark).not.toHaveBeenCalled()
+      expect(sw.client.activateWaiting).toHaveBeenCalledTimes(1)
+    })
+
+    it('ignores confirm and cancel when nothing asks', () => {
+      store.confirmReload()
+      store.cancelReload()
+      expect(sw.client.activateWaiting).not.toHaveBeenCalled()
+      expect(reloadPage).not.toHaveBeenCalled()
+    })
+  })
+
+  it('never reloads on a switch this window did not ask for', () => {
+    sw.newWaiting()
+    sw.callbacks().onControllerChange()
+    sw.callbacks().onControllerChange()
+    expect(reloadPage).not.toHaveBeenCalled()
+  })
+
+  describe('resumeAfterUpdate (AC-08, ADR-0003)', () => {
+    const resume = (take: () => string | null, isListed: (id: string) => boolean = () => true) => {
+      const reopen = vi.fn<(id: string) => Promise<void>>(async () => {})
+      return { reopen, done: store.resumeAfterUpdate({ take, isListed, reopen }) }
+    }
+
+    it('reopens nothing without a marker', async () => {
+      const { reopen, done } = resume(() => null)
+      await done
+      expect(reopen).not.toHaveBeenCalled()
+      expect(notices.items).toEqual([])
+    })
+
+    it('reopens the marked Work through the Gallery once', async () => {
+      const take = vi.fn().mockReturnValueOnce('work-1').mockReturnValue(null)
+      const { reopen, done } = resume(take)
+      await done
+      expect(take).toHaveBeenCalledTimes(1)
+      expect(reopen).toHaveBeenCalledExactlyOnceWith('work-1')
+      expect(notices.items).toEqual([])
+    })
+
+    it('says the Work was removed to make room when the Gallery no longer lists it', async () => {
+      const { reopen, done } = resume(
+        () => 'gone',
+        () => false,
+      )
+      await done
+      expect(reopen).not.toHaveBeenCalled()
+      expect(failures()).toEqual([failureReopenEvicted()])
+    })
+
+    it('says it could not be reopened when the Gallery is unavailable', async () => {
+      autosave.available(false)
+      const { reopen, done } = resume(() => 'work-1')
+      await done
+      expect(reopen).not.toHaveBeenCalled()
+      expect(failures()).toEqual([failureReopenUnreadable()])
     })
   })
 })

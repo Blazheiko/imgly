@@ -1,2 +1,2 @@
 export { usePwaInstallUpdate } from './store'
-export type { UpdateEnv, UpdateNotice } from './store'
+export type { ResumeDeps, UpdateEnv, UpdateNotice } from './store'
