@@ -36,9 +36,10 @@ async function openImage() {
 </template>
 
 <style scoped>
+/* Its column comes from the start screen, so its edges line up with the drop area (ui-refresh AC-04). */
 .gallery-start {
   position: relative;
-  padding: var(--space-6) var(--space-8);
+  padding: var(--space-7) 0 0;
 }
 
 .gallery-start__busy {

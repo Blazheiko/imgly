@@ -89,6 +89,17 @@ describe('EditorView — SCR-01 (empty editor)', () => {
     expect(wheel.defaultPrevented).toBe(false)
   })
 
+  it("highlights the start screen's drop area while a drag is over the window (ui-refresh AC-04)", async () => {
+    const area = () => wrapper.find('[data-testid="empty-canvas"]')
+    expect(area().exists()).toBe(true)
+    window.dispatchEvent(dropEvent('dragenter'))
+    await nextTick()
+    expect(area().classes()).toContain('empty-canvas--highlighted')
+    window.dispatchEvent(dropEvent('dragleave'))
+    await nextTick()
+    expect(area().classes()).not.toContain('empty-canvas--highlighted')
+  })
+
   it('shows the drop overlay while a drag is over the window', async () => {
     window.dispatchEvent(dropEvent('dragenter'))
     await nextTick()
