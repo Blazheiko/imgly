@@ -33,7 +33,7 @@
 | T26 | e2e: no sleeps before negatives; Firefox click settles (N5, N6) | tests | Blazheiko | S | T24 | done |
 | T27 | Harness immediate watch; reopened-id assertion (N7, N8) | tests | Blazheiko | S | — | done |
 | T28 | Focus returns to Reload after a save wait (P1) | ui | Blazheiko | S | — | done |
-| T29 | Gallery start and choose do nothing while leaving (P2) | ui | Blazheiko | S | — | todo |
+| T29 | Gallery start and choose do nothing while leaving (P2) | ui | Blazheiko | S | — | done |
 | T30 | e2e buildOf waits for the hooks (P3) | tests | Blazheiko | S | — | todo |
 
 **Total:** 30 tasks (T15–T22 from review 2026-10-15, T23–T27 from review 2026-10-16, T28–T30 from review 2026-10-16 round 3), ~19 person-days (S = 0.5, M = 0.75, L = 1).

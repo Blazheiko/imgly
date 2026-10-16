@@ -370,6 +370,19 @@ describe('gallery store', () => {
       expect(gallery.reopening).toBeNull()
     })
 
+    it('refused while leaving for the new version says nothing: the Reloading notice already explains (pwa-install-update SCR-05, AC-10)', async () => {
+      const b = await seed(db, 'B.png', NOW)
+      await gallery.open()
+      vi.spyOn(editor, 'reopenWork').mockResolvedValue({ kind: 'refused', reason: 'leaving' })
+
+      await gallery.choose(b)
+
+      expect(notices.items).toEqual([])
+      expect(gallery.overlayOpen).toBe(true)
+      expect(gallery.reopening).toBeNull()
+      expect(editor.work).toBeNull()
+    })
+
     it('keeps the Damaged mark across refresh even though the list reports it as normal (S1-4)', async () => {
       const b = await seed(db, 'Beach.jpg', NOW - MINUTE)
       const c = await seed(db, 'C.png', NOW - 2 * MINUTE)

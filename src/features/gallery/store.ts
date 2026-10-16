@@ -185,6 +185,8 @@ export const useGallery = defineStore('gallery', () => {
           notices.pushAll([{ kind: 'info', text: hintChooseWhileExporting() }])
         else if (outcome.reason === 'confirming')
           notices.pushAll([{ kind: 'info', text: hintChooseWhileConfirming() }])
+        // 'leaving': the window is reloading into the new version, and its busy Reload already
+        // says so, so a choice made now ends without a second notice.
         break
       case 'damaged': {
         // A read that failed says nothing about the Work: no Damaged mark, no Delete (R3-2).
