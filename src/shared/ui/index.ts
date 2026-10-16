@@ -1,3 +1,4 @@
+export { default as AppLogo } from './AppLogo.vue'
 export { default as BaseButton } from './BaseButton.vue'
 export { default as CanvasMessage } from './CanvasMessage.vue'
 export { default as Dialog } from './Dialog.vue'

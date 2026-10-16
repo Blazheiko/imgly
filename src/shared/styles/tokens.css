@@ -17,7 +17,9 @@
 
   /* brand: Iris, with a gradient towards violet for the logo and the primary button */
   --color-brand: #6d5bff;
-  --color-brand-gradient: linear-gradient(135deg, #6d5bff, #a35bff);
+  --color-brand-from: #6d5bff;
+  --color-brand-to: #a35bff;
+  --color-brand-gradient: linear-gradient(135deg, var(--color-brand-from), var(--color-brand-to));
   --color-accent: #6d5bff;
   --color-accent-gradient: linear-gradient(135deg, #6d5bff, #7b4fe8);
   --color-accent-hover: linear-gradient(135deg, #5e4cf2, #6c44dd);
@@ -120,7 +122,7 @@
     --color-text-muted: #5d6471;
 
     --color-brand: #6d5bff;
-    --color-brand-gradient: linear-gradient(135deg, #6d5bff, #a35bff);
+    --color-brand-gradient: linear-gradient(135deg, var(--color-brand-from), var(--color-brand-to));
     --color-accent: #6d5bff;
     --color-accent-gradient: linear-gradient(135deg, #6d5bff, #7b4fe8);
     --color-accent-hover: linear-gradient(135deg, #5e4cf2, #6c44dd);

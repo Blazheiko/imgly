@@ -21,7 +21,7 @@ export default defineConfig({
       // ADR-0001), so there is no skipWaiting: the browser activates it once every window closed.
       registerType: 'prompt',
       injectRegister: false,
-      includeAssets: ['icons/apple-touch-icon-180.png'],
+      includeAssets: ['icons/favicon.svg', 'icons/apple-touch-icon-180.png'],
       manifest: {
         name: 'imgly editor',
         short_name: 'imgly',

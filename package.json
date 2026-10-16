@@ -16,6 +16,7 @@
     "test:e2e": "playwright test",
     "lint": "eslint .",
     "format": "prettier --write .",
+    "icons": "node scripts/render-icons.ts",
     "typecheck": "vue-tsc -b --noEmit"
   },
   "dependencies": {
