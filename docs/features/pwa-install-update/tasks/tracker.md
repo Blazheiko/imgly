@@ -27,5 +27,10 @@
 | T20 | Install app hides while prompting (R9) | infra | Blazheiko | S | T19 | done |
 | T21 | Busy label once; focus returns to Reload (R11, R12) | ui | Blazheiko | S | T20 | done |
 | T22 | e2e positive start-up signal; SW allowed by default (R13, R14) | tests | Blazheiko | M | T21 | done |
+| T23 | Hold every editor entry point while leaving; cancelled unload releases lock (N1) | app | Blazheiko | M | T22 | todo |
+| T24 | Focus returns to Reload in every browser (N2) | ui | Blazheiko | S | T23 | todo |
+| T25 | sad + ADR-0003 amendment; SCR refs on T15/T17/T21 (N3, N4) | docs | Blazheiko | S | — | todo |
+| T26 | e2e: no sleeps before negatives; Firefox click settles (N5, N6) | tests | Blazheiko | S | T24 | todo |
+| T27 | Harness immediate watch; reopened-id assertion (N7, N8) | tests | Blazheiko | S | — | todo |
 
-**Total:** 22 tasks (T15–T22 from review 2026-10-15), ~14.75 person-days (S = 0.5, M = 0.75, L = 1).
+**Total:** 27 tasks (T15–T22 from review 2026-10-15, T23–T27 from review 2026-10-16), ~17.5 person-days (S = 0.5, M = 0.75, L = 1).

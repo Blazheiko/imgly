@@ -474,6 +474,110 @@
       ],
       "file": "docs/features/pwa-install-update/_review/review-2026-10-15.md",
       "source": "review-2026-10-15"
+    },
+    {
+      "id": "T23",
+      "title": "Hold every editor entry point while leaving: openTool, undo/redo, openFile, reopenWork and the Gallery refuse while reloadHeld; a cancelled unload releases the lock and the marker (N1)",
+      "layer": "app",
+      "deps": [
+        "T22"
+      ],
+      "acs": [
+        "AC-10",
+        "AC-12",
+        "AC-13"
+      ],
+      "dod": "With reloadHeld set, a click on Crop/Adjust/Draw, Undo/Redo, Gallery or Open image changes nothing (component tests); onControllerChange clears switchRequested before reloadMarking, and a reload that the beforeunload guard cancels leaves no lock, no marker and no armed auto-reload; the T16 DoD is reworded to the lock-based design",
+      "files_hint": [
+        "src/features/editor/tool-slot.ts",
+        "src/features/editor/store.ts",
+        "src/features/undo-redo/",
+        "src/features/gallery/",
+        "src/features/pwa-install-update/store.ts"
+      ],
+      "file": "docs/features/pwa-install-update/_review/review-2026-10-16.md",
+      "source": "review-2026-10-16"
+    },
+    {
+      "id": "T24",
+      "title": "Focus returns to Reload after Cancel or Esc in every browser, even when another element held focus before the click (N2, SCR-06 cancelled)",
+      "layer": "ui",
+      "deps": [
+        "T23"
+      ],
+      "acs": [
+        "AC-12"
+      ],
+      "dod": "Toast focuses its action button on click (or Dialog lets returnFocus win, recorded in design-system.md); an App.test case with another button focused before the click passes; update.spec.ts AC-12 passes --repeat-each=10 on chromium, firefox and webkit",
+      "files_hint": [
+        "src/shared/ui/Toast.vue",
+        "src/shared/ui/Dialog.vue",
+        "src/features/pwa-install-update/ReloadDialog.vue",
+        "src/app/App.test.ts",
+        "docs/design-system.md"
+      ],
+      "file": "docs/features/pwa-install-update/_review/review-2026-10-16.md",
+      "source": "review-2026-10-16"
+    },
+    {
+      "id": "T25",
+      "title": "Bring sad §5 / flow 1 and ADR-0003 up to the new marker order and Reload choice, and cite screen states on T15, T17 and T21 (N3, N4)",
+      "layer": "docs",
+      "deps": [],
+      "acs": [
+        "AC-08",
+        "AC-09",
+        "AC-11",
+        "AC-12",
+        "AC-14"
+      ],
+      "dod": "ADR-0003 has a dated amendment (taken in App setup, written on controllerchange, dropped after 10 s); sad.md:219 and flow 1 show activate-by-waitingKey and the 10 s give-up; T15 cites SCR-07 part unavailable, T17 SCR-07 reopen failed: can't be read, T21 SCR-05 waiting for a save / reloading and SCR-06 cancelled",
+      "files_hint": [
+        "docs/features/pwa-install-update/sad.md",
+        "docs/features/pwa-install-update/adr/",
+        "docs/features/pwa-install-update/tasks.json"
+      ],
+      "file": "docs/features/pwa-install-update/_review/review-2026-10-16.md",
+      "source": "review-2026-10-16"
+    },
+    {
+      "id": "T26",
+      "title": "e2e: drop the sleeps before negative checks, wait for the Reload to turn busy or the dialog before asserting, and settle the toast stack before the Firefox click (N5, N6)",
+      "layer": "tests",
+      "deps": [
+        "T24"
+      ],
+      "acs": [
+        "AC-10",
+        "AC-11",
+        "AC-12",
+        "AC-13",
+        "AC-14"
+      ],
+      "dod": "No waitForTimeout before a negative check in e2e/pwa-install-update except the timing ACs (update.spec.ts:67, install.spec.ts:97); two-windows waits on an Autosave-settled signal; AC-12 passes --repeat-each=10 on firefox",
+      "files_hint": [
+        "e2e/pwa-install-update/",
+        "src/app/test-hooks.ts"
+      ],
+      "file": "docs/features/pwa-install-update/_review/review-2026-10-16.md",
+      "source": "review-2026-10-16"
+    },
+    {
+      "id": "T27",
+      "title": "Harness and test tightening: quiet an offline-ready notice already shown, and restore the reopened-id assertion (N7, N8)",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-05",
+        "AC-08"
+      ],
+      "dod": "test-hooks.ts watch uses immediate: true; store.test.ts:577 asserts toHaveBeenCalledExactlyOnceWith('work-1', …)",
+      "files_hint": [
+        "src/app/test-hooks.ts",
+        "src/features/pwa-install-update/store.test.ts"
+      ],
+      "file": "docs/features/pwa-install-update/_review/review-2026-10-16.md",
+      "source": "review-2026-10-16"
     }
   ]
 }
