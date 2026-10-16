@@ -360,14 +360,40 @@ describe('pwa-install-update store — Reload and the reopen after the update (A
   })
 
   describe('Reload after the version switched elsewhere (AC-14)', () => {
-    it('reloads the page without activating a worker', async () => {
-      sw.callbacks().onControllerChange()
+    it('reloads the page without activating a worker when none waits', async () => {
+      sw.switched()
       chooseReload()
       await answer({ kind: 'ready', reopenId: 'work-1' })
 
       expect(mark).toHaveBeenCalledExactlyOnceWith('work-1')
       expect(sw.client.activateWaiting).not.toHaveBeenCalled()
       expect(reloadPage).toHaveBeenCalledTimes(1)
+    })
+
+    it('activates a still newer waiting worker instead of reloading into the version between (AC-09)', async () => {
+      sw.switched()
+      sw.newWaiting()
+      expect(store.updateNotice).toBe('updated-elsewhere')
+      chooseReload()
+      await answer({ kind: 'ready', reopenId: 'work-1' })
+
+      expect(sw.client.activateWaiting).toHaveBeenCalledTimes(1)
+      expect(reloadPage).not.toHaveBeenCalled()
+      sw.callbacks().onControllerChange()
+      expect(mark).toHaveBeenCalledExactlyOnceWith('work-1')
+      expect(reloadPage).toHaveBeenCalledTimes(1)
+    })
+
+    it('activates the waiting worker when the storage was superseded, so it reloads into the new version (AC-08)', async () => {
+      sw.newWaiting()
+      autosave.supersede()
+      await nextTick()
+      expect(store.updateNotice).toBe('reload-to-save')
+      chooseReload()
+      await answer({ kind: 'ready', reopenId: 'work-1' })
+
+      expect(sw.client.activateWaiting).toHaveBeenCalledTimes(1)
+      expect(reloadPage).not.toHaveBeenCalled()
     })
   })
 

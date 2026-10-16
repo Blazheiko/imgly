@@ -106,12 +106,32 @@ describe('createServiceWorkerClient (ADR-0001, ADR-0002)', () => {
     await expect(client.check()).resolves.toBeUndefined()
   })
 
-  it('resolves a check before the registration is known', async () => {
+  it('a check made before the registration is known waits for it, then updates (AC-15, spec §6)', async () => {
+    const sw = fakeRegisterSW()
     const client = createServiceWorkerClient(
-      { registerSW: fakeRegisterSW().registerSW, container: fakeContainer() },
+      { registerSW: sw.registerSW, container: fakeContainer() },
       callbacks(),
     )
-    await expect(client.check()).resolves.toBeUndefined()
+    let done = false
+    const checking = client.check().then(() => (done = true))
+    await Promise.resolve()
+    expect(done).toBe(false)
+
+    const update = vi.fn(async () => {})
+    sw.options().onRegisteredSW!('/imgly/sw.js', { update } as unknown as ServiceWorkerRegistration)
+    await checking
+    expect(update).toHaveBeenCalledTimes(1)
+  })
+
+  it('resolves a waiting check when the registration fails', async () => {
+    const sw = fakeRegisterSW()
+    const client = createServiceWorkerClient(
+      { registerSW: sw.registerSW, container: fakeContainer() },
+      callbacks(),
+    )
+    const checking = client.check()
+    sw.options().onRegisterError!(new Error('offline'))
+    await expect(checking).resolves.toBeUndefined()
   })
 
   it('activates the waiting worker through updateSW(true) (AC-07)', async () => {

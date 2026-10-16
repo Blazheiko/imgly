@@ -5,6 +5,7 @@ export interface RegisterSWOptions {
   onOfflineReady?: () => void
   onNeedReload?: () => void
   onRegisteredSW?: (swUrl: string, registration: ServiceWorkerRegistration | undefined) => void
+  onRegisterError?: (error: unknown) => void
 }
 
 export type RegisterSW = (options: RegisterSWOptions) => (reloadPage?: boolean) => Promise<void>
@@ -50,6 +51,9 @@ export function createServiceWorkerClient(
 
   const hadControllerAtLoad = container.controller !== null
   let registration: ServiceWorkerRegistration | undefined
+  // The check on start comes before the plugin has registered: it waits for the registration.
+  let registered!: () => void
+  const ready = new Promise<void>((resolve) => (registered = resolve))
   container.addEventListener('controllerchange', () => callbacks.onControllerChange())
   const updateSW = deps.registerSW({
     immediate: true,
@@ -58,12 +62,15 @@ export function createServiceWorkerClient(
     onNeedReload: () => {},
     onRegisteredSW: (_url, r) => {
       registration = r
+      registered()
     },
+    onRegisterError: () => registered(),
   })
 
   return {
     hadControllerAtLoad,
     async check() {
+      await ready
       try {
         await registration?.update()
       } catch {

@@ -62,6 +62,11 @@ export function fakeClient(options: { hadControllerAtLoad?: boolean } = {}) {
     client,
     create,
     callbacks: () => callbacks,
+    /** Another window switched: its worker took control, and none waits any more. */
+    switched() {
+      waiting = null
+      callbacks.onControllerChange()
+    },
     /** A (new) waiting worker has downloaded. */
     newWaiting(key: object = { worker: Math.random() }) {
       waiting = key

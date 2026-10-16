@@ -210,13 +210,14 @@ export const usePwaInstallUpdate = defineStore('pwa-install-update', () => {
   }
 
   /**
-   * Leaves for the new version: marks the Work to reopen, then lets the waiting worker take over
-   * (this window reloads on its controllerchange) or, once the switch already happened, reloads.
+   * Leaves for the new version: lets a waiting worker take over (this window marks the Work to
+   * reopen and reloads on its controllerchange) or, with none waiting, marks and reloads at once.
    */
   function leave(reopenId: string | null) {
     // Nothing may open a tool or start an Export between here and the reload (AC-10, AC-13).
     editor.setReloadHeld(true)
-    if (updateNotice.value === 'available' && client) {
+    // Whatever the wording, a waiting worker is the newest version: Reload takes it (AC-09).
+    if (client?.waitingKey()) {
       switchRequested = { reopenId, timer: setTimeout(abandonSwitch, SWITCH_WAIT_MS) }
       void client.activateWaiting()
     } else {
