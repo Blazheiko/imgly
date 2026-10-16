@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted } from 'vue'
-import { BaseButton } from '@/shared'
+import { GALLERY_CAP } from '@/core'
+import { BaseButton, Icon } from '@/shared'
 import { useGallery } from '../store'
 import * as m from '../messages'
 import DeleteWorkDialog from './DeleteWorkDialog.vue'
@@ -22,15 +23,26 @@ onBeforeUnmount(() => {
   <section class="gallery-list">
     <header class="gallery-list__header">
       <h2 :id="titleId" class="gallery-list__title">{{ m.galleryButton() }}</h2>
-      <span
+      <div
         v-if="gallery.unavailableReason === null && gallery.listRead"
-        class="gallery-list__count"
-        data-testid="gallery-count"
-        >{{ m.countLabel(gallery.count) }}</span
+        class="gallery-list__places"
       >
+        <span class="gallery-list__count" data-testid="gallery-count">{{
+          m.countLabel(gallery.count)
+        }}</span>
+        <!-- The visible count already says it (ui-refresh AC-09); Damaged Works count too. -->
+        <meter
+          class="gallery-list__meter"
+          min="0"
+          :max="GALLERY_CAP"
+          :value="gallery.count"
+          aria-hidden="true"
+        />
+      </div>
       <BaseButton
         v-if="showClose"
         variant="ghost"
+        icon="x"
         class="gallery-list__close"
         @click="emit('close')"
       >
@@ -47,14 +59,18 @@ onBeforeUnmount(() => {
       <p>{{ m.unavailableBody(gallery.unavailableReason) }}</p>
     </div>
     <template v-else-if="gallery.listRead">
-      <p class="gallery-list__storage" data-testid="gallery-storage-line">
-        {{ gallery.storageLine }}
-      </p>
+      <div class="gallery-list__storage-note">
+        <Icon name="info" class="gallery-list__storage-icon" />
+        <p class="gallery-list__storage" data-testid="gallery-storage-line">
+          {{ gallery.storageLine }}
+        </p>
+      </div>
       <div v-if="gallery.count === 0" class="gallery-list__note" data-testid="gallery-empty">
         <p>{{ m.emptyState() }}</p>
         <BaseButton
           v-if="showOpenImage"
           variant="secondary"
+          icon="image-plus"
           data-testid="gallery-open-image"
           @click="emit('open-image')"
         >
@@ -80,30 +96,105 @@ onBeforeUnmount(() => {
 .gallery-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
   color: var(--color-text);
 }
 
 .gallery-list__header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-4);
 }
 
 .gallery-list__title {
   margin: 0;
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--tracking-tight);
 }
 
-.gallery-list__count,
-.gallery-list__storage {
-  margin: 0;
+.gallery-list__places {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+
+.gallery-list__count {
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
 }
 
+/* A 4 px bar, 120 px long (screens.md SCR-02): the accent fill on a sunken track. */
+.gallery-list__meter {
+  appearance: none;
+  width: calc(var(--space-8) * 2.5);
+  height: var(--space-1);
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-sunken);
+  overflow: hidden;
+}
+
+.gallery-list__meter::-webkit-meter-bar {
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-sunken);
+}
+
+.gallery-list__meter::-webkit-meter-optimum-value {
+  border-radius: var(--radius-full);
+  background: var(--meter-fill);
+}
+
+.gallery-list__meter::-moz-meter-bar {
+  border-radius: var(--radius-full);
+  background: var(--meter-fill);
+}
+
+.gallery-list {
+  --meter-fill: var(--color-accent-text);
+}
+
+@media (prefers-color-scheme: light) {
+  .gallery-list {
+    --meter-fill: var(--color-accent);
+  }
+
+  .gallery-list__meter,
+  .gallery-list__meter::-webkit-meter-bar {
+    background: var(--color-border);
+  }
+}
+
+.gallery-list__places + .gallery-list__close {
+  margin-left: 0;
+}
+
 .gallery-list__close {
   margin-left: auto;
+}
+
+.gallery-list__storage-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-subtle);
+}
+
+.gallery-list__storage-icon {
+  margin-top: var(--space-1);
+  color: var(--color-accent-text);
+}
+
+.gallery-list__storage {
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
 }
 
 .gallery-list__note {
@@ -113,6 +204,12 @@ onBeforeUnmount(() => {
   gap: var(--space-3);
   color: var(--color-text-muted);
   font-size: var(--font-size-md);
+}
+
+.gallery-list [data-testid='gallery-unavailable'] {
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
 }
 
 .gallery-list__note p {

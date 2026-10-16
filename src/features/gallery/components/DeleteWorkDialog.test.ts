@@ -12,6 +12,7 @@ import { createFakeAutosave } from '@/features/editor/testing'
 import { useGallery } from '../store'
 import * as m from '../messages'
 import GalleryList from './GalleryList.vue'
+import { drawsIcon } from '@/shared/ui/testing'
 
 type Db = IDBPDatabase<ImglyDb>
 
@@ -98,8 +99,19 @@ describe('DeleteWorkDialog (SCR-04, AC-06)', () => {
     expect(dialog().get('h2').text()).toBe(m.deleteDialogTitle('B.png'))
     expect(dialog().text()).toContain(m.deleteDialogBody())
     expect(dialog().get('.base-button--secondary').text()).toBe(m.deleteDialogCancel())
-    expect(dialog().get('.base-button--primary').text()).toBe(m.deleteDialogConfirm())
+    expect(dialog().get('.base-button--danger').text()).toBe(m.deleteDialogConfirm())
     expect(document.activeElement?.textContent?.trim()).toBe(m.deleteDialogCancel())
+  })
+
+  it('styles Delete as destructive with the bin icon, Cancel with x keeps the focus (ui-refresh AC-12)', async () => {
+    await deleteButton('B.png').trigger('click')
+    await nextTick()
+    const cancel = dialog().get('.base-button--secondary')
+    const confirm = dialog().get('.base-button--danger')
+    expect(confirm.text()).toBe(m.deleteDialogConfirm())
+    expect(drawsIcon(confirm.element, 'trash-2')).toBe(true)
+    expect(drawsIcon(cancel.element, 'x')).toBe(true)
+    expect(document.activeElement).toBe(cancel.element)
   })
 
   it('titles an unnamed Work "Untitled"', async () => {
@@ -132,7 +144,7 @@ describe('DeleteWorkDialog (SCR-04, AC-06)', () => {
   it('confirming removes the Work from the list and the database, count down by one', async () => {
     await deleteButton('B.png').trigger('click')
     await nextTick()
-    await dialog().get('.base-button--primary').trigger('click')
+    await dialog().get('.base-button--danger').trigger('click')
     await flush()
     expect(dialog().exists()).toBe(false)
     expect(await db.get('works', ids.b!)).toBeUndefined()
@@ -143,7 +155,7 @@ describe('DeleteWorkDialog (SCR-04, AC-06)', () => {
   it('after a delete, focus moves to the next entry', async () => {
     await deleteButton('A.png').trigger('click')
     await nextTick()
-    await dialog().get('.base-button--primary').trigger('click')
+    await dialog().get('.base-button--danger').trigger('click')
     await flush()
     expect(document.activeElement).toBe(entryButton('B.png, 2 minutes ago').element)
   })
@@ -151,7 +163,7 @@ describe('DeleteWorkDialog (SCR-04, AC-06)', () => {
   it('after deleting the last entry in the list, focus moves to the previous one', async () => {
     await deleteButton('Untitled').trigger('click')
     await nextTick()
-    await dialog().get('.base-button--primary').trigger('click')
+    await dialog().get('.base-button--danger').trigger('click')
     await flush()
     expect(document.activeElement).toBe(entryButton('B.png, 2 minutes ago').element)
   })
@@ -165,7 +177,7 @@ describe('DeleteWorkDialog (SCR-04, AC-06)', () => {
     await nextTick()
     await deleteButton('Untitled').trigger('click')
     await nextTick()
-    await dialog().get('.base-button--primary').trigger('click')
+    await dialog().get('.base-button--danger').trigger('click')
     await flush()
     expect(wrapper.text()).toContain(m.emptyState())
     expect(document.activeElement?.textContent?.trim()).toBe('Open image')

@@ -13,6 +13,7 @@ import { useNotices } from '@/shared'
 import { useGallery } from '../store'
 import * as m from '../messages'
 import GalleryList from './GalleryList.vue'
+import { drawsIcon } from '@/shared/ui/testing'
 
 type Db = IDBPDatabase<ImglyDb>
 
@@ -165,6 +166,50 @@ describe('GalleryList (SCR-01, SCR-03)', () => {
       const w = await show()
       expect(w.find('.spinner').exists()).toBe(false)
       expect(w.find('[role="progressbar"]').exists()).toBe(false)
+    })
+  })
+
+  describe('header and Storage note (ui-refresh AC-09, AC-10)', () => {
+    it('shows the used places as a count and a hidden meter, a Damaged Work included', async () => {
+      await seed(db, 'A.png', NOW - MINUTE)
+      await seedDamaged(db, 'X.png', NOW - 2 * MINUTE)
+      const w = await show()
+      expect(w.get('[data-testid="gallery-count"]').text()).toBe(m.countLabel(2))
+      const meter = w.get('meter')
+      expect(meter.attributes('aria-hidden')).toBe('true')
+      expect([meter.attributes('min'), meter.attributes('max')]).toEqual(['0', '20'])
+      // happy-dom has no HTMLMeterElement.value, so the rendered attribute is checked.
+      expect(meter.attributes('value')).toBe('2')
+    })
+
+    it('shows the Storage line unchanged in a note after an info icon', async () => {
+      const w = await show()
+      const line = w.get('[data-testid="gallery-storage-line"]')
+      expect(line.text()).toBe(m.storageLinePersisted())
+      const note = line.element.closest('.gallery-list__storage-note')!
+      expect(note).not.toBeNull()
+      expect(drawsIcon(note, 'info')).toBe(true)
+    })
+
+    it('shows Close with the x icon (SCR-03)', async () => {
+      const w = await show({ showClose: true })
+      const close = w.findAll('button').find((b) => b.text() === m.closeButton())!
+      expect(drawsIcon(close.element, 'x')).toBe(true)
+      expect(close.classes()).toContain('base-button--ghost')
+    })
+
+    it("shows the empty state's Open image with the image-plus icon", async () => {
+      const w = await show({ showOpenImage: true })
+      const open = w.findAll('button').find((b) => b.text() === 'Open image')!
+      expect(drawsIcon(open.element, 'image-plus')).toBe(true)
+    })
+
+    it('leaves out the meter and the note icon when the Gallery is unavailable', async () => {
+      autosave.available(false)
+      gallery.connect(err(appError('STORAGE_UNAVAILABLE', { reason: 'refused' })))
+      const w = await show()
+      expect(w.find('meter').exists()).toBe(false)
+      expect(w.get('[data-testid="gallery-unavailable"]').find('svg').exists()).toBe(false)
     })
   })
 

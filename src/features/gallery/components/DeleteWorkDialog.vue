@@ -50,10 +50,11 @@ async function confirm() {
   >
     {{ m.deleteDialogBody() }}
     <template #actions>
-      <BaseButton variant="secondary" data-initial-focus @click="gallery.cancelDelete()">
+      <BaseButton variant="secondary" icon="x" data-initial-focus @click="gallery.cancelDelete()">
         {{ m.deleteDialogCancel() }}
       </BaseButton>
-      <BaseButton variant="primary" @click="confirm()">
+      <!-- Destructive: the danger colour and the bin icon (ui-refresh AC-12). -->
+      <BaseButton variant="danger" icon="trash-2" @click="confirm()">
         {{ m.deleteDialogConfirm() }}
       </BaseButton>
     </template>
