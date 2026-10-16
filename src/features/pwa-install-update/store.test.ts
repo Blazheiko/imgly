@@ -162,6 +162,16 @@ describe('pwa-install-update store — the update lifecycle', () => {
       sw.newWaiting()
       expect(updateNotices()[0]!.action!.run()).toBe('keep-open')
     })
+
+    it('leaves the shown notice as it is when the same wording is raised again (SCR-05, AC-12)', () => {
+      connect()
+      sw.newWaiting()
+      const shown = updateNotices()[0]!
+      sw.callbacks().onNeedRefresh() // the same waiting version reported again, e.g. by a check
+
+      // Replacing it would rebuild "Reload" under the Editor's pointer and drop its focus.
+      expect(updateNotices()).toEqual([shown])
+    })
   })
 
   describe('the offline-ready notice (AC-05)', () => {

@@ -6,7 +6,10 @@ import Spinner from './Spinner.vue'
 defineProps<{ kind: NoticeKind; text: string; action?: NoticeAction }>()
 const emit = defineEmits<{ dismiss: [] }>()
 
-function runAction(action: NoticeAction): void {
+function runAction(action: NoticeAction, event: MouseEvent): void {
+  // Safari and Firefox on macOS do not focus a clicked button; a dialog the action opens must find
+  // the action as the element to return focus to (pwa-install-update AC-12).
+  if (event.currentTarget instanceof HTMLElement) event.currentTarget.focus()
   if (action.busy) return
   if (action.run() !== 'keep-open') emit('dismiss')
 }
@@ -25,7 +28,7 @@ function runAction(action: NoticeAction): void {
       variant="ghost"
       :aria-disabled="action.busy ? 'true' : undefined"
       :class="{ 'toast__action--busy': action.busy }"
-      @click="runAction(action)"
+      @click="runAction(action, $event)"
     >
       <template v-if="action.busy">
         <!-- The visible text names the button; the Spinner beside it is not read out again. -->

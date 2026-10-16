@@ -134,6 +134,8 @@ export const usePwaInstallUpdate = defineStore('pwa-install-update', () => {
   /** Moves the notice up to `next`, shown again even after a dismissal, except a dismissed version. */
   function raise(next: UpdateWording) {
     if (RANK[next] < RANK[updateNotice.value]) return
+    // Already shown as worded: a replace would rebuild "Reload" under the Editor and drop its focus.
+    if (next === updateNotice.value && !hidden && noticeId !== null) return
     if (next === 'available') {
       const waiting = client?.waitingKey() ?? null
       if (hidden && waiting !== null && waiting === dismissedWaiting) return

@@ -5,7 +5,7 @@ import { ACTION_RELOAD, reloadDialogCopy } from './messages'
 import { UPDATE_SLOT, usePwaInstallUpdate } from './store'
 
 const store = usePwaInstallUpdate()
-// Focus goes back to "Reload" even where its click did not focus it (Safari, Firefox on macOS).
+// Focus goes back to "Reload" even when the toast re-rendered it while the confirmation was open.
 const reloadAction = `.toast[data-slot="${UPDATE_SLOT}"] .base-button`
 const copy = computed(() => reloadDialogCopy(store.confirming?.reopenId != null))
 </script>

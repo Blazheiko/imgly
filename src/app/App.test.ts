@@ -507,14 +507,16 @@ describe('App install and update wiring (pwa-install-update T12)', () => {
   })
 
   it.each([
-    ['Cancel', true],
-    ['Escape', true],
-    // Safari and Firefox on macOS do not focus a button on a mouse click.
-    ['Cancel', false],
-    ['Escape', false],
+    ['Cancel', 'reload'],
+    ['Escape', 'reload'],
+    // Safari and Firefox on macOS do not focus a button on a mouse click: focus stays where it was.
+    ['Cancel', 'nothing'],
+    ['Escape', 'nothing'],
+    ['Cancel', 'another button'],
+    ['Escape', 'another button'],
   ] as const)(
-    'returns focus to the Reload action when %s closes the confirmation (focused on click: %s) (SCR-06, AC-12)',
-    async (how, focusedOnClick) => {
+    'returns focus to the Reload action when %s closes the confirmation (focused before the click: %s) (SCR-06, AC-12)',
+    async (how, focusedBefore) => {
       const sw = fakeClient()
       pwa.connect(sw.create, { now: () => 0, document: fakeDocument().doc, reloadPage: vi.fn() })
       sw.newWaiting()
@@ -525,8 +527,9 @@ describe('App install and update wiring (pwa-install-update T12)', () => {
           (b) => b.textContent?.trim() === 'Reload',
         )!
 
-      if (focusedOnClick) reload().focus()
-      else (document.activeElement as HTMLElement | null)?.blur()
+      if (focusedBefore === 'reload') reload().focus()
+      else if (focusedBefore === 'nothing') (document.activeElement as HTMLElement | null)?.blur()
+      else document.body.appendChild(document.createElement('button')).focus()
       reload().click()
       await flushPromises()
       const dialog = document.querySelector<HTMLElement>('[role="alertdialog"]')!
