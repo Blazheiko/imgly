@@ -89,7 +89,7 @@ export type ReopenOutcome =
   | { kind: 'confirming' }
   | { kind: 'cancelled' }
   | { kind: 'damaged'; error: AppError }
-  | { kind: 'refused'; reason: 'exporting' | 'confirming' | 'unavailable' }
+  | { kind: 'refused'; reason: 'exporting' | 'confirming' | 'unavailable' | 'leaving' }
   | { kind: 'superseded' }
   | { kind: 'already-open' }
 
@@ -200,7 +200,7 @@ export const useEditorStore = defineStore('editor', () => {
   }
   /** Something covers the editor (the Gallery, or the update's Reload): keys and drops are its. */
   const covered = computed(() => galleryOpen.value || reloadHeld.value)
-  const slot = createToolSlot({ work, phase, activePanel, view, fitIfSized })
+  const slot = createToolSlot({ work, phase, activePanel, view, reloadHeld, fitIfSized })
   const { activeTool, previewGeometry, previewAdjustments, previewLayer } = slot
   const edits = createEditHistory({ work, phase, activeTool, fitIfSized })
   /** Space is held for space-pan: a tool's overlay lets the drag through to the canvas. */
@@ -291,13 +291,17 @@ export const useEditorStore = defineStore('editor', () => {
     return next
   }
 
+  // Nothing may change the Work while the window leaves for a new version (pwa-install-update
+  // AC-12): an Undo or Redo there would start a save the Reload gate never saw.
   function undo() {
+    if (reloadHeld.value) return false
     const moved = edits.undo()
     if (moved) requestSave()
     return moved
   }
 
   function redo() {
+    if (reloadHeld.value) return false
     const moved = edits.redo()
     if (moved) requestSave()
     return moved
@@ -418,7 +422,8 @@ export const useEditorStore = defineStore('editor', () => {
   }
 
   async function openImage(file: Blob): Promise<OpenOutcome> {
-    if (phase.value === 'confirming' || phase.value === 'exporting') return { kind: 'ignored' }
+    if (phase.value === 'confirming' || phase.value === 'exporting' || reloadHeld.value)
+      return { kind: 'ignored' }
     const id = ++latestOpenId
     phase.value = 'reading'
 
@@ -649,6 +654,7 @@ export const useEditorStore = defineStore('editor', () => {
   async function reopenWork(id: string): Promise<ReopenOutcome> {
     if (phase.value === 'exporting') return { kind: 'refused', reason: 'exporting' }
     if (phase.value === 'confirming') return { kind: 'refused', reason: 'confirming' }
+    if (reloadHeld.value) return { kind: 'refused', reason: 'leaving' }
     const source = reopenSource
     if (!source) return { kind: 'refused', reason: 'unavailable' }
     if (work.value?.id === id) return { kind: 'already-open' }

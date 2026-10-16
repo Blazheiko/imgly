@@ -278,6 +278,13 @@ describe('gallery store', () => {
     })
   })
 
+  it("does not open while the update's Reload holds the editor (pwa-install-update AC-10)", async () => {
+    editor.setReloadHeld(true)
+    await gallery.open()
+    expect(gallery.overlayOpen).toBe(false)
+    expect(editor.activePanel).toBeNull()
+  })
+
   describe('unavailable (AC-12)', () => {
     it('reports refused with no list, count or line', async () => {
       autosave.available(false)

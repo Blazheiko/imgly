@@ -348,7 +348,7 @@
         "AC-12",
         "AC-13"
       ],
-      "dod": "While ReloadDialog is open or after leave(), tool shortcuts and export do nothing; confirmReload re-runs requestReload and refuses on a tool or an Export",
+      "dod": "While ReloadDialog is open or the window is leaving, editor.reloadHeld is set: no shortcut opens a tool, exports or undoes, and Export refuses; the dialog is modal, so Confirm leaves without re-running the gate, and the editor stores enforce the hold for pointer input (T23)",
       "files_hint": [
         "src/features/editor/store.ts",
         "src/features/pwa-install-update/store.ts",
@@ -487,7 +487,7 @@
         "AC-12",
         "AC-13"
       ],
-      "dod": "With reloadHeld set, a click on Crop/Adjust/Draw, Undo/Redo, Gallery or Open image changes nothing (component tests); onControllerChange clears switchRequested before reloadMarking, and a reload that the beforeunload guard cancels leaves no lock, no marker and no armed auto-reload; the T16 DoD is reworded to the lock-based design",
+      "dod": "With reloadHeld set, openTool refuses 'leaving', undo/redo move nothing, openImage/openFile are ignored, reopenWork refuses 'leaving' and the Gallery does not open: store tests plus click tests on Draw and Undo/Redo; so no save can start after the gate and the beforeunload guard never meets the update reload; onControllerChange clears switchRequested before reloadMarking, so a second controllerchange neither marks nor reloads",
       "files_hint": [
         "src/features/editor/tool-slot.ts",
         "src/features/editor/store.ts",

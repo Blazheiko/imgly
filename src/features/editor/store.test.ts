@@ -2625,3 +2625,66 @@ describe('editor store — the Reload gate (pwa-install-update AC-07, AC-10 to A
     expect(editor.phase).toBe('confirming')
   })
 })
+
+describe('editor store — held while the window leaves for the new version (pwa-install-update AC-10, AC-12, AC-13)', () => {
+  let decoder: ReturnType<typeof fakeDecoder>
+  let editor: ReturnType<typeof useEditorStore>
+  let autosave: ReturnType<typeof createFakeAutosave>
+  const loadWork = vi.fn<(id: string) => Promise<Result<LoadedWork, AppError>>>()
+
+  beforeEach(async () => {
+    setActivePinia(createPinia())
+    decoder = fakeDecoder()
+    autosave = createFakeAutosave()
+    editor = useEditorStore()
+    editor.setAutosave(autosave.fake)
+    editor.setDecoder(decoder.decode)
+    editor.setCanvasSize(1000, 800)
+    loadWork.mockReset()
+    editor.setReopenSource({ loadWork, decodePng: vi.fn() })
+    const pending = editor.openImage(file())
+    decoder.answer(0, ok(decoded(400, 200)))
+    await pending
+  })
+
+  const saves = () => autosave.spies.request.mock.calls.length
+
+  it('opens no tool, whichever button or key asked', () => {
+    editor.setReloadHeld(true)
+    for (const id of ['crop-rotate', 'adjust', 'draw'] as const)
+      expect(editor.openTool(id)).toEqual({ ok: false, reason: 'leaving' })
+    expect(editor.activeTool).toBeNull()
+
+    editor.setReloadHeld(false)
+    expect(editor.openTool('draw')).toEqual({ ok: true })
+  })
+
+  it('moves neither Undo nor Redo, so no save starts before the reload', () => {
+    editor.applyAdjustments({ ...NEUTRAL_ADJUSTMENTS, contrast: 20 })
+    const work = editor.work
+    const before = saves()
+    editor.setReloadHeld(true)
+
+    expect(editor.undo()).toBe(false)
+    expect(editor.work).toBe(work)
+    editor.setReloadHeld(false)
+    expect(editor.undo()).toBe(true)
+    editor.setReloadHeld(true)
+    expect(editor.redo()).toBe(false)
+    expect(saves()).toBe(before + 1)
+  })
+
+  it('reads no file and reopens no stored Work', async () => {
+    const work = editor.work
+    editor.setReloadHeld(true)
+
+    expect(await editor.openImage(file())).toEqual({ kind: 'ignored' })
+    expect(await editor.openFile(file())).toEqual({ kind: 'ignored' })
+    expect(await editor.reopenWork('stored-1')).toEqual({ kind: 'refused', reason: 'leaving' })
+
+    expect(decoder.decode).toHaveBeenCalledTimes(1)
+    expect(loadWork).not.toHaveBeenCalled()
+    expect(editor.work).toBe(work)
+    expect(editor.phase).toBe('idle')
+  })
+})

@@ -137,6 +137,8 @@ export const useGallery = defineStore('gallery', () => {
   }
 
   async function open() {
+    // The window is leaving for a new version: nothing is to be chosen (pwa-install-update AC-10).
+    if (editor.reloadHeld) return
     await refresh()
     overlayOpen.value = true
     editor.setActivePanel('gallery')

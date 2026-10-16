@@ -6,8 +6,12 @@ import type { EditorPhase, PanelId } from './store'
 /** A tool that edits the Work in the tool slot; one at a time (crop-rotate ADR-0003). */
 export type ToolId = 'crop-rotate' | 'adjust' | 'draw'
 
-/** Why a tool may not open: no image (AC-18), an export running (AC-15), or one already open. */
-export type ToolRefusal = 'no-work' | 'exporting' | 'tool-open' | 'panel-open' | 'confirming'
+/**
+ * Why a tool may not open: no image (AC-18), an export running (AC-15), one already open, or the
+ * window leaving for a new version (pwa-install-update AC-10).
+ */
+export type ToolRefusal =
+  'no-work' | 'exporting' | 'tool-open' | 'panel-open' | 'confirming' | 'leaving'
 
 /** What the slot reads from the editor store; the store owns these and composes the slot. */
 export interface ToolSlotDeps {
@@ -15,6 +19,8 @@ export interface ToolSlotDeps {
   phase: Ref<EditorPhase>
   activePanel: Ref<PanelId | null>
   view: Ref<View>
+  /** The update's Reload holds the editor: nothing may open (pwa-install-update AC-10). */
+  reloadHeld: Ref<boolean>
   fitIfSized: () => void
 }
 
@@ -22,7 +28,14 @@ export interface ToolSlotDeps {
  * The editor's tool slot (draw sad.md §5): which tool is open and what the Preview draws while it
  * is. A plain composable the editor store composes, so its public API is unchanged.
  */
-export function createToolSlot({ work, phase, activePanel, view, fitIfSized }: ToolSlotDeps) {
+export function createToolSlot({
+  work,
+  phase,
+  activePanel,
+  view,
+  reloadHeld,
+  fitIfSized,
+}: ToolSlotDeps) {
   const activeTool = ref<ToolId | null>(null)
   // What the Preview draws while a tool is open, whole and turned, instead of the Work's Geometry.
   const previewGeometry = shallowRef<Geometry | null>(null)
@@ -42,6 +55,7 @@ export function createToolSlot({ work, phase, activePanel, view, fitIfSized }: T
    */
   function openTool(id: ToolId): { ok: true } | { ok: false; reason: ToolRefusal } {
     if (!work.value) return { ok: false, reason: 'no-work' }
+    if (reloadHeld.value) return { ok: false, reason: 'leaving' }
     if (phase.value === 'exporting') return { ok: false, reason: 'exporting' }
     if (activeTool.value) return { ok: false, reason: 'tool-open' }
     if (activePanel.value) return { ok: false, reason: 'panel-open' }

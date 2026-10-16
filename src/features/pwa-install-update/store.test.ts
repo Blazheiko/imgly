@@ -352,6 +352,16 @@ describe('pwa-install-update store — Reload and the reopen after the update (A
       expect(reloadPage).not.toHaveBeenCalled()
     })
 
+    it('switches once: a second controllerchange neither marks nor reloads again (§6.1)', async () => {
+      chooseReload()
+      await answer({ kind: 'ready', reopenId: 'work-1' })
+      sw.callbacks().onControllerChange()
+      sw.callbacks().onControllerChange()
+
+      expect(mark).toHaveBeenCalledExactlyOnceWith('work-1')
+      expect(reloadPage).toHaveBeenCalledOnce()
+    })
+
     it('holds the editor from the moment it leaves (AC-10, AC-13)', async () => {
       chooseReload()
       await answer({ kind: 'ready', reopenId: null })

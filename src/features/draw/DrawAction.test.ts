@@ -78,11 +78,12 @@ describe('DrawAction (SCR-01, SCR-02, SCR-03)', () => {
     expect(texts()).toEqual([])
   })
 
-  it("D opens nothing while the update's Reload holds the editor (pwa-install-update AC-10)", async () => {
+  it("D or a click opens nothing while the update's Reload holds the editor (pwa-install-update AC-10)", async () => {
     openWork()
     await nextTick()
     editor.setReloadHeld(true)
     pressD()
+    await button().trigger('click')
     expect(editor.activeTool).toBeNull()
     expect(texts()).toEqual([])
   })

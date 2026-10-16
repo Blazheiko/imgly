@@ -276,8 +276,11 @@ export const usePwaInstallUpdate = defineStore('pwa-install-update', () => {
       },
       onControllerChange() {
         if (switchRequested) {
-          clearTimeout(switchRequested.timer)
-          reloadMarking(switchRequested.reopenId)
+          // One switch, one reload: a later controllerchange is never this Reload again (§6.1).
+          const { reopenId, timer } = switchRequested
+          switchRequested = null
+          clearTimeout(timer)
+          reloadMarking(reopenId)
           return
         }
         if (!controlled) {
