@@ -470,15 +470,13 @@ describe('App install and update wiring (pwa-install-update T12)', () => {
     await nextTick()
   }
 
-  it('puts "Install app" last in the top bar, after Export, while the browser offers (SCR-01, AC-01)', async () => {
+  it('puts "Install app" right before Export, and Export last, while the browser offers (ui-refresh SCR-01, AC-02)', async () => {
     pwa.connectInstall(fakeInstallPrompt({ offer: true }).client)
     await mountLive()
-    const labels = [...wrapper!.element.querySelectorAll('button')].map((b) =>
-      b.textContent?.trim(),
-    )
-    expect(labels.indexOf('Install app')).toBe(labels.indexOf('Export') + 1)
-    const actions = document.querySelector('.editor-top-bar__actions')!
-    expect(actions.lastElementChild?.textContent?.trim()).toBe('Install app')
+    const bar = document.querySelector('[data-testid="editor-top-bar"]')!
+    const labels = [...bar.querySelectorAll('button')].map((b) => b.textContent?.trim())
+    expect(labels.indexOf('Install app')).toBe(labels.indexOf('Export') - 1)
+    expect(labels.at(-1)).toBe('Export')
   })
 
   it('shows no "Install app" without an offer (AC-02)', async () => {

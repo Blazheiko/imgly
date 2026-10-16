@@ -44,8 +44,9 @@ test('AC-01, AC-02: an offer shows a quiet "Install app" last in the top bar', a
     .getByTestId('editor-top-bar')
     .locator('.editor-top-bar__actions button')
     .allTextContents()
-  expect(labels.map((l) => l.trim()).at(-1)).toBe('Install app')
-  expect(labels.map((l) => l.trim()).at(-2)).toMatch(/^Export/)
+  // ui-refresh AC-02: Install app comes right before Export, which ends the top bar.
+  expect(labels.map((l) => l.trim()).at(-2)).toBe('Install app')
+  expect(labels.map((l) => l.trim()).at(-1)).toMatch(/^Export/)
   await expect(toasts(page)).toHaveCount(0)
 })
 

@@ -190,6 +190,12 @@ onBeforeUnmount(() => {
       <template v-if="live && editor.work" #leading-actions>
         <slot name="top-bar-leading-actions" />
       </template>
+      <template v-if="live && $slots['top-bar-history']" #history>
+        <slot name="top-bar-history" />
+      </template>
+      <template v-if="live && $slots['top-bar-tools']" #tools>
+        <slot name="top-bar-tools" />
+      </template>
       <template v-if="live" #actions><slot name="top-bar-actions" /></template>
     </EditorTopBar>
     <div class="editor-view__body">
