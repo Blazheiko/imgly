@@ -316,6 +316,164 @@
         "playwright.config.ts"
       ],
       "file": "docs/features/pwa-install-update/tasks/t14-e2e-install-two-window-offline.md"
+    },
+    {
+      "id": "T15",
+      "title": "Reopen in an outdated window: APP_PART_UNAVAILABLE marks nothing Damaged and asks to reload (R1)",
+      "layer": "app",
+      "deps": [
+        "T12"
+      ],
+      "acs": [
+        "AC-14"
+      ],
+      "dod": "Reopening a Work whose codec worker can't load leaves damagedSet unchanged and the Gallery shows the part-unavailable copy; store tests prove both",
+      "files_hint": [
+        "src/features/editor/store.ts",
+        "src/features/gallery/store.ts",
+        "src/features/gallery/messages.ts"
+      ],
+      "file": "docs/features/pwa-install-update/_review/review-2026-10-15.md",
+      "source": "review-2026-10-15"
+    },
+    {
+      "id": "T16",
+      "title": "Lock the editor while the Reload confirmation is open or the window is leaving, and re-run the gate on confirm (R2)",
+      "layer": "app",
+      "deps": [
+        "T15"
+      ],
+      "acs": [
+        "AC-10",
+        "AC-12",
+        "AC-13"
+      ],
+      "dod": "While ReloadDialog is open or after leave(), tool shortcuts and export do nothing; confirmReload re-runs requestReload and refuses on a tool or an Export",
+      "files_hint": [
+        "src/features/editor/store.ts",
+        "src/features/pwa-install-update/store.ts",
+        "src/features/*/*Action.vue",
+        "src/features/export/store.ts"
+      ],
+      "file": "docs/features/pwa-install-update/_review/review-2026-10-15.md",
+      "source": "review-2026-10-15"
+    },
+    {
+      "id": "T17",
+      "title": "Take the reopen marker first at start, drop it when no switch follows, word an unreadable reopen per SCR-07, and test the evicted branch through App (R3, R4, R5)",
+      "layer": "app",
+      "deps": [
+        "T16"
+      ],
+      "acs": [
+        "AC-08"
+      ],
+      "dod": "The marker is taken synchronously before any await; a leave() with no controllerchange clears it; STORAGE_FAILED reopen shows failureReopenUnreadable; App.test covers evicted",
+      "files_hint": [
+        "src/app/App.vue",
+        "src/app/App.test.ts",
+        "src/features/pwa-install-update/store.ts"
+      ],
+      "file": "docs/features/pwa-install-update/_review/review-2026-10-15.md",
+      "source": "review-2026-10-15"
+    },
+    {
+      "id": "T18",
+      "title": "Reload gate: an idle export panel does not count, and edits stored before versionchange need no confirmation (R6, R10)",
+      "layer": "app",
+      "deps": [
+        "T17"
+      ],
+      "acs": [
+        "AC-12",
+        "AC-13",
+        "AC-14"
+      ],
+      "dod": "Editor store tests prove both; needsConfirmation uses the queue's stored state when the Gallery was superseded",
+      "files_hint": [
+        "src/features/editor/store.ts",
+        "src/features/editor/autosave.ts"
+      ],
+      "file": "docs/features/pwa-install-update/_review/review-2026-10-15.md",
+      "source": "review-2026-10-15"
+    },
+    {
+      "id": "T19",
+      "title": "Reload activates any waiting worker, and the start check waits for the registration (R7, R8)",
+      "layer": "app",
+      "deps": [
+        "T18"
+      ],
+      "acs": [
+        "AC-07",
+        "AC-09",
+        "AC-15"
+      ],
+      "dod": "leave() activates whenever a worker waits; the first check reaches registration.update() and lastCheck is set only then",
+      "files_hint": [
+        "src/features/pwa-install-update/store.ts",
+        "src/infra/platform/service-worker.ts"
+      ],
+      "file": "docs/features/pwa-install-update/_review/review-2026-10-15.md",
+      "source": "review-2026-10-15"
+    },
+    {
+      "id": "T20",
+      "title": "Install app hides as soon as the prompt opens, and a second install() is ignored (R9)",
+      "layer": "infra",
+      "deps": [
+        "T19"
+      ],
+      "acs": [
+        "AC-03"
+      ],
+      "dod": "canInstall is false while prompting; a second call shows no failure",
+      "files_hint": [
+        "src/infra/platform/install-prompt.ts",
+        "src/features/pwa-install-update/store.ts"
+      ],
+      "file": "docs/features/pwa-install-update/_review/review-2026-10-15.md",
+      "source": "review-2026-10-15"
+    },
+    {
+      "id": "T21",
+      "title": "Busy Reload reads its name once, and focus returns to Reload after Cancel or Esc (R11, R12)",
+      "layer": "ui",
+      "deps": [
+        "T20"
+      ],
+      "acs": [
+        "AC-11",
+        "AC-12"
+      ],
+      "dod": "The busy action's accessible name is 'Reloading…'; e2e asserts focus on Reload after Cancel and Esc",
+      "files_hint": [
+        "src/shared/ui/Toast.vue",
+        "src/shared/ui/primitives.test.ts",
+        "e2e/pwa-install-update/update.spec.ts"
+      ],
+      "file": "docs/features/pwa-install-update/_review/review-2026-10-15.md",
+      "source": "review-2026-10-15"
+    },
+    {
+      "id": "T22",
+      "title": "e2e negative checks wait for a positive start-up signal, and only the specs that need it block the service worker (R13, R14)",
+      "layer": "tests",
+      "deps": [
+        "T21"
+      ],
+      "acs": [
+        "AC-05",
+        "AC-08"
+      ],
+      "dod": "No waitForTimeout precedes a negative assertion where a signal exists; serviceWorkers is allowed by default and the offline-ready notice is handled in helpers",
+      "files_hint": [
+        "e2e/",
+        "playwright.config.ts",
+        "src/app/test-hooks.ts"
+      ],
+      "file": "docs/features/pwa-install-update/_review/review-2026-10-15.md",
+      "source": "review-2026-10-15"
     }
   ]
 }

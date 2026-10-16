@@ -19,5 +19,13 @@
 | T12 | Prompt mode + app shell wiring + hooks | wiring | Blazheiko | M | T9, T10, T11 | done |
 | T13 | Two-build e2e: single-window update flows | tests | Blazheiko | L | T12 | done |
 | T14 | e2e: install, offline, two windows | tests | Blazheiko | M | T12 | done |
+| T15 | Reopen in an outdated window asks to reload (R1) | app | Blazheiko | S | — | todo |
+| T16 | Lock the editor while confirming or leaving; re-gate on confirm (R2) | app | Blazheiko | M | T15 | todo |
+| T17 | Marker taken first, dropped without a switch; unreadable copy; evicted test (R3–R5) | app | Blazheiko | M | T16 | todo |
+| T18 | Idle export panel; edits stored before versionchange (R6, R10) | app | Blazheiko | S | T17 | todo |
+| T19 | Activate any waiting worker; start check waits for registration (R7, R8) | app | Blazheiko | S | T18 | todo |
+| T20 | Install app hides while prompting (R9) | infra | Blazheiko | S | T19 | todo |
+| T21 | Busy label once; focus returns to Reload (R11, R12) | ui | Blazheiko | S | T20 | todo |
+| T22 | e2e positive start-up signal; SW allowed by default (R13, R14) | tests | Blazheiko | M | T21 | todo |
 
-**Total:** 14 tasks, ~9.5 person-days (S = 0.5, M = 0.75, L = 1).
+**Total:** 22 tasks (T15–T22 from review 2026-10-15), ~14.75 person-days (S = 0.5, M = 0.75, L = 1).
