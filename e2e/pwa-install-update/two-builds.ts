@@ -114,8 +114,11 @@ export const test = harness.extend<{ builds: TwoBuilds }>({
 
 export { expect }
 
-/** Which build runs in the page: `A` or `B`. */
-export const buildOf = (page: Page) => page.evaluate(() => window.__imglyTest!.buildMark())
+/** Which build runs in the page: `A` or `B`. Waits for the lazily loaded test hooks first. */
+export async function buildOf(page: Page) {
+  await page.waitForFunction(() => window.__imglyTest != null)
+  return page.evaluate(() => window.__imglyTest!.buildMark())
+}
 
 /** Loads the app and waits until its service worker controls the page. */
 export async function gotoControlled(page: Page, path = './') {
