@@ -106,4 +106,4 @@ flowchart LR
 | 6 — Draw freehand | 2026-10-10 (merged to main via PR #7) | [changelog](features/draw/_ship/changelog.md) · [PR #7](https://github.com/Blazheiko/imgly/pull/7) |
 | 7 — Undo and redo | 2026-10-12 (merged to main via PR #9) | [changelog](features/undo-redo/_ship/changelog.md) · [PR #9](https://github.com/Blazheiko/imgly/pull/9) |
 | 8 — Gallery of recent works | 2026-10-15 (merged to main via PR #10) | [changelog](features/gallery/_ship/changelog.md) · [PR #10](https://github.com/Blazheiko/imgly/pull/10) |
-| 9 — Install and update experience | 2026-10-16 (PR not yet opened) | [changelog](features/pwa-install-update/_ship/changelog.md) |
+| 9 — Install and update experience | 2026-10-16 (PR #11, not yet merged) | [changelog](features/pwa-install-update/_ship/changelog.md) · [PR #11](https://github.com/Blazheiko/imgly/pull/11) |
