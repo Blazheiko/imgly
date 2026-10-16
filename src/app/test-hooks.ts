@@ -148,6 +148,8 @@ export interface ImglyTestHooks {
   galleryOpenNextVersion(): Promise<void>
   /** `navigator.storage.persist()` calls since load. */
   galleryPersistCalls(): number
+  /** An Autosave save is running (a negative check on the Gallery waits for it to end). */
+  gallerySaving(): boolean
   /** Makes the next `openGalleryDb` refuse, on this page or, if none ran, the next load. */
   galleryFailOpen(): void
   /** Which e2e build runs: `A`, or `B` for the second build the update e2e publishes. */
@@ -488,6 +490,7 @@ export function installTestHooks(pinia: Pinia): void {
     },
     galleryOpenNextVersion: () => openNextVersion(),
     galleryPersistCalls: () => persistCalls,
+    gallerySaving: () => editor.saving,
     galleryFailOpen: () => {
       sessionStorage.setItem(FAIL_OPEN_FLAG, '1')
       armOpenRefusal()

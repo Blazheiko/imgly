@@ -26,6 +26,12 @@ export async function installAnswered(page: Page) {
   await expect.poll(() => page.evaluate(() => window.__imglyTest!.pwaInstalling())).toBe(false)
 }
 
+/** No Autosave save is running, so whatever an edit was going to store has been stored. */
+export async function savesSettled(page: Page) {
+  await afterRender(page)
+  await expect.poll(() => page.evaluate(() => window.__imglyTest!.gallerySaving())).toBe(false)
+}
+
 /** A rendered frame has passed, so state set synchronously before it is on screen. */
 export async function afterRender(page: Page) {
   await page.evaluate(

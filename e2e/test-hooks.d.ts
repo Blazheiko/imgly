@@ -124,6 +124,8 @@ declare global {
       galleryOpenNextVersion(): Promise<void>
       /** `navigator.storage.persist()` calls since load. */
       galleryPersistCalls(): number
+      /** An Autosave save is running (a negative check on the Gallery waits for it to end). */
+      gallerySaving(): boolean
       /** Makes the next `openGalleryDb` refuse. */
       galleryFailOpen(): void
       /** Which e2e build runs: `A`, or `B` for the second build the update e2e publishes. */

@@ -132,7 +132,7 @@ test('AC-10: with a tool open, Reload refuses once and keeps the notice and the 
   await expect(notice(page, AVAILABLE)).toHaveCount(1)
   await expect(reloadButton(page)).toHaveText('Reload')
   await expect(page.getByTestId('adjust-tool')).toBeVisible()
-  await page.waitForTimeout(1_000)
+  // The refusal shown means the gate answered: no reload can follow from this Reload.
   expect(await stillSamePage(page)).toBe(true)
 })
 
@@ -157,7 +157,7 @@ test('AC-13: while an Export runs, Reload refuses and the Export is not interrup
   await expect(notice(page, EXPORTING)).toHaveCount(1)
   await expect(notice(page, AVAILABLE)).toHaveCount(1)
   expect(await page.evaluate(() => window.__imglyTest!.exportStatus())).toBe('exporting')
-  await page.waitForTimeout(1_000)
+  // The refusal shown means the gate answered: no reload can follow from this Reload.
   expect(await stillSamePage(page)).toBe(true)
 })
 
@@ -180,7 +180,9 @@ test('AC-11: Reload waits for a running save while editing goes on, then reloads
   await expect(reloadButton(page)).toHaveAttribute('aria-disabled', 'true')
   // The Editor keeps working during the wait.
   await applyAdjustments(page, EDIT_B)
-  await page.waitForTimeout(1_000)
+  // The held encode keeps the save running, so the Reload must still be waiting on it.
+  expect(await page.evaluate(() => window.__imglyTest!.gallerySaving())).toBe(true)
+  await expect(reloadButton(page)).toHaveAttribute('aria-disabled', 'true')
   expect(await stillSamePage(page), 'still waiting for the save').toBe(true)
 
   await reloadIntoB(page, () => releaseEncodes(page))

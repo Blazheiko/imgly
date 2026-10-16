@@ -11,6 +11,7 @@ import {
   type Geometry,
 } from '@/core'
 import { useEditorStore } from '@/features/editor'
+import { createFakeAutosave } from '@/features/editor/testing'
 import {
   DB_NAME,
   LATEST_VERSION,
@@ -356,6 +357,26 @@ describe('window.__imglyTest Gallery hooks (gallery T18)', () => {
 
     expect(hooks().galleryPersistCalls()).toBe(2)
     expect(persist).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('window.__imglyTest.gallerySaving (pwa-install-update AC-14, e2e signal)', () => {
+  afterEach(() => {
+    delete window.__imglyTest
+  })
+
+  it('reads whether an Autosave save is running', () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const autosave = createFakeAutosave()
+    useEditorStore(pinia).setAutosave(autosave.fake)
+    installTestHooks(pinia)
+
+    expect(window.__imglyTest!.gallerySaving()).toBe(false)
+    autosave.hold()
+    expect(window.__imglyTest!.gallerySaving()).toBe(true)
+    autosave.release()
+    expect(window.__imglyTest!.gallerySaving()).toBe(false)
   })
 })
 

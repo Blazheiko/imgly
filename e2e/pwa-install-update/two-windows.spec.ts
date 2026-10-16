@@ -22,6 +22,7 @@ import {
   test,
   updateNotice,
 } from './two-builds'
+import { savesSettled } from './signals'
 
 /**
  * Two windows on one version, one of them switching (pwa-install-update T14, AC-14, KPI 4: 0 windows
@@ -90,7 +91,7 @@ test('AC-14: a newer version that changes the Gallery storage stops saving here;
 
   // Editing goes on, but nothing reaches the Gallery any more.
   await applyAdjustments(page, { ...NEUTRAL_ADJUSTMENTS, brightness: 60 })
-  await page.waitForTimeout(1_500)
+  await savesSettled(page)
   expect((await rawAdjustments(other, id))?.brightness).toBe(20)
 
   await reloadButton(page).click()
