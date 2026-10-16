@@ -30,6 +30,7 @@ draw on and export an image, then reopen any recent work later and re-edit it wi
 | 8 | Gallery of recent works: autosave, reopen and re-edit without loss, about 20 works with the oldest evicted, an honest notice that browser storage can be evicted ([`gallery`](features/gallery/)) | idea-brief.md §7 Recommendation + §6 Risks | M | shipped |
 | 9 | Install and update experience: an install prompt and a "new version available" toast ([`pwa-install-update`](features/pwa-install-update/)) | idea-brief.md §1 Raw idea (PWA) | S | shipped |
 | 10 | OS integration: paste and copy to the clipboard, and "Open with…" as the system image handler (drag-and-drop moved to step 2) | idea-brief.md §7 Recommendation | M | idea |
+| 11 | UI refresh: brand logo and colour, an icon on every action, premium Gallery cards and start screen, and a brand-tinted window title bar, on extended design tokens ([`ui-refresh`](features/ui-refresh/)) | features/ui-refresh/spec.md §1 | S | spec'd |
 
 ## Not yet specified
 
@@ -82,6 +83,8 @@ flowchart LR
   s6 -->|persists the drawing layer| s8
   s3 -->|copy to clipboard reuses the export encoder| s10["10 · OS integration"]
   s2 -->|open from OS and paste feed the open pipeline| s10
+  s9 -->|restyles the install action and the update notice| s11["11 · UI refresh"]
+  s8 -->|restyles the Gallery list and its entries| s11
 ```
 
 ## Execution path
@@ -94,6 +97,7 @@ flowchart LR
 | 4 | 6 | `src/features/draw/` + `src/render/` layer compositor (new) | 7, 8 |
 | 5 | 7 ∥ 8 | 7: `src/core/history/` + editor store (new) · 8: `src/infra/db/` + `src/features/gallery/` (new). Disjoint apart from read-only document types | — |
 | 6 | 10 | `src/infra/platform/` + `src/features/os-integration/` (new) | — |
+| 7 | 11 | `src/shared/styles/` + `src/shared/ui/` + `src/shared/icons/` (new) + the restyled components of every feature. Touches many folders, so it runs alone; it can run before 10 so step 10 is built in the new style | — |
 
 ## Shipped
 
