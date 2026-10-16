@@ -525,8 +525,8 @@ action rows stay as they are: Reset (ghost) at the left, then Cancel (secondary,
 
 | Component | Why no existing primitive fits | Registered in design-system |
 |---|---|---|
-| `NEW: Icon` (`src/shared/ui/Icon.vue`) | No primitive renders an icon. Today five files hand-draw inline SVGs at `--space-4` (`sad.md` §2). It renders a typed registry name as a decorative `<svg>` (ADR-0001) | pending |
-| `NEW: AppLogo` (`src/shared/ui/AppLogo.vue`) | No primitive draws the brand. Today the top bar shows plain text. It draws §Brand mark, with an optional wordmark | pending |
+| `NEW: Icon` (`src/shared/ui/Icon.vue`) | No primitive renders an icon. Today five files hand-draw inline SVGs at `--space-4` (`sad.md` §2). It renders a typed registry name as a decorative `<svg>` (ADR-0001) | registered |
+| `NEW: AppLogo` (`src/shared/ui/AppLogo.vue`) | No primitive draws the brand. Today the top bar shows plain text. It draws §Brand mark, with an optional wordmark | registered |
 
 Widened, not new (ADR-0003), and also re-registered in `docs/design-system.md` §Component inventory:
 

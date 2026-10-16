@@ -19,6 +19,6 @@
 | T12 | [Gallery header + delete dialog](./t12-gallery-header-note-delete-dialog.md) | ui | Blazheiko | S | T3 | done |
 | T13 | [Work card](./t13-gallery-work-card.md) | ui | Blazheiko | M | T3, T12 | done |
 | T14 | [e2e a11y, motion, brand](./t14-tests-e2e-accessibility-motion-brand.md) | tests | Blazheiko | M | T4, T6–T11, T13 | todo |
-| T15 | [design-system record](./t15-docs-design-system.md) | docs | Blazheiko | S | T1–T5 | todo |
+| T15 | [design-system record](./t15-docs-design-system.md) | docs | Blazheiko | S | T1–T5 | done |
 
 **Total:** 15 tasks, ~7 person-days (S ≈ 0.4 d, M ≈ 0.75 d).
