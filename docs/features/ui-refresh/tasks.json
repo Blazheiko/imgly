@@ -1,0 +1,328 @@
+{
+  "slug": "ui-refresh",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Extend tokens.css to tokens v2: brand, titlebar, semantic colours, sizes and motion that drops to 0 under reduced motion",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-13",
+        "AC-14"
+      ],
+      "dod": "tokens.test.ts proves every --duration-* is <= 200 ms and 0ms under prefers-reduced-motion, and both theme blocks define every tokens-v2 colour of screens.md",
+      "files_hint": [
+        "src/shared/styles/tokens.css",
+        "src/shared/styles/tokens.test.ts"
+      ],
+      "file": "docs/features/ui-refresh/tasks/t01-shared-tokens-v2.md"
+    },
+    {
+      "id": "T2",
+      "title": "Add the typed Lucide icon registry in src/shared/icons and the decorative Icon primitive",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-02",
+        "AC-03"
+      ],
+      "dod": "Icon.test.ts proves all 29 registry names render a non-empty svg with aria-hidden and focusable=false, typecheck rejects an unknown name, and no runtime package is added",
+      "files_hint": [
+        "src/shared/icons/",
+        "src/shared/ui/Icon.vue",
+        "src/shared/ui/Icon.test.ts",
+        "src/shared/ui/index.ts",
+        "src/shared/index.ts"
+      ],
+      "file": "docs/features/ui-refresh/tasks/t02-shared-icon-registry.md"
+    },
+    {
+      "id": "T3",
+      "title": "Widen BaseButton: optional icon, size sm|md|lg, danger variant, busy spinner slot and the neutral disabled/unavailable look",
+      "layer": "ui",
+      "deps": [
+        "T1",
+        "T2"
+      ],
+      "acs": [
+        "AC-03",
+        "AC-12",
+        "AC-13",
+        "AC-14"
+      ],
+      "dod": "BaseButton.test.ts proves icon-before-label, icon-only square with aria-label, sm/md/lg, danger, busy Spinner swap and the neutral disabled/aria-disabled look, while every existing unit test passes unedited",
+      "files_hint": [
+        "src/shared/ui/BaseButton.vue",
+        "src/shared/ui/BaseButton.test.ts"
+      ],
+      "file": "docs/features/ui-refresh/tasks/t03-shared-basebutton-icon-size-danger.md"
+    },
+    {
+      "id": "T4",
+      "title": "Give notices icons: NoticeAction.icon replaced by the Spinner while busy, icon-only Dismiss, edge-coloured Toast; set icons on Delete… and Reload",
+      "layer": "ui",
+      "deps": [
+        "T3"
+      ],
+      "acs": [
+        "AC-02",
+        "AC-03"
+      ],
+      "dod": "Added Vitest cases prove a notice action shows its icon, a busy action shows the Spinner instead, and Dismiss is an icon-only x still named Dismiss; Delete… and Reload carry trash-2 and refresh-cw",
+      "files_hint": [
+        "src/shared/notices/store.ts",
+        "src/shared/notices/notices.test.ts",
+        "src/shared/ui/Toast.vue",
+        "src/shared/ui/primitives.test.ts",
+        "src/features/gallery/store.ts",
+        "src/features/pwa-install-update/store.ts"
+      ],
+      "file": "docs/features/ui-refresh/tasks/t04-shared-toast-icons.md"
+    },
+    {
+      "id": "T5",
+      "title": "Add AppLogo and the brand icon files: favicon.svg, the PNG app icons rendered by scripts/render-icons.ts, tab and touch-icon links",
+      "layer": "ui",
+      "deps": [
+        "T1",
+        "T2"
+      ],
+      "acs": [
+        "AC-01"
+      ],
+      "dod": "AppLogo.test.ts proves an aria-hidden mark plus the text imgly with no focus stop, and favicon.svg plus the four re-rendered PNGs exist and are linked from index.html and the manifest",
+      "files_hint": [
+        "src/shared/ui/AppLogo.vue",
+        "src/shared/ui/AppLogo.test.ts",
+        "src/shared/ui/index.ts",
+        "public/icons/",
+        "scripts/render-icons.ts",
+        "package.json",
+        "index.html",
+        "vite.config.ts"
+      ],
+      "file": "docs/features/ui-refresh/tasks/t05-shared-applogo-brand-icons.md"
+    },
+    {
+      "id": "T6",
+      "title": "Declare the window colour: two media-scoped theme-color tags, manifest #15122A, and a guard test pinning them to --color-titlebar",
+      "layer": "wiring",
+      "deps": [
+        "T1",
+        "T5"
+      ],
+      "acs": [
+        "AC-11"
+      ],
+      "dod": "window-colour.test.ts proves the dark and light --color-titlebar values equal the two media-scoped theme-color tags and the manifest theme_color/background_color, and fails when any one drifts",
+      "files_hint": [
+        "index.html",
+        "vite.config.ts",
+        "src/app/window-colour.test.ts"
+      ],
+      "file": "docs/features/ui-refresh/tasks/t06-wiring-window-colour.md"
+    },
+    {
+      "id": "T7",
+      "title": "Rebuild the top bar: AppLogo + wordmark, --color-titlebar, four groups with dividers only between shown groups, Install app before Export",
+      "layer": "ui",
+      "deps": [
+        "T3",
+        "T5",
+        "T6"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-02",
+        "AC-11",
+        "AC-15"
+      ],
+      "dod": "EditorTopBar.test.ts and the one updated App.test.ts case prove AppLogo+imgly at the left, four groups in order with Install app before Export and Export last, and no divider beside an empty group",
+      "files_hint": [
+        "src/features/editor/components/EditorTopBar.vue",
+        "src/features/editor/components/EditorTopBar.test.ts",
+        "src/features/editor/EditorView.vue",
+        "src/app/App.vue",
+        "src/app/App.test.ts"
+      ],
+      "file": "docs/features/ui-refresh/tasks/t07-editor-top-bar-groups.md"
+    },
+    {
+      "id": "T8",
+      "title": "Give every top-bar action its icon (Gallery, Undo, Redo, Crop and rotate, Adjust, Draw, Install app, Export) and drop the inline SVGs and 0.45 opacity",
+      "layer": "ui",
+      "deps": [
+        "T3"
+      ],
+      "acs": [
+        "AC-02",
+        "AC-03",
+        "AC-13"
+      ],
+      "dod": "Added Vitest cases prove each of the seven top-bar actions renders exactly one aria-hidden registry icon with its name and tooltip unchanged, and no inline svg or 0.45 opacity rule remains in them",
+      "files_hint": [
+        "src/features/gallery/components/GalleryAction.vue",
+        "src/features/undo-redo/UndoRedoActions.vue",
+        "src/features/crop-rotate/CropRotateAction.vue",
+        "src/features/adjust/AdjustAction.vue",
+        "src/features/draw/DrawAction.vue",
+        "src/features/pwa-install-update/InstallAction.vue",
+        "src/features/export/ExportAction.vue"
+      ],
+      "file": "docs/features/ui-refresh/tasks/t08-features-top-bar-action-icons.md"
+    },
+    {
+      "id": "T9",
+      "title": "Give the crop-rotate, adjust and draw panels their action icons; rotate and flip move from inline SVGs to the registry",
+      "layer": "ui",
+      "deps": [
+        "T3"
+      ],
+      "acs": [
+        "AC-02",
+        "AC-03"
+      ],
+      "dod": "Added Vitest cases prove every crop-rotate, adjust and draw action shows one aria-hidden icon, rotate/flip stay icon-only with aria-label and title, and choice controls have none",
+      "files_hint": [
+        "src/features/crop-rotate/CropRotateControls.vue",
+        "src/features/adjust/AdjustControls.vue",
+        "src/features/draw/DrawControls.vue"
+      ],
+      "file": "docs/features/ui-refresh/tasks/t09-features-tool-panel-icons.md"
+    },
+    {
+      "id": "T10",
+      "title": "Give the export panel, Replace and Reload dialogs, the zoom bar and the Reload page message their icons",
+      "layer": "ui",
+      "deps": [
+        "T3"
+      ],
+      "acs": [
+        "AC-02",
+        "AC-03"
+      ],
+      "dod": "Added Vitest cases prove the export panel, Replace and Reload dialogs, zoom bar and Reload page buttons each show their icon with names, busy wording and initial focus unchanged",
+      "files_hint": [
+        "src/features/export/ExportPanel.vue",
+        "src/features/editor/components/ReplaceDialog.vue",
+        "src/features/pwa-install-update/ReloadDialog.vue",
+        "src/features/editor/components/ZoomBar.vue",
+        "src/features/editor/EditorView.vue"
+      ],
+      "file": "docs/features/ui-refresh/tasks/t10-features-panels-dialogs-messages-icons.md"
+    },
+    {
+      "id": "T11",
+      "title": "Restyle the start screen: EmptyCanvas as a drop area highlighted while dragging, DropOverlay on a scrim, one column aligned with the Gallery",
+      "layer": "ui",
+      "deps": [
+        "T3"
+      ],
+      "acs": [
+        "AC-04",
+        "AC-05"
+      ],
+      "dod": "EmptyCanvas.test.ts proves the drop area is not focusable and not clickable, only its primary lg Open image opens the picker, and the highlight follows dragging; existing drop tests pass unedited",
+      "files_hint": [
+        "src/features/editor/components/EmptyCanvas.vue",
+        "src/features/editor/components/EmptyCanvas.test.ts",
+        "src/features/editor/components/DropOverlay.vue",
+        "src/features/editor/EditorView.vue"
+      ],
+      "file": "docs/features/ui-refresh/tasks/t11-editor-start-screen-drop-area.md"
+    },
+    {
+      "id": "T12",
+      "title": "Restyle the Gallery header and dialogs: places count with a meter bar, Storage line as an info note, Close with x, danger Delete confirmation",
+      "layer": "ui",
+      "deps": [
+        "T3"
+      ],
+      "acs": [
+        "AC-09",
+        "AC-10",
+        "AC-12"
+      ],
+      "dod": "Added Vitest cases prove the aria-hidden meter counts damaged Works, the Storage note keeps its wording beside an info icon, Close shows x, and the Delete confirmation is danger with trash-2 while Cancel keeps initial focus",
+      "files_hint": [
+        "src/features/gallery/components/GalleryList.vue",
+        "src/features/gallery/components/GalleryList.test.ts",
+        "src/features/gallery/components/DeleteWorkDialog.vue",
+        "src/features/gallery/components/DeleteWorkDialog.test.ts"
+      ],
+      "file": "docs/features/ui-refresh/tasks/t12-gallery-header-note-delete-dialog.md"
+    },
+    {
+      "id": "T13",
+      "title": "Restyle each Work as a card: 4:3 thumbnail over its blurred copy, ≤4 px lift, Delete revealed on hover/focus-within/touch, damaged and Open states",
+      "layer": "ui",
+      "deps": [
+        "T3",
+        "T12"
+      ],
+      "acs": [
+        "AC-06",
+        "AC-07",
+        "AC-08",
+        "AC-09",
+        "AC-14"
+      ],
+      "dod": "GalleryEntry.test.ts proves the unchanged card name, Delete after the choose button and never display:none, title on Delete, the damaged state with image-off, the Open badge and the open-Work refusal",
+      "files_hint": [
+        "src/features/gallery/components/GalleryEntry.vue",
+        "src/features/gallery/components/GalleryEntry.test.ts",
+        "src/features/gallery/components/GalleryList.vue"
+      ],
+      "file": "docs/features/ui-refresh/tasks/t13-gallery-work-card.md"
+    },
+    {
+      "id": "T14",
+      "title": "Add ui-refresh e2e: contrast and focus check in both themes, reduced-motion, top-bar order, brand icons and theme-color tags",
+      "layer": "tests",
+      "deps": [
+        "T4",
+        "T6",
+        "T7",
+        "T8",
+        "T9",
+        "T10",
+        "T11",
+        "T13"
+      ],
+      "acs": [
+        "AC-01",
+        "AC-02",
+        "AC-11",
+        "AC-13",
+        "AC-14",
+        "AC-15"
+      ],
+      "dod": "New e2e specs pass on Chromium, Firefox and WebKit: axe contrast clean in both themes on the start screen, Gallery, tool and export panels; no transform under reduced motion; favicon, theme-color tags and top-bar order as specified",
+      "files_hint": [
+        "e2e/ui-refresh/",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "file": "docs/features/ui-refresh/tasks/t14-tests-e2e-accessibility-motion-brand.md"
+    },
+    {
+      "id": "T15",
+      "title": "Record tokens v2, Icon, AppLogo and the widened BaseButton and Toast in docs/design-system.md",
+      "layer": "docs",
+      "deps": [
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5"
+      ],
+      "acs": [],
+      "dod": "docs/design-system.md lists every tokens-v2 token and the Icon, AppLogo, BaseButton and Toast entries with the names used in code",
+      "files_hint": [
+        "docs/design-system.md",
+        "docs/features/ui-refresh/screens.md"
+      ],
+      "file": "docs/features/ui-refresh/tasks/t15-docs-design-system.md"
+    }
+  ]
+}
