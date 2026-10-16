@@ -144,6 +144,20 @@ describe('createInstallPrompt', () => {
     expect(await first).toEqual({ ok: true, value: 'dismissed' })
   })
 
+  it('reports the dropped offer as soon as the browser confirmation opens (AC-03)', async () => {
+    const install = client()
+    const changes = vi.fn()
+    install.onOfferChange(changes)
+    target.dispatchEvent(offerEvent('dismissed', 1_000))
+    changes.mockClear()
+
+    const first = install.prompt()
+    expect(install.hasOffer()).toBe(false)
+    expect(changes).toHaveBeenCalledTimes(1)
+    await vi.runAllTimersAsync()
+    await first
+  })
+
   it('reports standalone display mode (AC-04)', () => {
     expect(createInstallPrompt({ target, matchMedia: matchMedia(true) }).isStandalone()).toBe(true)
     expect(client().isStandalone()).toBe(false)

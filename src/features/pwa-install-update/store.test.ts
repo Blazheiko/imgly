@@ -643,6 +643,27 @@ describe('pwa-install-update store — the install offer (AC-01 to AC-04)', () =
     expect(notices.items).toEqual([])
   })
 
+  it('hides the action while the confirmation is open, and ignores a second click meanwhile (AC-03)', async () => {
+    const install = fakeInstallPrompt({ offer: true })
+    store.connectInstall(install.client)
+    let choose!: () => void
+    install.prompt
+      .mockImplementationOnce(() => {
+        install.setOffer(false)
+        return new Promise((resolve) => (choose = () => resolve(ok('accepted'))))
+      })
+      .mockResolvedValue(err(appError('INSTALL_FAILED')))
+
+    const first = store.install()
+    expect(store.canInstall).toBe(false)
+    await store.install()
+    choose()
+    await first
+
+    expect(install.prompt).toHaveBeenCalledTimes(1)
+    expect(notices.items).toEqual([])
+  })
+
   it('shows no notice once installed (AC-01)', async () => {
     const install = fakeInstallPrompt({ offer: true })
     store.connectInstall(install.client)

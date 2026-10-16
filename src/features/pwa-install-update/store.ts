@@ -312,12 +312,20 @@ export const usePwaInstallUpdate = defineStore('pwa-install-update', () => {
     next.onOfferChange(() => (installOffered.value = next.hasOffer()))
   }
 
+  // The browser's confirmation is open: another click must not read as a failed install (AC-03).
+  let installing = false
+
   /** The Editor's click on "Install app": the browser's confirmation, never a prompt of our own. */
   async function install() {
-    if (!installClient) return
-    const result = await installClient.prompt()
-    installOffered.value = installClient.hasOffer()
-    if (!result.ok) notices.pushAll([{ kind: 'failure', text: failureInstall() }])
+    if (!installClient || installing) return
+    installing = true
+    try {
+      const result = await installClient.prompt()
+      installOffered.value = installClient.hasOffer()
+      if (!result.ok) notices.pushAll([{ kind: 'failure', text: failureInstall() }])
+    } finally {
+      installing = false
+    }
   }
 
   return {

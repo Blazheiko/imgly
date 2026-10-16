@@ -71,6 +71,8 @@ export function createInstallPrompt(
       if (!event || prompting) return err(appError('INSTALL_FAILED'))
       prompting = true
       offer = null
+      // "Install app" hides while the browser asks: the offer is spent either way (AC-03).
+      changed()
       const appInstalled = new Promise<boolean>((resolve) => (installed = () => resolve(true)))
       try {
         await event.prompt()
