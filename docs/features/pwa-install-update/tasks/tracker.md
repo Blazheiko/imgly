@@ -35,5 +35,6 @@
 | T28 | Focus returns to Reload after a save wait (P1) | ui | Blazheiko | S | — | done |
 | T29 | Gallery start and choose do nothing while leaving (P2) | ui | Blazheiko | S | — | done |
 | T30 | e2e buildOf waits for the hooks (P3) | tests | Blazheiko | S | — | done |
+| T31 | Gallery 'leaving' test uses the real hold; buildOf wait bounded (Q1, Q2) | tests | Blazheiko | S | — | done |
 
-**Total:** 30 tasks (T15–T22 from review 2026-10-15, T23–T27 from review 2026-10-16, T28–T30 from review 2026-10-16 round 3), ~19 person-days (S = 0.5, M = 0.75, L = 1).
+**Total:** 31 tasks (T15–T22 from review 2026-10-15, T23–T27 from review 2026-10-16, T28–T30 from review 2026-10-16 round 3, T31 from round 4), ~19.5 person-days (S = 0.5, M = 0.75, L = 1).

@@ -116,7 +116,10 @@ export { expect }
 
 /** Which build runs in the page: `A` or `B`. Waits for the lazily loaded test hooks first. */
 export async function buildOf(page: Page) {
-  await page.waitForFunction(() => window.__imglyTest != null)
+  await page.waitForFunction(() => window.__imglyTest != null, undefined, {
+    timeout: 15_000,
+    polling: 100,
+  })
   return page.evaluate(() => window.__imglyTest!.buildMark())
 }
 

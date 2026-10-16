@@ -373,10 +373,12 @@ describe('gallery store', () => {
     it('refused while leaving for the new version says nothing: the Reloading notice already explains (pwa-install-update SCR-05, AC-10)', async () => {
       const b = await seed(db, 'B.png', NOW)
       await gallery.open()
-      vi.spyOn(editor, 'reopenWork').mockResolvedValue({ kind: 'refused', reason: 'leaving' })
+      const reopen = vi.spyOn(editor, 'reopenWork')
+      editor.setReloadHeld(true)
 
       await gallery.choose(b)
 
+      expect(await reopen.mock.results[0]!.value).toEqual({ kind: 'refused', reason: 'leaving' })
       expect(notices.items).toEqual([])
       expect(gallery.overlayOpen).toBe(true)
       expect(gallery.reopening).toBeNull()

@@ -657,6 +657,23 @@
       ],
       "file": "docs/features/pwa-install-update/_review/review-2026-10-16-2.md",
       "source": "review-2026-10-16-2"
+    },
+    {
+      "id": "T31",
+      "title": "Test tightening: the gallery 'leaving' test runs the real hold, and buildOf's hook wait fails fast (Q1, Q2)",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-09",
+        "AC-10"
+      ],
+      "dod": "gallery/store.test.ts sets editor.setReloadHeld(true) instead of mocking reopenWork, and fails without the editor/store.ts 'leaving' guard; buildOf waits with { timeout: 15_000, polling: 100 }; e2e/pwa-install-update passes --repeat-each=5 in chromium, firefox and webkit",
+      "files_hint": [
+        "src/features/gallery/store.test.ts",
+        "e2e/pwa-install-update/two-builds.ts"
+      ],
+      "file": "docs/features/pwa-install-update/_review/review-2026-10-16-3.md",
+      "source": "review-2026-10-16-3"
     }
   ]
 }
