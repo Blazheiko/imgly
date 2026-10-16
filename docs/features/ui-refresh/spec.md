@@ -21,8 +21,9 @@ Committed approach: **a brand identity and a premium, consistent interface, buil
 
 Traceability and deliberate compromises:
 
-- Behaviour stays the same: every action keeps its name, shortcut, enabled and disabled rules, and place in the keyboard order. Only the look changes, and icons are decoration that assistive technology does not announce (AC-03, AC-13).
+- Behaviour stays the same: every action keeps its name, shortcut, enabled and disabled rules, and place in the keyboard order, with one deliberate exception: Install app now comes before Export, so the main action, Export, ends the top bar (AC-02, AC-03). Only the look changes, and icons are decoration that assistive technology does not announce (AC-03, AC-13).
 - Cross-feature change: the shared button gains an icon, three sizes and a "destructive" style, and the design system records it together with the new logo, icon, card and drop-zone elements (`docs/design-system.md`).
+- Cross-feature change: pwa-install-update placed Install app last in the top bar, after Export (its SCR-01 and AC-01, pinned by a unit test of the app shell). This feature moves Install app before Export, so that one test and that screen are updated deliberately (AC-02).
 - Cross-feature change: the notice's action and Dismiss buttons gain icons, so the shared notice element, whose action label is text only today, changes too; while a notice's action is busy, its spinner takes the icon's place, so the action still shows one symbol (`docs/design-system.md`, Toast; AC-02).
 - Decision override: size stays S although the plan's phases were sized M, S, S, M and the feature adds an icon set plus new options on the shared button — rationale: the icon set is the only new module, the button change only adds options and every existing use keeps working, there is no new interface and no stored-data change, and the work is four pull requests of about a week; re-run `sdd:classify-size` if `design` finds otherwise.
 - Decision: drawing the app into the Installed app's title bar area, beside the window buttons, is deferred to a later step because only Chromium-based desktop browsers support it (design-proposal §10, D5).
@@ -41,7 +42,7 @@ Traceability and deliberate compromises:
 - A custom web font. The system font already reads well on the desktop target, and a downloaded font adds weight to every offline start.
 - Mobile and touch layouts beyond "does not break". Desktop is the target (roadmap, Out of scope).
 - A theme switch inside the app. The app follows the system's light or dark setting, as it does today.
-- New information on the Work card, such as image size or format. The card shows the Work's name and when it was last touched, as today, so no new data has to be stored.
+- New information on the Work card, such as image size or format. The card shows the Work's name and the same second line as today (when it was last touched, or "Open" or "Damaged"), so no new data has to be stored.
 
 ## 4. User stories
 
@@ -99,25 +100,25 @@ Traceability and deliberate compromises:
 
 **Given** the app is open in a browser tab or as an Installed app, in either theme
 **When** the Portfolio reviewer looks at the top bar, the browser tab and the system's list of apps
-**Then** the top bar's left end shows the imgly mark followed by the name "imgly", the tab shows the same mark, and the Installed app's icon shows the same mark on the brand colour, with no generic picture symbol left anywhere
+**Then** the top bar's left end shows the imgly mark followed by the name "imgly", the tab shows the same mark, and the Installed app's icon shows the same mark on the brand colour, with no generic picture symbol left in any of those four places (the top bar, the tab, the Installed app's icon and the icon used when the app is added to a home screen); an image icon inside the interface, such as on the drop area, is not a brand mark
 
 ### AC-02 (US-02) — happy path
 
 **Given** the Editor is on any screen of the app
-**When** they look at any action button: Open image, Gallery, Close, Undo, Redo, Crop and rotate, Adjust, Draw, Export, Install app, Delete, Dismiss and Reload, and every tool panel's action buttons such as Apply, Cancel, Auto, Compare and Clear (choice controls such as a colour swatch or a format option are not action buttons)
-**Then** each one shows an icon from one set drawn in one style and size, and the top bar groups its actions as Gallery, then Undo and Redo, then the three tools, then Install app and Export, separated by thin dividers
+**When** they look at any action button, that is, any button that performs an action anywhere in the app: the top bar, the Gallery and its cards, the notices (Dismiss, Reload, "Delete…"), every tool panel (such as Apply, Cancel, Auto, Compare and Clear), the export panel, every confirmation dialog (both its cancel and its confirming button) and the full-screen messages (such as "Reload page"); choice controls such as a colour swatch, a format option or a proportion option are not action buttons
+**Then** each one shows an icon from one set drawn in one style and size, and the top bar shows, left to right and in the same keyboard order, four groups separated by thin dividers: Gallery and Open image; Undo and Redo; Crop and rotate, Adjust and Draw; Install app and Export, with Export last
 
 ### AC-03 (US-02, US-08) — domain invariant
 
-**Given** an action button shows an icon, including Undo and Redo, which show only an icon
+**Given** an action button shows an icon; only Undo, Redo and a card's Delete show an icon without a visible label, and every other action button shows its icon next to its label
 **When** a screen reader or the keyboard reaches the button
-**Then** the button is announced by the same name as before this feature, the icon itself is not announced, Undo and Redo still name their shortcut in their tooltip, and the keyboard order of the top bar is unchanged
+**Then** the button is announced by the same name as before this feature, the icon itself is not announced, each icon-only button has a tooltip naming its action (Undo and Redo also name their shortcut), and the keyboard order of the top bar is unchanged except that Install app now comes before Export
 
 ### AC-04 (US-03) — happy path
 
 **Given** no Work is open
 **When** the Editor looks at the start screen
-**Then** a large drop area shows an image icon, a short heading, a prominent "Open image" button and a hint that an image can be dropped anywhere in the window, laid out on the same grid as the Gallery below it
+**Then** a large drop area shows an image icon, a short heading, a prominent "Open image" button and a hint that an image can be dropped anywhere in the window, and its left and right edges line up with the Gallery below it; the area itself is decoration, so only its button opens the file picker and the area adds no stop to the keyboard order, and it is highlighted while a file is dragged anywhere over the window
 
 ### AC-05 (US-03) — error
 
@@ -129,17 +130,17 @@ Traceability and deliberate compromises:
 
 **Given** the Gallery lists at least one Work
 **When** the Editor looks at the Gallery
-**Then** each Work is a raised card with rounded corners showing its thumbnail without empty bars around it, its name (shortened with an ellipsis when too long) and when it was last touched, and pointing at a card lifts it slightly and reveals its Delete control as an icon on the thumbnail; on a touch screen, where nothing can point, the Delete control is always visible
+**Then** each Work is a raised card with rounded corners, and every card has the same shape; the thumbnail shows the whole image, never cropped, with any space around it filled by a blurred copy of the same image instead of empty bars; under it are the name (shortened with an ellipsis when too long) and the same second line as today (when it was last touched, or "Open" or "Damaged"); the card keeps the name a screen reader announces today; and pointing at a card lifts it by at most 4 px and reveals its Delete control as an icon on the thumbnail; on a touch screen, where nothing can point, the Delete control is always visible
 
 ### AC-07 (US-04) — happy path
 
 **Given** the Gallery lists a Work that is not open
 **When** the Editor chooses the card, or moves keyboard focus onto it and presses Enter
-**Then** the Work reopens exactly as it does today, and while the card has keyboard focus its Delete control is visible without pointing at it
+**Then** the Work reopens exactly as it does today, and while keyboard focus is anywhere in the card, including on the Delete control itself and when focus returns to it after the delete confirmation is cancelled, the Delete control is visible without pointing at it; the Delete control is always in the keyboard order, so focus never lands on a hidden control
 
 ### AC-08 (US-04, US-07) — domain invariant
 
-**Given** the Gallery lists the Work that is open in this tab, marked with an "Open" badge
+**Given** the Gallery lists the Work that is open in this tab, whose second line "Open" is shown as a badge
 **When** the Editor tries to delete it from its card
 **Then** the card's Delete control looks unavailable, the Work is not deleted, and the app tells the Editor that the open Work cannot be deleted, as it does today
 
@@ -157,9 +158,9 @@ Traceability and deliberate compromises:
 
 ### AC-11 (US-06) — cross-context
 
-**Given** the Editor runs the Installed app
+**Given** the Editor runs the Installed app in a Chromium-based desktop browser (in Safari's installed app the same holds as far as Safari allows)
 **When** the system's theme is dark, or is light, or changes between them while the app is open
-**Then** the window's title bar takes the top bar's brand-tinted colour for that theme, deep indigo in dark and pale lavender in light, so the title bar and the top bar read as one strip with no contrasting band between them
+**Then** the window's title bar takes the top bar's brand-tinted colour for that theme, deep indigo in dark and pale lavender in light, and the top bar itself uses that same colour, so the title bar and the top bar read as one strip with no contrasting band between them; while the app is still starting, before the page has loaded, the window may show the dark colour
 
 ### AC-12 (US-07) — happy path
 
@@ -171,7 +172,7 @@ Traceability and deliberate compromises:
 
 **Given** the restyled interface in either theme, including the brand-tinted top bar
 **When** the Editor reads any text or looks at any control and its focus
-**Then** every text and icon is readable against its background at the contrast stated in §6, keyboard focus is always visibly marked, and a disabled action such as Export with no image looks unavailable without turning into a pale, washed-out brand colour
+**Then** every text and icon is readable against its background at the contrast stated in §6, keyboard focus is always visibly marked, and a disabled action such as Export with no image looks unavailable through a neutral background and muted text, never a pale, washed-out brand colour; disabled controls are exempt from the text contrast target, as in the accessibility guidelines
 
 ### AC-14 (US-08) — cross-context
 
@@ -191,9 +192,9 @@ Reference machine: Apple M1 MacBook Air with the latest stable Chrome, as in the
 
 | Aspect | Target | Measurement |
 |---|---|---|
-| Text contrast against its background | ≥ 4.5:1 for all text, in both themes and on the top bar | automated accessibility check of the start screen, the Gallery, each tool panel and the export panel, in both themes |
+| Text contrast against its background | ≥ 4.5:1 for all text except the labels of disabled controls, in both themes and on the top bar | automated accessibility check of the start screen, the Gallery, each tool panel and the export panel, in both themes |
 | Icons, control borders and the focus mark against their background | ≥ 3:1 in both themes | the same automated check, plus a manual check of the focus mark |
-| Accessible names and keyboard order of existing actions | 100% unchanged; every existing unit and end-to-end test passes without any edit | the full unit and end-to-end suites on Chromium, Firefox and WebKit |
+| Accessible names and keyboard order of existing actions | 100% unchanged, except that Install app now comes before Export in the top bar; every existing unit and end-to-end test passes without any edit, except the one app-shell test that pins Install app after Export | the full unit and end-to-end suites on Chromium, Firefox and WebKit |
 | Growth of the app's downloaded code and styles | ≤ 15 KB compressed over the size before this feature | build size report compared with the main branch |
 | New third-party code downloaded at runtime | 0 packages | dependency list diff |
 | Hover and open motion | ≤ 200 ms per transition; 0 ms of movement when reduced motion is requested | unit test of the motion values; e2e with reduced motion emulated |
@@ -213,7 +214,7 @@ Reference machine: Apple M1 MacBook Air with the latest stable Chrome, as in the
 
 ## 7. Metrics / KPIs
 
-- **Action buttons with an icon** — baseline: 5 of the 13 top-bar, Gallery and notice actions named in AC-02 (Undo, Redo and the three tools), with the tool panels' buttons counted before phase 1; target: 100% of the action buttons in AC-02 when the feature ships.
+- **Action buttons with an icon** — baseline: TBD, counted over every action button as AC-02 defines it on the main branch before phase 1 (today only Undo, Redo and the three tool buttons carry one); target: 100% when the feature ships.
 - **Accessibility contrast violations on the start screen, the Gallery and the tool panels** — baseline: TBD, measured with the automated accessibility check on the main branch before phase 1 starts; target: 0 in both themes when the feature ships.
 - **Hard-coded colours, spacing and fonts in components** — baseline: TBD, counted by a search on the main branch before phase 1; target: 0 when the feature ships.
 - **Places where a generic or missing brand mark appears** (top bar, tab, installed app icon, apple touch icon) — baseline: 4, target: 0 when the feature ships.
