@@ -519,7 +519,12 @@ describe('App install and update wiring (pwa-install-update T12)', () => {
     const resume = vi.spyOn(pwa, 'resumeAfterUpdate')
 
     await mountLive()
-    await vi.waitFor(() => expect(choose).toHaveBeenCalledExactlyOnceWith(w.record.id))
+    await vi.waitFor(() =>
+      expect(choose).toHaveBeenCalledExactlyOnceWith(w.record.id, {
+        couldNotOpen:
+          "The image you had open couldn't be reopened. Open it from the Gallery if it's there.",
+      }),
+    )
     expect(resume.mock.invocationCallOrder[0]!).toBeGreaterThan(
       refresh.mock.invocationCallOrder[0]!,
     )
@@ -545,10 +550,38 @@ describe('App install and update wiring (pwa-install-update T12)', () => {
     })
 
     await mountLive()
-    await vi.waitFor(() => expect(choose).toHaveBeenCalledExactlyOnceWith(w.record.id))
+    await vi.waitFor(() => expect(choose).toHaveBeenCalledOnce())
+    expect(choose.mock.calls[0]![0]).toBe(w.record.id)
     expect(useNotices().items.map((n) => n.text)).not.toContain(
       "The image you had open couldn't be reopened: it was removed from the Gallery to make room.",
     )
+    db.close()
+  })
+
+  it('takes the marker at start, before the Gallery has opened, so no later start reopens it (AC-08, §6.1)', async () => {
+    gallerydb.openGalleryDb.mockReturnValue(new Promise(() => {})) // never opens
+    markReopen('work-1')
+    await mountLive()
+    expect(takeReopen()).toBeNull()
+  })
+
+  it('says a marked Work the Gallery no longer lists was removed to make room, opening none (AC-08)', async () => {
+    const db = await openDb(`imgly-app-resume-evicted-${Math.random()}`)
+    const w = storedWorkFixture({ layer: null, record: { sourceName: 'Cat.png' } })
+    await db.put('works', w.record)
+    await db.put('originals', w.original)
+    gallerydb.openGalleryDb.mockResolvedValue(ok(db))
+    markReopen('evicted-work')
+    const choose = vi.spyOn(useGallery(), 'choose')
+
+    await mountLive()
+    await vi.waitFor(() =>
+      expect(useNotices().items.map((n) => n.text)).toContain(
+        "The image you had open couldn't be reopened: it was removed from the Gallery to make room.",
+      ),
+    )
+    expect(choose).not.toHaveBeenCalled()
+    expect(editor.work).toBeNull()
     db.close()
   })
 

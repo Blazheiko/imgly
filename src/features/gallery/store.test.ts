@@ -401,6 +401,20 @@ describe('gallery store', () => {
       expect(gallery.entries.find((e) => e.id === b)!.status).not.toBe('damaged')
     })
 
+    it('words a failed read as the caller asks, still with no Damaged mark (pwa-install-update AC-08)', async () => {
+      const b = await seed(db, 'Beach.jpg', NOW - MINUTE)
+      await gallery.open()
+      editor.setReopenSource({
+        loadWork: async () => err(appError('STORAGE_FAILED')),
+        decodePng: async () => err(appError('STORAGE_FAILED')),
+      })
+
+      await gallery.choose(b, { couldNotOpen: 'Custom wording.' })
+
+      expect(notices.items.map((n) => [n.kind, n.text])).toEqual([['failure', 'Custom wording.']])
+      expect(editor.damagedIds.has(b)).toBe(false)
+    })
+
     it('markDamaged(id) turns a listed entry Damaged now, records it in the editor set, and survives refresh', async () => {
       const b = await seed(db, 'Beach.jpg', NOW - MINUTE)
       await gallery.open()

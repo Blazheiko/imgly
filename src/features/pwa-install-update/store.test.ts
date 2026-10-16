@@ -17,7 +17,7 @@ import {
   failureToolOpen,
   infoOfflineReady,
 } from './messages'
-import { usePwaInstallUpdate } from './store'
+import { SWITCH_WAIT_MS, usePwaInstallUpdate, type ResumeDeps } from './store'
 import { fakeClient, fakeDocument, fakeInstallPrompt } from './testing'
 
 const MIN = 60 * 1000
@@ -299,11 +299,15 @@ describe('pwa-install-update store — Reload and the reopen after the update (A
       expect(chooseReload()).toBe('keep-open')
       await answer({ kind: 'ready', reopenId: 'work-1' })
 
-      expect(mark).toHaveBeenCalledExactlyOnceWith('work-1')
       expect(sw.client.activateWaiting).toHaveBeenCalledTimes(1)
+      expect(mark).not.toHaveBeenCalled() // only once the switch is sure (ADR-0003, §6.1)
       expect(reloadPage).not.toHaveBeenCalled()
 
       sw.callbacks().onControllerChange()
+      expect(mark).toHaveBeenCalledExactlyOnceWith('work-1')
+      expect(mark.mock.invocationCallOrder[0]!).toBeLessThan(
+        reloadPage.mock.invocationCallOrder[0]!,
+      )
       expect(reloadPage).toHaveBeenCalledTimes(1)
       expect(store.updateNotice).toBe('available')
     })
@@ -331,6 +335,21 @@ describe('pwa-install-update store — Reload and the reopen after the update (A
       sw.callbacks().onControllerChange()
       expect(updateNotice().text).toBe(UPDATE_TEXT['updated-elsewhere'])
       expect(updateNotice().action?.busy).toBe(true)
+    })
+
+    it('writes no marker and lets the editor go when the switch never comes (AC-08, §6.1)', async () => {
+      chooseReload()
+      await answer({ kind: 'ready', reopenId: 'work-1' })
+      await vi.advanceTimersByTimeAsync(SWITCH_WAIT_MS)
+
+      expect(mark).not.toHaveBeenCalled()
+      expect(reloadPage).not.toHaveBeenCalled()
+      expect(editor.covered).toBe(false)
+      expect(updateNotice().action?.busy).toBe(false)
+
+      sw.callbacks().onControllerChange() // a late switch is another window's, not this Reload
+      expect(mark).not.toHaveBeenCalled()
+      expect(reloadPage).not.toHaveBeenCalled()
     })
 
     it('holds the editor from the moment it leaves (AC-10, AC-13)', async () => {
@@ -424,8 +443,10 @@ describe('pwa-install-update store — Reload and the reopen after the update (A
       store.confirmReload()
 
       expect(store.confirming).toBeNull()
-      expect(mark).toHaveBeenCalledExactlyOnceWith('work-1')
       expect(sw.client.activateWaiting).toHaveBeenCalledTimes(1)
+      sw.callbacks().onControllerChange()
+      expect(mark).toHaveBeenCalledExactlyOnceWith('work-1')
+      expect(reloadPage).toHaveBeenCalledTimes(1)
     })
 
     it('confirming with no Stored state writes no marker', async () => {
@@ -469,32 +490,35 @@ describe('pwa-install-update store — Reload and the reopen after the update (A
   })
 
   describe('resumeAfterUpdate (AC-08, ADR-0003)', () => {
-    const resume = (take: () => string | null, isListed: (id: string) => boolean = () => true) => {
-      const reopen = vi.fn<(id: string) => Promise<void>>(async () => {})
-      return { reopen, done: store.resumeAfterUpdate({ take, isListed, reopen }) }
+    const resume = (workId: string | null, isListed: (id: string) => boolean = () => true) => {
+      const reopen = vi.fn<ResumeDeps['reopen']>(async () => {})
+      return { reopen, done: store.resumeAfterUpdate(workId, { isListed, reopen }) }
     }
 
     it('reopens nothing without a marker', async () => {
-      const { reopen, done } = resume(() => null)
+      const { reopen, done } = resume(null)
       await done
       expect(reopen).not.toHaveBeenCalled()
       expect(notices.items).toEqual([])
     })
 
-    it('reopens the marked Work through the Gallery once', async () => {
-      const take = vi.fn().mockReturnValueOnce('work-1').mockReturnValue(null)
-      const { reopen, done } = resume(take)
+    it('reopens the marked Work through the Gallery, wording a failed read per SCR-07', async () => {
+      const { reopen, done } = resume('work-1')
       await done
-      expect(take).toHaveBeenCalledTimes(1)
-      expect(reopen).toHaveBeenCalledExactlyOnceWith('work-1')
+      expect(reopen).toHaveBeenCalledExactlyOnceWith('work-1', {
+        couldNotOpen: failureReopenUnreadable(),
+      })
       expect(notices.items).toEqual([])
     })
 
+    it('takes the marker once, synchronously, and only through takeMarkedWork (ADR-0003)', () => {
+      const take = vi.fn().mockReturnValueOnce('work-1').mockReturnValue(null)
+      expect(store.takeMarkedWork(take)).toBe('work-1')
+      expect(take).toHaveBeenCalledTimes(1)
+    })
+
     it('says the Work was removed to make room when the Gallery no longer lists it', async () => {
-      const { reopen, done } = resume(
-        () => 'gone',
-        () => false,
-      )
+      const { reopen, done } = resume('gone', () => false)
       await done
       expect(reopen).not.toHaveBeenCalled()
       expect(failures()).toEqual([failureReopenEvicted()])
@@ -503,8 +527,7 @@ describe('pwa-install-update store — Reload and the reopen after the update (A
     it('waits for an asynchronous listing before deciding the Work is gone', async () => {
       const reopen = vi.fn(async () => {})
       let listed!: (on: boolean) => void
-      const done = store.resumeAfterUpdate({
-        take: () => 'work-1',
+      const done = store.resumeAfterUpdate('work-1', {
         isListed: () => new Promise<boolean>((resolve) => (listed = resolve)),
         reopen,
       })
@@ -513,20 +536,20 @@ describe('pwa-install-update store — Reload and the reopen after the update (A
       expect(failures()).toEqual([])
       listed(true)
       await done
-      expect(reopen).toHaveBeenCalledExactlyOnceWith('work-1')
+      expect(reopen).toHaveBeenCalledOnce()
       expect(failures()).toEqual([])
     })
 
     it('says the Work was removed when an asynchronous listing does not have it', async () => {
       const reopen = vi.fn(async () => {})
-      await store.resumeAfterUpdate({ take: () => 'gone', isListed: async () => false, reopen })
+      await store.resumeAfterUpdate('gone', { isListed: async () => false, reopen })
       expect(reopen).not.toHaveBeenCalled()
       expect(failures()).toEqual([failureReopenEvicted()])
     })
 
     it('says it could not be reopened when the Gallery is unavailable', async () => {
       autosave.available(false)
-      const { reopen, done } = resume(() => 'work-1')
+      const { reopen, done } = resume('work-1')
       await done
       expect(reopen).not.toHaveBeenCalled()
       expect(failures()).toEqual([failureReopenUnreadable()])

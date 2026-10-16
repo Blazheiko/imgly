@@ -103,8 +103,10 @@ describe('ReloadDialog (SCR-06, AC-12)', () => {
     await reload.trigger('click')
     await reload.trigger('click').catch(() => {})
     await flush()
-
-    expect(mark).toHaveBeenCalledExactlyOnceWith('work-1')
     expect(sw.client.activateWaiting).toHaveBeenCalledTimes(1)
+
+    sw.callbacks().onControllerChange()
+    expect(mark).toHaveBeenCalledExactlyOnceWith('work-1')
+    expect(reloadPage).toHaveBeenCalledTimes(1)
   })
 })

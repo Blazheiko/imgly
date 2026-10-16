@@ -49,10 +49,15 @@ export interface UpdateEnv {
 export interface ResumeDeps {
   /** The Work is listed in the Gallery, by a listing that is current when it resolves. */
   isListed: (workId: string) => boolean | Promise<boolean>
-  /** Reopens it as the Gallery does: its spinner, and its damaged notice with Delete…. */
-  reopen: (workId: string) => Promise<unknown>
-  take?: () => string | null
+  /**
+   * Reopens it as the Gallery does: its spinner, and its damaged notice with Delete…. A read that
+   * fails is worded as `couldNotOpen` says (SCR-07 `reopen failed: can't be read`).
+   */
+  reopen: (workId: string, wording: { couldNotOpen: string }) => Promise<unknown>
 }
+
+/** How long Reload waits for the waiting worker to take control before it gives up (§6.1). */
+export const SWITCH_WAIT_MS = 10_000
 
 /**
  * The install and update feature (ADR-0004). It shows one update notice in three wordings, keeps
@@ -76,8 +81,10 @@ export const usePwaInstallUpdate = defineStore('pwa-install-update', () => {
   let busy = false
   /** The Reload confirmation is up (SCR-06, AC-12). */
   const confirming = ref<{ reopenId: string | null } | null>(null)
-  // This window asked the waiting worker to take over: its controllerchange reloads (ADR-0002).
-  let switchRequested = false
+  // This window asked the waiting worker to take over: its controllerchange reloads (ADR-0002),
+  // marking this Work to reopen only then, so a switch that never comes leaves no marker (§6.1).
+  let switchRequested: { reopenId: string | null; timer: ReturnType<typeof setTimeout> } | null =
+    null
   let lastRefusal: { id: string; text: string } | null = null
   let env: Pick<UpdateEnv, 'mark' | 'reloadPage'> = {
     mark: markReopen,
@@ -209,22 +216,37 @@ export const usePwaInstallUpdate = defineStore('pwa-install-update', () => {
   function leave(reopenId: string | null) {
     // Nothing may open a tool or start an Export between here and the reload (AC-10, AC-13).
     editor.setReloadHeld(true)
-    if (reopenId !== null) env.mark(reopenId)
     if (updateNotice.value === 'available' && client) {
-      switchRequested = true
+      switchRequested = { reopenId, timer: setTimeout(abandonSwitch, SWITCH_WAIT_MS) }
       void client.activateWaiting()
     } else {
-      env.reloadPage()
+      reloadMarking(reopenId)
     }
   }
 
-  /** At start, after the Gallery connected: reopens the Work the update reload marked (AC-08). */
-  async function resumeAfterUpdate(deps: ResumeDeps) {
-    const workId = (deps.take ?? takeReopen)()
+  function reloadMarking(reopenId: string | null) {
+    if (reopenId !== null) env.mark(reopenId)
+    env.reloadPage()
+  }
+
+  /** The waiting worker never took control: this window stays, held by nothing, Reload enabled. */
+  function abandonSwitch() {
+    switchRequested = null
+    editor.setReloadHeld(false)
+    setBusy(false)
+  }
+
+  /** Takes the Work the update reload marked; call it first at start, before anything can fail. */
+  function takeMarkedWork(take: () => string | null = takeReopen): string | null {
+    return take()
+  }
+
+  /** At start, after the Gallery connected: reopens the Work `takeMarkedWork` took (AC-08). */
+  async function resumeAfterUpdate(workId: string | null, deps: ResumeDeps) {
     if (workId === null) return
     if (!editor.galleryAvailable) fail(failureReopenUnreadable())
     else if (!(await deps.isListed(workId))) fail(failureReopenEvicted())
-    else await deps.reopen(workId)
+    else await deps.reopen(workId, { couldNotOpen: failureReopenUnreadable() })
   }
 
   /** Connects the service-worker client and starts the check schedule (ADR-0001, ADR-0002). */
@@ -246,7 +268,8 @@ export const usePwaInstallUpdate = defineStore('pwa-install-update', () => {
       },
       onControllerChange() {
         if (switchRequested) {
-          env.reloadPage()
+          clearTimeout(switchRequested.timer)
+          reloadMarking(switchRequested.reopenId)
           return
         }
         if (!controlled) {
@@ -306,5 +329,6 @@ export const usePwaInstallUpdate = defineStore('pwa-install-update', () => {
     confirmReload,
     cancelReload,
     resumeAfterUpdate,
+    takeMarkedWork,
   }
 })

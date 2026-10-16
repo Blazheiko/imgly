@@ -21,6 +21,9 @@ import { UndoRedoActions } from '@/features/undo-redo'
 const editor = useEditorStore()
 const gallery = useGallery()
 const pwa = usePwaInstallUpdate()
+// Taken before anything can fail or the Editor can reload again, so the marker never outlives this
+// start (pwa-install-update AC-08, ADR-0003, spec §6.1).
+const markedWork = pwa.takeMarkedWork()
 
 // The Gallery database opens next to the gate; a refusal only makes the Gallery unavailable for
 // this page load. Nothing is loaded or reopened here (AC-05, AC-12), except the Work an update
@@ -32,14 +35,14 @@ async function connectGallery(gate: Promise<void>) {
   gallery.connect(opened)
   await gallery.refresh()
   await gate
-  await pwa.resumeAfterUpdate({
+  await pwa.resumeAfterUpdate(markedWork, {
     // A listing of its own: the start screen lists the Gallery too as it mounts, and only the newest
     // listing fills the entries, so the one awaited above may have left them empty.
     isListed: async (id) => {
       await gallery.refresh()
       return gallery.entries.some((entry) => entry.id === id)
     },
-    reopen: (id) => gallery.choose(id),
+    reopen: (id, wording) => gallery.choose(id, wording),
   })
 }
 

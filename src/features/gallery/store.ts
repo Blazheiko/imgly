@@ -159,7 +159,8 @@ export const useGallery = defineStore('gallery', () => {
     },
   )
 
-  async function choose(id: string) {
+  /** Reopens a Work; `couldNotOpen` words a read that failed, for a caller with its own copy. */
+  async function choose(id: string, wording: { couldNotOpen?: string } = {}) {
     const entry = entries.value.find((e) => e.id === id)
     if (entry?.status === 'open') {
       close()
@@ -190,7 +191,8 @@ export const useGallery = defineStore('gallery', () => {
           break
         }
         if (outcome.error.code !== 'WORK_DAMAGED') {
-          notices.pushAll([{ kind: 'failure', text: failureCouldNotOpen(entry?.name ?? '') }])
+          const text = wording.couldNotOpen ?? failureCouldNotOpen(entry?.name ?? '')
+          notices.pushAll([{ kind: 'failure', text }])
           break
         }
         if (entry) entry.status = 'damaged'
