@@ -151,6 +151,17 @@ describe('ExportAction and Ctrl/Cmd+S (AC-11, AC-17)', () => {
     },
   )
 
+  it("Ctrl/Cmd+S while the update's Reload holds the editor starts nothing (pwa-install-update AC-13)", async () => {
+    openWork()
+    await flush()
+    editor.setReloadHeld(true)
+    const event = pressSave()
+    await flush()
+    expect(event.defaultPrevented).toBe(true)
+    expect(store.panelOpen).toBe(false)
+    expect(exporter).not.toHaveBeenCalled()
+  })
+
   it('Ctrl/Cmd+S with the panel open confirms, after applying a value still being typed', async () => {
     openWork()
     await flush()

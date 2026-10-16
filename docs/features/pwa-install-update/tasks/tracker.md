@@ -20,7 +20,7 @@
 | T13 | Two-build e2e: single-window update flows | tests | Blazheiko | L | T12 | done |
 | T14 | e2e: install, offline, two windows | tests | Blazheiko | M | T12 | done |
 | T15 | Reopen in an outdated window asks to reload (R1) | app | Blazheiko | S | — | done |
-| T16 | Lock the editor while confirming or leaving; re-gate on confirm (R2) | app | Blazheiko | M | T15 | todo |
+| T16 | Lock the editor while confirming or leaving; re-gate on confirm (R2) | app | Blazheiko | M | T15 | done |
 | T17 | Marker taken first, dropped without a switch; unreadable copy; evicted test (R3–R5) | app | Blazheiko | M | T16 | todo |
 | T18 | Idle export panel; edits stored before versionchange (R6, R10) | app | Blazheiko | S | T17 | todo |
 | T19 | Activate any waiting worker; start check waits for registration (R7, R8) | app | Blazheiko | S | T18 | todo |

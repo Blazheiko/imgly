@@ -179,6 +179,7 @@ export const usePwaInstallUpdate = defineStore('pwa-install-update', () => {
         refuse(failureExportRunning())
         break
       case 'confirm':
+        editor.setReloadHeld(true)
         confirming.value = { reopenId: outcome.reopenId }
         break
       case 'ready':
@@ -197,6 +198,7 @@ export const usePwaInstallUpdate = defineStore('pwa-install-update', () => {
   function cancelReload() {
     if (!confirming.value) return
     confirming.value = null
+    editor.setReloadHeld(false)
     setBusy(false)
   }
 
@@ -205,6 +207,8 @@ export const usePwaInstallUpdate = defineStore('pwa-install-update', () => {
    * (this window reloads on its controllerchange) or, once the switch already happened, reloads.
    */
   function leave(reopenId: string | null) {
+    // Nothing may open a tool or start an Export between here and the reload (AC-10, AC-13).
+    editor.setReloadHeld(true)
     if (reopenId !== null) env.mark(reopenId)
     if (updateNotice.value === 'available' && client) {
       switchRequested = true

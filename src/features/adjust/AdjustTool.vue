@@ -15,7 +15,7 @@ const editor = useEditorStore()
 const tool = useAdjustStore()
 
 const onToolKey = createToolKeys({
-  blocked: () => editor.phase === 'confirming' || editor.galleryOpen,
+  blocked: () => editor.phase === 'confirming' || editor.covered,
   apply: () => tool.apply(),
   cancel: () => tool.cancel(),
 })

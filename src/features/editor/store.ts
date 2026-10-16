@@ -193,6 +193,13 @@ export const useEditorStore = defineStore('editor', () => {
   function setGalleryModal(open: boolean) {
     galleryModal.value = open
   }
+  /** The update's Reload confirmation is up, or the window is leaving for the new version. */
+  const reloadHeld = ref(false)
+  function setReloadHeld(held: boolean) {
+    reloadHeld.value = held
+  }
+  /** Something covers the editor (the Gallery, or the update's Reload): keys and drops are its. */
+  const covered = computed(() => galleryOpen.value || reloadHeld.value)
   const slot = createToolSlot({ work, phase, activePanel, view, fitIfSized })
   const { activeTool, previewGeometry, previewAdjustments, previewLayer } = slot
   const edits = createEditHistory({ work, phase, activeTool, fitIfSized })
@@ -765,6 +772,9 @@ export const useEditorStore = defineStore('editor', () => {
     activePanel,
     galleryOpen,
     setGalleryModal,
+    reloadHeld,
+    setReloadHeld,
+    covered,
     spacePan,
     strokeActive,
     hasUnsavedEdits,

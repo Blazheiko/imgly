@@ -332,6 +332,12 @@ describe('pwa-install-update store — Reload and the reopen after the update (A
       expect(updateNotice().text).toBe(UPDATE_TEXT['updated-elsewhere'])
       expect(updateNotice().action?.busy).toBe(true)
     })
+
+    it('holds the editor from the moment it leaves (AC-10, AC-13)', async () => {
+      chooseReload()
+      await answer({ kind: 'ready', reopenId: null })
+      expect(editor.covered).toBe(true)
+    })
   })
 
   describe('Reload after the version switched elsewhere (AC-14)', () => {
@@ -429,6 +435,22 @@ describe('pwa-install-update store — Reload and the reopen after the update (A
 
       expect(mark).not.toHaveBeenCalled()
       expect(sw.client.activateWaiting).toHaveBeenCalledTimes(1)
+    })
+
+    it('holds the editor while it asks and after it leaves, and Cancel lets go (AC-10, AC-13)', async () => {
+      expect(editor.covered).toBe(false)
+      chooseReload()
+      await answer({ kind: 'confirm', reopenId: 'work-1' })
+      expect(editor.covered).toBe(true)
+
+      store.cancelReload()
+      expect(editor.covered).toBe(false)
+
+      gate = deferred<ReloadOutcome>()
+      chooseReload()
+      await answer({ kind: 'confirm', reopenId: 'work-1' })
+      store.confirmReload()
+      expect(editor.covered).toBe(true)
     })
 
     it('ignores confirm and cancel when nothing asks', () => {
