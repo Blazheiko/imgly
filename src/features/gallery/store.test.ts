@@ -473,6 +473,19 @@ describe('gallery store', () => {
       expect(gallery.pendingDelete).toEqual({ id: b, name: 'Beach.jpg' })
     })
 
+    it('damaged: the Delete… action carries the bin icon (ui-refresh SCR-06)', async () => {
+      const b = await seed(db, 'Beach.jpg', NOW - MINUTE)
+      await gallery.open()
+      vi.spyOn(editor, 'reopenWork').mockResolvedValue({
+        kind: 'damaged',
+        error: appError('WORK_DAMAGED'),
+      })
+
+      await gallery.choose(b)
+
+      expect(notices.items[0]!.action?.icon).toBe('trash-2')
+    })
+
     it('STORAGE_FAILED: says so, leaves the entry as it was, offers no Delete… (R3-2)', async () => {
       const b = await seed(db, 'Beach.jpg', NOW - MINUTE)
       await gallery.open()

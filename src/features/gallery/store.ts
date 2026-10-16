@@ -204,7 +204,11 @@ export const useGallery = defineStore('gallery', () => {
           {
             kind: 'failure',
             text: failureWorkDamaged(entry?.name ?? ''),
-            action: { label: damagedNoticeAction(), run: () => requestDelete(id) },
+            action: {
+              label: damagedNoticeAction(),
+              icon: 'trash-2',
+              run: () => requestDelete(id),
+            },
           },
         ])
         break

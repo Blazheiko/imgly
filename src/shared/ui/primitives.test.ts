@@ -16,6 +16,7 @@ import {
 } from './index'
 import type { SegmentedOption } from './SegmentedControl.vue'
 import segmentedSource from './SegmentedControl.vue?raw'
+import toastSource from './Toast.vue?raw'
 import tokensSource from '../styles/tokens.css?raw'
 import { useNotices } from '../notices'
 
@@ -41,6 +42,59 @@ describe('Toast', () => {
     const wrapper = mount(Toast, { props: { kind: 'failure', text: 'Too large.' } })
     await wrapper.get('button[aria-label="Dismiss"]').trigger('click')
     expect(wrapper.emitted('dismiss')).toHaveLength(1)
+  })
+})
+
+describe('Toast icons (ui-refresh SCR-06)', () => {
+  it('shows the x icon on Dismiss, which keeps its name and gains a tooltip', () => {
+    const wrapper = mount(Toast, { props: { kind: 'info', text: 'Reduced.' } })
+    const dismiss = wrapper.get('button[aria-label="Dismiss"]')
+    expect(dismiss.attributes('title')).toBe('Dismiss')
+    expect(dismiss.text()).toBe('')
+    expect(dismiss.get('svg').attributes('aria-hidden')).toBe('true')
+  })
+
+  it("draws the action's icon before its label as a small ghost button", () => {
+    const wrapper = mount(Toast, {
+      props: {
+        kind: 'failure',
+        text: 'Cannot be opened.',
+        action: { label: 'Delete…', icon: 'trash-2', run: vi.fn() },
+      },
+    })
+    const action = wrapper.findAll('button')[0]!
+    expect(action.text()).toBe('Delete…')
+    expect(action.classes()).toEqual(
+      expect.arrayContaining(['base-button--ghost', 'base-button--sm']),
+    )
+    expect(action.element.firstElementChild?.tagName.toLowerCase()).toBe('svg')
+  })
+
+  it("puts a spinner in the icon's place while the action is busy", () => {
+    const wrapper = mount(Toast, {
+      props: {
+        kind: 'lasting',
+        text: 'A new version of imgly is available.',
+        action: {
+          label: 'Reload',
+          icon: 'refresh-cw',
+          busy: true,
+          busyLabel: 'Reloading…',
+          run: vi.fn(),
+        },
+      },
+    })
+    const action = wrapper.findAll('button')[0]!
+    expect(action.find('svg').exists()).toBe(false)
+    expect(action.findComponent(Spinner).exists()).toBe(true)
+    expect(action.text()).toBe('Reloading…')
+    expect(action.attributes('aria-disabled')).toBe('true')
+  })
+
+  it('edges info in accent text and failure in danger, from tokens', () => {
+    expect(toastSource).toMatch(/\.toast--lasting\s*\{[^}]*var\(--color-accent-text\)/)
+    expect(toastSource).toMatch(/\.toast--failure\s*\{[^}]*var\(--color-danger\)/)
+    expect(toastSource).toContain('var(--shadow-md)')
   })
 })
 

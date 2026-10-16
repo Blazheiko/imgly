@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { NoticeAction, NoticeKind } from '../notices'
 import BaseButton from './BaseButton.vue'
+import Icon from './Icon.vue'
 import Spinner from './Spinner.vue'
 
 defineProps<{ kind: NoticeKind; text: string; action?: NoticeAction }>()
@@ -26,21 +27,28 @@ function runAction(action: NoticeAction, event: MouseEvent): void {
     <BaseButton
       v-if="action"
       variant="ghost"
+      size="sm"
+      :icon="action.busy ? undefined : action.icon"
       :aria-disabled="action.busy ? 'true' : undefined"
       :class="{ 'toast__action--busy': action.busy }"
       @click="runAction(action, $event)"
     >
       <template v-if="action.busy">
-        <!-- The visible text names the button; the Spinner beside it is not read out again. -->
-        <span class="toast__spinner" aria-hidden="true"
-          ><Spinner :label="action.busyLabel ?? action.label"
-        /></span>
+        <!-- In the icon's place; the visible text names the button, so it is not read out again. -->
+        <span class="toast__spinner" aria-hidden="true"><Spinner label="" /></span>
         {{ action.busyLabel ?? action.label }}
       </template>
       <template v-else>{{ action.label }}</template>
     </BaseButton>
-    <button type="button" class="toast__dismiss" aria-label="Dismiss" @click="$emit('dismiss')">
-      ×
+    <!-- A native button, styled as BaseButton's ghost sm icon-only look (ui-refresh SCR-06). -->
+    <button
+      type="button"
+      class="toast__dismiss"
+      aria-label="Dismiss"
+      title="Dismiss"
+      @click="$emit('dismiss')"
+    >
+      <Icon name="x" />
     </button>
   </div>
 </template>
@@ -52,17 +60,18 @@ function runAction(action: NoticeAction, event: MouseEvent): void {
   gap: var(--space-3);
   max-width: var(--toast-max-width);
   padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-subtle);
   border-left-width: 3px;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   background: var(--color-surface-raised);
+  box-shadow: var(--shadow-md);
   color: var(--color-text);
   font-size: var(--font-size-sm);
 }
 
 .toast--info,
 .toast--lasting {
-  border-left-color: var(--color-accent);
+  border-left-color: var(--color-accent-text);
 }
 
 .toast--failure {
@@ -73,9 +82,13 @@ function runAction(action: NoticeAction, event: MouseEvent): void {
   cursor: progress;
 }
 
+.toast__spinner {
+  display: inline-flex;
+}
+
 .toast__spinner :deep(.spinner__ring) {
-  width: var(--space-4);
-  height: var(--space-4);
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
 }
 
 .toast__text {
@@ -84,20 +97,25 @@ function runAction(action: NoticeAction, event: MouseEvent): void {
 }
 
 .toast__dismiss {
-  min-width: var(--space-6);
-  min-height: var(--space-6);
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--control-height-sm);
+  min-height: var(--control-height-sm);
   padding: 0;
-  border: 0;
-  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--color-text-muted);
-  font: inherit;
-  font-size: var(--font-size-lg);
-  line-height: 1;
   cursor: pointer;
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
 
 .toast__dismiss:hover {
+  background: var(--color-accent-subtle);
   color: var(--color-text);
 }
 
