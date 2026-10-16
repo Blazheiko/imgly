@@ -6,7 +6,7 @@
 | # | Task | Layer | Owner | Estimate | Blocked by | Status |
 |---|---|---|---|---|---|---|
 | T1 | [Tokens v2](./t01-shared-tokens-v2.md) | ui | Blazheiko | S | — | done |
-| T2 | [Icon registry + Icon](./t02-shared-icon-registry.md) | ui | Blazheiko | S | — | todo |
+| T2 | [Icon registry + Icon](./t02-shared-icon-registry.md) | ui | Blazheiko | S | — | done |
 | T3 | [Widen BaseButton](./t03-shared-basebutton-icon-size-danger.md) | ui | Blazheiko | M | T1, T2 | todo |
 | T4 | [Notices icons](./t04-shared-toast-icons.md) | ui | Blazheiko | S | T3 | todo |
 | T5 | [AppLogo + brand icons](./t05-shared-applogo-brand-icons.md) | ui | Blazheiko | S | T1, T2 | todo |
