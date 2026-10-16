@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { mount, type DOMWrapper, type VueWrapper } from '@vue/test-utils'
+import { mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { nextTick } from 'vue'
 import { createWork, PALETTE } from '@/core'
@@ -10,19 +10,7 @@ import DrawControls from './DrawControls.vue'
 import controlsSource from './DrawControls.vue?raw'
 import { BUTTONS, CUSTOM_COLOUR, GROUPS, MODES, WIDTH_LABEL, WIDTH_TOOLTIP } from './messages'
 import { useDrawStore } from './store'
-import { icons, type IconName } from '@/shared'
-
-/** Whether a button draws the registry icon `name` (ui-refresh ADR-0001), as its one svg. */
-function drawsIcon(button: Pick<DOMWrapper<Element>, 'findAll'>, name: IconName): boolean {
-  const svgs = button.findAll('svg')
-  if (svgs.length !== 1 || svgs[0]!.attributes('aria-hidden') !== 'true') return false
-  const first = svgs[0]!.element.firstElementChild
-  const [tag, attrs] = icons[name][0]!
-  return (
-    first?.tagName.toLowerCase() === tag &&
-    Object.entries(attrs).every(([key, value]) => first.getAttribute(key) === value)
-  )
-}
+import { drawsIcon } from '@/shared/ui/testing'
 
 describe('DrawControls (SCR-03)', () => {
   let wrapper: VueWrapper
@@ -189,7 +177,7 @@ describe('DrawControls (SCR-03)', () => {
     ['draw-apply', 'check'],
   ] as const)('%s shows the %s icon next to its label (ui-refresh AC-02)', (testid, icon) => {
     const b = wrapper.get(`[data-testid="${testid}"]`)
-    expect(drawsIcon(b, icon)).toBe(true)
+    expect(drawsIcon(b.element, icon)).toBe(true)
     expect(b.text()).not.toBe('')
   })
 

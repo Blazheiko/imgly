@@ -218,7 +218,7 @@ onBeforeUnmount(() => {
           >
             {{ BLOCKING.DISPLAY_LOST.body }}
             <template #action>
-              <BaseButton ref="reloadButton" variant="primary" @click="reload"
+              <BaseButton ref="reloadButton" variant="primary" icon="refresh-cw" @click="reload"
                 >Reload page</BaseButton
               >
             </template>

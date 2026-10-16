@@ -13,10 +13,12 @@ const editor = useEditorStore()
   >
     Your latest edits aren't saved in the Gallery and will be lost.
     <template #actions>
-      <BaseButton variant="secondary" data-action="cancel" @click="editor.cancelReplace()">
+      <BaseButton variant="secondary" icon="x" data-action="cancel" @click="editor.cancelReplace()">
         Cancel
       </BaseButton>
-      <BaseButton variant="primary" @click="editor.confirmReplace()">Replace</BaseButton>
+      <BaseButton variant="primary" icon="replace" @click="editor.confirmReplace()"
+        >Replace</BaseButton
+      >
     </template>
   </Dialog>
 </template>

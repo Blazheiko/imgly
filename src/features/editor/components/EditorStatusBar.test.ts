@@ -5,6 +5,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { identityGeometry, NEUTRAL_ADJUSTMENTS, ok } from '@/core'
 import EditorStatusBar from './EditorStatusBar.vue'
 import { useEditorStore } from '../store'
+import { drawsIcon } from '@/shared/ui/testing'
 
 async function openedEditor(width: number, height: number) {
   setActivePinia(createPinia())
@@ -97,6 +98,22 @@ describe('EditorStatusBar', () => {
     editor.actualSize()
     await wrapper.vm.$nextTick()
     expect(wrapper.get('[data-testid="zoom-level"]').text()).toBe('100%')
+  })
+
+  it('draws the zoom buttons from the icon set, − and + as icon-only (ui-refresh SCR-07)', () => {
+    const wrapper = mount(EditorStatusBar)
+    for (const [name, icon, label] of [
+      ['Zoom out', 'zoom-out', ''],
+      ['Zoom in', 'zoom-in', ''],
+      ['Fit', 'scan', 'Fit'],
+      ['100%', 'maximize', '100%'],
+    ] as const) {
+      const b = button(wrapper, name)
+      expect(drawsIcon(b.element, icon), name).toBe(true)
+      expect(b.text()).toBe(label)
+      expect(b.attributes('title')).toBeTruthy()
+      expect(b.classes()).toContain('base-button--sm')
+    }
   })
 
   it('steps through the fixed levels with − and +', async () => {

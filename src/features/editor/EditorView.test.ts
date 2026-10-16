@@ -8,6 +8,7 @@ import EditorView from './EditorView.vue'
 import { createFakeRenderer } from './fake-renderer'
 import { createFakeAutosave } from './testing'
 import { useEditorStore } from './store'
+import { drawsIcon } from '@/shared/ui/testing'
 
 function dropEvent(type: string, files: File[] = []) {
   const event = new Event(type, { bubbles: true, cancelable: true })
@@ -400,6 +401,15 @@ describe('EditorView — blocking screens', () => {
   it('shows nothing in the canvas area while the gate is still checking', () => {
     wrapper = mount(EditorView, { attachTo: document.body })
     expect(wrapper.text()).not.toContain('Open image')
+  })
+
+  it('shows Reload page with the refresh icon (ui-refresh SCR-07)', async () => {
+    await editor.runCapabilityGate(async () => ok(undefined))
+    wrapper = mount(EditorView, { attachTo: document.body })
+    editor.setRendererStatus('lost')
+    await flushPromises()
+    const reload = wrapper.findAll('button').find((b) => b.text() === 'Reload page')!
+    expect(drawsIcon(reload.element, 'refresh-cw')).toBe(true)
   })
 
   it('SCR-05: replaces the canvas, hides the status bar and focuses Reload page (AC-19b)', async () => {

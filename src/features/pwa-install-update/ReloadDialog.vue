@@ -22,10 +22,12 @@ const copy = computed(() => reloadDialogCopy(store.confirming?.reopenId != null)
   >
     {{ copy.body }}
     <template #actions>
-      <BaseButton variant="secondary" data-action="cancel" @click="store.cancelReload()">
+      <BaseButton variant="secondary" icon="x" data-action="cancel" @click="store.cancelReload()">
         Cancel
       </BaseButton>
-      <BaseButton variant="primary" @click="store.confirmReload()">{{ ACTION_RELOAD }}</BaseButton>
+      <BaseButton variant="primary" icon="refresh-cw" @click="store.confirmReload()">{{
+        ACTION_RELOAD
+      }}</BaseButton>
     </template>
   </Dialog>
 </template>

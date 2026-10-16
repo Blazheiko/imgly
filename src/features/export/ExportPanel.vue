@@ -152,6 +152,7 @@ watch(fileReady, async (ready) => {
           v-if="fileReady"
           ref="saveButton"
           variant="primary"
+          icon="save"
           @click="store.saveFromReady()"
         >
           Save…
@@ -159,6 +160,7 @@ watch(fileReady, async (ready) => {
         <BaseButton
           v-else
           variant="primary"
+          :icon="exporting ? undefined : 'download'"
           :disabled="exporting || store.editorBusy"
           @click="store.confirm()"
         >
@@ -214,8 +216,12 @@ watch(fileReady, async (ready) => {
   justify-content: flex-end;
 }
 
+.export-panel__spinner {
+  display: inline-flex;
+}
+
 .export-panel__spinner :deep(.spinner__ring) {
-  width: var(--space-4);
-  height: var(--space-4);
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
 }
 </style>
