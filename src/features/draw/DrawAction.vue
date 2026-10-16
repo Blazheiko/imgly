@@ -51,40 +51,23 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 <template>
   <BaseButton
+    variant="ghost"
+    icon="pen-line"
     :disabled="exporting"
     :pressed="hasWork ? open : undefined"
     :aria-disabled="hint ? 'true' : undefined"
     :aria-describedby="hint ? hintId : undefined"
     :title="ACTION_TOOLTIP"
-    :class="{ 'draw-action--unavailable': hint }"
     data-testid="draw-action"
     data-keeps-space
     @click="onActivate"
   >
-    <svg class="draw-action__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-      <path
-        d="M11 2l3 3-8 8H3v-3zM2 15h12"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="1.5"
-        stroke-linejoin="round"
-      />
-    </svg>
     {{ ACTION_LABEL }}
   </BaseButton>
   <span v-if="hint" :id="hintId" class="draw-action__hint">{{ hint }}</span>
 </template>
 
 <style scoped>
-.draw-action--unavailable {
-  opacity: 0.45;
-}
-
-.draw-action__icon {
-  width: var(--space-4);
-  height: var(--space-4);
-}
-
 .draw-action__hint {
   position: absolute;
   width: 1px;

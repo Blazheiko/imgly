@@ -56,34 +56,23 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 <template>
   <BaseButton
+    variant="ghost"
+    icon="crop"
     :disabled="exporting"
     :pressed="hasWork ? open : undefined"
     :aria-disabled="hint ? 'true' : undefined"
     :aria-describedby="hint ? hintId : undefined"
     :title="ACTION_TOOLTIP"
-    :class="{ 'crop-rotate-action--unavailable': hint }"
     data-testid="crop-rotate-action"
     data-keeps-space
     @click="onActivate"
   >
-    <svg class="crop-rotate-action__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-      <path d="M4 1v11h11M1 4h11v11" fill="none" stroke="currentColor" stroke-width="1.5" />
-    </svg>
     {{ ACTION_LABEL }}
   </BaseButton>
   <span v-if="hint" :id="hintId" class="crop-rotate-action__hint">{{ hint }}</span>
 </template>
 
 <style scoped>
-.crop-rotate-action--unavailable {
-  opacity: 0.45;
-}
-
-.crop-rotate-action__icon {
-  width: var(--space-4);
-  height: var(--space-4);
-}
-
 .crop-rotate-action__hint {
   position: absolute;
   width: 1px;

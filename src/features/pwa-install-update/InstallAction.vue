@@ -10,6 +10,7 @@ const store = usePwaInstallUpdate()
   <BaseButton
     v-if="store.canInstall"
     variant="ghost"
+    icon="monitor-down"
     :title="INSTALL_TITLE"
     @click="store.install()"
   >

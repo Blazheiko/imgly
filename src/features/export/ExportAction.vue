@@ -70,15 +70,16 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown, { capture
   <BaseButton
     ref="button"
     variant="primary"
+    :icon="exporting ? undefined : 'download'"
     :disabled="disabled"
     :aria-disabled="hint ? 'true' : undefined"
     :aria-describedby="hint ? hintId : undefined"
     :aria-expanded="store.panelOpen ? 'true' : 'false'"
     aria-haspopup="dialog"
     data-keeps-space
-    :class="{ 'export-action--unavailable': hint !== null }"
     @click="onActivate"
   >
+    <!-- In the icon's place while exporting; its status text stays part of the name, as before. -->
     <span v-if="exporting" class="export-action__spinner"><Spinner label="Exporting" /></span>
     {{ exporting ? 'Exporting…' : 'Export' }}
   </BaseButton>
@@ -87,13 +88,13 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown, { capture
 </template>
 
 <style scoped>
-.export-action--unavailable {
-  opacity: 0.45;
+.export-action__spinner {
+  display: inline-flex;
 }
 
 .export-action__spinner :deep(.spinner__ring) {
-  width: var(--space-4);
-  height: var(--space-4);
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
 }
 
 .export-action__hint {
