@@ -29,8 +29,9 @@ export default defineConfig({
         scope: BASE,
         start_url: BASE,
         display: 'standalone',
-        background_color: '#16181d',
-        theme_color: '#16181d',
+        // The dark --color-titlebar, shown until the page's theme-color tags apply (ADR-0002).
+        background_color: '#15122A',
+        theme_color: '#15122A',
         icons: [
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
