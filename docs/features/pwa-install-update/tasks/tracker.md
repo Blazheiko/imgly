@@ -25,7 +25,7 @@
 | T18 | Idle export panel; edits stored before versionchange (R6, R10) | app | Blazheiko | S | T17 | done |
 | T19 | Activate any waiting worker; start check waits for registration (R7, R8) | app | Blazheiko | S | T18 | done |
 | T20 | Install app hides while prompting (R9) | infra | Blazheiko | S | T19 | done |
-| T21 | Busy label once; focus returns to Reload (R11, R12) | ui | Blazheiko | S | T20 | todo |
+| T21 | Busy label once; focus returns to Reload (R11, R12) | ui | Blazheiko | S | T20 | done |
 | T22 | e2e positive start-up signal; SW allowed by default (R13, R14) | tests | Blazheiko | M | T21 | todo |
 
 **Total:** 22 tasks (T15–T22 from review 2026-10-15), ~14.75 person-days (S = 0.5, M = 0.75, L = 1).

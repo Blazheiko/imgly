@@ -143,6 +143,8 @@ describe('Toast lasting, keep-open and busy (pwa-install-update AC-06, AC-10, AC
     expect(button.attributes('disabled')).toBeUndefined()
     expect(button.classes()).toContain('base-button--ghost')
     expect(button.findComponent(Spinner).exists()).toBe(true)
+    // The visible text names the button; the Spinner is not read out a second time (AC-11).
+    expect(button.find('.toast__spinner').attributes('aria-hidden')).toBe('true')
     expect(button.text()).toContain('Reloading…')
     expect(button.text()).not.toContain('Reload ')
 

@@ -28,7 +28,10 @@ function runAction(action: NoticeAction): void {
       @click="runAction(action)"
     >
       <template v-if="action.busy">
-        <span class="toast__spinner"><Spinner :label="action.busyLabel ?? action.label" /></span>
+        <!-- The visible text names the button; the Spinner beside it is not read out again. -->
+        <span class="toast__spinner" aria-hidden="true"
+          ><Spinner :label="action.busyLabel ?? action.label"
+        /></span>
         {{ action.busyLabel ?? action.label }}
       </template>
       <template v-else>{{ action.label }}</template>

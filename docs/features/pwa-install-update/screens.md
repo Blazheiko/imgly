@@ -271,7 +271,7 @@ The seed for `src/features/pwa-install-update/messages.ts`, and for the `APP_PAR
 | lasting + action | update `available` | AC-06 | A new version of imgly is available. Action: **Reload** |
 | lasting + action | update `updated-elsewhere` | AC-14 | imgly was updated in another window. Reload to use the new version. Action: **Reload** |
 | lasting + action | update `reload-to-save` (replaces `infoNewerVersion()`) | AC-14 | imgly was updated in another window. Reload this window to keep saving to the Gallery. Action: **Reload** |
-| action (busy) | Reload waiting for a save, or reloading | AC-11, AC-07 | Reloading… (`Spinner` label "Reloading") |
+| action (busy) | Reload waiting for a save, or reloading | AC-11, AC-07 | Reloading… (the `Spinner` is `aria-hidden`; the button is named "Reloading…" once) |
 | failure | Reload with a tool open | AC-10 | Apply or cancel the open tool first. |
 | failure | Reload during an Export | AC-13 | Wait for the export to finish, then reload. |
 | failure | `APP_PART_UNAVAILABLE` | AC-14 | imgly was updated in another window. Reload this window to continue. |

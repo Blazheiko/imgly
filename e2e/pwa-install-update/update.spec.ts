@@ -173,8 +173,8 @@ test('AC-11: Reload waits for a running save while editing goes on, then reloads
   await holdNextEncode(page)
   await applyAdjustments(page, EDIT_A)
   await reloadButton(page).click()
-  // The busy action reads "Reloading…" beside its Spinner (whose label is read out too).
-  await expect(reloadButton(page)).toContainText('Reloading…')
+  // The busy action is named "Reloading…" once: its Spinner is hidden from assistive tech.
+  await expect(reloadButton(page)).toHaveAccessibleName('Reloading…')
   await expect(reloadButton(page)).toHaveAttribute('aria-disabled', 'true')
   // The Editor keeps working during the wait.
   await applyAdjustments(page, EDIT_B)
@@ -209,10 +209,17 @@ test('AC-12: edits the Gallery does not hold ask first; Cancel keeps everything,
   await expect(replaceDialog(page).getByRole('button', { name: 'Cancel' })).toBeFocused()
   await replaceDialog(page).getByRole('button', { name: 'Cancel' }).click()
   await expect(replaceDialog(page)).toHaveCount(0)
+  await expect(reloadButton(page)).toBeFocused()
   expect(await work(page)).toEqual(before)
   await expect(notice(page, AVAILABLE)).toHaveCount(1)
   await expect(reloadButton(page)).toHaveText('Reload')
   expect(await stillSamePage(page)).toBe(true)
+
+  await reloadButton(page).click()
+  await expect(replaceDialog(page)).toHaveCount(1)
+  await page.keyboard.press('Escape')
+  await expect(replaceDialog(page)).toHaveCount(0)
+  await expect(reloadButton(page)).toBeFocused()
 
   await reloadButton(page).click()
   await reloadIntoB(page, () => replaceDialog(page).getByRole('button', { name: 'Reload' }).click())

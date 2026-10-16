@@ -506,6 +506,34 @@ describe('App install and update wiring (pwa-install-update T12)', () => {
     )
   })
 
+  it.each(['Cancel', 'Escape'] as const)(
+    'returns focus to the Reload action when %s closes the confirmation (SCR-06, AC-12)',
+    async (how) => {
+      const sw = fakeClient()
+      pwa.connect(sw.create, { now: () => 0, document: fakeDocument().doc, reloadPage: vi.fn() })
+      sw.newWaiting()
+      await mountLive()
+      vi.spyOn(editor, 'requestReload').mockResolvedValue({ kind: 'confirm', reopenId: null })
+      const reload = () =>
+        [...document.querySelectorAll<HTMLButtonElement>('.toast button')].find(
+          (b) => b.textContent?.trim() === 'Reload',
+        )!
+
+      reload().focus()
+      reload().click()
+      await flushPromises()
+      const dialog = document.querySelector<HTMLElement>('[role="alertdialog"]')!
+      expect(dialog).not.toBeNull()
+      if (how === 'Cancel')
+        dialog.querySelector<HTMLButtonElement>('[data-action="cancel"]')!.click()
+      else dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+      await flushPromises()
+
+      expect(document.querySelector('[role="alertdialog"]')).toBeNull()
+      expect(document.activeElement).toBe(reload())
+    },
+  )
+
   it('reopens the Work the update reload marked, after the Gallery connected and refreshed (AC-08)', async () => {
     const db = await openDb(`imgly-app-resume-${Math.random()}`)
     const w = storedWorkFixture({ layer: null, record: { sourceName: 'Cat.png' } })
