@@ -193,7 +193,9 @@ export function createAutosave(deps: AutosaveDeps) {
     },
     saving: queue.saving,
     settled: () => queue.settled(),
-    isStored: (work: W) => available.value && queue.isStored(work),
+    // A revision committed before a newer version took the Gallery is still there to reopen; the
+    // queue stores nothing after the stop (pwa-install-update AC-12, AC-14).
+    isStored: (work: W) => (available.value || superseded.value) && queue.isStored(work),
     /** The Work has a Stored state to reopen, whether or not its latest revision is stored. */
     hasStoredState: (workId: string) => storedIds.has(workId),
     galleryAvailable: readonly(available),

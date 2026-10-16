@@ -22,7 +22,7 @@
 | T15 | Reopen in an outdated window asks to reload (R1) | app | Blazheiko | S | — | done |
 | T16 | Lock the editor while confirming or leaving; re-gate on confirm (R2) | app | Blazheiko | M | T15 | done |
 | T17 | Marker taken first, dropped without a switch; unreadable copy; evicted test (R3–R5) | app | Blazheiko | M | T16 | done |
-| T18 | Idle export panel; edits stored before versionchange (R6, R10) | app | Blazheiko | S | T17 | todo |
+| T18 | Idle export panel; edits stored before versionchange (R6, R10) | app | Blazheiko | S | T17 | done |
 | T19 | Activate any waiting worker; start check waits for registration (R7, R8) | app | Blazheiko | S | T18 | todo |
 | T20 | Install app hides while prompting (R9) | infra | Blazheiko | S | T19 | todo |
 | T21 | Busy label once; focus returns to Reload (R11, R12) | ui | Blazheiko | S | T20 | todo |

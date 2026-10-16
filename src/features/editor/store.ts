@@ -451,14 +451,14 @@ export const useEditorStore = defineStore('editor', () => {
     return replace(outcome.value, fileName)
   }
 
-  /** Whether the open Work has Unsaved edits that the Gallery does not hold (gallery AC-17). */
+  /**
+   * Whether the open Work has Unsaved edits that the Gallery does not hold (gallery AC-17).
+   * `isStored` is false whenever the Gallery is unavailable, except for a revision stored before
+   * a newer version took it (pwa-install-update AC-14).
+   */
   function needsConfirmation(): boolean {
     const open = work.value
-    return (
-      !!open &&
-      workHasUnsavedEdits(open) &&
-      (!autosave.value.galleryAvailable.value || !autosave.value.isStored(open))
-    )
+    return !!open && workHasUnsavedEdits(open) && !autosave.value.isStored(open)
   }
 
   /**

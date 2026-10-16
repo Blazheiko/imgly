@@ -705,6 +705,23 @@ describe('Autosave versionchange (gallery ADR-0006)', () => {
     expect(texts(s)).toEqual([])
   })
 
+  it('still counts a revision stored before the stop as stored, and none after it (pwa-install-update AC-12, AC-14)', async () => {
+    const s = setup()
+    await s.connect()
+    const work = makeWork()
+    s.autosave.request(work)
+    await s.autosave.settled()
+    expect(s.autosave.isStored(work)).toBe(true)
+
+    const other = await openDB(s.name, LATEST_VERSION + 1)
+    await s.autosave.settled()
+    expect(s.autosave.superseded.value).toBe(true)
+
+    expect(s.autosave.isStored(work)).toBe(true)
+    expect(s.autosave.isStored(edited(work, 1))).toBe(false)
+    other.close()
+  })
+
   it('is not superseded before anything happened', async () => {
     const s = setup()
     await s.connect()

@@ -30,7 +30,9 @@ export function createFakeAutosave(options: { available?: boolean } = {}) {
     request: vi.fn<(work: W) => void>(),
     saving,
     settled: vi.fn(() => gate ?? Promise.resolve()),
-    isStored: vi.fn((work: W) => galleryAvailable.value && stored.has(key(work))),
+    isStored: vi.fn(
+      (work: W) => (galleryAvailable.value || superseded.value) && stored.has(key(work)),
+    ),
     hasStoredState: vi.fn((workId: string) => storedIds.has(workId)),
     galleryAvailable,
     superseded,

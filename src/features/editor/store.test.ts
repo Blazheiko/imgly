@@ -2563,6 +2563,26 @@ describe('editor store — the Reload gate (pwa-install-update AC-07, AC-10 to A
     expect(editor.storageSuperseded).toBe(true)
   })
 
+  it('is ready for edits stored before the storage was superseded (AC-12, AC-14)', async () => {
+    await open()
+    editor.applyAdjustments(contrast(20))
+    autosave.markStored(editor.work!)
+    autosave.supersede()
+
+    expect(await editor.requestReload()).toEqual({ kind: 'ready', reopenId: editor.work!.id })
+  })
+
+  it('does not count an Export panel open with no Export started (AC-13)', async () => {
+    await open()
+    editor.applyAdjustments(contrast(20))
+    autosave.markStored(editor.work!)
+    editor.setActivePanel('export')
+
+    expect(await editor.requestReload()).toEqual({ kind: 'ready', reopenId: editor.work!.id })
+    autosave.available(false)
+    expect(await editor.requestReload()).toEqual({ kind: 'confirm', reopenId: editor.work!.id })
+  })
+
   it('asks for confirmation for an edit made after the storage was superseded (AC-12, AC-14)', async () => {
     await open()
     editor.applyAdjustments(contrast(20))
