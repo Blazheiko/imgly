@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { mount, type VueWrapper } from '@vue/test-utils'
+import { mount, type DOMWrapper, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { nextTick } from 'vue'
 import { autoAdjust, createWork, NEUTRAL_ADJUSTMENTS, ok, type Adjustments } from '@/core'
@@ -8,6 +8,19 @@ import { createFakeRenderer } from '@/features/editor/testing'
 import AdjustControls, { AUTO_SHOWN_MARK } from './AdjustControls.vue'
 import { BUTTONS, GROUPS, hintNothingToCorrect, SLIDER_LABELS, SLIDER_TOOLTIP } from './messages'
 import { useAdjustStore } from './store'
+import { icons, type IconName } from '@/shared'
+
+/** Whether a button draws the registry icon `name` (ui-refresh ADR-0001), as its one svg. */
+function drawsIcon(button: Pick<DOMWrapper<Element>, 'findAll'>, name: IconName): boolean {
+  const svgs = button.findAll('svg')
+  if (svgs.length !== 1 || svgs[0]!.attributes('aria-hidden') !== 'true') return false
+  const first = svgs[0]!.element.firstElementChild
+  const [tag, attrs] = icons[name][0]!
+  return (
+    first?.tagName.toLowerCase() === tag &&
+    Object.entries(attrs).every(([key, value]) => first.getAttribute(key) === value)
+  )
+}
 
 describe('AdjustControls (SCR-03)', () => {
   let wrapper: VueWrapper
@@ -308,5 +321,23 @@ describe('AdjustControls (SCR-03)', () => {
         BUTTONS.apply,
       ])
     })
+  })
+
+  it.each([
+    ['adjust-compare', 'eye'],
+    ['adjust-auto', 'wand-sparkles'],
+    ['adjust-apply', 'check'],
+  ] as const)('%s shows the %s icon next to its label (ui-refresh AC-02)', (testid, icon) => {
+    const b = wrapper.get(`[data-testid="${testid}"]`)
+    expect(drawsIcon(b, icon)).toBe(true)
+    expect(b.text()).not.toBe('')
+  })
+
+  it.each([
+    [BUTTONS.reset, 'rotate-ccw'],
+    [BUTTONS.cancel, 'x'],
+  ] as const)('%s shows the %s icon (ui-refresh AC-02)', (label, icon) => {
+    const b = wrapper.findAll('button').find((x) => x.text() === label)!
+    expect(drawsIcon(b, icon)).toBe(true)
   })
 })

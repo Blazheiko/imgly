@@ -78,14 +78,14 @@ const preset = computed(() => (PALETTE.some((c) => c.hex === tool.colour) ? tool
     </section>
 
     <footer class="draw-controls__footer">
-      <BaseButton variant="ghost" data-testid="draw-clear" @click="tool.clear()">
+      <BaseButton variant="ghost" icon="eraser" data-testid="draw-clear" @click="tool.clear()">
         {{ BUTTONS.clear }}
       </BaseButton>
       <span class="draw-controls__spacer" />
-      <BaseButton variant="secondary" data-testid="draw-cancel" @click="tool.cancel()">
+      <BaseButton variant="secondary" icon="x" data-testid="draw-cancel" @click="tool.cancel()">
         {{ BUTTONS.cancel }}
       </BaseButton>
-      <BaseButton variant="primary" data-testid="draw-apply" @click="tool.apply()">
+      <BaseButton variant="primary" icon="check" data-testid="draw-apply" @click="tool.apply()">
         {{ BUTTONS.apply }}
       </BaseButton>
     </footer>

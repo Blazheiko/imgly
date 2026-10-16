@@ -13,7 +13,7 @@
 | T6 | [Window colour](./t06-wiring-window-colour.md) | wiring | Blazheiko | S | T1, T5 | done |
 | T7 | [Top bar frame + groups](./t07-editor-top-bar-groups.md) | ui | Blazheiko | M | T3, T5, T6 | done |
 | T8 | [Top-bar action icons](./t08-features-top-bar-action-icons.md) | ui | Blazheiko | S | T3 | done |
-| T9 | [Tool panel icons](./t09-features-tool-panel-icons.md) | ui | Blazheiko | S | T3 | todo |
+| T9 | [Tool panel icons](./t09-features-tool-panel-icons.md) | ui | Blazheiko | S | T3 | done |
 | T10 | [Panels, dialogs, messages icons](./t10-features-panels-dialogs-messages-icons.md) | ui | Blazheiko | S | T3 | todo |
 | T11 | [Start screen drop area](./t11-editor-start-screen-drop-area.md) | ui | Blazheiko | S | T3 | todo |
 | T12 | [Gallery header + delete dialog](./t12-gallery-header-note-delete-dialog.md) | ui | Blazheiko | S | T3 | todo |

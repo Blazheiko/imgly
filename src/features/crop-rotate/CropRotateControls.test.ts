@@ -1,13 +1,26 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { mount, type VueWrapper } from '@vue/test-utils'
+import { mount, type DOMWrapper, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { nextTick } from 'vue'
 import { createWork, identityGeometry } from '@/core'
 import { useEditorStore } from '@/features/editor'
 import CropRotateControls from './CropRotateControls.vue'
 import { useCropRotateStore } from './store'
+import { icons, type IconName } from '@/shared'
 
 const original = { width: 4000, height: 3000 }
+
+/** Whether a button draws the registry icon `name` (ui-refresh ADR-0001), as its one svg. */
+function drawsIcon(button: Pick<DOMWrapper<Element>, 'findAll'>, name: IconName): boolean {
+  const svgs = button.findAll('svg')
+  if (svgs.length !== 1 || svgs[0]!.attributes('aria-hidden') !== 'true') return false
+  const first = svgs[0]!.element.firstElementChild
+  const [tag, attrs] = icons[name][0]!
+  return (
+    first?.tagName.toLowerCase() === tag &&
+    Object.entries(attrs).every(([key, value]) => first.getAttribute(key) === value)
+  )
+}
 
 describe('CropRotateControls (SCR-03 panel)', () => {
   let wrapper: VueWrapper
@@ -140,5 +153,28 @@ describe('CropRotateControls (SCR-03 panel)', () => {
     await button('Cancel').trigger('click')
     expect(editor.activeTool).toBeNull()
     expect(editor.work!.geometry.flipV).toBe(false)
+  })
+
+  it.each([
+    ['Rotate left', 'rotate-ccw-square', false],
+    ['Rotate right', 'rotate-cw-square', false],
+    ['Flip horizontal', 'flip-horizontal-2', false],
+    ['Flip vertical', 'flip-vertical-2', false],
+    ['Reset', 'rotate-ccw', true],
+    ['Cancel', 'x', true],
+    ['Apply', 'check', true],
+  ] as const)('%s shows the %s icon (ui-refresh AC-02, AC-03)', (name, icon, labelShown) => {
+    const b = button(name)
+    expect(drawsIcon(b, icon)).toBe(true)
+    if (labelShown) expect(b.text()).toBe(name)
+    else {
+      expect(b.text()).toBe('')
+      expect(b.attributes('aria-label')).toBe(name)
+      expect(b.attributes('title')).toBe(name)
+    }
+  })
+
+  it('gives the proportion options no icon (a choice control, ui-refresh AC-02)', () => {
+    expect(wrapper.findAll('[role="radio"] svg')).toHaveLength(0)
   })
 })
