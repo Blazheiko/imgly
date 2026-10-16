@@ -110,7 +110,7 @@ Traceability and deliberate compromises:
 
 ### AC-03 (US-02, US-08) — domain invariant
 
-**Given** an action button shows an icon; only Undo, Redo and a card's Delete show an icon without a visible label, and every other action button shows its icon next to its label
+**Given** an action button shows an icon; only Undo, Redo, a card's Delete and the buttons that already have no visible label today (Rotate left, Rotate right, Flip horizontal and Flip vertical in Crop and rotate, and Zoom out and Zoom in, whose "−" and "+" become icons) show an icon without a visible label, and every other action button shows its icon next to its label (patched by `screens` on 2026-10-16)
 **When** a screen reader or the keyboard reaches the button
 **Then** the button is announced by the same name as before this feature, the icon itself is not announced, each icon-only button has a tooltip naming its action (Undo and Redo also name their shortcut), and the keyboard order of the top bar is unchanged except that Install app now comes before Export
 
@@ -221,4 +221,4 @@ Reference machine: Apple M1 MacBook Air with the latest stable Chrome, as in the
 
 ## 8. Open questions
 
-- [ ] Does the owner approve the final logo artwork (two crop corners and an accent dot, with the "imgly" wordmark)? Default now: that concept, drawn during `screens`. — owner: Blazheiko, due: before sdd:tasks
+- [x] Does the owner approve the final logo artwork (two crop corners and an accent dot, with the "imgly" wordmark)? **Resolved 2026-10-16:** approved as drawn in `brand/logo-concept.svg` (`screens.md` §Brand mark). — owner: Blazheiko

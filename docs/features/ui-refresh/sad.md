@@ -267,12 +267,12 @@ ADR files live under `docs/features/ui-refresh/adr/NNNN-<title>.md`.
 | Risk / debt | Severity | Mitigation | Owner |
 |---|---|---|---|
 | The thumbnail is 320 px on its long side; on a 2× display a card wider than 160 CSS px shows it slightly soft | Low | Accept for now; raising `THUMBNAIL_LONG_SIDE` later affects only newly saved thumbnails, needs no migration, and is a one-line change | Blazheiko |
-| The pale lavender top bar in the light theme carries the brand-coloured Export button and the logo gradient; contrast may fall short there | Medium | QG-1's automated check covers the top bar in both themes; `screens` picks the light-theme on-titlebar colours with contrast measured before implementation | Blazheiko |
+| The pale lavender top bar in the light theme carries the brand-coloured Export button and the logo gradient; contrast may fall short there | Medium | QG-1's automated check covers the top bar in both themes; `screens` picked the on-titlebar colours and measured them: text 14.95:1, Export's white label 4.57:1, focus ring 5.49:1 in the light theme (`screens.md` §Token values) | Blazheiko |
 | Safari's installed app may not apply `theme-color` per theme the way Chromium does | Low | AC-11 binds Chromium only; Safari is best effort, checked once by hand | Blazheiko |
 | The branch is stacked on PR #11; changes there (Install app, update notice) may conflict | Medium | Rebase onto main as soon as PR #11 merges, before phase 2 touches the top bar | Blazheiko |
 | No size check exists in CI, so the ≤ 15 KB budget is measured by hand | Low | The review compares compressed `dist/` sizes with main; adding a CI size step is out of scope | Blazheiko |
 | `docs/architecture-map.md` is stale (reflects `3f248c2`) | Low | Run `sdd:survey` after this feature ships | Blazheiko |
-| Open architectural decision: the final logo artwork (two crop corners and an accent dot, with the wordmark) | Open question | Resolve before `sdd:tasks`; the icon files, `AppLogo` and the tab icon all render from it | Blazheiko |
+| Final logo artwork (two crop corners and an accent dot, with the wordmark) | Resolved | Approved 2026-10-16 as drawn in `brand/logo-concept.svg`; the icon files, `AppLogo` and the tab icon all render from it (`screens.md` §Brand mark) | Blazheiko |
 
 **Accepted debt (acceptable in v1, plan to fix later):**
 - The window colours live in `index.html` (two `theme-color` tags) and `vite.config.ts` (manifest `theme_color`, `background_color`) as well as in `tokens.css`; one unit test reads the three files and keeps them equal (ADR-0002).
