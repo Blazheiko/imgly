@@ -43,6 +43,7 @@
   --color-danger-solid: #d63a3a;
   --color-danger-solid-hover: #b83030;
   --color-glass: #1b1838e6;
+  --color-on-glass: #eceaff;
   --color-scrim: #0e0f12b8;
 
   /* elevation */
@@ -78,6 +79,7 @@
   --canvas-message-max-width: 520px;
   --gallery-tile-size: 160px;
   --content-max-width: 1120px;
+  --gallery-card-min: 200px;
 
   /* typography */
   --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;

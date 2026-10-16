@@ -223,8 +223,8 @@ onBeforeUnmount(() => {
 
 .gallery-list__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, var(--gallery-tile-size));
-  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fill, minmax(var(--gallery-card-min), 1fr));
+  gap: var(--space-6);
   margin: 0;
   padding: 0;
 }

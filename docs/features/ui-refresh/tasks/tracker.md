@@ -17,7 +17,7 @@
 | T10 | [Panels, dialogs, messages icons](./t10-features-panels-dialogs-messages-icons.md) | ui | Blazheiko | S | T3 | done |
 | T11 | [Start screen drop area](./t11-editor-start-screen-drop-area.md) | ui | Blazheiko | S | T3 | done |
 | T12 | [Gallery header + delete dialog](./t12-gallery-header-note-delete-dialog.md) | ui | Blazheiko | S | T3 | done |
-| T13 | [Work card](./t13-gallery-work-card.md) | ui | Blazheiko | M | T3, T12 | todo |
+| T13 | [Work card](./t13-gallery-work-card.md) | ui | Blazheiko | M | T3, T12 | done |
 | T14 | [e2e a11y, motion, brand](./t14-tests-e2e-accessibility-motion-brand.md) | tests | Blazheiko | M | T4, T6–T11, T13 | todo |
 | T15 | [design-system record](./t15-docs-design-system.md) | docs | Blazheiko | S | T1–T5 | todo |
 
