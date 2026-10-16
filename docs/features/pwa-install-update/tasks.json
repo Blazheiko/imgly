@@ -598,6 +598,65 @@
       ],
       "file": "docs/features/pwa-install-update/_review/review-2026-10-16.md",
       "source": "review-2026-10-16"
+    },
+    {
+      "id": "T28",
+      "title": "Focus returns to Reload after Cancel or Esc even when the Editor clicked another button during a save wait (P1, SCR-06 cancelled)",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-11",
+        "AC-12"
+      ],
+      "dod": "ReloadDialog makes returnFocus win over the opener (an opt-in Dialog prop recorded in design-system.md, so DeleteWorkDialog keeps its order); an App.test case holds a save, focuses Undo before the confirmation, and asserts focus on Reload after Cancel and after Esc",
+      "files_hint": [
+        "src/shared/ui/Dialog.vue",
+        "src/features/pwa-install-update/ReloadDialog.vue",
+        "src/app/App.test.ts",
+        "src/shared/ui/primitives.test.ts",
+        "docs/design-system.md"
+      ],
+      "file": "docs/features/pwa-install-update/_review/review-2026-10-16-2.md",
+      "source": "review-2026-10-16-2",
+      "screens": [
+        "SCR-06 cancelled"
+      ]
+    },
+    {
+      "id": "T29",
+      "title": "The Gallery start's Open image and choosing a Gallery entry do nothing visible while leaving: no picker opens, and 'leaving' is handled on purpose (P2, SCR-05 reloading)",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-10"
+      ],
+      "dod": "GalleryStart.openImage returns before pickImageFile() while editor.covered, like EditorView.openPicked; gallery.choose has an explicit, commented case for { refused, 'leaving' }; a GalleryStart test asserts no picker while held and a gallery/store.test case asserts choose while held starts no reopen and raises no notice",
+      "files_hint": [
+        "src/features/gallery/components/GalleryStart.vue",
+        "src/features/gallery/store.ts",
+        "src/features/gallery/store.test.ts",
+        "src/features/gallery/components/GalleryStart.test.ts"
+      ],
+      "file": "docs/features/pwa-install-update/_review/review-2026-10-16-2.md",
+      "source": "review-2026-10-16-2",
+      "screens": [
+        "SCR-05 reloading"
+      ]
+    },
+    {
+      "id": "T30",
+      "title": "e2e: buildOf waits for the test hooks before it reads the build mark (P3)",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-09"
+      ],
+      "dod": "buildOf (two-builds.ts) waits for window.__imglyTest before evaluating; e2e/pwa-install-update passes --repeat-each=5 on chromium, firefox and webkit",
+      "files_hint": [
+        "e2e/pwa-install-update/two-builds.ts"
+      ],
+      "file": "docs/features/pwa-install-update/_review/review-2026-10-16-2.md",
+      "source": "review-2026-10-16-2"
     }
   ]
 }
