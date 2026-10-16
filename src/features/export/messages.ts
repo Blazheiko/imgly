@@ -67,6 +67,9 @@ const FAILURES: Partial<Record<AppError['code'], (details: Record<string, unknow
   EXPORT_EXTENSION_MISMATCH: ({ name, format }) =>
     `"${String(name)}" doesn't end in ${mainExtension(format)}, so nothing was written. Save again with a ${mainExtension(format)} name.`,
   EXPORT_NOT_PERMITTED: () => "The app wasn't allowed to save there. Choose another folder.",
+  // pwa-install-update AC-14: the export worker of this build is gone after a newer build replaced it.
+  APP_PART_UNAVAILABLE: () =>
+    'imgly was updated in another window. Reload this window to continue.',
 }
 
 /**

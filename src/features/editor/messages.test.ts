@@ -9,7 +9,6 @@ import {
   infoDownscaled,
   infoEvicted,
   infoFirstFrame,
-  infoNewerVersion,
   infoOthersIgnored,
 } from './messages'
 
@@ -120,6 +119,14 @@ describe('message catalog (screens.md §Message catalog)', () => {
   })
 })
 
+describe('APP_PART_UNAVAILABLE (pwa-install-update screens.md §Message catalog, AC-14)', () => {
+  it('says the app was updated in another window and must be reloaded', () => {
+    expect(failureMessage(appError('APP_PART_UNAVAILABLE'))).toBe(
+      'imgly was updated in another window. Reload this window to continue.',
+    )
+  })
+})
+
 describe('Autosave messages (gallery screens.md §Message catalog)', () => {
   it('info: one evicted Work is named (AC-09, AC-10, AC-21)', () => {
     expect(infoEvicted(['Holiday'])).toBe('“Holiday” was removed from the Gallery to make room.')
@@ -148,11 +155,5 @@ describe('Autosave messages (gallery screens.md §Message catalog)', () => {
     const copy = "This Work couldn't be saved to the Gallery. Export it to keep a copy."
     expect(failureSaveFailed()).toBe(copy)
     expect(failureMessage(appError('STORAGE_FAILED'))).toBe(copy)
-  })
-
-  it('info: a newer version is open in another tab (ADR-0006)', () => {
-    expect(infoNewerVersion()).toBe(
-      'A newer version of the editor is open in another tab. Reload this page to keep saving to the Gallery.',
-    )
   })
 })

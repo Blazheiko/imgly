@@ -237,6 +237,15 @@ describe('export store — session memory (AC-19)', () => {
     expect(store.openPanel()).toBe(true)
   })
 
+  it("refuses to open while the update's Reload holds the editor (pwa-install-update AC-13)", () => {
+    store.closePanel()
+    editor.setReloadHeld(true)
+    expect(store.editorBusy).toBe(true)
+    expect(store.openPanel()).toBe(false)
+    editor.setReloadHeld(false)
+    expect(store.openPanel()).toBe(true)
+  })
+
   it('closes the panel when the replace dialog comes up over it', async () => {
     editor.phase = 'confirming'
     await flush()

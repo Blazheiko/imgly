@@ -46,6 +46,15 @@ describe('AppErrorCode', () => {
     for (const code of codes) expect(isAppErrorCode(code)).toBe(true)
   })
 
+  it('carries the pwa-install-update code INSTALL_FAILED (AC-03)', () => {
+    expect(appError('INSTALL_FAILED').code).toBe('INSTALL_FAILED')
+    expect(isAppErrorCode('INSTALL_FAILED')).toBe(true)
+  })
+
+  it('carries the pwa-install-update code APP_PART_UNAVAILABLE (AC-14)', () => {
+    expect(isAppErrorCode('APP_PART_UNAVAILABLE')).toBe(true)
+  })
+
   it('keeps STORAGE_QUOTA and rejects unknown codes', () => {
     expect(isAppErrorCode('STORAGE_QUOTA')).toBe(true)
     expect(isAppErrorCode('STORAGE_NOPE')).toBe(false)

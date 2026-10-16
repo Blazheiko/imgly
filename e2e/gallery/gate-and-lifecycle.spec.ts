@@ -43,8 +43,9 @@ import {
 } from './helpers'
 
 const SAVE_FAILED = "This Work couldn't be saved to the Gallery. Export it to keep a copy."
+// pwa-install-update AC-14: the update notice's reload-to-save wording replaced the old notice.
 const NEWER_VERSION =
-  'A newer version of the editor is open in another tab. Reload this page to keep saving to the Gallery.'
+  'imgly was updated in another window. Reload this window to keep saving to the Gallery.'
 const UNAVAILABLE_TITLE = 'The Gallery is unavailable in this window.'
 const REFUSED_BODY =
   "This browser isn't letting the editor keep anything for this site, for example because site data is blocked. You can still open, edit and export images, but nothing is kept after this page closes."
@@ -418,59 +419,61 @@ test('AC-21: the Work open here survives its eviction by another page', async ({
   ).toHaveCount(1)
 })
 
-test('offline after the first load: list, reopen, Autosave and delete all succeed', async ({
-  page,
-  context,
-  browserName,
-}) => {
-  test.setTimeout(120_000)
-  await gotoReady(page)
-  const a = await openNumbered(page, 1)
-  const b = await openNumbered(page, 2)
-  await page.evaluate(async () => {
-    const container = navigator.serviceWorker
-    await container.ready
-    await new Promise<void>((resolve) => {
-      if (container.controller) resolve()
-      else container.addEventListener('controllerchange', () => resolve(), { once: true })
+test.describe('offline', () => {
+  test('offline after the first load: list, reopen, Autosave and delete all succeed', async ({
+    page,
+    context,
+    browserName,
+  }) => {
+    test.setTimeout(120_000)
+    await gotoReady(page)
+    const a = await openNumbered(page, 1)
+    const b = await openNumbered(page, 2)
+    await page.evaluate(async () => {
+      const container = navigator.serviceWorker
+      await container.ready
+      await new Promise<void>((resolve) => {
+        if (container.controller) resolve()
+        else container.addEventListener('controllerchange', () => resolve(), { once: true })
+      })
     })
-  })
 
-  await context.setOffline(true)
-  // Playwright's WebKit cannot reload a page while offline (as in export's offline test), and its
-  // offline mode also fails the service-worker-served fetch of a precached worker script, so a
-  // reopen, which starts the codec worker, cannot run there. The rest of the row still does.
-  const canReopen = browserName !== 'webkit'
-  if (canReopen) {
-    await page.reload()
-    await expect(start(page)).toBeVisible()
-  } else {
+    await context.setOffline(true)
+    // Playwright's WebKit cannot reload a page while offline (as in export's offline test), and its
+    // offline mode also fails the service-worker-served fetch of a precached worker script, so a
+    // reopen, which starts the codec worker, cannot run there. The rest of the row still does.
+    const canReopen = browserName !== 'webkit'
+    if (canReopen) {
+      await page.reload()
+      await expect(start(page)).toBeVisible()
+    } else {
+      await openGallery(page)
+    }
+    await expect(entries(page)).toHaveCount(2)
+
+    // Reopen img-01 (img-02 stays open on WebKit and takes its place below).
+    const [kept, removed, keptName, removedName] = canReopen
+      ? [a, b, numberedName(1), numberedName(2)]
+      : [b, a, numberedName(2), numberedName(1)]
+    if (canReopen) {
+      await chooseEntry(page, numberedName(1))
+      await expectReopened(page, numberedName(1), NUMBERED)
+    } else {
+      await page.keyboard.press('Escape')
+      await expect(overlay(page)).toBeHidden()
+    }
+    expect((await work(page))?.id ?? kept).toBe(kept)
+
+    await applyAdjustments(page, EDIT_A)
+    await waitForCommittedSave(page)
+    expect((await record(page, kept))!.adjustments).toEqual(EDIT_A)
+
     await openGallery(page)
-  }
-  await expect(entries(page)).toHaveCount(2)
-
-  // Reopen img-01 (img-02 stays open on WebKit and takes its place below).
-  const [kept, removed, keptName, removedName] = canReopen
-    ? [a, b, numberedName(1), numberedName(2)]
-    : [b, a, numberedName(2), numberedName(1)]
-  if (canReopen) {
-    await chooseEntry(page, numberedName(1))
-    await expectReopened(page, numberedName(1), NUMBERED)
-  } else {
-    await page.keyboard.press('Escape')
-    await expect(overlay(page)).toBeHidden()
-  }
-  expect((await work(page))?.id ?? kept).toBe(kept)
-
-  await applyAdjustments(page, EDIT_A)
-  await waitForCommittedSave(page)
-  expect((await record(page, kept))!.adjustments).toEqual(EDIT_A)
-
-  await openGallery(page)
-  await page.getByRole('button', { name: `Delete “${removedName}”` }).click()
-  await replaceDialog(page).getByRole('button', { name: 'Delete', exact: true }).click()
-  await expect(entries(page)).toHaveCount(1)
-  await expect(entry(page, keptName)).toHaveCount(1)
-  await expect.poll(async () => (await record(page, removed)) === undefined).toBe(true)
-  expect((await stored(page)).originals).toEqual([kept])
+    await page.getByRole('button', { name: `Delete “${removedName}”` }).click()
+    await replaceDialog(page).getByRole('button', { name: 'Delete', exact: true }).click()
+    await expect(entries(page)).toHaveCount(1)
+    await expect(entry(page, keptName)).toHaveCount(1)
+    await expect.poll(async () => (await record(page, removed)) === undefined).toBe(true)
+    expect((await stored(page)).originals).toEqual([kept])
+  })
 })

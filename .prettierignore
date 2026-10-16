@@ -6,3 +6,5 @@ test-results/
 pnpm-lock.yaml
 docs/
 CONTEXT.md
+dist-e2e/
+dist-e2e-b/

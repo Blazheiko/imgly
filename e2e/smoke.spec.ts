@@ -18,25 +18,27 @@ test('the manifest is served with the /imgly/ scope', async ({ request }) => {
   expect(manifest.icons.some((i: { purpose?: string }) => i.purpose === 'maskable')).toBe(true)
 })
 
-test('after the first load, the editor still renders offline', async ({
-  page,
-  context,
-  browserName,
-}) => {
-  test.skip(browserName === 'webkit', 'Playwright WebKit cannot reload a page while offline')
-  await page.goto('./')
-  // Wait until the precaching service worker controls the page.
-  await page.evaluate(async () => {
-    const sw = navigator.serviceWorker
-    await sw.ready
-    await new Promise<void>((resolve) => {
-      sw.addEventListener('controllerchange', () => resolve(), { once: true })
-      if (sw.controller) resolve()
+test.describe('offline', () => {
+  test('after the first load, the editor still renders offline', async ({
+    page,
+    context,
+    browserName,
+  }) => {
+    test.skip(browserName === 'webkit', 'Playwright WebKit cannot reload a page while offline')
+    await page.goto('./')
+    // Wait until the precaching service worker controls the page.
+    await page.evaluate(async () => {
+      const sw = navigator.serviceWorker
+      await sw.ready
+      await new Promise<void>((resolve) => {
+        sw.addEventListener('controllerchange', () => resolve(), { once: true })
+        if (sw.controller) resolve()
+      })
     })
+
+    await context.setOffline(true)
+    await page.reload()
+
+    await expect(page.getByTestId('editor-view')).toBeVisible()
   })
-
-  await context.setOffline(true)
-  await page.reload()
-
-  await expect(page.getByTestId('editor-view')).toBeVisible()
 })

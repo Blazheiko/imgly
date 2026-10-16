@@ -248,6 +248,20 @@ describe('UndoRedoActions (SCR-01 to SCR-04)', () => {
     })
   })
 
+  it("a click changes nothing while the update's Reload holds the editor (pwa-install-update AC-12)", async () => {
+    openWork()
+    editor.applyAdjustments(contrast(20))
+    await nextTick()
+    const work = editor.work
+    editor.setReloadHeld(true)
+
+    await undoButton().trigger('click')
+    await redoButton().trigger('click')
+
+    expect(editor.work).toBe(work)
+    expect(texts()).toEqual([])
+  })
+
   it('removes its shortcut on unmount', () => {
     openWork()
     editor.applyAdjustments(contrast(20))

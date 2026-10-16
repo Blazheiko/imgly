@@ -111,4 +111,98 @@ describe('useNotices (AC-11b)', () => {
     expect(notices.items).toEqual([])
     expect(run).not.toHaveBeenCalled()
   })
+
+  describe('lasting notices (pwa-install-update AC-06)', () => {
+    it('never dismisses a lasting notice by itself', () => {
+      const notices = useNotices()
+      notices.pushAll([{ kind: 'lasting', text: 'A new version of imgly is available.' }])
+
+      vi.advanceTimersByTime(INFO_NOTICE_MS * 100)
+      expect(notices.items.map((n) => n.text)).toEqual(['A new version of imgly is available.'])
+    })
+  })
+
+  describe('slots (pwa-install-update AC-14)', () => {
+    it('replaces the notice in an occupied slot in place, keeping its position and the count', () => {
+      const notices = useNotices()
+      notices.pushAll([{ kind: 'failure', text: 'Before' }])
+      notices.pushAll([{ kind: 'lasting', text: 'Available', slot: 'app-update' }])
+      notices.pushAll([{ kind: 'failure', text: 'After' }])
+
+      const [id] = notices.pushAll([{ kind: 'lasting', text: 'Elsewhere', slot: 'app-update' }])
+
+      expect(notices.items.map((n) => n.text)).toEqual(['Before', 'Elsewhere', 'After'])
+      expect(notices.items[1]!.id).toBe(id)
+    })
+
+    it('appends into a slot whose notice was dismissed', () => {
+      const notices = useNotices()
+      const [id] = notices.pushAll([{ kind: 'lasting', text: 'Available', slot: 'app-update' }])
+      notices.dismiss(id!)
+      notices.pushAll([{ kind: 'failure', text: 'Other' }])
+      notices.pushAll([{ kind: 'lasting', text: 'Again', slot: 'app-update' }])
+
+      expect(notices.items.map((n) => n.text)).toEqual(['Other', 'Again'])
+    })
+
+    it('keeps only the later of two same-slot notices in one batch', () => {
+      const notices = useNotices()
+      notices.pushAll([
+        { kind: 'lasting', text: 'First', slot: 'app-update' },
+        { kind: 'lasting', text: 'Second', slot: 'app-update' },
+      ])
+
+      expect(notices.items.map((n) => n.text)).toEqual(['Second'])
+    })
+
+    it("does not let a replaced info notice's timeout dismiss its replacement", () => {
+      const notices = useNotices()
+      notices.pushAll([{ kind: 'info', text: 'Old', slot: 's' }])
+      vi.advanceTimersByTime(INFO_NOTICE_MS - 1)
+      notices.pushAll([{ kind: 'lasting', text: 'New', slot: 's' }])
+
+      vi.advanceTimersByTime(INFO_NOTICE_MS * 10)
+      expect(notices.items.map((n) => n.text)).toEqual(['New'])
+    })
+
+    it('times a slotted replacement by its own kind', () => {
+      const notices = useNotices()
+      notices.pushAll([{ kind: 'lasting', text: 'Old', slot: 's' }])
+      notices.pushAll([{ kind: 'info', text: 'New', slot: 's' }])
+
+      vi.advanceTimersByTime(INFO_NOTICE_MS)
+      expect(notices.items).toEqual([])
+    })
+  })
+
+  describe('update (pwa-install-update AC-11)', () => {
+    it('patches a notice in place, keeping its id and position', () => {
+      const notices = useNotices()
+      const run = vi.fn()
+      const [id] = notices.pushAll([
+        {
+          kind: 'lasting',
+          text: 'Available',
+          slot: 'app-update',
+          action: { label: 'Reload', run },
+        },
+      ])
+      notices.pushAll([{ kind: 'failure', text: 'After' }])
+
+      notices.update(id!, {
+        action: { label: 'Reload', run, busy: true, busyLabel: 'Reloading…' },
+      })
+
+      expect(notices.items[0]!.id).toBe(id)
+      expect(notices.items[0]!.text).toBe('Available')
+      expect(notices.items[0]!.action?.busy).toBe(true)
+      expect(notices.items.map((n) => n.text)).toEqual(['Available', 'After'])
+    })
+
+    it('ignores an update for an id that is gone', () => {
+      const notices = useNotices()
+      expect(() => notices.update('gone', { text: 'x' })).not.toThrow()
+      expect(notices.items).toEqual([])
+    })
+  })
 })

@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { mount, type VueWrapper } from '@vue/test-utils'
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { nextTick } from 'vue'
 import type { IDBPDatabase } from 'idb'
@@ -77,6 +77,16 @@ describe('GalleryStart (SCR-01, AC-05)', () => {
     const w = await show()
     await w.get('[data-testid="gallery-open-image"]').trigger('click')
     await vi.waitFor(() => expect(openFile).toHaveBeenCalledWith(file))
+  })
+
+  it('Open image opens no picker while the window leaves for the new version (pwa-install-update SCR-05, AC-10)', async () => {
+    const openFile = vi.spyOn(editor, 'openFile')
+    const w = await show()
+    editor.setReloadHeld(true)
+    await w.get('[data-testid="gallery-open-image"]').trigger('click')
+    await flushPromises()
+    expect(picked.pickImageFile).not.toHaveBeenCalled()
+    expect(openFile).not.toHaveBeenCalled()
   })
 
   it('lists stored Works on mount without loading any (AC-05)', async () => {

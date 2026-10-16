@@ -7,6 +7,7 @@ import {
   type AppErrorCode,
   type Result,
 } from '@/core'
+import { isScriptLoadFailure } from '@/shared'
 import type { CodecRequest, PixelSize } from './worker-handler'
 
 /** Far above the §6 targets: only a hung worker reaches it. */
@@ -30,7 +31,10 @@ const isBlob = (value: unknown): value is Blob => value instanceof Blob
 const isBitmap = (value: unknown): value is ImageBitmap =>
   typeof value === 'object' && value !== null && 'width' in value && 'height' in value
 
-/** Runs one message in a fresh worker, terminated in every branch; `posted` is false if it never left. */
+/**
+ * Runs one message in a fresh worker, terminated in every branch; `posted` is false if it never left.
+ * A worker script that failed to load is APP_PART_UNAVAILABLE (pwa-install-update AC-14).
+ */
 function runInWorker<T>(
   createWorker: () => Worker,
   message: CodecRequest,
@@ -55,7 +59,8 @@ function runInWorker<T>(
       resolve({ result, posted })
     }
     worker.onmessage = (event) => finish(parse(event.data))
-    worker.onerror = () => finish(failed)
+    worker.onerror = (event) =>
+      finish(isScriptLoadFailure(event) ? err(appError('APP_PART_UNAVAILABLE')) : failed)
     worker.onmessageerror = () => finish(failed)
     try {
       worker.postMessage(message, transfer)

@@ -1,2 +1,2 @@
 export { default as App } from './App.vue'
-export { registerServiceWorker } from './pwa'
+export { connectPwa } from './pwa'

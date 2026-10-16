@@ -9,7 +9,9 @@ import {
   createWork,
   err,
   ok,
+  type AppError,
   type DrawingLayer,
+  type Result,
   type Work,
 } from '@/core'
 import { LATEST_VERSION, deleteWork, openGalleryDb, type ImglyDb } from '@/infra/db'
@@ -18,7 +20,7 @@ import type { PreviewRenderer, RendererStatus } from '@/render'
 import { newId } from '@/shared/ids'
 import { useNotices } from '@/shared/notices'
 import { createAutosave } from './autosave'
-import { failureSaveFailed, failureStorageFull, infoEvicted, infoNewerVersion } from './messages'
+import { failureSaveFailed, failureStorageFull, infoEvicted } from './messages'
 
 type W = Work<ImageBitmap, OffscreenCanvas>
 type Db = IDBPDatabase<ImglyDb>
@@ -88,7 +90,7 @@ function setup(
   let clock = 1_000_000
   const encoded: ImageBitmap[] = []
   const codec = {
-    encodePng: vi.fn(async (b: ImageBitmap) => {
+    encodePng: vi.fn(async (b: ImageBitmap): Promise<Result<Blob, AppError>> => {
       encoded.push(b)
       return ok(png(100 + encoded.length))
     }),
@@ -547,6 +549,34 @@ describe('Autosave failed save (gallery AC-11)', () => {
     expect(onStored).toHaveBeenCalledExactlyOnceWith(work.id)
   })
 
+  it('hasStoredState: true once a save of the Work committed, and after a later failure (pwa-install-update AC-12)', async () => {
+    let failing = true
+    const s = setup({
+      faults: () => ({ failPut: (store) => (failing && store === 'works' ? 'other' : null) }),
+    })
+    await s.connect()
+    const work = makeWork()
+    expect(s.autosave.hasStoredState(work.id)).toBe(false)
+
+    await save(s, work)
+    expect(s.autosave.hasStoredState(work.id)).toBe(false)
+
+    failing = false
+    await save(s, edited(work, 1))
+    expect(s.autosave.hasStoredState(work.id)).toBe(true)
+
+    failing = true
+    await save(s, edited(work, 2))
+    expect(s.autosave.hasStoredState(work.id)).toBe(true)
+    expect(s.autosave.hasStoredState('other-work')).toBe(false)
+  })
+
+  it('hasStoredState: true for a Work reopened from the Gallery (pwa-install-update AC-08)', () => {
+    const s = setup()
+    s.autosave.keepEncoded('reopened', { original: png(1), layer: null, layerId: null })
+    expect(s.autosave.hasStoredState('reopened')).toBe(true)
+  })
+
   it('does not throw and keeps working after a failure', async () => {
     const s = setup({ faults: { failPut: (store) => (store === 'works' ? 'other' : null) } })
     await s.connect()
@@ -639,7 +669,7 @@ describe('Autosave persistent storage (gallery AC-14)', () => {
 })
 
 describe('Autosave versionchange (gallery ADR-0006)', () => {
-  it('lets the running save finish, drops the pending one, closes, goes unavailable and raises one notice', async () => {
+  it('lets the running save finish, drops the pending one, closes, goes unavailable and raises storageSuperseded with no notice (pwa-install-update AC-14)', async () => {
     const s = setup()
     const db = await s.connect()
     const gate = deferred()
@@ -660,8 +690,8 @@ describe('Autosave versionchange (gallery ADR-0006)', () => {
     await s.autosave.settled()
 
     expect(s.autosave.galleryAvailable.value).toBe(false)
-    expect(texts(s)).toEqual([infoNewerVersion()])
-    expect(s.notices.items[0]?.kind).toBe('info')
+    expect(s.autosave.superseded.value).toBe(true)
+    expect(texts(s)).toEqual([])
     const stored = await other.getAll('works')
     expect(stored).toHaveLength(1)
     expect(stored[0]!.adjustments.brightness).toBe(0)
@@ -672,6 +702,97 @@ describe('Autosave versionchange (gallery ADR-0006)', () => {
     s.autosave.request(makeWork())
     await flush()
     expect(s.codec.encodePng).not.toHaveBeenCalled()
-    expect(texts(s)).toEqual([infoNewerVersion()])
+    expect(texts(s)).toEqual([])
+  })
+
+  it('still counts a revision stored before the stop as stored, and none after it (pwa-install-update AC-12, AC-14)', async () => {
+    const s = setup()
+    await s.connect()
+    const work = makeWork()
+    s.autosave.request(work)
+    await s.autosave.settled()
+    expect(s.autosave.isStored(work)).toBe(true)
+
+    const other = await openDB(s.name, LATEST_VERSION + 1)
+    await s.autosave.settled()
+    expect(s.autosave.superseded.value).toBe(true)
+
+    expect(s.autosave.isStored(work)).toBe(true)
+    expect(s.autosave.isStored(edited(work, 1))).toBe(false)
+    other.close()
+  })
+
+  it('is not superseded before anything happened', async () => {
+    const s = setup()
+    await s.connect()
+    expect(s.autosave.superseded.value).toBe(false)
+  })
+
+  it('stops the same way when the codec worker of this build is gone (pwa-install-update AC-14)', async () => {
+    const s = setup()
+    const db = await s.connect()
+    s.codec.encodePng.mockResolvedValue(err(appError('APP_PART_UNAVAILABLE')))
+    const work = makeWork()
+
+    await save(s, work)
+    await flush()
+
+    expect(s.autosave.superseded.value).toBe(true)
+    expect(s.autosave.galleryAvailable.value).toBe(false)
+    expect(texts(s)).toEqual([])
+    expect(() => db.transaction('works')).toThrow()
+
+    const reader = await openDB<ImglyDb>(s.name)
+    expect(await reader.getAll('works')).toEqual([])
+    reader.close()
+
+    s.codec.encodePng.mockClear()
+    s.autosave.request(edited(work, 1))
+    await flush()
+    expect(s.codec.encodePng).not.toHaveBeenCalled()
+  })
+
+  it('stops on the second codec job of a save without writing a partial record (pwa-install-update AC-14)', async () => {
+    const s = setup()
+    await s.connect()
+    s.codec.encodePng
+      .mockResolvedValueOnce(ok(png(100)))
+      .mockResolvedValueOnce(err(appError('APP_PART_UNAVAILABLE')))
+    const work = { ...makeWork(), drawing: layer('l1') }
+
+    await save(s, work)
+    await flush()
+
+    expect(s.codec.encodePng).toHaveBeenCalledTimes(2)
+    expect(s.autosave.superseded.value).toBe(true)
+    expect(texts(s)).toEqual([])
+    const reader = await openDB<ImglyDb>(s.name)
+    expect(await reader.getAll('works')).toEqual([])
+    reader.close()
+  })
+
+  it('raises the flag once when versionchange follows a missing codec worker', async () => {
+    const s = setup()
+    await s.connect()
+    s.codec.encodePng.mockResolvedValue(err(appError('APP_PART_UNAVAILABLE')))
+    await save(s, makeWork())
+    await flush()
+
+    const upgraded = await openDB(s.name, LATEST_VERSION + 1)
+    await flush()
+    expect(s.autosave.superseded.value).toBe(true)
+    expect(texts(s)).toEqual([])
+    upgraded.close()
+  })
+
+  it('keeps the could-not-save notice for any other codec failure', async () => {
+    const s = setup()
+    await s.connect()
+    s.codec.encodePng.mockResolvedValue(err(appError('STORAGE_FAILED')))
+    await save(s, makeWork())
+
+    expect(s.autosave.superseded.value).toBe(false)
+    expect(s.autosave.galleryAvailable.value).toBe(true)
+    expect(texts(s)).toEqual([failureSaveFailed()])
   })
 })

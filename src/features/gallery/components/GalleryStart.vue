@@ -17,6 +17,8 @@ const reopeningName = computed(
 onMounted(() => void gallery.refresh())
 
 async function openImage() {
+  // The window is leaving for the new version: a file picked now would only be dropped.
+  if (editor.reloadHeld) return
   const file = await pickImageFile()
   if (file) await editor.openFile(file)
 }

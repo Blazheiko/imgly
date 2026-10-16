@@ -41,6 +41,12 @@ describe('export messages (screens.md §Message catalog)', () => {
     ).toBe('"photo.png" doesn\'t end in .jpg, so nothing was written. Save again with a .jpg name.')
   })
 
+  it('words APP_PART_UNAVAILABLE like the editor (pwa-install-update AC-14)', () => {
+    expect(failureMessage(appError('APP_PART_UNAVAILABLE'))).toBe(
+      'imgly was updated in another window. Reload this window to continue.',
+    )
+  })
+
   it('adds the "may now be empty" suffix after the dialog touched the file (AC-13)', () => {
     expect(failureMessage(appError('EXPORT_NOT_PERMITTED'), { touchedFile: 'mine.jpg' })).toBe(
       'The app wasn\'t allowed to save there. Choose another folder. A file named "mine.jpg" there may now be empty or missing.',

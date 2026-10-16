@@ -8,7 +8,8 @@ async function lint(code: string, filePath = 'src/infra/platform/probe.ts') {
   return result!.messages.filter((m) => m.ruleId === 'no-restricted-imports').map((m) => m.message)
 }
 
-describe('infra import rules (ESLint)', () => {
+// The first lintText cold-starts ESLint, which outlasts the 5 s default under a full parallel run.
+describe('infra import rules (ESLint)', { timeout: 30_000 }, () => {
   it.each([
     "import { ref } from 'vue'\nexport const x = ref(1)\n",
     "import { defineStore } from 'pinia'\nexport const s = defineStore\n",

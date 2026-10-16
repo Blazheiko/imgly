@@ -182,8 +182,13 @@ export const useExportStore = defineStore('export', () => {
     { immediate: true },
   )
 
-  /** The editor is reading an image or waits on the replace dialog: no export can start then. */
-  const editorBusy = computed(() => editor.phase === 'reading' || editor.phase === 'confirming')
+  /**
+   * The editor is reading an image, waits on the replace dialog, or is held by the update's Reload
+   * (pwa-install-update AC-13): no export can start then.
+   */
+  const editorBusy = computed(
+    () => editor.phase === 'reading' || editor.phase === 'confirming' || editor.reloadHeld,
+  )
 
   // The editor knows the panel is open, so another feature's shortcut can stay silent under it
   // without importing export (crop-rotate AC-20).

@@ -44,7 +44,7 @@ function onRedo() {
 
 const onKeydown = createUndoRedoShortcuts({
   hasWork: () => editor.work !== null,
-  confirming: () => editor.phase === 'confirming' || editor.galleryOpen,
+  confirming: () => editor.phase === 'confirming' || editor.covered,
   exporting: () => exporting.value,
   toolOpen: () => toolOpen.value,
   canUndo: () => editor.canUndo,

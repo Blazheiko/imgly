@@ -89,9 +89,20 @@ export type ReopenOutcome =
   | { kind: 'confirming' }
   | { kind: 'cancelled' }
   | { kind: 'damaged'; error: AppError }
-  | { kind: 'refused'; reason: 'exporting' | 'confirming' | 'unavailable' }
+  | { kind: 'refused'; reason: 'exporting' | 'confirming' | 'unavailable' | 'leaving' }
   | { kind: 'superseded' }
   | { kind: 'already-open' }
+
+/**
+ * What the Reload gate allows after a running save settled (pwa-install-update ADR-0004).
+ * `reopenId` is the open Work's id when it has a Stored state to reopen, else null.
+ */
+export type ReloadOutcome =
+  | { kind: 'ignored' }
+  | { kind: 'tool-open' }
+  | { kind: 'exporting' }
+  | { kind: 'confirm'; reopenId: string | null }
+  | { kind: 'ready'; reopenId: string | null }
 
 /** Where `reopenWork` reads a stored Work from; injectable like the decoder. */
 export interface ReopenSource {
@@ -182,7 +193,14 @@ export const useEditorStore = defineStore('editor', () => {
   function setGalleryModal(open: boolean) {
     galleryModal.value = open
   }
-  const slot = createToolSlot({ work, phase, activePanel, view, fitIfSized })
+  /** The update's Reload confirmation is up, or the window is leaving for the new version. */
+  const reloadHeld = ref(false)
+  function setReloadHeld(held: boolean) {
+    reloadHeld.value = held
+  }
+  /** Something covers the editor (the Gallery, or the update's Reload): keys and drops are its. */
+  const covered = computed(() => galleryOpen.value || reloadHeld.value)
+  const slot = createToolSlot({ work, phase, activePanel, view, reloadHeld, fitIfSized })
   const { activeTool, previewGeometry, previewAdjustments, previewLayer } = slot
   const edits = createEditHistory({ work, phase, activeTool, fitIfSized })
   /** Space is held for space-pan: a tool's overlay lets the drag through to the canvas. */
@@ -228,6 +246,8 @@ export const useEditorStore = defineStore('editor', () => {
   )
   const saving = computed(() => autosave.value.saving.value)
   const galleryAvailable = computed(() => autosave.value.galleryAvailable.value)
+  /** A newer version took the Gallery and this window stopped saving (pwa-install-update AC-14). */
+  const storageSuperseded = computed(() => autosave.value.superseded.value)
   const openWorkId = computed(() => work.value?.id ?? null)
   // Notices that belong to the image awaiting confirmation; raised only if it replaces (AC-15).
   let heldNotices: NoticeInput[] = []
@@ -271,13 +291,17 @@ export const useEditorStore = defineStore('editor', () => {
     return next
   }
 
+  // Nothing may change the Work while the window leaves for a new version (pwa-install-update
+  // AC-12): an Undo or Redo there would start a save the Reload gate never saw.
   function undo() {
+    if (reloadHeld.value) return false
     const moved = edits.undo()
     if (moved) requestSave()
     return moved
   }
 
   function redo() {
+    if (reloadHeld.value) return false
     const moved = edits.redo()
     if (moved) requestSave()
     return moved
@@ -398,7 +422,8 @@ export const useEditorStore = defineStore('editor', () => {
   }
 
   async function openImage(file: Blob): Promise<OpenOutcome> {
-    if (phase.value === 'confirming' || phase.value === 'exporting') return { kind: 'ignored' }
+    if (phase.value === 'confirming' || phase.value === 'exporting' || reloadHeld.value)
+      return { kind: 'ignored' }
     const id = ++latestOpenId
     phase.value = 'reading'
 
@@ -431,14 +456,31 @@ export const useEditorStore = defineStore('editor', () => {
     return replace(outcome.value, fileName)
   }
 
-  /** Whether the open Work has Unsaved edits that the Gallery does not hold (gallery AC-17). */
+  /**
+   * Whether the open Work has Unsaved edits that the Gallery does not hold (gallery AC-17).
+   * `isStored` is false whenever the Gallery is unavailable, except for a revision stored before
+   * a newer version took it (pwa-install-update AC-14).
+   */
   function needsConfirmation(): boolean {
     const open = work.value
-    return (
-      !!open &&
-      workHasUnsavedEdits(open) &&
-      (!autosave.value.galleryAvailable.value || !autosave.value.isStored(open))
-    )
+    return !!open && workHasUnsavedEdits(open) && !autosave.value.isStored(open)
+  }
+
+  /**
+   * The Reload gate: may this window leave its Work for a new version now? Waits for a running
+   * save, then checks everything again (AC-11): an open tool (AC-10), a running Export (AC-13),
+   * edits the Gallery does not hold (AC-12, the Replace gate's rule). Changes no state.
+   */
+  async function requestReload(): Promise<ReloadOutcome> {
+    const busy = () => phase.value === 'reading' || phase.value === 'confirming'
+    if (busy()) return { kind: 'ignored' }
+    await autosave.value.settled()
+    if (busy()) return { kind: 'ignored' }
+    if (activeTool.value) return { kind: 'tool-open' }
+    if (phase.value === 'exporting') return { kind: 'exporting' }
+    const open = work.value
+    const reopenId = open && autosave.value.hasStoredState(open.id) ? open.id : null
+    return needsConfirmation() ? { kind: 'confirm', reopenId } : { kind: 'ready', reopenId }
   }
 
   function confirmReplace(): OpenOutcome {
@@ -612,6 +654,7 @@ export const useEditorStore = defineStore('editor', () => {
   async function reopenWork(id: string): Promise<ReopenOutcome> {
     if (phase.value === 'exporting') return { kind: 'refused', reason: 'exporting' }
     if (phase.value === 'confirming') return { kind: 'refused', reason: 'confirming' }
+    if (reloadHeld.value) return { kind: 'refused', reason: 'leaving' }
     const source = reopenSource
     if (!source) return { kind: 'refused', reason: 'unavailable' }
     if (work.value?.id === id) return { kind: 'already-open' }
@@ -619,8 +662,9 @@ export const useEditorStore = defineStore('editor', () => {
     phase.value = 'reading'
     const damaged = (error: AppError): ReopenOutcome => {
       phase.value = 'idle'
-      // Storage that could not be read says nothing about the Work itself.
-      if (error.code !== 'STORAGE_FAILED') markDamaged(id)
+      // Storage that could not be read, or a worker this build can no longer load, says nothing
+      // about the Work itself (pwa-install-update AC-14).
+      if (error.code !== 'STORAGE_FAILED' && error.code !== 'APP_PART_UNAVAILABLE') markDamaged(id)
       return { kind: 'damaged', error }
     }
 
@@ -734,6 +778,9 @@ export const useEditorStore = defineStore('editor', () => {
     activePanel,
     galleryOpen,
     setGalleryModal,
+    reloadHeld,
+    setReloadHeld,
+    covered,
     spacePan,
     strokeActive,
     hasUnsavedEdits,
@@ -762,6 +809,7 @@ export const useEditorStore = defineStore('editor', () => {
     reopenWork,
     saving,
     galleryAvailable,
+    storageSuperseded,
     openWorkId,
     setRendererFactory,
     createRenderer,
@@ -773,6 +821,7 @@ export const useEditorStore = defineStore('editor', () => {
     openDrop,
     confirmReplace,
     cancelReplace,
+    requestReload,
     applyEdit,
     undo,
     redo,

@@ -134,6 +134,16 @@ describe('decodeImage client', () => {
     await expect(pending).resolves.toEqual({ ok: false, error: { code: 'DECODE_FAILED' } })
     expect(workers[0]!.terminated).toBe(true)
   })
+
+  it('maps a worker script that fails to load to APP_PART_UNAVAILABLE (pwa-install-update AC-14)', async () => {
+    const { decode, workers } = setup()
+    const pending = decode(new Blob())
+    // A script that fails to load fires a plain Event; a runtime error fires an ErrorEvent.
+    workers[0]!.onerror?.(new Event('error'))
+
+    await expect(pending).resolves.toEqual({ ok: false, error: { code: 'APP_PART_UNAVAILABLE' } })
+    expect(workers[0]!.terminated).toBe(true)
+  })
 })
 
 describe('mapReadError (AC-10)', () => {

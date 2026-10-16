@@ -1,5 +1,5 @@
 import { appError, err, isAppErrorCode, type AppError, type Result } from '@/core'
-import { bitmapLedger } from '@/shared'
+import { bitmapLedger, isScriptLoadFailure } from '@/shared'
 import {
   SUPERSEDED,
   type Capabilities,
@@ -58,7 +58,8 @@ function parseCapabilities(data: unknown): Capabilities | undefined {
 /**
  * One worker per open. A new call terminates the previous worker at once and resolves its
  * promise as `Superseded` (AC-16b); a worker is also terminated when its result arrives. Every
- * call settles: a worker that can't start or can't take the request is DECODE_FAILED.
+ * call settles: a worker that can't start or can't take the request is DECODE_FAILED, and one whose
+ * script failed to load is APP_PART_UNAVAILABLE (see `isScriptLoadFailure`).
  */
 export function createDecoder(createWorker: () => Worker) {
   let current: { worker: Worker; settle: (outcome: DecodeOutcome) => void } | undefined
@@ -96,7 +97,8 @@ export function createDecoder(createWorker: () => Worker) {
         if (response.ok) bitmapLedger.noteReceived()
         finish(response)
       }
-      worker.onerror = () => finish(err(appError('DECODE_FAILED')))
+      worker.onerror = (event) =>
+        finish(err(appError(isScriptLoadFailure(event) ? 'APP_PART_UNAVAILABLE' : 'DECODE_FAILED')))
       worker.onmessageerror = () => finish(err(appError('DECODE_FAILED')))
       const request: DecodeRequest = capabilities ? { file, capabilities } : { file }
       try {

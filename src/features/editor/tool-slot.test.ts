@@ -31,18 +31,23 @@ function setup({ withWork = true } = {}) {
   const activePanel = ref<PanelId | null>(null)
   const view = ref<View>({ zoom: 2, panX: 10, panY: 20, autoFit: false })
   const fitIfSized = vi.fn()
-  const slot = createToolSlot({ work, phase, activePanel, view, fitIfSized })
-  return { work, phase, activePanel, view, fitIfSized, slot }
+  const reloadHeld = ref(false)
+  const slot = createToolSlot({ work, phase, activePanel, view, reloadHeld, fitIfSized })
+  return { work, phase, activePanel, view, reloadHeld, fitIfSized, slot }
 }
 
 describe('tool slot — refusals (AC-16)', () => {
-  it('refuses in order: no-work, exporting, tool-open, panel-open, confirming', () => {
+  it('refuses in order: no-work, leaving, exporting, tool-open, panel-open, confirming', () => {
     const noWork = setup({ withWork: false })
     noWork.phase.value = 'exporting'
+    noWork.reloadHeld.value = true
     expect(noWork.slot.openTool('adjust')).toEqual({ ok: false, reason: 'no-work' })
 
-    const { slot, phase, activePanel } = setup()
+    const { slot, phase, activePanel, reloadHeld } = setup()
     phase.value = 'exporting'
+    reloadHeld.value = true
+    expect(slot.openTool('adjust')).toEqual({ ok: false, reason: 'leaving' })
+    reloadHeld.value = false
     activePanel.value = 'export'
     expect(slot.openTool('adjust')).toEqual({ ok: false, reason: 'exporting' })
 

@@ -110,7 +110,10 @@ declare global {
         originalPng: number[]
         layerPng?: number[]
       }): Promise<string>
-      galleryDamage(id: string, part: 'original' | 'layer' | 'thumbnail' | 'thumbnail-bytes' | 'record'): Promise<void>
+      galleryDamage(
+        id: string,
+        part: 'original' | 'layer' | 'thumbnail' | 'thumbnail-bytes' | 'record',
+      ): Promise<void>
       /** Writes over the budget (total stored bytes) fail as a quota error; `null` lifts it. */
       gallerySetByteBudget(bytes: number | null): void
       /** The next `storeWork` transaction stays open at that point; `null` clears it. */
@@ -121,8 +124,27 @@ declare global {
       galleryOpenNextVersion(): Promise<void>
       /** `navigator.storage.persist()` calls since load. */
       galleryPersistCalls(): number
+      /** An Autosave save is running (a negative check on the Gallery waits for it to end). */
+      gallerySaving(): boolean
       /** Makes the next `openGalleryDb` refuse. */
       galleryFailOpen(): void
+      /** Which e2e build runs: `A`, or `B` for the second build the update e2e publishes. */
+      buildMark(): string
+      /** The update notice's state: `none`, `available`, `updated-elsewhere` or `reload-to-save`. */
+      pwaUpdateNotice(): string
+      /** "Install app" is shown: an offer is held and this is not the Installed app. */
+      pwaCanInstall(): boolean
+      /** A synthetic install offer whose `prompt()` answers `choice` (`accepted` installs unless `installs: false`). */
+      pwaOfferInstall(
+        choice: 'accepted' | 'dismissed' | 'fail',
+        options?: { installs?: boolean },
+      ): void
+      /** `prompt()` calls on synthetic offers since load. */
+      pwaInstallPrompts(): number
+      /** Start-up has finished, including the reopen after an update reload (AC-08). */
+      pwaStartupSettled(): boolean
+      /** The browser's install confirmation (a synthetic one here) has not answered yet. */
+      pwaInstalling(): boolean
     }
   }
 }

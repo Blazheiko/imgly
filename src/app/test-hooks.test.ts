@@ -11,6 +11,7 @@ import {
   type Geometry,
 } from '@/core'
 import { useEditorStore } from '@/features/editor'
+import { createFakeAutosave } from '@/features/editor/testing'
 import {
   DB_NAME,
   LATEST_VERSION,
@@ -23,6 +24,9 @@ import {
 } from '@/infra/db'
 import { storedWorkFixture } from '@/infra/db/testing'
 import { requestPersistence } from '@/infra/platform'
+import { usePwaInstallUpdate } from '@/features/pwa-install-update'
+import { createInstallPrompt } from '@/infra/platform'
+import { useNotices } from '@/shared'
 import { installTestHooks } from './test-hooks'
 
 describe('window.__imglyTest.historyStats (undo-redo AC-11, sad §8)', () => {
@@ -353,5 +357,108 @@ describe('window.__imglyTest Gallery hooks (gallery T18)', () => {
 
     expect(hooks().galleryPersistCalls()).toBe(2)
     expect(persist).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('window.__imglyTest.gallerySaving (pwa-install-update AC-14, e2e signal)', () => {
+  afterEach(() => {
+    delete window.__imglyTest
+  })
+
+  it('reads whether an Autosave save is running', () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const autosave = createFakeAutosave()
+    useEditorStore(pinia).setAutosave(autosave.fake)
+    installTestHooks(pinia)
+
+    expect(window.__imglyTest!.gallerySaving()).toBe(false)
+    autosave.hold()
+    expect(window.__imglyTest!.gallerySaving()).toBe(true)
+    autosave.release()
+    expect(window.__imglyTest!.gallerySaving()).toBe(false)
+  })
+})
+
+describe('window.__imglyTest PWA hooks (pwa-install-update T12)', () => {
+  afterEach(() => {
+    delete window.__imglyTest
+  })
+
+  function setup() {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    installTestHooks(pinia)
+    const pwa = usePwaInstallUpdate(pinia)
+    pwa.connectInstall(createInstallPrompt({ matchMedia: () => ({ matches: false }) }))
+    return { pwa, hooks: window.__imglyTest! }
+  }
+
+  it('reads the update notice state', () => {
+    const { hooks } = setup()
+    expect(hooks.pwaUpdateNotice()).toBe('none')
+  })
+
+  it('makes a synthetic install offer the real client keeps (AC-01, AC-02)', () => {
+    const { pwa, hooks } = setup()
+    expect(hooks.pwaCanInstall()).toBe(false)
+    hooks.pwaOfferInstall('accepted')
+    expect(pwa.canInstall).toBe(true)
+    expect(hooks.pwaCanInstall()).toBe(true)
+    expect(hooks.pwaInstallPrompts()).toBe(0)
+  })
+
+  it('answers the prompt as asked: accepted then installed hides the action (AC-01)', async () => {
+    const { pwa, hooks } = setup()
+    hooks.pwaOfferInstall('accepted')
+    await pwa.install()
+    expect(hooks.pwaInstallPrompts()).toBe(1)
+    expect(pwa.canInstall).toBe(false)
+  })
+
+  it('answers dismissed, or a prompt that fails (AC-03)', async () => {
+    const { pwa, hooks } = setup()
+    hooks.pwaOfferInstall('dismissed')
+    await pwa.install()
+    expect(pwa.canInstall).toBe(false)
+
+    hooks.pwaOfferInstall('fail')
+    await pwa.install()
+    expect(hooks.pwaInstallPrompts()).toBe(2)
+  })
+})
+
+describe('the quiet offline-ready notice (pwa-install-update AC-05, e2e harness)', () => {
+  afterEach(() => {
+    delete window.__imglyTest
+    delete (window as { __e2eQuietOfflineReady?: boolean }).__e2eQuietOfflineReady
+  })
+
+  it.each([
+    [true, []],
+    [false, ['imgly is ready to work offline.']],
+  ])('with the quiet flag %s, the notice shown is %j', (quiet, shown) => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    if (quiet) (window as { __e2eQuietOfflineReady?: boolean }).__e2eQuietOfflineReady = true
+    installTestHooks(pinia)
+    const notices = useNotices(pinia)
+
+    notices.pushAll([{ kind: 'info', text: 'imgly is ready to work offline.' }])
+    notices.pushAll([{ kind: 'info', text: 'Something else.' }])
+
+    expect(notices.items.map((n) => n.text)).toEqual([...shown, 'Something else.'])
+  })
+
+  it('also dismisses a notice already shown before the hooks load (connectPwa runs first)', () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const notices = useNotices(pinia)
+    notices.pushAll([{ kind: 'info', text: 'imgly is ready to work offline.' }])
+    ;(window as { __e2eQuietOfflineReady?: boolean }).__e2eQuietOfflineReady = true
+
+    installTestHooks(pinia)
+
+    expect(notices.items.map((n) => n.text)).toEqual([])
   })
 })

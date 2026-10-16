@@ -55,9 +55,9 @@ const saveShortcut = createSaveShortcut({
   notifyToolOpen,
 })
 
-/** Under the Gallery Ctrl/Cmd+S is swallowed (no browser save) but starts nothing. */
+/** Under the Gallery or the update's Reload, Ctrl/Cmd+S is swallowed and starts nothing. */
 function onKeydown(event: KeyboardEvent) {
-  if (editor.galleryOpen && isSaveShortcut(event)) event.preventDefault()
+  if (editor.covered && isSaveShortcut(event)) event.preventDefault()
   else saveShortcut(event)
 }
 

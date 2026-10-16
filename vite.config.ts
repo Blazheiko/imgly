@@ -9,10 +9,17 @@ const BASE = '/imgly/'
 
 export default defineConfig({
   base: BASE,
+  build: {
+    // The update e2e (pwa-install-update) serves a second build whose hashed files all have new
+    // URLs, as a deploy to Pages makes them; the shipped build always uses `assets`.
+    assetsDir: process.env.VITE_E2E_BUILD === 'B' ? 'assets-b' : 'assets',
+  },
   plugins: [
     vue(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // A new version waits as a waiting worker until the Editor chooses "Reload" (pwa-install-update
+      // ADR-0001), so there is no skipWaiting: the browser activates it once every window closed.
+      registerType: 'prompt',
       injectRegister: false,
       includeAssets: ['icons/apple-touch-icon-180.png'],
       manifest: {
@@ -39,7 +46,6 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,png,svg,webmanifest}'],
         navigateFallback: `${BASE}index.html`,
         clientsClaim: true,
-        skipWaiting: true,
       },
     }),
   ],

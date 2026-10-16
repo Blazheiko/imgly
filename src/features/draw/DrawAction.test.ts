@@ -78,6 +78,16 @@ describe('DrawAction (SCR-01, SCR-02, SCR-03)', () => {
     expect(texts()).toEqual([])
   })
 
+  it("D or a click opens nothing while the update's Reload holds the editor (pwa-install-update AC-10)", async () => {
+    openWork()
+    await nextTick()
+    editor.setReloadHeld(true)
+    pressD()
+    await button().trigger('click')
+    expect(editor.activeTool).toBeNull()
+    expect(texts()).toEqual([])
+  })
+
   it('is disabled during an export, and D is refused, not queued (AC-14)', async () => {
     openWork()
     const snapshot = editor.beginExport()!

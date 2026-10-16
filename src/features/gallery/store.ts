@@ -13,6 +13,7 @@ import {
   failureCouldNotDelete,
   failureCouldNotList,
   failureCouldNotOpen,
+  failurePartUnavailable,
   failureWorkDamaged,
   hintChooseWhileConfirming,
   hintChooseWhileExporting,
@@ -136,6 +137,8 @@ export const useGallery = defineStore('gallery', () => {
   }
 
   async function open() {
+    // The window is leaving for a new version: nothing is to be chosen (pwa-install-update AC-10).
+    if (editor.reloadHeld) return
     await refresh()
     overlayOpen.value = true
     editor.setActivePanel('gallery')
@@ -158,7 +161,8 @@ export const useGallery = defineStore('gallery', () => {
     },
   )
 
-  async function choose(id: string) {
+  /** Reopens a Work; `couldNotOpen` words a read that failed, for a caller with its own copy. */
+  async function choose(id: string, wording: { couldNotOpen?: string } = {}) {
     const entry = entries.value.find((e) => e.id === id)
     if (entry?.status === 'open') {
       close()
@@ -181,11 +185,18 @@ export const useGallery = defineStore('gallery', () => {
           notices.pushAll([{ kind: 'info', text: hintChooseWhileExporting() }])
         else if (outcome.reason === 'confirming')
           notices.pushAll([{ kind: 'info', text: hintChooseWhileConfirming() }])
+        // 'leaving': the window is reloading into the new version, and its busy Reload already
+        // says so, so a choice made now ends without a second notice.
         break
       case 'damaged': {
         // A read that failed says nothing about the Work: no Damaged mark, no Delete (R3-2).
+        if (outcome.error.code === 'APP_PART_UNAVAILABLE') {
+          notices.pushAll([{ kind: 'failure', text: failurePartUnavailable() }])
+          break
+        }
         if (outcome.error.code !== 'WORK_DAMAGED') {
-          notices.pushAll([{ kind: 'failure', text: failureCouldNotOpen(entry?.name ?? '') }])
+          const text = wording.couldNotOpen ?? failureCouldNotOpen(entry?.name ?? '')
+          notices.pushAll([{ kind: 'failure', text }])
           break
         }
         if (entry) entry.status = 'damaged'

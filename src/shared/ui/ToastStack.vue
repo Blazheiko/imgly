@@ -10,6 +10,7 @@ const notices = useNotices()
     <Toast
       v-for="notice in notices.items"
       :key="notice.id"
+      :data-slot="notice.slot"
       :kind="notice.kind"
       :text="notice.text"
       :action="notice.action"

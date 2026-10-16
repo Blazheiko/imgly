@@ -24,7 +24,12 @@ class FakeWorker {
   reply(data: unknown) {
     this.onmessage?.({ data } as MessageEvent)
   }
+  /** A runtime error inside a loaded worker reaches the page as an ErrorEvent. */
   crash() {
+    this.onerror?.(new ErrorEvent('error', { message: 'boom' }))
+  }
+  /** A worker script that fails to load fires a plain Event. */
+  failToLoad() {
     this.onerror?.(new Event('error'))
   }
 }
@@ -90,6 +95,29 @@ describe('exportImage (export client)', () => {
     workers[0]!.reply(data)
     await expect(pending).resolves.toEqual({ ok: false, error: { code: 'EXPORT_FAILED' } })
     expect(workers[0]!.terminated).toBe(1)
+  })
+
+  it('maps a worker script that fails to load to APP_PART_UNAVAILABLE (pwa-install-update AC-14)', async () => {
+    const { client, workers } = setup()
+    const exported = client.exportImage(request())
+    workers[0]!.failToLoad()
+    await expect(exported).resolves.toEqual({ ok: false, error: { code: 'APP_PART_UNAVAILABLE' } })
+    expect(workers[0]!.terminated).toBe(1)
+
+    const alpha = client.checkCropTransparency({
+      bitmap: { width: 4, height: 3, close: vi.fn() } as unknown as ImageBitmap,
+      layer: null,
+      geometry: identityGeometry({ width: 4, height: 3 }),
+    })
+    workers[1]!.failToLoad()
+    await expect(alpha).resolves.toEqual({ ok: false, error: { code: 'APP_PART_UNAVAILABLE' } })
+  })
+
+  it('makes both formats unavailable when the check worker fails to load', async () => {
+    const { client, workers } = setup()
+    const pending = client.checkExportFormats()
+    workers[0]!.failToLoad()
+    await expect(pending).resolves.toEqual({ png: true, jpeg: false, webp: false })
   })
 
   it('maps a worker crash to EXPORT_FAILED and terminates it', async () => {

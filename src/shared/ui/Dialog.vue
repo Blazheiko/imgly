@@ -7,6 +7,8 @@ const props = defineProps<{
   initialFocus?: string
   /** A selector to focus on close when the element that opened the dialog has left the page. */
   returnFocus?: string
+  /** Focus `returnFocus` on close even while the opener is still on the page. */
+  preferReturnFocus?: boolean
 }>()
 const emit = defineEmits<{ cancel: [] }>()
 
@@ -50,6 +52,12 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  const preferred = props.preferReturnFocus && props.returnFocus
+  const target = preferred ? document.querySelector<HTMLElement>(preferred) : null
+  if (target) {
+    target.focus()
+    return
+  }
   if (opener instanceof HTMLElement && opener.isConnected && opener !== document.body) {
     opener.focus()
     return

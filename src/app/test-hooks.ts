@@ -1,6 +1,8 @@
 import type { Pinia } from 'pinia'
+import { watch } from 'vue'
 import { useEditorStore, type HistoryStats } from '@/features/editor'
 import { useExportStore } from '@/features/export'
+import { infoOfflineReady, usePwaInstallUpdate } from '@/features/pwa-install-update'
 import {
   catmullRomSegment,
   cropToOriginalUv,
@@ -27,7 +29,7 @@ import {
   type BrushStyle,
   type Layer,
 } from '@/render'
-import { bitmapLedger } from '@/shared'
+import { bitmapLedger, useNotices } from '@/shared'
 import {
   damageStoredPart,
   openNextVersion,
@@ -132,7 +134,10 @@ export interface ImglyTestHooks {
   galleryRecords(): ReturnType<typeof readStoredKeys>
   /** Writes one Work in the `formatVersion: 1` layout, bypassing Autosave; returns its id. */
   galleryWriteStored(input: StoredWorkInput): Promise<string>
-  galleryDamage(id: string, part: 'original' | 'layer' | 'thumbnail' | 'thumbnail-bytes' | 'record'): Promise<void>
+  galleryDamage(
+    id: string,
+    part: 'original' | 'layer' | 'thumbnail' | 'thumbnail-bytes' | 'record',
+  ): Promise<void>
   /** Writes over the budget (total stored bytes) fail as a quota error; `null` lifts it. */
   gallerySetByteBudget(bytes: number | null): void
   /** The next `storeWork` transaction stays open at that point; `null` clears it. */
@@ -143,8 +148,28 @@ export interface ImglyTestHooks {
   galleryOpenNextVersion(): Promise<void>
   /** `navigator.storage.persist()` calls since load. */
   galleryPersistCalls(): number
+  /** An Autosave save is running (a negative check on the Gallery waits for it to end). */
+  gallerySaving(): boolean
   /** Makes the next `openGalleryDb` refuse, on this page or, if none ran, the next load. */
   galleryFailOpen(): void
+  /** Which e2e build runs: `A`, or `B` for the second build the update e2e publishes. */
+  buildMark(): string
+  /** The update notice's state: `none`, `available`, `updated-elsewhere` or `reload-to-save`. */
+  pwaUpdateNotice(): string
+  /** "Install app" is shown: an offer is held and this is not the Installed app. */
+  pwaCanInstall(): boolean
+  /**
+   * Makes a synthetic `beforeinstallprompt` (Playwright can't drive the real one). Its `prompt()`
+   * answers `choice`: `accepted` (then `appinstalled` unless `installs` is false), `dismissed`, or
+   * `fail` (the prompt rejects).
+   */
+  pwaOfferInstall(choice: 'accepted' | 'dismissed' | 'fail', options?: { installs?: boolean }): void
+  /** `prompt()` calls on synthetic offers since load. */
+  pwaInstallPrompts(): number
+  /** Start-up has finished, including the reopen after an update reload (AC-08). */
+  pwaStartupSettled(): boolean
+  /** The browser's install confirmation (a synthetic one here) has not answered yet. */
+  pwaInstalling(): boolean
 }
 
 const FAIL_OPEN_FLAG = 'imgly-test:fail-open'
@@ -306,6 +331,21 @@ export function installTestHooks(pinia: Pinia): void {
     }
   }
 
+  const pwa = usePwaInstallUpdate(pinia)
+  let installPrompts = 0
+
+  // The e2e harness sets this for every spec not about the one-time offline-ready notice, so it
+  // does not sit over what they check while the service worker runs as in production (AC-05).
+  if ((window as { __e2eQuietOfflineReady?: boolean }).__e2eQuietOfflineReady) {
+    const notices = useNotices(pinia)
+    watch(
+      () => notices.items.find((n) => n.text === infoOfflineReady()),
+      (shown) => shown && notices.dismiss(shown.id),
+      // Immediate: connectPwa runs before this chunk loads, so the notice may already be showing.
+      { flush: 'sync', immediate: true },
+    )
+  }
+
   window.__imglyTest = {
     work: () => {
       const work = editor.work
@@ -450,9 +490,32 @@ export function installTestHooks(pinia: Pinia): void {
     },
     galleryOpenNextVersion: () => openNextVersion(),
     galleryPersistCalls: () => persistCalls,
+    gallerySaving: () => editor.saving,
     galleryFailOpen: () => {
       sessionStorage.setItem(FAIL_OPEN_FLAG, '1')
       armOpenRefusal()
     },
+    buildMark: () => import.meta.env.VITE_E2E_BUILD ?? 'A',
+    pwaUpdateNotice: () => pwa.updateNotice,
+    pwaCanInstall: () => pwa.canInstall,
+    pwaOfferInstall: (choice, { installs = true } = {}) => {
+      const outcome = choice === 'fail' ? 'dismissed' : choice
+      let answer!: (value: { outcome: string; platform: string }) => void
+      const offer = Object.assign(new Event('beforeinstallprompt', { cancelable: true }), {
+        userChoice: new Promise((resolve) => (answer = resolve)),
+        prompt: async () => {
+          installPrompts++
+          if (choice === 'fail') throw new DOMException('synthetic', 'NotAllowedError')
+          answer({ outcome, platform: 'web' })
+          if (choice === 'accepted' && installs) {
+            setTimeout(() => window.dispatchEvent(new Event('appinstalled')), 0)
+          }
+        },
+      })
+      window.dispatchEvent(offer)
+    },
+    pwaInstallPrompts: () => installPrompts,
+    pwaStartupSettled: () => pwa.startupSettled,
+    pwaInstalling: () => pwa.installing,
   }
 }

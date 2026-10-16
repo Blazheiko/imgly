@@ -278,6 +278,13 @@ describe('gallery store', () => {
     })
   })
 
+  it("does not open while the update's Reload holds the editor (pwa-install-update AC-10)", async () => {
+    editor.setReloadHeld(true)
+    await gallery.open()
+    expect(gallery.overlayOpen).toBe(false)
+    expect(editor.activePanel).toBeNull()
+  })
+
   describe('unavailable (AC-12)', () => {
     it('reports refused with no list, count or line', async () => {
       autosave.available(false)
@@ -363,6 +370,21 @@ describe('gallery store', () => {
       expect(gallery.reopening).toBeNull()
     })
 
+    it('refused while leaving for the new version says nothing: the Reloading notice already explains (pwa-install-update SCR-05, AC-10)', async () => {
+      const b = await seed(db, 'B.png', NOW)
+      await gallery.open()
+      const reopen = vi.spyOn(editor, 'reopenWork')
+      editor.setReloadHeld(true)
+
+      await gallery.choose(b)
+
+      expect(await reopen.mock.results[0]!.value).toEqual({ kind: 'refused', reason: 'leaving' })
+      expect(notices.items).toEqual([])
+      expect(gallery.overlayOpen).toBe(true)
+      expect(gallery.reopening).toBeNull()
+      expect(editor.work).toBeNull()
+    })
+
     it('keeps the Damaged mark across refresh even though the list reports it as normal (S1-4)', async () => {
       const b = await seed(db, 'Beach.jpg', NOW - MINUTE)
       const c = await seed(db, 'C.png', NOW - 2 * MINUTE)
@@ -380,6 +402,39 @@ describe('gallery store', () => {
 
       expect(gallery.entries.find((e) => e.id === b)!.status).toBe('damaged')
       expect(gallery.entries.find((e) => e.id === c)!.status).toBe('touched')
+    })
+
+    it('a codec worker this window can no longer load asks to reload and marks nothing Damaged (pwa-install-update AC-14)', async () => {
+      const b = await seed(db, 'Beach.jpg', NOW - MINUTE)
+      await gallery.open()
+      editor.setReopenSource({
+        loadWork: (id) => loadWork(db, id),
+        decodePng: async () => err(appError('APP_PART_UNAVAILABLE')),
+      })
+
+      await gallery.choose(b)
+
+      expect(notices.items.map((n) => [n.kind, n.text])).toEqual([
+        ['failure', 'imgly was updated in another window. Reload this window to continue.'],
+      ])
+      expect(gallery.entries.find((e) => e.id === b)!.status).not.toBe('damaged')
+      expect(editor.damagedIds.has(b)).toBe(false)
+      await gallery.refresh()
+      expect(gallery.entries.find((e) => e.id === b)!.status).not.toBe('damaged')
+    })
+
+    it('words a failed read as the caller asks, still with no Damaged mark (pwa-install-update AC-08)', async () => {
+      const b = await seed(db, 'Beach.jpg', NOW - MINUTE)
+      await gallery.open()
+      editor.setReopenSource({
+        loadWork: async () => err(appError('STORAGE_FAILED')),
+        decodePng: async () => err(appError('STORAGE_FAILED')),
+      })
+
+      await gallery.choose(b, { couldNotOpen: 'Custom wording.' })
+
+      expect(notices.items.map((n) => [n.kind, n.text])).toEqual([['failure', 'Custom wording.']])
+      expect(editor.damagedIds.has(b)).toBe(false)
     })
 
     it('markDamaged(id) turns a listed entry Damaged now, records it in the editor set, and survives refresh', async () => {
