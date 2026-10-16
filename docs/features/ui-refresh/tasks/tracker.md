@@ -7,7 +7,7 @@
 |---|---|---|---|---|---|---|
 | T1 | [Tokens v2](./t01-shared-tokens-v2.md) | ui | Blazheiko | S | — | done |
 | T2 | [Icon registry + Icon](./t02-shared-icon-registry.md) | ui | Blazheiko | S | — | done |
-| T3 | [Widen BaseButton](./t03-shared-basebutton-icon-size-danger.md) | ui | Blazheiko | M | T1, T2 | todo |
+| T3 | [Widen BaseButton](./t03-shared-basebutton-icon-size-danger.md) | ui | Blazheiko | M | T1, T2 | done |
 | T4 | [Notices icons](./t04-shared-toast-icons.md) | ui | Blazheiko | S | T3 | todo |
 | T5 | [AppLogo + brand icons](./t05-shared-applogo-brand-icons.md) | ui | Blazheiko | S | T1, T2 | todo |
 | T6 | [Window colour](./t06-wiring-window-colour.md) | wiring | Blazheiko | S | T1, T5 | todo |
