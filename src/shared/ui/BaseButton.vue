@@ -78,10 +78,6 @@ if (import.meta.env.DEV && iconOnly.value && !attrs['aria-label']) {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition:
-    background var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
 }
 
 .base-button--sm {
@@ -120,6 +116,15 @@ if (import.meta.env.DEV && iconOnly.value && !attrs['aria-label']) {
 .base-button__icon--md :deep(.spinner__ring) {
   width: var(--icon-size-md);
   height: var(--icon-size-md);
+}
+
+.base-button:hover,
+.base-button:active {
+  /* Only pointing animates: a change of availability (enabled ↔ unavailable) repaints at once. */
+  transition:
+    background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
 
 /* The ring sits on the surrounding surface, never on the button's own colour (AC-13). */

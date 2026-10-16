@@ -100,3 +100,11 @@ describe('BaseButton (ui-refresh ADR-0003)', () => {
     expect(style).toMatch(/\.base-button--primary\s*\{[^}]*var\(--color-accent-gradient\)/)
   })
 })
+
+describe('BaseButton motion scope', () => {
+  it('animates only while pointed at or pressed, so availability changes repaint at once', () => {
+    const base = /\.base-button\s*\{([^}]*)\}/.exec(style)?.[1] ?? ''
+    expect(base).not.toContain('transition')
+    expect(style).toMatch(/\.base-button:hover,\s*\.base-button:active\s*\{[^}]*transition:/)
+  })
+})
