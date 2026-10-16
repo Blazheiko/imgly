@@ -428,4 +428,16 @@ describe('the quiet offline-ready notice (pwa-install-update AC-05, e2e harness)
 
     expect(notices.items.map((n) => n.text)).toEqual([...shown, 'Something else.'])
   })
+
+  it('also dismisses a notice already shown before the hooks load (connectPwa runs first)', () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const notices = useNotices(pinia)
+    notices.pushAll([{ kind: 'info', text: 'imgly is ready to work offline.' }])
+    ;(window as { __e2eQuietOfflineReady?: boolean }).__e2eQuietOfflineReady = true
+
+    installTestHooks(pinia)
+
+    expect(notices.items.map((n) => n.text)).toEqual([])
+  })
 })

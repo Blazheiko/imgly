@@ -339,7 +339,8 @@ export function installTestHooks(pinia: Pinia): void {
     watch(
       () => notices.items.find((n) => n.text === infoOfflineReady()),
       (shown) => shown && notices.dismiss(shown.id),
-      { flush: 'sync' },
+      // Immediate: connectPwa runs before this chunk loads, so the notice may already be showing.
+      { flush: 'sync', immediate: true },
     )
   }
 

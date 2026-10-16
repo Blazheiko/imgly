@@ -574,7 +574,9 @@ describe('pwa-install-update store — Reload and the reopen after the update (A
       expect(failures()).toEqual([])
       listed(true)
       await done
-      expect(reopen).toHaveBeenCalledOnce()
+      expect(reopen).toHaveBeenCalledExactlyOnceWith('work-1', {
+        couldNotOpen: failureReopenUnreadable(),
+      })
       expect(failures()).toEqual([])
     })
 
