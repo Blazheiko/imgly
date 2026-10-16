@@ -13,6 +13,7 @@ import {
   failureCouldNotDelete,
   failureCouldNotList,
   failureCouldNotOpen,
+  failurePartUnavailable,
   failureWorkDamaged,
   hintChooseWhileConfirming,
   hintChooseWhileExporting,
@@ -184,6 +185,10 @@ export const useGallery = defineStore('gallery', () => {
         break
       case 'damaged': {
         // A read that failed says nothing about the Work: no Damaged mark, no Delete (R3-2).
+        if (outcome.error.code === 'APP_PART_UNAVAILABLE') {
+          notices.pushAll([{ kind: 'failure', text: failurePartUnavailable() }])
+          break
+        }
         if (outcome.error.code !== 'WORK_DAMAGED') {
           notices.pushAll([{ kind: 'failure', text: failureCouldNotOpen(entry?.name ?? '') }])
           break

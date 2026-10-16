@@ -2203,6 +2203,19 @@ describe('editor store — reopenWork (gallery AC-02, AC-04, AC-08, AC-15, AC-17
       expect(closed(decodedBitmaps[0]!)).toBe(true)
     })
 
+    it('a codec worker this window can no longer load marks nothing Damaged (pwa-install-update AC-14)', async () => {
+      decodePng.mockResolvedValue(err(appError('APP_PART_UNAVAILABLE')))
+      await open()
+      const work = editor.work
+
+      const outcome = await editor.reopenWork('stored-1')
+
+      expect(outcome).toEqual({ kind: 'damaged', error: appError('APP_PART_UNAVAILABLE') })
+      expect(editor.damagedIds.has('stored-1')).toBe(false)
+      expect(editor.work).toBe(work)
+      expect(editor.phase).toBe('idle')
+    })
+
     it('a loader that reports a storage failure is not a replacement either', async () => {
       loadWork.mockResolvedValue(err(appError('STORAGE_FAILED')))
       await open()

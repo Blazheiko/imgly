@@ -382,6 +382,25 @@ describe('gallery store', () => {
       expect(gallery.entries.find((e) => e.id === c)!.status).toBe('touched')
     })
 
+    it('a codec worker this window can no longer load asks to reload and marks nothing Damaged (pwa-install-update AC-14)', async () => {
+      const b = await seed(db, 'Beach.jpg', NOW - MINUTE)
+      await gallery.open()
+      editor.setReopenSource({
+        loadWork: (id) => loadWork(db, id),
+        decodePng: async () => err(appError('APP_PART_UNAVAILABLE')),
+      })
+
+      await gallery.choose(b)
+
+      expect(notices.items.map((n) => [n.kind, n.text])).toEqual([
+        ['failure', 'imgly was updated in another window. Reload this window to continue.'],
+      ])
+      expect(gallery.entries.find((e) => e.id === b)!.status).not.toBe('damaged')
+      expect(editor.damagedIds.has(b)).toBe(false)
+      await gallery.refresh()
+      expect(gallery.entries.find((e) => e.id === b)!.status).not.toBe('damaged')
+    })
+
     it('markDamaged(id) turns a listed entry Damaged now, records it in the editor set, and survives refresh', async () => {
       const b = await seed(db, 'Beach.jpg', NOW - MINUTE)
       await gallery.open()

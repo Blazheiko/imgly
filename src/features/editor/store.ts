@@ -649,8 +649,9 @@ export const useEditorStore = defineStore('editor', () => {
     phase.value = 'reading'
     const damaged = (error: AppError): ReopenOutcome => {
       phase.value = 'idle'
-      // Storage that could not be read says nothing about the Work itself.
-      if (error.code !== 'STORAGE_FAILED') markDamaged(id)
+      // Storage that could not be read, or a worker this build can no longer load, says nothing
+      // about the Work itself (pwa-install-update AC-14).
+      if (error.code !== 'STORAGE_FAILED' && error.code !== 'APP_PART_UNAVAILABLE') markDamaged(id)
       return { kind: 'damaged', error }
     }
 

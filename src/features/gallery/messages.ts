@@ -13,6 +13,11 @@ export function failureCouldNotOpen(name: string): string {
   return `“${name}” couldn't be opened. Try again.`
 }
 
+/** This build's codec worker is gone after a newer build replaced it (pwa-install-update AC-14). */
+export function failurePartUnavailable(): string {
+  return 'imgly was updated in another window. Reload this window to continue.'
+}
+
 /** The list couldn't be read; the Gallery keeps what it showed. AC-03 */
 export function failureCouldNotList(): string {
   return "The Gallery couldn't be read. Try again."
