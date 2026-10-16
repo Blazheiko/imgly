@@ -358,6 +358,32 @@ describe('Dialog', () => {
       expect(document.activeElement).toBe(opener)
       fallback.remove()
     })
+
+    it('with preferReturnFocus, focuses the fallback even while the opener is connected (pwa-install-update T28)', async () => {
+      const fallback = document.createElement('button')
+      fallback.id = 'fallback'
+      document.body.appendChild(fallback)
+      const wrapper = mount(Dialog, {
+        props: { title: 'Reload?', returnFocus: '#fallback', preferReturnFocus: true },
+        slots: { default: '<p>Body</p>', actions: '<button>Cancel</button>' },
+        attachTo: document.body,
+      })
+      await nextTick()
+      wrapper.unmount()
+      expect(document.activeElement).toBe(fallback)
+      fallback.remove()
+    })
+
+    it('with preferReturnFocus, falls back to the opener when the selector matches nothing', async () => {
+      const wrapper = mount(Dialog, {
+        props: { title: 'Reload?', returnFocus: '#missing', preferReturnFocus: true },
+        slots: { default: '<p>Body</p>', actions: '<button>Cancel</button>' },
+        attachTo: document.body,
+      })
+      await nextTick()
+      wrapper.unmount()
+      expect(document.activeElement).toBe(opener)
+    })
   })
 })
 

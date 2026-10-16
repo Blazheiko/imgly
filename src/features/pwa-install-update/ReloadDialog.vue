@@ -5,7 +5,8 @@ import { ACTION_RELOAD, reloadDialogCopy } from './messages'
 import { UPDATE_SLOT, usePwaInstallUpdate } from './store'
 
 const store = usePwaInstallUpdate()
-// Focus goes back to "Reload" even when the toast re-rendered it while the confirmation was open.
+// Focus goes back to "Reload" even when the toast re-rendered it, or another button took focus
+// while Reload waited for a save before the confirmation opened.
 const reloadAction = `.toast[data-slot="${UPDATE_SLOT}"] .base-button`
 const copy = computed(() => reloadDialogCopy(store.confirming?.reopenId != null))
 </script>
@@ -16,6 +17,7 @@ const copy = computed(() => reloadDialogCopy(store.confirming?.reopenId != null)
     :title="copy.title"
     initial-focus="[data-action='cancel']"
     :return-focus="reloadAction"
+    prefer-return-focus
     @cancel="store.cancelReload()"
   >
     {{ copy.body }}

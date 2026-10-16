@@ -32,7 +32,7 @@
 | T25 | sad + ADR-0003 amendment; SCR refs on T15/T17/T21 (N3, N4) | docs | Blazheiko | S | — | done |
 | T26 | e2e: no sleeps before negatives; Firefox click settles (N5, N6) | tests | Blazheiko | S | T24 | done |
 | T27 | Harness immediate watch; reopened-id assertion (N7, N8) | tests | Blazheiko | S | — | done |
-| T28 | Focus returns to Reload after a save wait (P1) | ui | Blazheiko | S | — | todo |
+| T28 | Focus returns to Reload after a save wait (P1) | ui | Blazheiko | S | — | done |
 | T29 | Gallery start and choose do nothing while leaving (P2) | ui | Blazheiko | S | — | todo |
 | T30 | e2e buildOf waits for the hooks (P3) | tests | Blazheiko | S | — | todo |
 

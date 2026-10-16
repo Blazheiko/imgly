@@ -544,6 +544,41 @@ describe('App install and update wiring (pwa-install-update T12)', () => {
     },
   )
 
+  it.each(['Cancel', 'Escape'] as const)(
+    'returns focus to the Reload action when %s closes a confirmation that followed a save wait, during which another button took focus (SCR-06, AC-11, AC-12)',
+    async (how) => {
+      const sw = fakeClient()
+      pwa.connect(sw.create, { now: () => 0, document: fakeDocument().doc, reloadPage: vi.fn() })
+      sw.newWaiting()
+      await mountLive()
+      let answer!: (outcome: ReloadOutcome) => void
+      vi.spyOn(editor, 'requestReload').mockReturnValue(
+        new Promise<ReloadOutcome>((resolve) => (answer = resolve)),
+      )
+      const reload = () =>
+        [...document.querySelectorAll<HTMLButtonElement>('.toast button')].find(
+          (b) => b.textContent?.trim() === 'Reload',
+        )!
+
+      reload().click()
+      await flushPromises()
+      // The save still runs; the Editor clicks Undo meanwhile, which focuses it in Chromium.
+      const undo = document.body.appendChild(document.createElement('button'))
+      undo.focus()
+      answer({ kind: 'confirm', reopenId: null })
+      await flushPromises()
+      const dialog = document.querySelector<HTMLElement>('[role="alertdialog"]')!
+      expect(dialog).not.toBeNull()
+      if (how === 'Cancel')
+        dialog.querySelector<HTMLButtonElement>('[data-action="cancel"]')!.click()
+      else dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+      await flushPromises()
+
+      expect(document.querySelector('[role="alertdialog"]')).toBeNull()
+      expect(document.activeElement).toBe(reload())
+    },
+  )
+
   it('reopens the Work the update reload marked, after the Gallery connected and refreshed (AC-08)', async () => {
     const db = await openDb(`imgly-app-resume-${Math.random()}`)
     const w = storedWorkFixture({ layer: null, record: { sourceName: 'Cat.png' } })
