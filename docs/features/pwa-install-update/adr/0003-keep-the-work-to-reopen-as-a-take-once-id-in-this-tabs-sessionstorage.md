@@ -2,7 +2,7 @@
 status: Accepted
 owner: "Blazheiko"
 reviewers: ["Tech Lead", "Security Lead"]
-updated_at: "2026-10-15"
+updated_at: "2026-10-16"
 feature_size: "S"
 ticket: "roadmap step 9 — pwa-install-update"
 ---
@@ -37,9 +37,20 @@ After an update reload, the new version must reopen the Work that was open, exac
 How it works:
 
 - `src/infra/platform/reload-marker.ts` exposes `markReopen(id)` and `takeReopen()`. It uses one fixed key and stores the Work id as a plain string.
-- `markReopen` runs only from the update reload path, after `requestReload()` passes, and only when the open Work has a Stored state. A confirmed reload with no Stored state writes nothing (AC-12).
-- At start, after the Gallery connects, the feature store calls `takeReopen()`, which reads and deletes the marker in one step, then `editor.reopenWork(id)`. A failed reopen, for a Damaged or evicted Work, shows a notice saying why and opens no Work (AC-08).
+- `markReopen` runs only from the update reload path, after `requestReload()` passes, and only when the open Work has a Stored state (when it runs: see the 2026-10-16 amendment). A confirmed reload with no Stored state writes nothing (AC-12).
+- At start, the app shell calls `takeReopen()` first (2026-10-16 amendment), which reads and deletes the marker in one step, then `editor.reopenWork(id)` once the Gallery connects. A failed reopen, for a Damaged or evicted Work, shows a notice saying why and opens no Work (AC-08).
 - Every start takes the marker, but only the update reload path writes it, so a start with no marker opens no Work. No other code path reads the key. A storage failure (`sessionStorage` blocked) makes the reload open no Work, which is the safe default.
+
+## Amendment 2026-10-16
+
+The decision stands. The 2026-10-15 review (R3) and the 2026-10-16 re-review (N1, N3) moved when the marker is written and taken, which narrows the time it exists:
+
+- **Written at the switch, not before it.** `markReopen` runs on this window's `controllerchange`, just before the reload, not when "Reload" is chosen. With no worker waiting, it runs just before the plain reload. If the waiting worker does not take control within 10 s, the window stays, and nothing is written.
+- **One switch.** The first `controllerchange` after "Reload" writes the marker and reloads once. A later one is treated as another window's switch and writes nothing.
+- **Taken first at start.** `takeReopen()` runs synchronously in the app shell's setup, before the Gallery connects or anything can fail, so a failed start or an early F5 cannot leave the marker behind. The reopen itself still waits for the Gallery.
+- **Nothing can change the Work while leaving.** From "Reload" until the reload, the editor refuses tools, Undo/Redo, opens and reopens, so the Work the marker names is the one the Reload gate checked.
+
+The "Duplicate tab" window in the Consequences below is now only the moment between `controllerchange` and the reload.
 
 ## Consequences
 

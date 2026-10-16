@@ -169,7 +169,7 @@ One `Toast` of the new kind `lasting` in the `app-update` slot. It has no timeou
 | waiting for a save | "Reload" chosen while Autosave stores the Work (Critical flow 1 wait step, AC-11). The action reads "Reloading…" with a `Spinner` and is `aria-disabled`. The Editor keeps working. When the save ends, the checks run again and move to one of the states below | `Toast` `lasting` + busy action (`Spinner`) | wireframe 05-d |
 | refused | A tool is open or an Export runs (Critical flow 1 first two branches, AC-10, AC-13). The notice stays as it was, "Reload" is enabled again, and a refusal notice is pushed (→ SCR-07) | `Toast` `lasting` · `Toast` `failure` | wireframe 07-a |
 | confirming | Edits not stored in the Gallery (Critical flow 1 third branch, AC-12, and AC-14 after saving stopped). SCR-06 opens over it, and the notice stays under the backdrop | → SCR-06 | — |
-| reloading | Nothing to wait for or lose, or SCR-06 confirmed (AC-07, AC-12). The action keeps "Reloading…" until the page reloads, which happens within this window | `Toast` `lasting` + busy action | wireframe 05-d |
+| reloading | Nothing to wait for or lose, or SCR-06 confirmed (AC-07, AC-12). The action keeps "Reloading…" until the page reloads. The editor takes no tool, Undo/Redo, open or reopen meanwhile. If the new version does not take control within 10 s, the action turns back to "Reload" and the Editor goes on | `Toast` `lasting` + busy action | wireframe 05-d |
 | dismissed | Dismiss chosen (Critical flow 6 `dismisses`, AC-09). Hidden until this page loads again. It comes back at once for a still newer waiting version, or with the `updated elsewhere` or `reload to keep saving` wording | — | — |
 | ignored | The Editor keeps working (AC-09). The notice stays. The next start after every window has closed runs the new version, with no notice | `Toast` `lasting` | wireframe 05-a |
 | check failed | Offline, or the check failed (Critical flow 6 first branch, AC-15). No notice and no error, and the state stays whatever it was | — | — |
@@ -203,7 +203,7 @@ The `lasting` look is the `info` look (a `--color-accent` left border, `role="st
 | default (a Stored state exists) | "Reload" with edits not stored in the Gallery, and an earlier Stored state of the Work exists (Critical flow 1 `confirm` with an id, AC-12, AC-14). The body says what's lost and what comes back | `Dialog` · `BaseButton` secondary "Cancel" · `BaseButton` primary "Reload" | wireframe 06-a |
 | default (no Stored state) | The same, but the Work was never stored in the Gallery, for example because the Gallery is unavailable (Critical flow 1 `confirm` with none, AC-12). The body says the image won't come back | as above | wireframe 06-b |
 | cancelled | "Cancel", `Esc` or a backdrop click (Critical flow 1 `cancel`, AC-12). The Work, its Edit history and the update notice stay as they were. Focus returns to "Reload" | → SCR-05 (as it was) | — |
-| confirmed | "Reload" (Critical flow 1 `confirm`, AC-12). The marker is written only when a Stored state exists, then the page reloads | → SCR-05 `reloading` | — |
+| confirmed | "Reload" (Critical flow 1 `confirm`, AC-12). The marker is written at the version switch, only when a Stored state exists, then the page reloads | → SCR-05 `reloading` | — |
 | loading / error / empty / validation | N/A: a two-button question. A reload can't fail visibly, because the page is replaced | — | — |
 
 ```text

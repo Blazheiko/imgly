@@ -334,7 +334,11 @@
         "src/features/gallery/messages.ts"
       ],
       "file": "docs/features/pwa-install-update/_review/review-2026-10-15.md",
-      "source": "review-2026-10-15"
+      "source": "review-2026-10-15",
+      "screens": [
+        "SCR-07 part unavailable",
+        "SCR-01 outdated window"
+      ]
     },
     {
       "id": "T16",
@@ -375,7 +379,12 @@
         "src/features/pwa-install-update/store.ts"
       ],
       "file": "docs/features/pwa-install-update/_review/review-2026-10-15.md",
-      "source": "review-2026-10-15"
+      "source": "review-2026-10-15",
+      "screens": [
+        "SCR-07 reopen failed: can't be read",
+        "SCR-07 reopen failed: evicted",
+        "SCR-01 reopening after the update"
+      ]
     },
     {
       "id": "T18",
@@ -453,7 +462,12 @@
         "e2e/pwa-install-update/update.spec.ts"
       ],
       "file": "docs/features/pwa-install-update/_review/review-2026-10-15.md",
-      "source": "review-2026-10-15"
+      "source": "review-2026-10-15",
+      "screens": [
+        "SCR-05 waiting for a save",
+        "SCR-05 reloading",
+        "SCR-06 cancelled"
+      ]
     },
     {
       "id": "T22",
@@ -477,7 +491,7 @@
     },
     {
       "id": "T23",
-      "title": "Hold every editor entry point while leaving: openTool, undo/redo, openFile, reopenWork and the Gallery refuse while reloadHeld; a cancelled unload releases the lock and the marker (N1)",
+      "title": "Hold every editor entry point while leaving: openTool, undo/redo, openFile, reopenWork and the Gallery refuse while reloadHeld; the switch reloads only once (N1)",
       "layer": "app",
       "deps": [
         "T22"
@@ -496,7 +510,10 @@
         "src/features/pwa-install-update/store.ts"
       ],
       "file": "docs/features/pwa-install-update/_review/review-2026-10-16.md",
-      "source": "review-2026-10-16"
+      "source": "review-2026-10-16",
+      "screens": [
+        "SCR-05 reloading"
+      ]
     },
     {
       "id": "T24",
@@ -517,7 +534,10 @@
         "docs/design-system.md"
       ],
       "file": "docs/features/pwa-install-update/_review/review-2026-10-16.md",
-      "source": "review-2026-10-16"
+      "source": "review-2026-10-16",
+      "screens": [
+        "SCR-06 cancelled"
+      ]
     },
     {
       "id": "T25",

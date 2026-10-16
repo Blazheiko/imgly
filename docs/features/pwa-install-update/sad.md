@@ -2,7 +2,7 @@
 status: Draft
 owner: "Blazheiko"
 reviewers: ["Tech Lead", "Security Lead"]
-updated_at: "2026-10-15"
+updated_at: "2026-10-16"
 feature_size: "S"
 target_surfaces: [web-frontend]  # filled in §4 — subset of: backend-service | web-frontend | mobile-app | desktop-app | cli | worker | library-sdk. Read (never re-derived) by api/sequences/tasks/plan-tests/review → _shared/surfaces.md
 ---
@@ -136,7 +136,7 @@ C4Context
 
 1. **A new version waits as a waiting service worker until "Reload"** ([ADR-0001](adr/0001-hold-each-new-version-in-a-waiting-service-worker-until-the-editor-chooses-reload.md)). vite-plugin-pwa switches to `registerType: 'prompt'`, and Workbox's `skipWaiting` is dropped, so a downloaded version stays waiting while any window uses the current one. `onNeedRefresh` raises the update notice. After the Reload checks pass, "Reload" asks the waiting worker to take over (`SKIP_WAITING`), and the window reloads on `controllerchange`. An ignored notice leaves the browser's own rule in charge: the waiting worker takes over once every window has closed, which is exactly AC-09. `onOfflineReady` fires only on the first install, which gives AC-05 without a stored flag. `registration.update()` runs on the schedule of spec §6. This serves quality goals 1 and 2.
 2. **Other windows learn of a switch from `controllerchange`, and of a storage change from IndexedDB's `versionchange`** ([ADR-0002](adr/0002-tell-other-windows-of-a-switch-through-controllerchange-and-of-a-storage-change-through-versionchange.md)). The browser fires `controllerchange` in every window when the new worker activates. A window that did not ask for the switch shows the "updated in another window" notice. A window that had no controller when its page loaded ignores the event, because on a first install `clientsClaim` fires it there without any version switch (AC-05). The storage case reuses gallery ADR-0006 unchanged in mechanism. Autosave stops saving on `versionchange`, but it now raises a `storageSuperseded` flag instead of its own notice, and this feature rewords the one update notice to "must reload to keep saving". No new cross-window channel appears. This serves quality goal 2.
-3. **The Work to reopen is a take-once marker in this tab's `sessionStorage`** ([ADR-0003](adr/0003-keep-the-work-to-reopen-as-a-take-once-id-in-this-tabs-sessionstorage.md)). Just before an update reload, the app writes only the open Work's id, and only when that Work has a Stored state. The new version reads and deletes the marker before it calls `reopenWork(id)`. Only the update reload path writes the marker. Every start takes it, reading and deleting it, so a start with no marker opens no Work, as before (gallery AC-05). This is the §6.1 security rule made structural, and it serves quality goal 3.
+3. **The Work to reopen is a take-once marker in this tab's `sessionStorage`** ([ADR-0003](adr/0003-keep-the-work-to-reopen-as-a-take-once-id-in-this-tabs-sessionstorage.md)). Just before an update reload, the app writes only the open Work's id, and only when that Work has a Stored state. The new version reads and deletes the marker first thing at start, before anything can fail, and calls `reopenWork(id)` once the Gallery connects. Only the update reload path writes the marker. Every start takes it, reading and deleting it, so a start with no marker opens no Work, as before (gallery AC-05). This is the §6.1 security rule made structural, and it serves quality goal 3.
 4. **The `editor` store owns the Reload gate, and the new feature owns the UI and the lifecycle** ([ADR-0004](adr/0004-own-the-reload-gate-in-the-editor-store-and-the-install-and-update-ui-in-a-new-feature.md)). `requestReload()` sits beside the Replace gate and follows the same rules. It waits on `settled()`, then checks the open tool, the Export and whether the edits are stored, and it returns an outcome together with the id to mark. The new `src/features/pwa-install-update/` feature holds the install action, the update and offline notices, the reload confirmation and the check schedule. It reaches the editor only through its public store API, as gallery ADR-0001 split Autosave from the gallery UI. This serves quality goal 1.
 
 Each tactical decision in later sections should trace to one of these seeds. Tactical decisions that *contradict* a strategic choice are red flags — surface them in §11.
@@ -216,7 +216,7 @@ C4Container
 
 - **The notice primitive gains a lasting, slotted notice.** `NoticeInput` gains the kind `'lasting'`, which never times out. It also gains an optional `slot`: a new notice in an occupied slot replaces the one there, which gives "at most one update notice, the newest replaces the one before" (AC-14). `action.run` may return `'keep-open'`, so a refused "Reload" leaves the notice in place (AC-10, AC-12, AC-13). Existing callers are unchanged, because `info` and `failure` keep their behaviour. The change is additive and reversible in a day, but `screens` sets its look and `docs/design-system.md` records it (spec §1 cross-feature change).
 - **One update notice, three wordings.** The feature store keeps one `updateNotice` state, either `none`, `available`, `updated-elsewhere` or `reload-to-save`, and renders it into the `app-update` slot. `reload-to-save` wins over `updated-elsewhere`, which wins over `available`, because a later signal never has less to say. A dismissal hides the notice until the page loads again. For `available`, the dismissal is remembered for that waiting worker only, so a still newer version shows the notice again (AC-09). `updated-elsewhere` and `reload-to-save` are shown even after the notice was dismissed (AC-14).
-- **"Reload" acts according to the wording.** When a worker is waiting, "Reload" sends it `SKIP_WAITING` and reloads on `controllerchange`. When the version has already switched under this window (`updated-elsewhere`, `reload-to-save`), it reloads the page. Both go through the same `requestReload()` and write the marker first.
+- **"Reload" takes whatever worker is waiting.** Whatever the wording, a waiting worker is the newest version: "Reload" sends it `SKIP_WAITING`, and on this window's `controllerchange` it writes the marker and reloads. That switch happens once; a later `controllerchange` is another window's. If no `controllerchange` comes within 10 s, the window stays, writes no marker and lets the Editor go. With no worker waiting (the version already switched under this window), it writes the marker and reloads at once. Both paths go through the same `requestReload()`. From the moment it leaves until the reload, the editor stores refuse every tool, Undo/Redo, open and reopen (amended 2026-10-16, review N1/N3).
 - **The install offer follows the browser.** The store keeps the deferred `beforeinstallprompt` event, and "Install app" shows only while one is held and the display mode is not `standalone` (AC-02, AC-04). `appinstalled` and a `dismissed` choice drop the event (AC-01, AC-03). A `prompt()` that rejects, or an `accepted` choice with no `appinstalled` within a bounded wait (default 10 s, which `tasks` may tune), raises the could-not-install notice (AC-03).
 - **An outdated window reports a missing part instead of failing halfway.** The three worker clients map a worker script that fails to load to `APP_PART_UNAVAILABLE`. The decode, reopen and export paths already change nothing until their worker succeeds (open-and-view, gallery ADR-0003, export ADR-0001), so the action changes nothing. Each owner's `messages.ts` words the code as "imgly was updated in another window and must be reloaded to continue", because a hashed script of this build goes missing only after a newer build has replaced it (AC-14). Autosave starts a fresh codec worker for every save, so in an outdated window it treats `APP_PART_UNAVAILABLE` like `versionchange`. It stops saving and raises `storageSuperseded` instead of the could-not-save notice, and the one update notice then says to reload to keep saving. Later edits count as not stored, so "Reload" asks as AC-12 says.
 
@@ -253,17 +253,23 @@ sequenceDiagram
             Feature-->>Editor: Work, Edit history and update notice unchanged
         else confirm
             Editor->>Feature: confirm
-            Feature->>Marker: mark the Work id, only when there is a Stored state
+            Feature->>Store: hold the editor while leaving
             Feature->>SW: take over now
         end
     else nothing to wait for or lose
         Store-->>Feature: ready, with the open Work's id or none
-        Feature->>Marker: mark the Work id, only when there is a Stored state
+        Feature->>Store: hold the editor while leaving
         Feature->>SW: take over now
     end
-    SW-->>Feature: controllerchange in this window
-    Feature->>Feature: reload the page into the new version
-    Feature->>Marker: take the marker once, read and delete
+    alt controllerchange in this window within 10 s
+        SW-->>Feature: controllerchange, the switch this Reload asked for, taken once
+        Feature->>Marker: mark the Work id, only when there is a Stored state
+        Feature->>Feature: reload the page into the new version
+    else no controllerchange within 10 s
+        Feature->>Store: release the editor, no marker written
+        Feature-->>Editor: update notice stays, Reload enabled again
+    end
+    Feature->>Marker: first thing at start, take the marker once, read and delete
     opt a Work id was marked
         Feature->>Store: reopenWork with that id
         Store->>DB: load the stored Work
