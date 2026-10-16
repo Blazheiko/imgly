@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { test as base } from '@playwright/test'
+import { test as base, type BrowserContext } from '@playwright/test'
 
 export * from '@playwright/test'
 
@@ -15,9 +15,16 @@ export * from '@playwright/test'
  * whatever the spec checks. WebKit therefore runs each test in a fresh, throw-away persistent
  * context, which keeps the "fresh browser context per test" rule.
  */
-export const test = base.extend({
+export const test = base.extend<{ offlineReadyNotice: boolean }>({
+  /**
+   * Whether the one-time "ready to work offline" notice (pwa-install-update AC-05) shows. Every
+   * spec runs under the service worker as production does; only the specs about this notice see
+   * it, so it never sits over what the others check.
+   */
+  offlineReadyNotice: [false, { option: true }],
   context: async (
     {
+      offlineReadyNotice,
       context,
       playwright,
       browserName,
@@ -37,7 +44,14 @@ export const test = base.extend({
     },
     use,
   ) => {
+    const quiet = (target: BrowserContext) =>
+      offlineReadyNotice
+        ? Promise.resolve()
+        : target.addInitScript(() => {
+            ;(window as { __e2eQuietOfflineReady?: boolean }).__e2eQuietOfflineReady = true
+          })
     if (browserName !== 'webkit') {
+      await quiet(context)
       await use(context)
       return
     }
@@ -58,6 +72,7 @@ export const test = base.extend({
       serviceWorkers,
       acceptDownloads: true,
     })
+    await quiet(persistent)
     await use(persistent)
     await persistent.close()
     rmSync(dir, { recursive: true, force: true })

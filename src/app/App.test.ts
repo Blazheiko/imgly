@@ -506,9 +506,15 @@ describe('App install and update wiring (pwa-install-update T12)', () => {
     )
   })
 
-  it.each(['Cancel', 'Escape'] as const)(
-    'returns focus to the Reload action when %s closes the confirmation (SCR-06, AC-12)',
-    async (how) => {
+  it.each([
+    ['Cancel', true],
+    ['Escape', true],
+    // Safari and Firefox on macOS do not focus a button on a mouse click.
+    ['Cancel', false],
+    ['Escape', false],
+  ] as const)(
+    'returns focus to the Reload action when %s closes the confirmation (focused on click: %s) (SCR-06, AC-12)',
+    async (how, focusedOnClick) => {
       const sw = fakeClient()
       pwa.connect(sw.create, { now: () => 0, document: fakeDocument().doc, reloadPage: vi.fn() })
       sw.newWaiting()
@@ -519,7 +525,8 @@ describe('App install and update wiring (pwa-install-update T12)', () => {
           (b) => b.textContent?.trim() === 'Reload',
         )!
 
-      reload().focus()
+      if (focusedOnClick) reload().focus()
+      else (document.activeElement as HTMLElement | null)?.blur()
       reload().click()
       await flushPromises()
       const dialog = document.querySelector<HTMLElement>('[role="alertdialog"]')!

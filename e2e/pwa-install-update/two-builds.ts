@@ -103,7 +103,6 @@ export async function startTwoBuilds(): Promise<TwoBuilds> {
 
 /** `test` for the update specs: every test gets its own two-build server as its `baseURL`. */
 export const test = harness.extend<{ builds: TwoBuilds }>({
-  serviceWorkers: 'allow',
   // eslint-disable-next-line no-empty-pattern -- Playwright reads a fixture's dependencies from this pattern
   builds: async ({}, use) => {
     const builds = await startTwoBuilds()

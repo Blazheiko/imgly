@@ -1,7 +1,8 @@
 import type { Pinia } from 'pinia'
+import { watch } from 'vue'
 import { useEditorStore, type HistoryStats } from '@/features/editor'
 import { useExportStore } from '@/features/export'
-import { usePwaInstallUpdate } from '@/features/pwa-install-update'
+import { infoOfflineReady, usePwaInstallUpdate } from '@/features/pwa-install-update'
 import {
   catmullRomSegment,
   cropToOriginalUv,
@@ -28,7 +29,7 @@ import {
   type BrushStyle,
   type Layer,
 } from '@/render'
-import { bitmapLedger } from '@/shared'
+import { bitmapLedger, useNotices } from '@/shared'
 import {
   damageStoredPart,
   openNextVersion,
@@ -163,6 +164,10 @@ export interface ImglyTestHooks {
   pwaOfferInstall(choice: 'accepted' | 'dismissed' | 'fail', options?: { installs?: boolean }): void
   /** `prompt()` calls on synthetic offers since load. */
   pwaInstallPrompts(): number
+  /** Start-up has finished, including the reopen after an update reload (AC-08). */
+  pwaStartupSettled(): boolean
+  /** The browser's install confirmation (a synthetic one here) has not answered yet. */
+  pwaInstalling(): boolean
 }
 
 const FAIL_OPEN_FLAG = 'imgly-test:fail-open'
@@ -326,6 +331,17 @@ export function installTestHooks(pinia: Pinia): void {
 
   const pwa = usePwaInstallUpdate(pinia)
   let installPrompts = 0
+
+  // The e2e harness sets this for every spec not about the one-time offline-ready notice, so it
+  // does not sit over what they check while the service worker runs as in production (AC-05).
+  if ((window as { __e2eQuietOfflineReady?: boolean }).__e2eQuietOfflineReady) {
+    const notices = useNotices(pinia)
+    watch(
+      () => notices.items.find((n) => n.text === infoOfflineReady()),
+      (shown) => shown && notices.dismiss(shown.id),
+      { flush: 'sync' },
+    )
+  }
 
   window.__imglyTest = {
     work: () => {
@@ -495,5 +511,7 @@ export function installTestHooks(pinia: Pinia): void {
       window.dispatchEvent(offer)
     },
     pwaInstallPrompts: () => installPrompts,
+    pwaStartupSettled: () => pwa.startupSettled,
+    pwaInstalling: () => pwa.installing,
   }
 }

@@ -19,8 +19,6 @@ test('the manifest is served with the /imgly/ scope', async ({ request }) => {
 })
 
 test.describe('offline', () => {
-  test.use({ serviceWorkers: 'allow' })
-
   test('after the first load, the editor still renders offline', async ({
     page,
     context,

@@ -420,9 +420,6 @@ test('AC-21: the Work open here survives its eviction by another page', async ({
 })
 
 test.describe('offline', () => {
-  // The precaching service worker is what makes the offline start work.
-  test.use({ serviceWorkers: 'allow' })
-
   test('offline after the first load: list, reopen, Autosave and delete all succeed', async ({
     page,
     context,

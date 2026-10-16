@@ -242,12 +242,19 @@ export const usePwaInstallUpdate = defineStore('pwa-install-update', () => {
     return take()
   }
 
+  /** Start-up has finished: the marked Work reopened, or nothing was to reopen. */
+  const startupSettled = ref(false)
+
   /** At start, after the Gallery connected: reopens the Work `takeMarkedWork` took (AC-08). */
   async function resumeAfterUpdate(workId: string | null, deps: ResumeDeps) {
-    if (workId === null) return
-    if (!editor.galleryAvailable) fail(failureReopenUnreadable())
-    else if (!(await deps.isListed(workId))) fail(failureReopenEvicted())
-    else await deps.reopen(workId, { couldNotOpen: failureReopenUnreadable() })
+    try {
+      if (workId === null) return
+      if (!editor.galleryAvailable) fail(failureReopenUnreadable())
+      else if (!(await deps.isListed(workId))) fail(failureReopenEvicted())
+      else await deps.reopen(workId, { couldNotOpen: failureReopenUnreadable() })
+    } finally {
+      startupSettled.value = true
+    }
   }
 
   /** Connects the service-worker client and starts the check schedule (ADR-0001, ADR-0002). */
@@ -312,19 +319,19 @@ export const usePwaInstallUpdate = defineStore('pwa-install-update', () => {
     next.onOfferChange(() => (installOffered.value = next.hasOffer()))
   }
 
-  // The browser's confirmation is open: another click must not read as a failed install (AC-03).
-  let installing = false
+  /** The browser's confirmation is open: another click must not read as a failed install (AC-03). */
+  const installing = ref(false)
 
   /** The Editor's click on "Install app": the browser's confirmation, never a prompt of our own. */
   async function install() {
-    if (!installClient || installing) return
-    installing = true
+    if (!installClient || installing.value) return
+    installing.value = true
     try {
       const result = await installClient.prompt()
       installOffered.value = installClient.hasOffer()
       if (!result.ok) notices.pushAll([{ kind: 'failure', text: failureInstall() }])
     } finally {
-      installing = false
+      installing.value = false
     }
   }
 
@@ -339,5 +346,7 @@ export const usePwaInstallUpdate = defineStore('pwa-install-update', () => {
     cancelReload,
     resumeAfterUpdate,
     takeMarkedWork,
+    startupSettled: readonly(startupSettled),
+    installing: readonly(installing),
   }
 })

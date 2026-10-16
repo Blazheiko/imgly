@@ -25,6 +25,7 @@ import { storedWorkFixture } from '@/infra/db/testing'
 import { requestPersistence } from '@/infra/platform'
 import { usePwaInstallUpdate } from '@/features/pwa-install-update'
 import { createInstallPrompt } from '@/infra/platform'
+import { useNotices } from '@/shared'
 import { installTestHooks } from './test-hooks'
 
 describe('window.__imglyTest.historyStats (undo-redo AC-11, sad §8)', () => {
@@ -403,5 +404,28 @@ describe('window.__imglyTest PWA hooks (pwa-install-update T12)', () => {
     hooks.pwaOfferInstall('fail')
     await pwa.install()
     expect(hooks.pwaInstallPrompts()).toBe(2)
+  })
+})
+
+describe('the quiet offline-ready notice (pwa-install-update AC-05, e2e harness)', () => {
+  afterEach(() => {
+    delete window.__imglyTest
+    delete (window as { __e2eQuietOfflineReady?: boolean }).__e2eQuietOfflineReady
+  })
+
+  it.each([
+    [true, []],
+    [false, ['imgly is ready to work offline.']],
+  ])('with the quiet flag %s, the notice shown is %j', (quiet, shown) => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    if (quiet) (window as { __e2eQuietOfflineReady?: boolean }).__e2eQuietOfflineReady = true
+    installTestHooks(pinia)
+    const notices = useNotices(pinia)
+
+    notices.pushAll([{ kind: 'info', text: 'imgly is ready to work offline.' }])
+    notices.pushAll([{ kind: 'info', text: 'Something else.' }])
+
+    expect(notices.items.map((n) => n.text)).toEqual([...shown, 'Something else.'])
   })
 })

@@ -13,10 +13,9 @@ export default defineConfig({
   use: {
     baseURL: `http://localhost:${PORT}/imgly/`,
     trace: 'on-first-retry',
-    // The service worker shows a one-time "ready to work offline" notice on first load
-    // (pwa-install-update AC-05); specs that are not about it run without one, and the PWA specs
-    // opt in with `test.use({ serviceWorkers: 'allow' })`.
-    serviceWorkers: 'block',
+    // Every spec runs under the controlling service worker, as production does. Its one-time
+    // "ready to work offline" notice (pwa-install-update AC-05) is dismissed by the hooks build
+    // unless a spec opts in with `test.use({ offlineReadyNotice: true })` (e2e/harness.ts).
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },

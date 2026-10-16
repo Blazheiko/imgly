@@ -521,6 +521,18 @@ describe('pwa-install-update store — Reload and the reopen after the update (A
       return { reopen, done: store.resumeAfterUpdate(workId, { isListed, reopen }) }
     }
 
+    it('reports start-up settled once the resume has finished, with or without a marker', async () => {
+      expect(store.startupSettled).toBe(false)
+      let reopened!: () => void
+      const reopen = vi.fn(() => new Promise<void>((resolve) => (reopened = resolve)))
+      const done = store.resumeAfterUpdate('work-1', { isListed: () => true, reopen })
+      await vi.advanceTimersByTimeAsync(0)
+      expect(store.startupSettled).toBe(false)
+      reopened()
+      await done
+      expect(store.startupSettled).toBe(true)
+    })
+
     it('reopens nothing without a marker', async () => {
       const { reopen, done } = resume(null)
       await done
@@ -662,6 +674,21 @@ describe('pwa-install-update store — the install offer (AC-01 to AC-04)', () =
 
     expect(install.prompt).toHaveBeenCalledTimes(1)
     expect(notices.items).toEqual([])
+  })
+
+  it('reports an install in flight until the browser has answered', async () => {
+    const install = fakeInstallPrompt({ offer: true })
+    store.connectInstall(install.client)
+    let answer!: () => void
+    install.prompt.mockImplementationOnce(
+      () => new Promise((resolve) => (answer = () => resolve(ok('dismissed')))),
+    )
+
+    const pending = store.install()
+    expect(store.installing).toBe(true)
+    answer()
+    await pending
+    expect(store.installing).toBe(false)
   })
 
   it('shows no notice once installed (AC-01)', async () => {

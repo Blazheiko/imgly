@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test'
 import { notice, toasts } from '../gallery/helpers'
 import { expect, test } from '../harness'
 import { gotoReady } from '../open-and-view/helpers'
+import { afterRender, installAnswered, startupSettled } from './signals'
 
 /**
  * "Install app" (pwa-install-update T14, AC-01 to AC-04). Playwright cannot make a browser raise a
@@ -25,7 +26,7 @@ test('AC-02: without an offer there is no "Install app" and nothing else changes
   page,
 }) => {
   await gotoReady(page)
-  await page.waitForTimeout(500)
+  await startupSettled(page)
   await expect(installAction(page)).toHaveCount(0)
   await expect(toasts(page)).toHaveCount(0)
 })
@@ -55,7 +56,8 @@ test('AC-01: accepted and installed, the action is gone and nothing is said', as
 
   await expect(installAction(page)).toHaveCount(0)
   expect(await page.evaluate(() => window.__imglyTest!.pwaInstallPrompts())).toBe(1)
-  await page.waitForTimeout(500)
+  await installAnswered(page)
+  await afterRender(page)
   await expect(toasts(page)).toHaveCount(0)
 })
 
@@ -67,7 +69,8 @@ test('AC-03: a dismissed confirmation hides the action with no notice, until the
   await installAction(page).click()
 
   await expect(installAction(page)).toHaveCount(0)
-  await page.waitForTimeout(500)
+  await installAnswered(page)
+  await afterRender(page)
   await expect(toasts(page)).toHaveCount(0)
 
   await offer(page, 'dismissed')
@@ -106,7 +109,7 @@ test('AC-04: the Installed app never offers to install itself', async ({ page })
   })
   await gotoReady(page)
   await offer(page, 'accepted')
-  await page.waitForTimeout(500)
+  await afterRender(page)
 
   await expect(installAction(page)).toHaveCount(0)
   expect(await page.evaluate(() => window.__imglyTest!.pwaCanInstall())).toBe(false)

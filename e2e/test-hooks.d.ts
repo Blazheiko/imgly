@@ -139,6 +139,10 @@ declare global {
       ): void
       /** `prompt()` calls on synthetic offers since load. */
       pwaInstallPrompts(): number
+      /** Start-up has finished, including the reopen after an update reload (AC-08). */
+      pwaStartupSettled(): boolean
+      /** The browser's install confirmation (a synthetic one here) has not answered yet. */
+      pwaInstalling(): boolean
     }
   }
 }

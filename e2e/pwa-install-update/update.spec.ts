@@ -29,6 +29,7 @@ import {
   test,
   updateNotice,
 } from './two-builds'
+import { afterRender, startupSettled } from './signals'
 
 /**
  * The update flows of one window against two real builds (pwa-install-update T13, sad.md §10 QG-1).
@@ -84,8 +85,9 @@ test('AC-09: a dismissal holds for this page; a reload shows it again; the versi
 
   await updateNotice(page).getByRole('button', { name: 'Dismiss' }).click()
   await expect(updateNotice(page)).toHaveCount(0)
+  // The check has resolved and found the same waiting version: nothing new can arrive.
   await checkForUpdate(page)
-  await page.waitForTimeout(1_000)
+  await afterRender(page)
   await expect(updateNotice(page)).toHaveCount(0)
   expect(await stillSamePage(page)).toBe(true)
 
@@ -106,7 +108,7 @@ test('AC-09: a dismissal holds for this page; a reload shows it again; the versi
     next = await context.newPage()
   }
   expect(await buildOf(next)).toBe('B')
-  await next.waitForTimeout(1_000)
+  await startupSettled(next)
   await expect(updateNotice(next)).toHaveCount(0)
   expect(await work(next)).toBeNull()
 })
@@ -284,7 +286,7 @@ test('AC-08: an ordinary start after the update opens no Work', async ({ page, b
   // The marker was taken: a reload by the browser now opens no Work, as gallery AC-05 says.
   await page.reload()
   await expect(page.getByTestId('editor-view')).toBeVisible()
-  await page.waitForTimeout(1_500)
+  await startupSettled(page)
   expect(await work(page)).toBeNull()
 })
 
@@ -295,8 +297,9 @@ test('AC-15: a check that fails finds nothing and says nothing', async ({ page, 
   // worker's own update fetch).
   builds.failNetwork(true)
   builds.publish('B')
+  // The check's fetch failed and resolved: no download follows it.
   await checkForUpdate(page)
-  await page.waitForTimeout(2_000)
+  await afterRender(page)
 
   await expect(updateNotice(page)).toHaveCount(0)
   await expect(page.locator('.toast--failure')).toHaveCount(0)

@@ -2,9 +2,11 @@
 import { computed } from 'vue'
 import { BaseButton, Dialog } from '@/shared'
 import { ACTION_RELOAD, reloadDialogCopy } from './messages'
-import { usePwaInstallUpdate } from './store'
+import { UPDATE_SLOT, usePwaInstallUpdate } from './store'
 
 const store = usePwaInstallUpdate()
+// Focus goes back to "Reload" even where its click did not focus it (Safari, Firefox on macOS).
+const reloadAction = `.toast[data-slot="${UPDATE_SLOT}"] .base-button`
 const copy = computed(() => reloadDialogCopy(store.confirming?.reopenId != null))
 </script>
 
@@ -13,6 +15,7 @@ const copy = computed(() => reloadDialogCopy(store.confirming?.reopenId != null)
     v-if="store.confirming"
     :title="copy.title"
     initial-focus="[data-action='cancel']"
+    :return-focus="reloadAction"
     @cancel="store.cancelReload()"
   >
     {{ copy.body }}

@@ -3,9 +3,6 @@ import { canvasArea, dropGeneratedImage, gotoReady, view, waitForWork } from './
 
 // QG-1b (sad.md §10): after one load, an open works with no network — the decode worker
 // comes from the precache.
-// The precaching service worker is what makes the offline start work.
-test.use({ serviceWorkers: 'allow' })
-
 test('opens an image to a fitted Preview after going offline and reloading', async ({
   page,
   context,
