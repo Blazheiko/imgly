@@ -25,12 +25,12 @@ Spec AC-11 needs the Installed app's title bar and the top bar to share one bran
 
 ## Considered options
 
-1. **Two `<meta name="theme-color">` tags with `media="(prefers-color-scheme: dark|light)"`**, plus a `--color-titlebar` token set in both blocks of `tokens.css` for the top bar; the manifest keeps the dark value.
+1. **Two `<meta name="theme-color">` tags with `media="(prefers-color-scheme: dark|light)"`**, plus a `--color-titlebar` token set in both blocks of `tokens.css` for the top bar; the manifest's `theme_color` and `background_color` become the dark value `#15122A`.
 2. **One meta tag rewritten by JavaScript** in `src/app/` on `matchMedia('(prefers-color-scheme: dark)')` changes, reading the value from the token with `getComputedStyle`.
 
 ## Decision outcome
 
-**Chosen:** Option 1. The browser picks and repaints the right tag by itself in Chromium and Safari, before any script runs and with nothing to subscribe to or clean up. The cost is two hex values written in `index.html` as well as in `tokens.css`, which the spec explicitly allows; a unit test reads both files and fails if they drift. Option 2 keeps one source but shows the wrong colour until the script runs, and adds a module with its own lifecycle and tests for no user-visible gain.
+**Chosen:** Option 1. The browser picks and repaints the right tag by itself in Chromium and Safari, before any script runs and with nothing to subscribe to or clean up. The cost is the window colours written in `index.html` and in the manifest in `vite.config.ts` as well as in `tokens.css`, which the spec allows for the page header; one unit test reads the three files and fails if they drift. Option 2 keeps one source but shows the wrong colour until the script runs, and adds a module with its own lifecycle and tests for no user-visible gain.
 
 ## Consequences
 
@@ -39,7 +39,7 @@ Spec AC-11 needs the Installed app's title bar and the top bar to share one bran
 - No new runtime code
 
 **Negative**
-- The two colours are written twice; the guard test is the only thing keeping them equal
+- The colours are written in three files; the guard test is the only thing keeping them equal
 - Before the page loads, the window shows the manifest's dark colour even in the light theme (accepted by spec AC-11)
 
 **Neutral**

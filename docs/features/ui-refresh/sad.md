@@ -43,7 +43,7 @@ target_surfaces: [web-frontend]  # filled in §4 — subset of: backend-service 
 - `BaseButton` (`src/shared/ui/BaseButton.vue`) has variants `primary` / `secondary` / `ghost` and an optional `pressed`; about 40 uses across 9 features. `Toast.vue:26` renders the action as a ghost `BaseButton` with a busy `Spinner`; `Toast.vue:42` is a native Dismiss button with the text "×" and `aria-label="Dismiss"`
 - Gallery thumbnails are PNG Blobs rendered at `THUMBNAIL_LONG_SIDE = 320` px with the Work's aspect ratio (`src/render/preview-renderer.ts:51`) and shown through an object URL (`src/features/gallery/store.ts:121`). The card is one native `<button>` whose accessible name is "name, status" (`GalleryEntry.vue:30-41`); Delete is a separate ghost `BaseButton` with `data-delete-id`
 - The start screen is `EmptyCanvas` (editor) above `GalleryStart` (gallery), composed through `EditorView`'s `#start-screen` slot; the window-wide drag state is `dragging` in `EditorView.vue:15`
-- PWA surface: one `<meta name="theme-color" content="#16181d">` (`index.html:5`), manifest `theme_color` and `background_color` `#16181d` (`vite.config.ts:32-33`), four PNG icons in `public/icons/`, no icon-generation script
+- PWA surface: one `<meta name="theme-color" content="#16181d">` (`index.html:6`), manifest `theme_color` and `background_color` `#16181d` (`vite.config.ts:32-33`), four PNG icons in `public/icons/`, no icon-generation script
 - e2e tests find buttons by accessible name (`getByRole('button', { name: 'Apply' | 'Auto' | /^Export/ … })`), and `src/app/App.test.ts:473` pins Install app right after Export
 - Architecture convention: functional core with feature folders (repo ADR [0002](../../adr/0002-organize-code-as-functional-core-with-feature-folders.md)). `src/shared/` may import `core` types only, never `features`, `infra` or `render`; features never import each other
 
@@ -109,7 +109,7 @@ C4Context
 1. **Target surface: `web-frontend`, the existing client-side SPA.** Every user story is about the browser UI that already exists; no backend, worker or other surface is involved (spec §4, ux-flows platform decisions). The UI architecture stays as it is: one Vue SPA, one editor view, no routing, Pinia stores, no SSR. Nothing to decide, so it stays inline — no ADR.
 2. **One shared icon set, owned by `src/shared/`.** A typed registry of icon paths copied from Lucide (`src/shared/icons/`) and one `Icon` primitive replace the hand-drawn inline SVGs in five files and give the ~30 icons every feature needs one style and one size scale, with no runtime package and nothing to download → [ADR-0001](adr/0001-copy-lucide-paths-into-a-typed-shared-icon-registry-rendered-by-an-icon-primitive.md).
 3. **Extend the existing primitives additively.** `BaseButton` gains optional `icon`, `size` and a `danger` variant; an icon-only button is the same `BaseButton` with an `aria-label` and a `title`. `Toast`'s action gains an optional icon that the busy `Spinner` replaces, and its Dismiss shows the `x` icon. Every existing call keeps working and every accessible name stays the same, which is what goal 2 needs → [ADR-0003](adr/0003-extend-basebutton-and-toast-with-optional-icon-size-and-danger-instead-of-new-button-primitives.md).
-4. **The theme decides the window colour declaratively.** Two `theme-color` meta tags with `media` queries let the browser pick and repaint the title bar colour per system theme, and the new `--color-titlebar` token gives the top bar the same value in each theme; the manifest keeps the dark value for the start-up moment → [ADR-0002](adr/0002-declare-the-window-colour-with-two-media-scoped-theme-color-tags-matching-a-titlebar-token.md).
+4. **The theme decides the window colour declaratively.** Two `theme-color` meta tags with `media` queries let the browser pick and repaint the title bar colour per system theme, and the new `--color-titlebar` token gives the top bar the same value in each theme; the manifest's `theme_color` and `background_color` become the dark titlebar value `#15122A` for the start-up moment → [ADR-0002](adr/0002-declare-the-window-colour-with-two-media-scoped-theme-color-tags-matching-a-titlebar-token.md).
 
 Each tactical decision in later sections traces to one of these seeds. Tactical decisions that contradict a strategic choice are red flags — surface them in §11.
 
@@ -141,7 +141,7 @@ src/features/gallery/components/
 └── DeleteWorkDialog.vue     confirm button → variant danger with the trash-2 icon
 src/features/*/              every other action button passes its `icon`; the five inline SVGs go
 src/app/App.vue              top-bar slot order: … InstallAction before ExportAction
-index.html, vite.config.ts   two theme-color tags, manifest colours, favicon.svg
+index.html, vite.config.ts   two theme-color tags; manifest theme_color and background_color #15122A; favicon.svg
 public/icons/                favicon.svg + PNGs rendered from the AppLogo artwork
 scripts/render-icons.ts      NEW (dev only): renders the PNG icons from the SVG with Playwright's Chromium
 ```
@@ -225,7 +225,7 @@ The same static build is deployed to GitHub Pages under `/imgly/` and precached 
 
 | Concept | Convention | Where defined |
 |---|---|---|
-| Design tokens | Every colour, spacing, radius, shadow, size, duration and font is a `--…` custom property in `tokens.css`, set for dark in `:root` and overridden for light; components never hard-code one. The only duplicated values are the two `theme-color` hex codes in `index.html`, pinned to the tokens by a unit test (ADR-0002) | `src/shared/styles/tokens.css`, `docs/design-system.md` §Token source |
+| Design tokens | Every colour, spacing, radius, shadow, size, duration and font is a `--…` custom property in `tokens.css`, set for dark in `:root` and overridden for light; components never hard-code one. The only duplicated values are the window colours: the two `theme-color` hex codes in `index.html` and the manifest's `theme_color` and `background_color` in `vite.config.ts`, all pinned to `--color-titlebar` by one unit test that reads the three files (ADR-0002) | `src/shared/styles/tokens.css`, `docs/design-system.md` §Token source |
 | Icons | One typed registry and the `Icon` primitive; icons are decoration (`aria-hidden`, `focusable="false"`), so a button's accessible name comes only from its label or `aria-label` (ADR-0001, ADR-0003) | `src/shared/icons/`, `src/shared/ui/Icon.vue` |
 | Accessible names and keyboard order | Unchanged by restyling; the only reorder is Install app before Export in the top bar (spec §1) | spec §1, AC-03 |
 | Focus | Always visible through `--color-focus-ring`; a control revealed on hover is also revealed on `:focus-within` and always on `(hover: none)`, and is never removed from the keyboard order | `docs/design-system.md` §Interaction, AC-07, AC-13 |
@@ -255,12 +255,12 @@ ADR files live under `docs/features/ui-refresh/adr/NNNN-<title>.md`.
 **QG-2. No behaviour regression**
 - **When:** the restyled build runs the existing suites
 - **Then:** accessible names and keyboard order 100% unchanged, except that Install app now comes before Export in the top bar; every existing unit and end-to-end test passes without any edit, except the one app-shell test that pins Install app after Export (spec §6)
-- **How verify:** `pnpm test` and `pnpm test:e2e` on Chromium, Firefox and WebKit; `git diff --stat` over `src/**/*.test.ts` and `e2e/` touches only `src/app/App.test.ts`'s order test
+- **How verify:** `pnpm test` and `pnpm test:e2e` on Chromium, Firefox and WebKit; a review of the diff over `src/**/*.test.ts` and `e2e/` shows no existing test case edited or deleted except `src/app/App.test.ts`'s Install-app order test; added test files and added cases are allowed
 
 **QG-3. Light on weight and motion**
 - **When:** the feature's build is compared with the main branch, and the Gallery holds 20 Works
-- **Then:** ≤ 15 KB compressed growth of the app's downloaded code and styles; 0 new third-party packages downloaded at runtime; ≤ 200 ms per transition; longest interface freeze ≤ 200 ms while pointing across the cards (spec §6)
-- **How verify:** build size report comparing compressed `dist/` assets with the main branch; dependency list diff; unit test of the motion values; long-task trace on the reference machine
+- **Then:** ≤ 15 KB compressed growth of the app's downloaded code and styles; 0 new third-party packages downloaded at runtime; ≤ 200 ms per transition; longest interface freeze ≤ 200 ms while pointing across the cards; 0 hard-coded colours, spacing or fonts in components outside the design-token file and the two window-colour values the page header must state (spec §6)
+- **How verify:** build size report comparing compressed `dist/` assets with the main branch; dependency list diff; unit test of the motion values; long-task trace on the reference machine; a lint or search check in the review for hex colours, `rgb(`, and `px` or font values in `src/**/*.vue` styles outside `tokens.css`
 
 ## 11. Risks and technical debt
 
@@ -275,7 +275,7 @@ ADR files live under `docs/features/ui-refresh/adr/NNNN-<title>.md`.
 | Open architectural decision: the final logo artwork (two crop corners and an accent dot, with the wordmark) | Open question | Resolve before `sdd:tasks`; the icon files, `AppLogo` and the tab icon all render from it | Blazheiko |
 
 **Accepted debt (acceptable in v1, plan to fix later):**
-- The two `theme-color` hex values live in `index.html` as well as in `tokens.css`; a unit test keeps them equal (ADR-0002).
+- The window colours live in `index.html` (two `theme-color` tags) and `vite.config.ts` (manifest `theme_color`, `background_color`) as well as in `tokens.css`; one unit test reads the three files and keeps them equal (ADR-0002).
 - The PNG icons are rendered once by a dev script and committed, not generated on every build.
 
 ## 12. Glossary
