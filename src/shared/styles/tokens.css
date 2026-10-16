@@ -3,19 +3,50 @@
 :root {
   color-scheme: dark light;
 
-  /* colours */
+  /* colours (tokens v2: screens.md §Token values for ui-refresh) */
   --color-surface: #16181d;
   --color-surface-raised: #20232a;
+  --color-surface-sunken: #2a2d35;
+  --color-surface-overlay: #252830;
   --color-canvas-surround: #0e0f12;
   --color-border: #2f333c;
+  --color-border-subtle: #262930;
+  --color-border-strong: #8a909c;
   --color-text: #e8eaee;
   --color-text-muted: #9aa0ab;
-  --color-accent: #4c8dff;
-  --color-accent-hover: #6aa1ff;
-  --color-accent-active: #3a78e6;
+
+  /* brand: Iris, with a gradient towards violet for the logo and the primary button */
+  --color-brand: #6d5bff;
+  --color-brand-gradient: linear-gradient(135deg, #6d5bff, #a35bff);
+  --color-accent: #6d5bff;
+  --color-accent-gradient: linear-gradient(135deg, #6d5bff, #7b4fe8);
+  --color-accent-hover: linear-gradient(135deg, #5e4cf2, #6c44dd);
+  --color-accent-active: #5240db;
+  --color-accent-text: #8f82ff;
+  --color-accent-subtle: #2b2550;
   --color-on-accent: #ffffff;
-  --color-danger: #ff5c5c;
-  --color-focus-ring: #8ab4ff;
+  --color-focus-ring: #a99cff;
+
+  /* the top bar and the Installed app's title bar (ADR-0002) */
+  --color-titlebar: #15122a;
+  --color-on-titlebar: #eceaff;
+  --color-on-titlebar-muted: #a8a2d8;
+  --color-titlebar-border: #3a3361;
+
+  /* semantic */
+  --color-success: #4ade80;
+  --color-warning: #e8a93a;
+  --color-danger: #ff6b6b;
+  --color-danger-subtle: #3a1f24;
+  --color-danger-solid: #d63a3a;
+  --color-danger-solid-hover: #b83030;
+  --color-glass: #1b1838e6;
+  --color-scrim: #0e0f12b8;
+
+  /* elevation */
+  --shadow-sm: 0 1px 2px #0000004d;
+  --shadow-md: 0 4px 12px #00000059;
+  --shadow-lg: 0 12px 32px #00000073;
 
   /* spacing (4px scale) and sizing */
   --space-1: 4px;
@@ -26,11 +57,19 @@
   --space-6: 24px;
   --space-7: 32px;
   --space-8: 48px;
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 10px;
-  --control-height: 32px;
-  --toolbar-size: 48px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 999px;
+  --control-height-sm: 28px;
+  --control-height-md: 36px;
+  --control-height-lg: 44px;
+  --control-height: var(--control-height-md);
+  --icon-size-sm: 16px;
+  --icon-size-md: 20px;
+  --icon-size-lg: 32px;
+  --toolbar-size: 56px;
   --panel-width: 280px;
   --toast-max-width: 420px;
   --dialog-width: 440px;
@@ -44,9 +83,21 @@
   --font-size-sm: 13px;
   --font-size-md: 14px;
   --font-size-lg: 16px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 24px;
+  --font-size-display: 32px;
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+  --tracking-tight: -0.01em;
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-bold: 600;
+
+  /* motion: at most 200 ms, and none under reduced motion (AC-14) */
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --lift-card: -2px;
 
   /* z-layers */
   --z-canvas: 0;
@@ -59,15 +110,51 @@
   :root {
     --color-surface: #f6f7f9;
     --color-surface-raised: #ffffff;
+    --color-surface-sunken: #e9ebef;
+    --color-surface-overlay: #ffffff;
     --color-canvas-surround: #e4e6ea;
     --color-border: #d3d7de;
+    --color-border-subtle: #e3e6eb;
+    --color-border-strong: #8a93a3;
     --color-text: #1b1d22;
     --color-text-muted: #5d6471;
-    --color-accent: #2f6fe0;
-    --color-accent-hover: #255fc7;
-    --color-accent-active: #1f52ad;
-    --color-danger: #d23b3b;
-    --color-focus-ring: #2f6fe0;
+
+    --color-brand: #6d5bff;
+    --color-brand-gradient: linear-gradient(135deg, #6d5bff, #a35bff);
+    --color-accent: #6d5bff;
+    --color-accent-gradient: linear-gradient(135deg, #6d5bff, #7b4fe8);
+    --color-accent-hover: linear-gradient(135deg, #5e4cf2, #6c44dd);
+    --color-accent-active: #5240db;
+    --color-accent-text: #5847e6;
+    --color-accent-subtle: #ece9ff;
+    --color-on-accent: #ffffff;
+    --color-focus-ring: #5847e6;
+
+    --color-titlebar: #f4f2ff;
+    --color-on-titlebar: #1e1a3d;
+    --color-on-titlebar-muted: #5a5480;
+    --color-titlebar-border: #c9c3ee;
+
+    --color-success: #1e7b3a;
+    --color-warning: #9a6412;
+    --color-danger: #c53030;
+    --color-danger-subtle: #fdecec;
+    --color-danger-solid: #c53030;
+    --color-danger-solid-hover: #a82828;
+    --color-glass: #1b1838e6;
+    --color-scrim: #e4e6eab8;
+
+    --shadow-sm: 0 1px 2px #1b1d221f;
+    --shadow-md: 0 4px 12px #1b1d2229;
+    --shadow-lg: 0 12px 32px #1b1d2233;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-base: 0ms;
+    --lift-card: 0px;
   }
 }
 
