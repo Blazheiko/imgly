@@ -76,9 +76,7 @@ const backdrop = computed(() =>
       :aria-disabled="isOpen ? 'true' : undefined"
       :aria-describedby="isOpen ? hintId : undefined"
       @click="emit('delete')"
-    >
-      <span class="gallery-entry__visually-hidden">{{ m.deleteButton() }}</span>
-    </BaseButton>
+    />
     <span v-if="isOpen" :id="hintId" class="gallery-entry__visually-hidden">{{
       m.hintOpenWorkCannotBeDeleted()
     }}</span>
@@ -218,8 +216,6 @@ const backdrop = computed(() =>
   right: var(--space-2);
   z-index: 2;
   border-radius: var(--radius-full);
-  min-width: var(--control-height-sm);
-  padding: 0;
   background: var(--color-glass);
   color: var(--color-on-glass);
   opacity: 0;
@@ -238,7 +234,8 @@ const backdrop = computed(() =>
 }
 
 @media (hover: none) {
-  .gallery-entry__delete {
+  /* As specific as the hidden rule above, so it wins by coming later (AC-06 touch). */
+  .gallery-entry .gallery-entry__delete {
     opacity: 1;
   }
 

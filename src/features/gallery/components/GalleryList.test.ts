@@ -119,7 +119,10 @@ describe('GalleryList (SCR-01, SCR-03)', () => {
       await seed(db, 'Cat.png', NOW - 5 * MINUTE)
       const w = await show()
       expect(entryButton(w, 'Cat.png, 5 minutes ago').element.tagName).toBe('BUTTON')
-      expect(entryButton(w, m.deleteButtonName('Cat.png')).text()).toBe(m.deleteButton())
+      // ui-refresh AC-03: the card's Delete is icon-only, named by its aria-label alone.
+      const del = entryButton(w, m.deleteButtonName('Cat.png'))
+      expect(del.attributes('title')).toBe(m.deleteButtonName('Cat.png'))
+      expect(del.text()).toBe('')
     })
 
     it('puts the full name in a title and keeps a markup name as text', async () => {

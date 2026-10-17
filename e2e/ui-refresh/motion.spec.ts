@@ -61,3 +61,18 @@ test('AC-07: keyboard focus on a card shows its Delete without pointing', async 
   await expect(card.locator('[data-delete-id]')).toBeFocused()
   await expect(card.locator('[data-delete-id]')).toHaveCSS('opacity', '1')
 })
+
+test.describe('on a touch screen', () => {
+  // Chromium reports `hover: none` for a mobile touch viewport; Firefox has no isMobile, and
+  // Playwright has no cross-engine switch for the hover media feature.
+  test.skip(({ browserName }) => browserName !== 'chromium', 'hover: none needs Chromium mobile')
+  test.use({ isMobile: true, hasTouch: true, viewport: { width: 412, height: 915 } })
+
+  test('AC-06: every card shows its Delete without pointing or focus', async ({ page }) => {
+    await startWithOneCard(page)
+    expect(await page.evaluate(() => matchMedia('(hover: none)').matches)).toBe(true)
+    const del = page.locator('.gallery-entry [data-delete-id]').first()
+    await expect(del).not.toBeFocused()
+    await expect(del).toHaveCSS('opacity', '1')
+  })
+})
