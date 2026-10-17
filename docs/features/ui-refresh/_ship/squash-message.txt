@@ -1,0 +1,46 @@
+feat(ui-refresh): one brand mark, an icon on every action, premium Gallery and start screen
+
+The top bar, tab and Installed-app icons show the imgly mark; every action
+button carries a registry icon; the start screen gets an aligned drop area and
+the Gallery raised cards with blurred-backdrop thumbnails; the Installed app's
+title bar matches the top bar in both themes. Behaviour is unchanged except that
+Install app now comes before Export. Roadmap step 11; reviewed PASS on 2026-10-17.
+
+SDD-Task: T1
+SDD-Task: T2
+SDD-Task: T3
+SDD-Task: T4
+SDD-Task: T5
+SDD-Task: T6
+SDD-Task: T7
+SDD-Task: T8
+SDD-Task: T9
+SDD-Task: T10
+SDD-Task: T11
+SDD-Task: T12
+SDD-Task: T13
+SDD-Task: T14
+SDD-Task: T15
+SDD-Task: T16
+SDD-Task: T17
+SDD-Task: T18
+SDD-Task: T19
+SDD-Task: T20
+SDD-Task: T21
+SDD-Task: T22
+SDD-AC: AC-01
+SDD-AC: AC-02
+SDD-AC: AC-03
+SDD-AC: AC-04
+SDD-AC: AC-05
+SDD-AC: AC-06
+SDD-AC: AC-07
+SDD-AC: AC-08
+SDD-AC: AC-09
+SDD-AC: AC-10
+SDD-AC: AC-11
+SDD-AC: AC-12
+SDD-AC: AC-13
+SDD-AC: AC-14
+SDD-AC: AC-15
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
