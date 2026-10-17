@@ -1,6 +1,6 @@
 ---
 status: living
-updated_at: "2026-10-16"
+updated_at: "2026-10-17"
 ---
 
 # Roadmap — imgly-editor
@@ -30,6 +30,7 @@ draw on and export an image, then reopen any recent work later and re-edit it wi
 | 8 | Gallery of recent works: autosave, reopen and re-edit without loss, about 20 works with the oldest evicted, an honest notice that browser storage can be evicted ([`gallery`](features/gallery/)) | idea-brief.md §7 Recommendation + §6 Risks | M | shipped |
 | 9 | Install and update experience: an install prompt and a "new version available" toast ([`pwa-install-update`](features/pwa-install-update/)) | idea-brief.md §1 Raw idea (PWA) | S | shipped |
 | 10 | OS integration: paste and copy to the clipboard, and "Open with…" as the system image handler (drag-and-drop moved to step 2) | idea-brief.md §7 Recommendation | M | idea |
+| 11 | UI refresh: brand logo and colour, an icon on every action, premium Gallery cards and start screen, and a brand-tinted window title bar, on extended design tokens ([`ui-refresh`](features/ui-refresh/)) | features/ui-refresh/spec.md §1 | S | shipped |
 
 ## Not yet specified
 
@@ -82,6 +83,8 @@ flowchart LR
   s6 -->|persists the drawing layer| s8
   s3 -->|copy to clipboard reuses the export encoder| s10["10 · OS integration"]
   s2 -->|open from OS and paste feed the open pipeline| s10
+  s9 -->|restyles the install action and the update notice| s11["11 · UI refresh"]
+  s8 -->|restyles the Gallery list and its entries| s11
 ```
 
 ## Execution path
@@ -94,6 +97,7 @@ flowchart LR
 | 4 | 6 | `src/features/draw/` + `src/render/` layer compositor (new) | 7, 8 |
 | 5 | 7 ∥ 8 | 7: `src/core/history/` + editor store (new) · 8: `src/infra/db/` + `src/features/gallery/` (new). Disjoint apart from read-only document types | — |
 | 6 | 10 | `src/infra/platform/` + `src/features/os-integration/` (new) | — |
+| 7 | 11 | `src/shared/styles/` + `src/shared/ui/` + `src/shared/icons/` (new) + the restyled components of every feature. Touches many folders, so it runs alone; it can run before 10 so step 10 is built in the new style | — |
 
 ## Shipped
 
@@ -106,4 +110,5 @@ flowchart LR
 | 6 — Draw freehand | 2026-10-10 (merged to main via PR #7) | [changelog](features/draw/_ship/changelog.md) · [PR #7](https://github.com/Blazheiko/imgly/pull/7) |
 | 7 — Undo and redo | 2026-10-12 (merged to main via PR #9) | [changelog](features/undo-redo/_ship/changelog.md) · [PR #9](https://github.com/Blazheiko/imgly/pull/9) |
 | 8 — Gallery of recent works | 2026-10-15 (merged to main via PR #10) | [changelog](features/gallery/_ship/changelog.md) · [PR #10](https://github.com/Blazheiko/imgly/pull/10) |
-| 9 — Install and update experience | 2026-10-16 (PR #11, not yet merged) | [changelog](features/pwa-install-update/_ship/changelog.md) · [PR #11](https://github.com/Blazheiko/imgly/pull/11) |
+| 9 — Install and update experience | 2026-10-16 (merged to main via PR #11) | [changelog](features/pwa-install-update/_ship/changelog.md) · [PR #11](https://github.com/Blazheiko/imgly/pull/11) |
+| 11 — UI refresh | 2026-10-17 (PR not yet opened) | [changelog](features/ui-refresh/_ship/changelog.md) |

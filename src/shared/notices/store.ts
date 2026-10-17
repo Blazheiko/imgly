@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import type { IconName } from '../icons'
 import { newId } from '../ids'
 
 /** An informational notice dismisses itself after this long (tasks/_epic.md). */
@@ -13,10 +14,12 @@ export type NoticeKind = 'info' | 'failure' | 'lasting'
 
 /**
  * An optional button before Dismiss. Running it also dismisses the notice unless `run` returns
- * `'keep-open'`. While `busy`, it shows `busyLabel` with a spinner and ignores clicks.
+ * `'keep-open'`. While `busy`, it shows `busyLabel` with a spinner in its icon's place and ignores
+ * clicks.
  */
 export interface NoticeAction {
   label: string
+  icon?: IconName
   run: () => void | 'keep-open'
   busy?: boolean
   busyLabel?: string

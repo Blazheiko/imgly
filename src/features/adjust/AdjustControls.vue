@@ -99,6 +99,7 @@ function onCompareKeyup(event: KeyboardEvent) {
     <section class="adjust-controls__group">
       <div class="adjust-controls__row">
         <BaseButton
+          icon="eye"
           :pressed="tool.comparing"
           :title="COMPARE_TOOLTIP"
           data-testid="adjust-compare"
@@ -112,7 +113,12 @@ function onCompareKeyup(event: KeyboardEvent) {
         >
           {{ BUTTONS.compare }}
         </BaseButton>
-        <BaseButton :disabled="!autoAvailable" data-testid="adjust-auto" @click="onAuto">
+        <BaseButton
+          icon="wand-sparkles"
+          :disabled="!autoAvailable"
+          data-testid="adjust-auto"
+          @click="onAuto"
+        >
           {{ BUTTONS.auto }}
         </BaseButton>
       </div>
@@ -122,10 +128,14 @@ function onCompareKeyup(event: KeyboardEvent) {
     </section>
 
     <footer class="adjust-controls__footer">
-      <BaseButton variant="ghost" @click="tool.reset()">{{ BUTTONS.reset }}</BaseButton>
+      <BaseButton variant="ghost" icon="rotate-ccw" @click="tool.reset()">{{
+        BUTTONS.reset
+      }}</BaseButton>
       <span class="adjust-controls__spacer" />
-      <BaseButton variant="secondary" @click="tool.cancel()">{{ BUTTONS.cancel }}</BaseButton>
-      <BaseButton variant="primary" data-testid="adjust-apply" @click="tool.apply()">
+      <BaseButton variant="secondary" icon="x" @click="tool.cancel()">{{
+        BUTTONS.cancel
+      }}</BaseButton>
+      <BaseButton variant="primary" icon="check" data-testid="adjust-apply" @click="tool.apply()">
         {{ BUTTONS.apply }}
       </BaseButton>
     </footer>

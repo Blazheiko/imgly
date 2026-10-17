@@ -8,6 +8,7 @@ import { useNotices } from '@/shared'
 import ReloadDialog from './ReloadDialog.vue'
 import { usePwaInstallUpdate } from './store'
 import { fakeClient, fakeDocument } from './testing'
+import { drawsIcon } from '@/shared/ui/testing'
 
 const flush = async () => {
   for (let i = 0; i < 4; i++) {
@@ -52,6 +53,15 @@ describe('ReloadDialog (SCR-06, AC-12)', () => {
   }
 
   const dialog = () => wrapper.find('[role="alertdialog"]')
+
+  it('shows Cancel with x and Reload with refresh-cw (ui-refresh SCR-07)', async () => {
+    await ask(null)
+    const cancel = dialog().get('.base-button--secondary')
+    const reload = dialog().get('.base-button--primary')
+    expect(drawsIcon(cancel.element, 'x')).toBe(true)
+    expect(drawsIcon(reload.element, 'refresh-cw')).toBe(true)
+    expect([cancel.text(), reload.text()]).toEqual(['Cancel', 'Reload'])
+  })
 
   it('is closed while nothing asks', () => {
     expect(dialog().exists()).toBe(false)

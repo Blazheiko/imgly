@@ -7,6 +7,7 @@ import { useEditorStore } from '@/features/editor'
 import type { ExportRequest, FormatAvailabilityCheck } from '@/render'
 import ExportPanel from './ExportPanel.vue'
 import { useExportStore } from './store'
+import { drawsIcon } from '@/shared/ui/testing'
 
 const ALL: FormatAvailabilityCheck = { png: true, jpeg: true, webp: true }
 const blob = new Blob([new Uint8Array([1])])
@@ -239,6 +240,21 @@ describe('ExportPanel (SCR-03)', () => {
     await flush()
   })
 
+  it('loading: BaseButton\'s busy spinner in the icon\'s place, announcing "Exporting" (ui-refresh R12)', async () => {
+    await setup()
+    let release!: () => void
+    exporter.mockImplementationOnce(() => new Promise((r) => (release = () => r(ok(blob)))))
+    await confirmButton().trigger('click')
+    await flush()
+
+    const button = confirmButton()
+    expect(button.get('.base-button__icon [role="status"]').text()).toBe('Exporting')
+    expect(button.find('.export-panel__spinner').exists()).toBe(false)
+
+    release()
+    await flush()
+  })
+
   it('disables the confirm while the editor reads an image', async () => {
     await setup()
     editor.phase = 'reading'
@@ -247,6 +263,30 @@ describe('ExportPanel (SCR-03)', () => {
     editor.phase = 'idle'
     await flush()
     expect(confirmButton().attributes('disabled')).toBeUndefined()
+  })
+
+  it('confirms with the download icon, which a spinner replaces while exporting (ui-refresh SCR-07)', async () => {
+    await setup()
+    expect(drawsIcon(confirmButton().element, 'download')).toBe(true)
+    let release!: () => void
+    exporter.mockImplementationOnce(() => new Promise((r) => (release = () => r(ok(blob)))))
+    await confirmButton().trigger('click')
+    await flush()
+    expect(confirmButton().find('svg').exists()).toBe(false)
+    expect(confirmButton().find('[role="status"]').exists()).toBe(true)
+    release()
+    await flush()
+  })
+
+  it('shows Save… with the save icon (ui-refresh SCR-07)', async () => {
+    await setup()
+    store.setSavePlatform({
+      pickSaveTarget: vi.fn().mockResolvedValue(ok({ kind: 'activationLapsed' })),
+    })
+    await confirmButton().trigger('click')
+    await flush()
+    const save = wrapper.findAll('button').find((b) => b.text() === 'Save…')!
+    expect(drawsIcon(save.element, 'save')).toBe(true)
   })
 
   it('file ready: "Your file is ready." and a focused Save… that opens the dialog again', async () => {

@@ -23,11 +23,12 @@ function onActivate() {
 
 <template>
   <BaseButton
+    variant="ghost"
+    icon="layout-grid"
     :disabled="exporting"
     :pressed="gallery.overlayOpen"
     :aria-disabled="hint ? 'true' : undefined"
     :aria-describedby="hint ? hintId : undefined"
-    :class="{ 'gallery-action--unavailable': hint }"
     data-testid="gallery-action"
     data-keeps-space
     @click="onActivate"
@@ -38,10 +39,6 @@ function onActivate() {
 </template>
 
 <style scoped>
-.gallery-action--unavailable {
-  opacity: 0.45;
-}
-
 .gallery-action__hint {
   position: absolute;
   width: 1px;

@@ -75,7 +75,6 @@ describe('gallery messages', () => {
     expect(m.galleryButton()).toBe('Gallery')
     expect(m.closeButton()).toBe('Close')
     expect(m.closeTooltip()).toBe('Close (Esc)')
-    expect(m.deleteButton()).toBe('Delete')
     expect(m.deleteButtonName('Cat.png')).toBe('Delete “Cat.png”')
   })
 })

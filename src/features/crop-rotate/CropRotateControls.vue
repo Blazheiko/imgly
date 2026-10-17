@@ -62,64 +62,32 @@ function onSlider(value: number) {
       <div class="crop-controls__row">
         <BaseButton
           variant="ghost"
+          icon="rotate-ccw-square"
           :aria-label="LABELS.rotateLeft"
           :title="LABELS.rotateLeft"
           @click="tool.rotate('ccw')"
-        >
-          <svg class="crop-controls__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-            <path
-              d="M3 8a5 5 0 1 0 2-4M5 1v3H2"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-            />
-          </svg>
-        </BaseButton>
+        />
         <BaseButton
           variant="ghost"
+          icon="rotate-cw-square"
           :aria-label="LABELS.rotateRight"
           :title="LABELS.rotateRight"
           @click="tool.rotate('cw')"
-        >
-          <svg class="crop-controls__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-            <path
-              d="M13 8a5 5 0 1 1-2-4M11 1v3h3"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-            />
-          </svg>
-        </BaseButton>
+        />
         <BaseButton
           variant="ghost"
+          icon="flip-horizontal-2"
           :aria-label="LABELS.flipHorizontal"
           :title="LABELS.flipHorizontal"
           @click="tool.flip('horizontal')"
-        >
-          <svg class="crop-controls__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-            <path
-              d="M8 1v14M6 4 2 12h4zM10 4l4 8h-4z"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-            />
-          </svg>
-        </BaseButton>
+        />
         <BaseButton
           variant="ghost"
+          icon="flip-vertical-2"
           :aria-label="LABELS.flipVertical"
           :title="LABELS.flipVertical"
           @click="tool.flip('vertical')"
-        >
-          <svg class="crop-controls__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-            <path
-              d="M1 8h14M4 6l8-4v4zM4 10l8 4v-4z"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-            />
-          </svg>
-        </BaseButton>
+        />
       </div>
     </section>
 
@@ -174,10 +142,14 @@ function onSlider(value: number) {
     </section>
 
     <footer class="crop-controls__footer">
-      <BaseButton variant="ghost" @click="tool.reset()">{{ LABELS.reset }}</BaseButton>
+      <BaseButton variant="ghost" icon="rotate-ccw" @click="tool.reset()">{{
+        LABELS.reset
+      }}</BaseButton>
       <span class="crop-controls__spacer" />
-      <BaseButton variant="secondary" @click="tool.cancel()">{{ LABELS.cancel }}</BaseButton>
-      <BaseButton variant="primary" data-testid="crop-apply" @click="tool.apply()">
+      <BaseButton variant="secondary" icon="x" @click="tool.cancel()">{{
+        LABELS.cancel
+      }}</BaseButton>
+      <BaseButton variant="primary" icon="check" data-testid="crop-apply" @click="tool.apply()">
         {{ LABELS.apply }}
       </BaseButton>
     </footer>
@@ -209,11 +181,6 @@ function onSlider(value: number) {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
-}
-
-.crop-controls__icon {
-  width: var(--space-4);
-  height: var(--space-4);
 }
 
 .crop-controls__footer {

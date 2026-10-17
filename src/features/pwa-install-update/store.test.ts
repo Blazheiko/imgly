@@ -62,6 +62,12 @@ describe('pwa-install-update store — the update lifecycle', () => {
       expect(notice.action?.label).toBe('Reload')
     })
 
+    it('gives Reload the refresh icon (ui-refresh SCR-06)', () => {
+      connect()
+      sw.newWaiting()
+      expect(updateNotices()[0]!.action?.icon).toBe('refresh-cw')
+    })
+
     it('words the three states as the catalog says', () => {
       expect(UPDATE_TEXT).toEqual({
         available: 'A new version of imgly is available.',

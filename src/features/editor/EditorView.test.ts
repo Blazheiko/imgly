@@ -8,6 +8,7 @@ import EditorView from './EditorView.vue'
 import { createFakeRenderer } from './fake-renderer'
 import { createFakeAutosave } from './testing'
 import { useEditorStore } from './store'
+import { drawsIcon } from '@/shared/ui/testing'
 
 function dropEvent(type: string, files: File[] = []) {
   const event = new Event(type, { bubbles: true, cancelable: true })
@@ -86,6 +87,33 @@ describe('EditorView — SCR-01 (empty editor)', () => {
     const wheel = new WheelEvent('wheel', { deltaY: 40, cancelable: true, bubbles: true })
     wrapper.get('[data-testid="editor-top-bar"]').element.dispatchEvent(wheel)
     expect(wheel.defaultPrevented).toBe(false)
+  })
+
+  it("highlights the start screen's drop area while a drag is over the window (ui-refresh AC-04)", async () => {
+    const area = () => wrapper.find('[data-testid="empty-canvas"]')
+    expect(area().exists()).toBe(true)
+    window.dispatchEvent(dropEvent('dragenter'))
+    await nextTick()
+    expect(area().classes()).toContain('empty-canvas--highlighted')
+    window.dispatchEvent(dropEvent('dragleave'))
+    await nextTick()
+    expect(area().classes()).not.toContain('empty-canvas--highlighted')
+  })
+
+  it('ends the highlight on a refused drop, opens nothing and names the reason (ui-refresh AC-05)', async () => {
+    const area = () => wrapper.find('[data-testid="empty-canvas"]')
+    window.dispatchEvent(dropEvent('dragenter'))
+    await nextTick()
+    expect(area().classes()).toContain('empty-canvas--highlighted')
+    // The drop alone, no dragleave first, as a browser sends it.
+    window.dispatchEvent(
+      dropEvent('drop', [new File(['hello'], 'notes.txt', { type: 'text/plain' })]),
+    )
+    await flushPromises()
+    expect(area().exists()).toBe(true)
+    expect(area().classes()).not.toContain('empty-canvas--highlighted')
+    expect(useEditorStore().work).toBeNull()
+    expect(wrapper.get('[role="alert"]').text()).toContain('Only image files can be opened.')
   })
 
   it('shows the drop overlay while a drag is over the window', async () => {
@@ -400,6 +428,15 @@ describe('EditorView — blocking screens', () => {
   it('shows nothing in the canvas area while the gate is still checking', () => {
     wrapper = mount(EditorView, { attachTo: document.body })
     expect(wrapper.text()).not.toContain('Open image')
+  })
+
+  it('shows Reload page with the refresh icon (ui-refresh SCR-07)', async () => {
+    await editor.runCapabilityGate(async () => ok(undefined))
+    wrapper = mount(EditorView, { attachTo: document.body })
+    editor.setRendererStatus('lost')
+    await flushPromises()
+    const reload = wrapper.findAll('button').find((b) => b.text() === 'Reload page')!
+    expect(drawsIcon(reload.element, 'refresh-cw')).toBe(true)
   })
 
   it('SCR-05: replaces the canvas, hides the status bar and focuses Reload page (AC-19b)', async () => {

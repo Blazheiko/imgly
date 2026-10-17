@@ -16,8 +16,10 @@ import {
 } from './index'
 import type { SegmentedOption } from './SegmentedControl.vue'
 import segmentedSource from './SegmentedControl.vue?raw'
+import toastSource from './Toast.vue?raw'
 import tokensSource from '../styles/tokens.css?raw'
 import { useNotices } from '../notices'
+import { drawsIcon } from './testing'
 
 describe('Spinner', () => {
   it('is an indeterminate status with a visually hidden label', () => {
@@ -44,6 +46,75 @@ describe('Toast', () => {
   })
 })
 
+describe('Toast icons (ui-refresh SCR-06)', () => {
+  it('shows the x icon on Dismiss, which keeps its name and gains a tooltip', () => {
+    const wrapper = mount(Toast, { props: { kind: 'info', text: 'Reduced.' } })
+    const dismiss = wrapper.get('button[aria-label="Dismiss"]')
+    expect(dismiss.attributes('title')).toBe('Dismiss')
+    expect(dismiss.text()).toBe('')
+    expect(dismiss.get('svg').attributes('aria-hidden')).toBe('true')
+  })
+
+  it('renders Dismiss as BaseButton ghost sm icon-only x, with no look of its own', () => {
+    const wrapper = mount(Toast, { props: { kind: 'info', text: 'Reduced.' } })
+    const dismiss = wrapper.get('button[aria-label="Dismiss"]')
+    expect(dismiss.classes()).toEqual(
+      expect.arrayContaining([
+        'toast__dismiss',
+        'base-button--ghost',
+        'base-button--sm',
+        'base-button--icon-only',
+      ]),
+    )
+    expect(drawsIcon(dismiss.element, 'x')).toBe(true)
+    const toastStyle = toastSource.split('<style')[1] ?? ''
+    expect(toastStyle).not.toMatch(/\.toast__dismiss:(hover|focus-visible)/)
+  })
+
+  it("draws the action's icon before its label as a small ghost button", () => {
+    const wrapper = mount(Toast, {
+      props: {
+        kind: 'failure',
+        text: 'Cannot be opened.',
+        action: { label: 'Delete…', icon: 'trash-2', run: vi.fn() },
+      },
+    })
+    const action = wrapper.findAll('button')[0]!
+    expect(action.text()).toBe('Delete…')
+    expect(action.classes()).toEqual(
+      expect.arrayContaining(['base-button--ghost', 'base-button--sm']),
+    )
+    expect(action.element.firstElementChild?.tagName.toLowerCase()).toBe('svg')
+  })
+
+  it("puts a spinner in the icon's place while the action is busy", () => {
+    const wrapper = mount(Toast, {
+      props: {
+        kind: 'lasting',
+        text: 'A new version of imgly is available.',
+        action: {
+          label: 'Reload',
+          icon: 'refresh-cw',
+          busy: true,
+          busyLabel: 'Reloading…',
+          run: vi.fn(),
+        },
+      },
+    })
+    const action = wrapper.findAll('button')[0]!
+    expect(action.find('svg').exists()).toBe(false)
+    expect(action.findComponent(Spinner).exists()).toBe(true)
+    expect(action.text()).toBe('Reloading…')
+    expect(action.attributes('aria-disabled')).toBe('true')
+  })
+
+  it('edges info in accent text and failure in danger, from tokens', () => {
+    expect(toastSource).toMatch(/\.toast--lasting\s*\{[^}]*var\(--color-accent-text\)/)
+    expect(toastSource).toMatch(/\.toast--failure\s*\{[^}]*var\(--color-danger\)/)
+    expect(toastSource).toContain('var(--shadow-md)')
+  })
+})
+
 describe('Toast action (gallery AC-08)', () => {
   const action = (run = vi.fn()) => ({ label: 'Delete…', run })
 
@@ -61,8 +132,11 @@ describe('Toast action (gallery AC-08)', () => {
 
   it('renders only text and dismiss without an action', () => {
     const wrapper = mount(Toast, { props: { kind: 'failure', text: 'Too large.' } })
-    expect(wrapper.findAll('button')).toHaveLength(1)
-    expect(wrapper.findComponent(BaseButton).exists()).toBe(false)
+    // The one button is Dismiss, itself a BaseButton since ui-refresh (SCR-06).
+    const buttons = wrapper.findAll('button')
+    expect(buttons).toHaveLength(1)
+    expect(buttons[0]!.attributes('aria-label')).toBe('Dismiss')
+    expect(wrapper.findAllComponents(BaseButton)).toHaveLength(1)
   })
 
   it('runs the action, then emits dismiss', async () => {
@@ -144,7 +218,7 @@ describe('Toast lasting, keep-open and busy (pwa-install-update AC-06, AC-10, AC
     expect(button.classes()).toContain('base-button--ghost')
     expect(button.findComponent(Spinner).exists()).toBe(true)
     // The visible text names the button; the Spinner is not read out a second time (AC-11).
-    expect(button.find('.toast__spinner').attributes('aria-hidden')).toBe('true')
+    expect(button.find('.base-button__icon').attributes('aria-hidden')).toBe('true')
     expect(button.text()).toContain('Reloading…')
     expect(button.text()).not.toContain('Reload ')
 

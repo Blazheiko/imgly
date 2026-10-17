@@ -51,39 +51,23 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 <template>
   <BaseButton
+    variant="ghost"
+    icon="sliders-horizontal"
     :disabled="exporting"
     :pressed="hasWork ? open : undefined"
     :aria-disabled="hint ? 'true' : undefined"
     :aria-describedby="hint ? hintId : undefined"
     :title="ACTION_TOOLTIP"
-    :class="{ 'adjust-action--unavailable': hint }"
     data-testid="adjust-action"
     data-keeps-space
     @click="onActivate"
   >
-    <svg class="adjust-action__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-      <path
-        d="M1 4h14M1 12h14M5 2v4M11 10v4"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="1.5"
-      />
-    </svg>
     {{ ACTION_LABEL }}
   </BaseButton>
   <span v-if="hint" :id="hintId" class="adjust-action__hint">{{ hint }}</span>
 </template>
 
 <style scoped>
-.adjust-action--unavailable {
-  opacity: 0.45;
-}
-
-.adjust-action__icon {
-  width: var(--space-4);
-  height: var(--space-4);
-}
-
 .adjust-action__hint {
   position: absolute;
   width: 1px;

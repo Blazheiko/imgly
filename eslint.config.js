@@ -27,7 +27,7 @@ export default tseslint.config(
       // Shared primitives named by the screens manifests (docs/design-system.md inventory).
       'vue/multi-word-component-names': [
         'error',
-        { ignores: ['Dialog', 'Popover', 'Spinner', 'Toast'] },
+        { ignores: ['Dialog', 'Icon', 'Popover', 'Spinner', 'Toast'] },
       ],
     },
   },

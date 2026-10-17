@@ -190,6 +190,12 @@ onBeforeUnmount(() => {
       <template v-if="live && editor.work" #leading-actions>
         <slot name="top-bar-leading-actions" />
       </template>
+      <template v-if="live && $slots['top-bar-history']" #history>
+        <slot name="top-bar-history" />
+      </template>
+      <template v-if="live && $slots['top-bar-tools']" #tools>
+        <slot name="top-bar-tools" />
+      </template>
       <template v-if="live" #actions><slot name="top-bar-actions" /></template>
     </EditorTopBar>
     <div class="editor-view__body">
@@ -212,16 +218,17 @@ onBeforeUnmount(() => {
           >
             {{ BLOCKING.DISPLAY_LOST.body }}
             <template #action>
-              <BaseButton ref="reloadButton" variant="primary" @click="reload"
+              <BaseButton ref="reloadButton" variant="primary" icon="refresh-cw" @click="reload"
                 >Reload page</BaseButton
               >
             </template>
           </CanvasMessage>
           <template v-else-if="live">
-            <template v-if="!editor.work">
-              <EmptyCanvas @open="openPicked" />
+            <!-- One centred column, so the drop area lines up with the Gallery (ui-refresh AC-04). -->
+            <div v-if="!editor.work" class="editor-view__start">
+              <EmptyCanvas :highlighted="dragging" @open="openPicked" />
               <slot name="start-screen" />
-            </template>
+            </div>
             <template v-else>
               <PreviewCanvas />
             </template>
@@ -295,6 +302,12 @@ onBeforeUnmount(() => {
 /* The start screen's band and Gallery section scroll when the entries don't fit. */
 .editor-view__canvas--start {
   overflow-y: auto;
+}
+
+.editor-view__start {
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  padding: var(--space-7);
 }
 
 .editor-view__restoring {

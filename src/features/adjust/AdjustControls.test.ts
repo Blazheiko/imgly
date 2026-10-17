@@ -8,6 +8,7 @@ import { createFakeRenderer } from '@/features/editor/testing'
 import AdjustControls, { AUTO_SHOWN_MARK } from './AdjustControls.vue'
 import { BUTTONS, GROUPS, hintNothingToCorrect, SLIDER_LABELS, SLIDER_TOOLTIP } from './messages'
 import { useAdjustStore } from './store'
+import { drawsIcon } from '@/shared/ui/testing'
 
 describe('AdjustControls (SCR-03)', () => {
   let wrapper: VueWrapper
@@ -308,5 +309,23 @@ describe('AdjustControls (SCR-03)', () => {
         BUTTONS.apply,
       ])
     })
+  })
+
+  it.each([
+    ['adjust-compare', 'eye'],
+    ['adjust-auto', 'wand-sparkles'],
+    ['adjust-apply', 'check'],
+  ] as const)('%s shows the %s icon next to its label (ui-refresh AC-02)', (testid, icon) => {
+    const b = wrapper.get(`[data-testid="${testid}"]`)
+    expect(drawsIcon(b.element, icon)).toBe(true)
+    expect(b.text()).not.toBe('')
+  })
+
+  it.each([
+    [BUTTONS.reset, 'rotate-ccw'],
+    [BUTTONS.cancel, 'x'],
+  ] as const)('%s shows the %s icon (ui-refresh AC-02)', (label, icon) => {
+    const b = wrapper.findAll('button').find((x) => x.text() === label)!
+    expect(drawsIcon(b.element, icon)).toBe(true)
   })
 })

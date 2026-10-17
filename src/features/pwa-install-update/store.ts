@@ -92,7 +92,13 @@ export const usePwaInstallUpdate = defineStore('pwa-install-update', () => {
   }
 
   function action(): NoticeAction {
-    return { label: ACTION_RELOAD, run: reload, busy, busyLabel: ACTION_RELOADING }
+    return {
+      label: ACTION_RELOAD,
+      icon: 'refresh-cw',
+      run: reload,
+      busy,
+      busyLabel: ACTION_RELOADING,
+    }
   }
 
   function render() {

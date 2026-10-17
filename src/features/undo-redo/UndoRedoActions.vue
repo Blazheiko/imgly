@@ -65,50 +65,28 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
          data-keeps-space: Space activates them instead of starting space-pan (AC-14). -->
     <BaseButton
       variant="ghost"
+      icon="undo-2"
       :disabled="exporting"
       :aria-label="LABEL_UNDO"
       :aria-disabled="editor.canUndo ? undefined : 'true'"
       :aria-describedby="undoHintId"
       :title="undoText"
-      :class="{ 'undo-redo--unavailable': !editor.canUndo }"
       data-testid="undo-action"
       data-keeps-space
       @click="onUndo"
-    >
-      <svg class="undo-redo__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-        <path
-          d="M5 3L2 6l3 3M2 6h7.5a4 4 0 010 8H6"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-      </svg>
-    </BaseButton>
+    />
     <BaseButton
       variant="ghost"
+      icon="redo-2"
       :disabled="exporting"
       :aria-label="LABEL_REDO"
       :aria-disabled="editor.canRedo ? undefined : 'true'"
       :aria-describedby="redoHintId"
       :title="redoText"
-      :class="{ 'undo-redo--unavailable': !editor.canRedo }"
       data-testid="redo-action"
       data-keeps-space
       @click="onRedo"
-    >
-      <svg class="undo-redo__icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-        <path
-          d="M11 3l3 3-3 3M14 6H6.5a4 4 0 000 8H10"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-      </svg>
-    </BaseButton>
+    />
     <span :id="undoHintId" class="undo-redo__hint">{{ undoText }}</span>
     <span :id="redoHintId" class="undo-redo__hint">{{ redoText }}</span>
   </span>
@@ -117,16 +95,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 <style scoped>
 .undo-redo {
   display: inline-flex;
-  margin-inline-end: var(--space-2);
-}
-
-.undo-redo--unavailable {
-  opacity: 0.45;
-}
-
-.undo-redo__icon {
-  width: var(--space-4);
-  height: var(--space-4);
+  gap: var(--space-2);
 }
 
 .undo-redo__hint {

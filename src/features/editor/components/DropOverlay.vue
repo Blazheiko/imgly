@@ -5,22 +5,23 @@
 </template>
 
 <style scoped>
+/* Translucent, so the start screen's highlighted drop area shows through (ui-refresh SCR-02). */
 .drop-overlay {
   position: fixed;
   inset: 0;
   z-index: var(--z-overlay);
   display: grid;
   place-items: center;
-  margin: var(--space-2);
-  border: 2px dashed var(--color-accent);
-  border-radius: var(--radius-lg);
-  background: var(--color-canvas-surround);
-  opacity: 0.92;
+  background: var(--color-scrim);
   pointer-events: none;
 }
 
 .drop-overlay__text {
   margin: 0;
+  padding: var(--space-3) var(--space-6);
+  border-radius: var(--radius-full);
+  background: var(--color-canvas-surround);
+  box-shadow: var(--shadow-md);
   color: var(--color-text);
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-medium);

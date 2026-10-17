@@ -5,6 +5,7 @@ import { nextTick } from 'vue'
 import { ok } from '@/core'
 import ReplaceDialog from './ReplaceDialog.vue'
 import { useEditorStore } from '../store'
+import { drawsIcon } from '@/shared/ui/testing'
 
 const image = (width: number) => ({
   bitmap: { width, height: 100, close() {} } as unknown as ImageBitmap,
@@ -44,6 +45,15 @@ describe('ReplaceDialog (SCR-05, AC-15, AC-17)', () => {
     )
     expect(wrapper.get('.base-button--secondary').text()).toBe('Cancel')
     expect(wrapper.get('.base-button--primary').text()).toBe('Replace')
+  })
+
+  it('shows Cancel with x and Replace with its icon, primary not danger (ui-refresh SCR-07)', () => {
+    const cancel = wrapper.get('.base-button--secondary')
+    const replace = wrapper.get('.base-button--primary')
+    expect(drawsIcon(cancel.element, 'x')).toBe(true)
+    expect(drawsIcon(replace.element, 'replace')).toBe(true)
+    expect([cancel.text(), replace.text()]).toEqual(['Cancel', 'Replace'])
+    expect(wrapper.find('.base-button--danger').exists()).toBe(false)
   })
 
   it('puts focus on Cancel first', () => {

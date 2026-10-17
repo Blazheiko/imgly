@@ -1,6 +1,8 @@
+export { default as AppLogo } from './AppLogo.vue'
 export { default as BaseButton } from './BaseButton.vue'
 export { default as CanvasMessage } from './CanvasMessage.vue'
 export { default as Dialog } from './Dialog.vue'
+export { default as Icon } from './Icon.vue'
 export { default as Spinner } from './Spinner.vue'
 export { default as Toast } from './Toast.vue'
 export { default as ToastStack } from './ToastStack.vue'

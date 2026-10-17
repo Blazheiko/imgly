@@ -56,9 +56,10 @@ onMounted(() => {
     <template #top-bar-leading-actions><GalleryAction /></template>
     <template #start-screen><GalleryStart /></template>
     <template #overlay><GalleryOverlay /></template>
-    <template #top-bar-actions
-      ><UndoRedoActions /><CropRotateAction /><AdjustAction /><DrawAction /><ExportAction /><InstallAction
-    /></template>
+    <!-- The top bar's groups, left to right (ui-refresh SCR-01): Export ends the bar. -->
+    <template #top-bar-history><UndoRedoActions /></template>
+    <template #top-bar-tools><CropRotateAction /><AdjustAction /><DrawAction /></template>
+    <template #top-bar-actions><InstallAction /><ExportAction /></template>
     <!-- Each tool's halves mount only for its own tool in the slot. -->
     <template #tool-canvas>
       <CropOverlay v-if="editor.activeTool === 'crop-rotate'" />

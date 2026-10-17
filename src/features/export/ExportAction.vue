@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, useId } from 'vue'
 import { useEditorStore } from '@/features/editor'
-import { BaseButton, Spinner, useNotices } from '@/shared'
+import { BaseButton, useNotices } from '@/shared'
 import ExportPanel from './ExportPanel.vue'
 import { infoNoImage, infoToolOpen } from './messages'
 import { createSaveShortcut, isSaveShortcut } from './shortcuts'
@@ -70,16 +70,17 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown, { capture
   <BaseButton
     ref="button"
     variant="primary"
+    icon="download"
+    :busy="exporting"
+    busy-label="Exporting"
     :disabled="disabled"
     :aria-disabled="hint ? 'true' : undefined"
     :aria-describedby="hint ? hintId : undefined"
     :aria-expanded="store.panelOpen ? 'true' : 'false'"
     aria-haspopup="dialog"
     data-keeps-space
-    :class="{ 'export-action--unavailable': hint !== null }"
     @click="onActivate"
   >
-    <span v-if="exporting" class="export-action__spinner"><Spinner label="Exporting" /></span>
     {{ exporting ? 'Exporting…' : 'Export' }}
   </BaseButton>
   <span v-if="hint" :id="hintId" class="export-action__hint">{{ hint }}</span>
@@ -87,15 +88,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown, { capture
 </template>
 
 <style scoped>
-.export-action--unavailable {
-  opacity: 0.45;
-}
-
-.export-action__spinner :deep(.spinner__ring) {
-  width: var(--space-4);
-  height: var(--space-4);
-}
-
 .export-action__hint {
   position: absolute;
   width: 1px;
