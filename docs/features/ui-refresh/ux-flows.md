@@ -63,7 +63,7 @@ flowchart TD
     A -->|"keyboard or screen reader"| G["Same names as before, icons not announced, Undo and Redo tooltips name the shortcut"]
 ```
 
-The top bar shows four groups left to right, in the same keyboard order: Gallery and Open image; Undo and Redo; the three tools; Install app and Export, with Export last (AC-02). Where the browser offers installation, Install app sits before Export; where it does not, or the app already runs installed, no Install app is shown and no gap or divider is left (AC-15). Every tool panel, the export panel, every confirmation, notice and full-screen message shows an icon on each action button (AC-02). A keyboard or screen-reader user reaches every button by the same name as before; only Undo, Redo and a card's Delete are icon-only, each with a tooltip (AC-03).
+The top bar shows four groups left to right, in the same keyboard order: Gallery and Open image; Undo and Redo; the three tools; Install app and Export, with Export last (AC-02). Where the browser offers installation, Install app sits before Export; where it does not, or the app already runs installed, no Install app is shown and no gap or divider is left (AC-15). Every tool panel, the export panel, every confirmation, notice and full-screen message shows an icon on each action button (AC-02). A keyboard or screen-reader user reaches every button by the same name as before; only Undo, Redo, a card's Delete, a notice's Dismiss and the buttons that never had a visible label (Rotate left and right, Flip horizontal and vertical, Zoom out and in) are icon-only, each with a tooltip (AC-03).
 
 ### Flow: US-03 — Start from a clear place to open an image
 

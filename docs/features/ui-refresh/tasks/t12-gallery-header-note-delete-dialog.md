@@ -55,7 +55,7 @@ This task delivers the header count + bar and the Storage note (US-05), and the 
 
 Today: `GalleryList.vue` has props `showClose`, `showOpenImage`, `titleId`; the "Close" button at :32 and the empty-state "Open image" at :61.
 
-> **Hard rule:** Accessible names and keyboard order of existing actions 100% unchanged; every existing unit and end-to-end test passes without any edit.
+> **Hard rule:** Accessible names and keyboard order of existing actions 100% unchanged; every existing unit and end-to-end test passes without any edit, except the deliberate pins listed in spec §6 (here: `DeleteWorkDialog.test.ts`'s `.base-button--danger` selector).
 >
 > — `spec.md §6, NFR row «Accessible names», abridged` · full text: [spec.md](../spec.md)
 

@@ -199,8 +199,8 @@ the open tool is `pressed`. The keyboard order follows the visual order.
 +------------------------------------------------------------------------------------------------+
 | ⌜•⌟ imgly │ ↶  ↷ │ ⌗ Crop and rotate  ⫶ Adjust  ✎ Draw │ ⇩ Install app (⇩ Export)              |
 +------------------------------------------------------------------------------------------------+
-             ② and ③ and Export: neutral unavailable look (--color-surface-sunken, muted text),
-             still focusable with their hints; no group ①, so no divider before ②
+             ② and ③: ghost unavailable look (transparent, muted text); Export: neutral unavailable
+             look (--color-surface-sunken, muted text); all still focusable with their hints; no group ①, so no divider before ②
 ```
 
 ```text

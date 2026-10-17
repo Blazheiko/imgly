@@ -20,12 +20,12 @@
 | T13 | [Work card](./t13-gallery-work-card.md) | ui | Blazheiko | M | T3, T12 | done |
 | T14 | [e2e a11y, motion, brand](./t14-tests-e2e-accessibility-motion-brand.md) | tests | Blazheiko | M | T4, T6–T11, T13 | done |
 | T15 | [design-system record](./t15-docs-design-system.md) | docs | Blazheiko | S | T1–T5 | done |
-| T16 | [Card Delete touch + icon-only](../_review/review-2026-10-17.md) (R1, R10) | ui | Blazheiko | S | — | todo |
-| T17 | [Dismiss as BaseButton](../_review/review-2026-10-17.md) (R7) | ui | Blazheiko | S | — | todo |
-| T18 | [Export uses busy](../_review/review-2026-10-17.md) (R12) | ui | Blazheiko | S | — | todo |
-| T19 | [Gradient contrast](../_review/review-2026-10-17.md) (R2) | tests | Blazheiko | S | — | todo |
-| T20 | [Refused drop highlight](../_review/review-2026-10-17.md) (R3) | tests | Blazheiko | S | — | todo |
-| T21 | [Alignment + app icons](../_review/review-2026-10-17.md) (R4, R5) | tests | Blazheiko | S | — | todo |
-| T22 | [Spec drift patches](../_review/review-2026-10-17.md) (R6, R8, R9) | docs | Blazheiko | S | — | todo |
+| T16 | [Card Delete touch + icon-only](../_review/review-2026-10-17.md) (R1, R10) | ui | Blazheiko | S | — | done |
+| T17 | [Dismiss as BaseButton](../_review/review-2026-10-17.md) (R7) | ui | Blazheiko | S | — | done |
+| T18 | [Export uses busy](../_review/review-2026-10-17.md) (R12) | ui | Blazheiko | S | — | done |
+| T19 | [Gradient contrast](../_review/review-2026-10-17.md) (R2) | tests | Blazheiko | S | — | done |
+| T20 | [Refused drop highlight](../_review/review-2026-10-17.md) (R3) | tests | Blazheiko | S | — | done |
+| T21 | [Alignment + app icons](../_review/review-2026-10-17.md) (R4, R5) | tests | Blazheiko | S | — | done |
+| T22 | [Spec drift patches](../_review/review-2026-10-17.md) (R6, R8, R9) | docs | Blazheiko | S | — | done |
 
 **Total:** 22 tasks (T16–T22 from review-2026-10-17), ~9.8 person-days (S ≈ 0.4 d, M ≈ 0.75 d).

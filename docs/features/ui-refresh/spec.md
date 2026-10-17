@@ -2,7 +2,7 @@
 status: Draft
 owner: "Blazheiko"
 reviewers: ["Tech Lead", "Security Lead"]
-updated_at: "2026-10-16"
+updated_at: "2026-10-17"
 feature_size: "S"
 ---
 
@@ -110,7 +110,7 @@ Traceability and deliberate compromises:
 
 ### AC-03 (US-02, US-08) — domain invariant
 
-**Given** an action button shows an icon; only Undo, Redo, a card's Delete and the buttons that already have no visible label today (Rotate left, Rotate right, Flip horizontal and Flip vertical in Crop and rotate, and Zoom out and Zoom in, whose "−" and "+" become icons) show an icon without a visible label, and every other action button shows its icon next to its label (patched by `screens` on 2026-10-16)
+**Given** an action button shows an icon; only Undo, Redo, a card's Delete, a notice's Dismiss (whose "×" becomes an icon) and the buttons that already have no visible label today (Rotate left, Rotate right, Flip horizontal and Flip vertical in Crop and rotate, and Zoom out and Zoom in, whose "−" and "+" become icons) show an icon without a visible label, and every other action button shows its icon next to its label (patched by `screens` on 2026-10-16)
 **When** a screen reader or the keyboard reaches the button
 **Then** the button is announced by the same name as before this feature, the icon itself is not announced, each icon-only button has a tooltip naming its action (Undo and Redo also name their shortcut), and the keyboard order of the top bar is unchanged except that Install app now comes before Export
 
@@ -172,7 +172,7 @@ Traceability and deliberate compromises:
 
 **Given** the restyled interface in either theme, including the brand-tinted top bar
 **When** the Editor reads any text or looks at any control and its focus
-**Then** every text and icon is readable against its background at the contrast stated in §6, keyboard focus is always visibly marked, and a disabled action such as Export with no image looks unavailable through a neutral background and muted text, never a pale, washed-out brand colour; disabled controls are exempt from the text contrast target, as in the accessibility guidelines
+**Then** every text and icon is readable against its background at the contrast stated in §6, keyboard focus is always visibly marked, and a disabled action such as Export with no image looks unavailable through a neutral background and muted text, never a pale, washed-out brand colour (a ghost button, such as the top bar's Undo, Redo and tools, keeps its transparent background and shows only the muted text, so the titlebar stays one strip; patched by `review` on 2026-10-17); disabled controls are exempt from the text contrast target, as in the accessibility guidelines
 
 ### AC-14 (US-08) — cross-context
 
@@ -194,7 +194,7 @@ Reference machine: Apple M1 MacBook Air with the latest stable Chrome, as in the
 |---|---|---|
 | Text contrast against its background | ≥ 4.5:1 for all text except the labels of disabled controls, in both themes and on the top bar | automated accessibility check of the start screen, the Gallery, each tool panel and the export panel, in both themes |
 | Icons, control borders and the focus mark against their background | ≥ 3:1 in both themes | the same automated check, plus a manual check of the focus mark |
-| Accessible names and keyboard order of existing actions | 100% unchanged, except that Install app now comes before Export in the top bar; every existing unit and end-to-end test passes without any edit, except the one app-shell test that pins Install app after Export | the full unit and end-to-end suites on Chromium, Firefox and WebKit |
+| Accessible names and keyboard order of existing actions | 100% unchanged, except that Install app now comes before Export in the top bar; every existing unit and end-to-end test passes without any edit, except the pins this feature changes on purpose: the app-shell test and the install e2e that place Install app after Export, the Delete dialog's test that finds its confirm as the primary button (now `danger`, AC-12), the gallery list test that reads a card's Delete as text (now icon-only), and the Toast test that counts no BaseButton without an action (Dismiss is now one; patched by `review` on 2026-10-17) | the full unit and end-to-end suites on Chromium, Firefox and WebKit |
 | Growth of the app's downloaded code and styles | ≤ 15 KB compressed over the size before this feature | build size report compared with the main branch |
 | New third-party code downloaded at runtime | 0 packages | dependency list diff |
 | Hover and open motion | ≤ 200 ms per transition; 0 ms of movement when reduced motion is requested | unit test of the motion values; e2e with reduced motion emulated |
