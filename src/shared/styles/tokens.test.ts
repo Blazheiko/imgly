@@ -56,6 +56,24 @@ const V2_COLOURS = [
   '--color-scrim',
 ]
 
+/** WCAG relative luminance of #rrggbb. */
+function luminance(hex: string): number {
+  const n = Number.parseInt(hex.slice(1), 16)
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c) => {
+    const s = c / 255
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
+  })
+  return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!
+}
+
+function contrast(a: string, b: string): number {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
+  return (hi! + 0.05) / (lo! + 0.05)
+}
+
+/** Every #rrggbb in a token value, e.g. both stops of a gradient. */
+const hexes = (value: string | undefined) => value?.match(/#[0-9a-f]{6}\b/gi) ?? []
+
 function ms(value: string): number {
   const match = /^(\d+(?:\.\d+)?)(ms|s)$/.exec(value)
   if (!match) throw new Error(`not a duration: ${value}`)
@@ -101,6 +119,26 @@ describe('design tokens', () => {
     expect(dark.has('--icon-size-lg')).toBe(true)
     expect(dark.get('--toolbar-size')).toBe('56px')
   })
+
+  // axe can't sample a gradient background and leaves that text "incomplete", so the primary
+  // button's text is measured here against every stop it can show (AC-13, spec §6).
+  it.each([
+    ['dark', dark],
+    ['light', light],
+  ] as const)(
+    'keeps primary-button text >= 4.5:1 on every gradient stop (%s, AC-13)',
+    (_, theme) => {
+      const text = theme.get('--color-on-accent')!
+      const stops = [
+        '--color-accent-gradient',
+        '--color-accent-hover',
+        '--color-accent-active',
+      ].flatMap((name) => hexes(theme.get(name)))
+      expect(stops.length).toBeGreaterThanOrEqual(5)
+      for (const stop of stops)
+        expect(contrast(text, stop), `${text} on ${stop}`).toBeGreaterThanOrEqual(4.5)
+    },
+  )
 
   it('keeps every transition at or under 200 ms (spec §6)', () => {
     const durations = [...dark].filter(([name]) => name.startsWith('--duration-'))
