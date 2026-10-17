@@ -12,6 +12,8 @@ const props = withDefaults(
     icon?: IconName
     /** A Spinner takes the icon's place, so the button still shows one symbol. */
     busy?: boolean
+    /** The Spinner's status text while busy, announced as part of the name; none by default. */
+    busyLabel?: string
     type?: 'button' | 'submit' | 'reset'
     disabled?: boolean
     /** A toggle's state, as `aria-pressed`; left out for ordinary buttons. */
@@ -22,6 +24,7 @@ const props = withDefaults(
     size: 'md',
     icon: undefined,
     busy: false,
+    busyLabel: undefined,
     type: 'button',
     disabled: false,
     pressed: undefined,
@@ -51,13 +54,13 @@ if (import.meta.env.DEV && iconOnly.value && !attrs['aria-label']) {
       { 'base-button--pressed': pressed, 'base-button--icon-only': iconOnly },
     ]"
   >
-    <!-- The label names the button; the Spinner's own status text is not read out again. -->
+    <!-- The label names the button; the Spinner's status is read out only with a busyLabel. -->
     <span
       v-if="busy"
       class="base-button__icon"
       :class="`base-button__icon--${iconSize}`"
-      aria-hidden="true"
-      ><Spinner label=""
+      :aria-hidden="busyLabel ? undefined : 'true'"
+      ><Spinner :label="busyLabel ?? ''"
     /></span>
     <Icon v-else-if="icon" :name="icon" :size="iconSize" />
     <slot />

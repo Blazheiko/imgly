@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, useId } from 'vue'
 import { useEditorStore } from '@/features/editor'
-import { BaseButton, Spinner, useNotices } from '@/shared'
+import { BaseButton, useNotices } from '@/shared'
 import ExportPanel from './ExportPanel.vue'
 import { infoNoImage, infoToolOpen } from './messages'
 import { createSaveShortcut, isSaveShortcut } from './shortcuts'
@@ -70,7 +70,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown, { capture
   <BaseButton
     ref="button"
     variant="primary"
-    :icon="exporting ? undefined : 'download'"
+    icon="download"
+    :busy="exporting"
+    busy-label="Exporting"
     :disabled="disabled"
     :aria-disabled="hint ? 'true' : undefined"
     :aria-describedby="hint ? hintId : undefined"
@@ -79,8 +81,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown, { capture
     data-keeps-space
     @click="onActivate"
   >
-    <!-- In the icon's place while exporting; its status text stays part of the name, as before. -->
-    <span v-if="exporting" class="export-action__spinner"><Spinner label="Exporting" /></span>
     {{ exporting ? 'Exporting…' : 'Export' }}
   </BaseButton>
   <span v-if="hint" :id="hintId" class="export-action__hint">{{ hint }}</span>
@@ -88,15 +88,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown, { capture
 </template>
 
 <style scoped>
-.export-action__spinner {
-  display: inline-flex;
-}
-
-.export-action__spinner :deep(.spinner__ring) {
-  width: var(--icon-size-sm);
-  height: var(--icon-size-sm);
-}
-
 .export-action__hint {
   position: absolute;
   width: 1px;

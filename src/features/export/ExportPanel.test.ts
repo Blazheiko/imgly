@@ -230,6 +230,9 @@ describe('ExportPanel (SCR-03)', () => {
     expect(button.text()).toContain('Exporting…')
     expect(button.attributes('disabled')).toBeDefined()
     expect(button.find('[role="status"]').exists()).toBe(true)
+    // BaseButton's busy spinner in the icon's place, still announcing "Exporting" (ui-refresh R12).
+    expect(button.get('.base-button__icon [role="status"]').text()).toBe('Exporting')
+    expect(button.find('.export-panel__spinner').exists()).toBe(false)
 
     escape()
     document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }))

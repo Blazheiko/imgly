@@ -9,14 +9,7 @@ import {
   workSize as workSizeOf,
 } from '@/core'
 import { useEditorStore } from '@/features/editor'
-import {
-  BaseButton,
-  NumberField,
-  Popover,
-  SegmentedControl,
-  SliderField,
-  Spinner,
-} from '@/shared/ui'
+import { BaseButton, NumberField, Popover, SegmentedControl, SliderField } from '@/shared/ui'
 import { FORMAT_LABELS, lineFileReady } from './messages'
 import { useExportStore } from './store'
 
@@ -160,11 +153,12 @@ watch(fileReady, async (ready) => {
         <BaseButton
           v-else
           variant="primary"
-          :icon="exporting ? undefined : 'download'"
+          icon="download"
+          :busy="exporting"
+          busy-label="Exporting"
           :disabled="exporting || store.editorBusy"
           @click="store.confirm()"
         >
-          <span v-if="exporting" class="export-panel__spinner"><Spinner label="Exporting" /></span>
           {{ exporting ? 'Exporting…' : 'Export' }}
         </BaseButton>
       </div>
@@ -214,14 +208,5 @@ watch(fileReady, async (ready) => {
 .export-panel__actions {
   display: flex;
   justify-content: flex-end;
-}
-
-.export-panel__spinner {
-  display: inline-flex;
-}
-
-.export-panel__spinner :deep(.spinner__ring) {
-  width: var(--icon-size-sm);
-  height: var(--icon-size-sm);
 }
 </style>

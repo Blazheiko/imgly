@@ -41,6 +41,16 @@ describe('BaseButton (ui-refresh ADR-0003)', () => {
     expect(wrapper.text()).toContain('Exporting…')
   })
 
+  it("announces busyLabel as the spinner's status while busy, as part of the name", () => {
+    const wrapper = mount(BaseButton, {
+      props: { icon: 'download', busy: true, busyLabel: 'Exporting' },
+      slots: { default: 'Exporting…' },
+    })
+    const icon = wrapper.get('.base-button__icon')
+    expect(icon.attributes('aria-hidden')).toBeUndefined()
+    expect(icon.get('[role="status"]').text()).toBe('Exporting')
+  })
+
   it('shows a spinner in the icon slot when busy without an icon', () => {
     const wrapper = mount(BaseButton, { props: { busy: true }, slots: { default: 'Reloading…' } })
     expect(wrapper.findComponent(Spinner).exists()).toBe(true)
