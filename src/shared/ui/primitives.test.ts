@@ -19,6 +19,7 @@ import segmentedSource from './SegmentedControl.vue?raw'
 import toastSource from './Toast.vue?raw'
 import tokensSource from '../styles/tokens.css?raw'
 import { useNotices } from '../notices'
+import { drawsIcon } from './testing'
 
 describe('Spinner', () => {
   it('is an indeterminate status with a visually hidden label', () => {
@@ -52,6 +53,22 @@ describe('Toast icons (ui-refresh SCR-06)', () => {
     expect(dismiss.attributes('title')).toBe('Dismiss')
     expect(dismiss.text()).toBe('')
     expect(dismiss.get('svg').attributes('aria-hidden')).toBe('true')
+  })
+
+  it('renders Dismiss as BaseButton ghost sm icon-only x, with no look of its own', () => {
+    const wrapper = mount(Toast, { props: { kind: 'info', text: 'Reduced.' } })
+    const dismiss = wrapper.get('button[aria-label="Dismiss"]')
+    expect(dismiss.classes()).toEqual(
+      expect.arrayContaining([
+        'toast__dismiss',
+        'base-button--ghost',
+        'base-button--sm',
+        'base-button--icon-only',
+      ]),
+    )
+    expect(drawsIcon(dismiss.element, 'x')).toBe(true)
+    const toastStyle = toastSource.split('<style')[1] ?? ''
+    expect(toastStyle).not.toMatch(/\.toast__dismiss:(hover|focus-visible)/)
   })
 
   it("draws the action's icon before its label as a small ghost button", () => {
@@ -115,8 +132,11 @@ describe('Toast action (gallery AC-08)', () => {
 
   it('renders only text and dismiss without an action', () => {
     const wrapper = mount(Toast, { props: { kind: 'failure', text: 'Too large.' } })
-    expect(wrapper.findAll('button')).toHaveLength(1)
-    expect(wrapper.findComponent(BaseButton).exists()).toBe(false)
+    // The one button is Dismiss, itself a BaseButton since ui-refresh (SCR-06).
+    const buttons = wrapper.findAll('button')
+    expect(buttons).toHaveLength(1)
+    expect(buttons[0]!.attributes('aria-label')).toBe('Dismiss')
+    expect(wrapper.findAllComponents(BaseButton)).toHaveLength(1)
   })
 
   it('runs the action, then emits dismiss', async () => {

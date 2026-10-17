@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { NoticeAction, NoticeKind } from '../notices'
 import BaseButton from './BaseButton.vue'
-import Icon from './Icon.vue'
 import Spinner from './Spinner.vue'
 
 defineProps<{ kind: NoticeKind; text: string; action?: NoticeAction }>()
@@ -40,16 +39,15 @@ function runAction(action: NoticeAction, event: MouseEvent): void {
       </template>
       <template v-else>{{ action.label }}</template>
     </BaseButton>
-    <!-- A native button, styled as BaseButton's ghost sm icon-only look (ui-refresh SCR-06). -->
-    <button
-      type="button"
+    <BaseButton
+      variant="ghost"
+      size="sm"
+      icon="x"
       class="toast__dismiss"
       aria-label="Dismiss"
       title="Dismiss"
       @click="$emit('dismiss')"
-    >
-      <Icon name="x" />
-    </button>
+    />
   </div>
 </template>
 
@@ -97,30 +95,6 @@ function runAction(action: NoticeAction, event: MouseEvent): void {
 }
 
 .toast__dismiss {
-  display: inline-flex;
   flex: none;
-  align-items: center;
-  justify-content: center;
-  min-width: var(--control-height-sm);
-  min-height: var(--control-height-sm);
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition:
-    background var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
-}
-
-.toast__dismiss:hover {
-  background: var(--color-accent-subtle);
-  color: var(--color-text);
-}
-
-.toast__dismiss:focus-visible {
-  outline: 2px solid var(--color-focus-ring);
-  outline-offset: 2px;
 }
 </style>
