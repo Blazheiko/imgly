@@ -100,6 +100,22 @@ describe('EditorView — SCR-01 (empty editor)', () => {
     expect(area().classes()).not.toContain('empty-canvas--highlighted')
   })
 
+  it('ends the highlight on a refused drop, opens nothing and names the reason (ui-refresh AC-05)', async () => {
+    const area = () => wrapper.find('[data-testid="empty-canvas"]')
+    window.dispatchEvent(dropEvent('dragenter'))
+    await nextTick()
+    expect(area().classes()).toContain('empty-canvas--highlighted')
+    // The drop alone, no dragleave first, as a browser sends it.
+    window.dispatchEvent(
+      dropEvent('drop', [new File(['hello'], 'notes.txt', { type: 'text/plain' })]),
+    )
+    await flushPromises()
+    expect(area().exists()).toBe(true)
+    expect(area().classes()).not.toContain('empty-canvas--highlighted')
+    expect(useEditorStore().work).toBeNull()
+    expect(wrapper.get('[role="alert"]').text()).toContain('Only image files can be opened.')
+  })
+
   it('shows the drop overlay while a drag is over the window', async () => {
     window.dispatchEvent(dropEvent('dragenter'))
     await nextTick()
