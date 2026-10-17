@@ -323,6 +323,128 @@
         "docs/features/ui-refresh/screens.md"
       ],
       "file": "docs/features/ui-refresh/tasks/t15-docs-design-system.md"
+    },
+    {
+      "id": "T16",
+      "title": "Card Delete: visible on touch screens and icon-only through BaseButton (R1, R10)",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-06",
+        "AC-03"
+      ],
+      "dod": "In a hover:none context Delete has opacity 1 without hover or focus (e2e on a touch context, all three engines); the media-query selector matches the base rule's specificity; Delete has no hidden label span, gets base-button--icon-only and keeps aria-label + title; no local min-width/padding override",
+      "files_hint": [
+        "src/features/gallery/components/GalleryEntry.vue",
+        "src/features/gallery/components/GalleryEntry.test.ts",
+        "e2e/ui-refresh/"
+      ],
+      "file": "docs/features/ui-refresh/_review/review-2026-10-17.md",
+      "source": "review-2026-10-17"
+    },
+    {
+      "id": "T17",
+      "title": "Notice Dismiss is a BaseButton ghost sm icon-only x (R7)",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-03",
+        "AC-13"
+      ],
+      "dod": "Toast renders Dismiss as BaseButton variant ghost size sm icon x with aria-label and title Dismiss, keeps the toast__dismiss class, and the hand-copied ghost/sm/focus CSS is gone; existing Toast and notice tests pass unchanged",
+      "files_hint": [
+        "src/shared/ui/Toast.vue",
+        "src/shared/ui/primitives.test.ts"
+      ],
+      "file": "docs/features/ui-refresh/_review/review-2026-10-17.md",
+      "source": "review-2026-10-17"
+    },
+    {
+      "id": "T18",
+      "title": "Both Export buttons use BaseButton busy (R12)",
+      "layer": "ui",
+      "deps": [],
+      "acs": [
+        "AC-02"
+      ],
+      "dod": "ExportAction and ExportPanel pass :busy=\"exporting\"; no local Spinner or :deep(.spinner__ring) CSS remains; the busy button's accessible name still contains 'Exporting' and the icon gives way to the spinner",
+      "files_hint": [
+        "src/features/export/ExportAction.vue",
+        "src/features/export/ExportPanel.vue",
+        "src/features/export/*.test.ts",
+        "src/shared/ui/BaseButton.vue"
+      ],
+      "file": "docs/features/ui-refresh/_review/review-2026-10-17.md",
+      "source": "review-2026-10-17"
+    },
+    {
+      "id": "T19",
+      "title": "Contrast check measures gradient-backed text (R2)",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-13"
+      ],
+      "dod": "A unit test computes white-text contrast against every stop of --color-accent-gradient and --color-accent-hover in both themes from tokens.css and asserts >= 4.5:1; the e2e contrast helper fails on color-contrast incomplete nodes other than an explicit allow-list of gradient-backed primaries",
+      "files_hint": [
+        "src/shared/styles/tokens.test.ts",
+        "e2e/ui-refresh/accessibility.spec.ts"
+      ],
+      "file": "docs/features/ui-refresh/_review/review-2026-10-17.md",
+      "source": "review-2026-10-17"
+    },
+    {
+      "id": "T20",
+      "title": "A refused drop ends the drop area's highlight (R3)",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-05"
+      ],
+      "dod": "EditorView test dispatches dragenter then drop of a non-image file and asserts empty-canvas--highlighted is removed, no Work opened and the existing refusal text shown; it fails if drop-guard stops calling onDragLeave on drop",
+      "files_hint": [
+        "src/features/editor/EditorView.test.ts"
+      ],
+      "file": "docs/features/ui-refresh/_review/review-2026-10-17.md",
+      "source": "review-2026-10-17"
+    },
+    {
+      "id": "T21",
+      "title": "Drop area lines up with the Gallery, and the app icons are the new mark (R4, R5)",
+      "layer": "tests",
+      "deps": [],
+      "acs": [
+        "AC-04",
+        "AC-01"
+      ],
+      "dod": "e2e asserts the drop area's left and right edges equal .gallery-list's within 1px at desktop and narrow widths; a unit test asserts each manifest PNG and the apple-touch icon exist with the declared size and differ from the pre-refresh bytes",
+      "files_hint": [
+        "e2e/ui-refresh/",
+        "src/shared/ui/AppLogo.test.ts"
+      ],
+      "file": "docs/features/ui-refresh/_review/review-2026-10-17.md",
+      "source": "review-2026-10-17"
+    },
+    {
+      "id": "T22",
+      "title": "Patch spec, sad and ux-flows for the review's drift (R6, R8, R9)",
+      "layer": "docs",
+      "deps": [],
+      "acs": [
+        "AC-02",
+        "AC-03",
+        "AC-12",
+        "AC-13"
+      ],
+      "dod": "spec §6 and sad QG-2 list DeleteWorkDialog.test.ts and install.spec.ts as deliberate exceptions; AC-03 and ux-flows US-02 name Dismiss and rotate/flip/zoom as icon-only; screens.md 01-b and AC-13 say unavailable ghost buttons keep a transparent background with muted text",
+      "files_hint": [
+        "docs/features/ui-refresh/spec.md",
+        "docs/features/ui-refresh/sad.md",
+        "docs/features/ui-refresh/ux-flows.md",
+        "docs/features/ui-refresh/screens.md"
+      ],
+      "file": "docs/features/ui-refresh/_review/review-2026-10-17.md",
+      "source": "review-2026-10-17"
     }
   ]
 }
