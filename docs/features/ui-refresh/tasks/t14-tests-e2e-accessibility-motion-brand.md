@@ -43,7 +43,7 @@ This task verifies in real browsers what happy-dom can't: computed contrast, red
 > — `spec.md §6, NFR rows 1–3 and 6, verbatim` · full text: [spec.md](../spec.md)
 
 > **QG-1 How verify:** an automated accessibility check run by Playwright over those screens in both themes; a manual check of the focus mark; a unit test that the motion tokens resolve to 0 under reduced motion, plus an e2e run with reduced motion emulated.
-> **QG-2 How verify:** a review of the diff over `src/**/*.test.ts` and `e2e/` shows no existing test case edited or deleted except those pins: `src/app/App.test.ts`'s Install-app order test, `e2e/pwa-install-update/install.spec.ts`'s top-bar order, `src/features/gallery/components/DeleteWorkDialog.test.ts`'s `.base-button--danger` selector, `src/features/gallery/components/GalleryList.test.ts`'s Delete-name case and `src/shared/ui/primitives.test.ts`'s no-action Toast case; added test files and added cases are allowed.
+> **QG-2 How verify:** a review of the diff over `src/**/*.test.ts` and `e2e/` shows no existing test case edited or deleted except those pins: `src/app/App.test.ts`'s Install-app order test, `e2e/pwa-install-update/install.spec.ts`'s top-bar order, `src/features/gallery/components/DeleteWorkDialog.test.ts`'s `.base-button--danger` selector, `src/features/gallery/components/GalleryList.test.ts`'s Delete-name case and `src/shared/ui/primitives.test.ts`'s no-action Toast case and busy-action Toast case (`.base-button__icon` selector), and `src/features/gallery/messages.test.ts`'s `deleteButton()` line; added test files and added cases are allowed.
 >
 > — `sad.md §10, QG-1 + QG-2, abridged` · full text: [sad.md](../sad.md)
 
