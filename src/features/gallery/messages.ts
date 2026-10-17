@@ -122,10 +122,6 @@ export function closeTooltip(): string {
   return 'Close (Esc)'
 }
 
-export function deleteButton(): string {
-  return 'Delete'
-}
-
 export function deleteButtonName(name: string): string {
   return `Delete “${name}”`
 }

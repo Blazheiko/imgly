@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { NoticeAction, NoticeKind } from '../notices'
 import BaseButton from './BaseButton.vue'
-import Spinner from './Spinner.vue'
 
 defineProps<{ kind: NoticeKind; text: string; action?: NoticeAction }>()
 const emit = defineEmits<{ dismiss: [] }>()
@@ -27,17 +26,14 @@ function runAction(action: NoticeAction, event: MouseEvent): void {
       v-if="action"
       variant="ghost"
       size="sm"
-      :icon="action.busy ? undefined : action.icon"
+      :icon="action.icon"
+      :busy="action.busy"
       :aria-disabled="action.busy ? 'true' : undefined"
       :class="{ 'toast__action--busy': action.busy }"
       @click="runAction(action, $event)"
     >
-      <template v-if="action.busy">
-        <!-- In the icon's place; the visible text names the button, so it is not read out again. -->
-        <span class="toast__spinner" aria-hidden="true"><Spinner label="" /></span>
-        {{ action.busyLabel ?? action.label }}
-      </template>
-      <template v-else>{{ action.label }}</template>
+      <!-- The busy Spinner has no busyLabel, so the visible text names the button only once. -->
+      {{ action.busy ? (action.busyLabel ?? action.label) : action.label }}
     </BaseButton>
     <BaseButton
       variant="ghost"
@@ -78,15 +74,6 @@ function runAction(action: NoticeAction, event: MouseEvent): void {
 
 .toast__action--busy {
   cursor: progress;
-}
-
-.toast__spinner {
-  display: inline-flex;
-}
-
-.toast__spinner :deep(.spinner__ring) {
-  width: var(--icon-size-sm);
-  height: var(--icon-size-sm);
 }
 
 .toast__text {

@@ -103,12 +103,16 @@ test('AC-01: every manifest and home-screen icon is the brand mark at its declar
   await gotoReady(page)
   const manifestHref = await page.locator('link[rel="manifest"]').getAttribute('href')
   const manifest = (await (await page.request.get(manifestHref!)).json()) as {
-    icons: { src: string; sizes: string }[]
+    icons: { src: string; sizes: string; purpose?: string }[]
   }
   const appleHref = await page.locator('link[rel="apple-touch-icon"]').getAttribute('href')
   const icons = [
-    ...manifest.icons.map((i) => ({ src: new URL(i.src, page.url()).href, size: i.sizes })),
-    { src: new URL(appleHref!, page.url()).href, size: '180x180' },
+    ...manifest.icons.map((i) => ({
+      src: new URL(i.src, page.url()).href,
+      size: i.sizes,
+      maskable: i.purpose === 'maskable',
+    })),
+    { src: new URL(appleHref!, page.url()).href, size: '180x180', maskable: false },
   ]
   expect(icons.length).toBeGreaterThanOrEqual(4)
   for (const icon of icons) {
@@ -136,7 +140,8 @@ test('AC-01: every manifest and home-screen icon is the brand mark at its declar
     const [r, g, b, a] = drawn.top
     expect(a, icon.src).toBe(255)
     expect(b! - g!, `${icon.src} rgb(${r}, ${g}, ${b})`).toBeGreaterThan(120)
-    // The white mark covers a visible share of the icon.
-    expect(drawn.white, icon.src).toBeGreaterThan(0.03)
+    // The white mark covers a visible share of the icon (about 5%, or 3% inside the smaller
+    // maskable safe zone); the icons before this feature had none.
+    expect(drawn.white, icon.src).toBeGreaterThan(icon.maskable ? 0.02 : 0.04)
   }
 })

@@ -210,14 +210,28 @@ describe('ExportAction and Ctrl/Cmd+S (AC-11, AC-17)', () => {
     expect(button.attributes('disabled')).toBeDefined()
     expect(button.text()).toContain('Exporting…')
     expect(button.find('[role="status"]').exists()).toBe(true)
-    // BaseButton's busy spinner in the icon's place, still announcing "Exporting" (ui-refresh R12).
-    expect(button.get('.base-button__icon [role="status"]').text()).toBe('Exporting')
-    expect(button.find('.export-action__spinner').exists()).toBe(false)
 
     release()
     await flush()
     expect(exportButton().attributes('disabled')).toBeUndefined()
     expect(exportButton().text()).toBe('Export')
+  })
+
+  it('shows BaseButton\'s busy spinner in the icon\'s place, announcing "Exporting" (ui-refresh R12)', async () => {
+    openWork()
+    await flush()
+    store.openPanel()
+    let release!: () => void
+    exporter.mockImplementationOnce(() => new Promise((r) => (release = () => r(ok(new Blob())))))
+    void store.confirm()
+    await flush()
+
+    const button = exportButton()
+    expect(button.get('.base-button__icon [role="status"]').text()).toBe('Exporting')
+    expect(button.find('.export-action__spinner').exists()).toBe(false)
+
+    release()
+    await flush()
   })
 
   it('is disabled, and Ctrl/Cmd+S does nothing, while an image is read or the replace dialog is up', async () => {
